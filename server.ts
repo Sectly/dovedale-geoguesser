@@ -188,7 +188,7 @@ function _buildGenericOg(title: string, subtitle: string, accent = "#3b82f6"): s
   <rect x="0" y="0" width="8" height="630" fill="${accent}"/>
   <text x="80" y="220" font-family="Arial,sans-serif" font-size="26" fill="#52525b" letter-spacing="3">DOVEDALE RAILWAY</text>
   <text x="80" y="330" font-family="Arial,sans-serif" font-size="80" font-weight="700" fill="white">${_escXml(title)}</text>
-  <text x="80" y="410" font-family="Arial,sans-serif" font-size="32" fill="#71717a">${_escXml(subtitle)}</text>
+  <text x="80" y="410" font-family="Arial,sans-serif" font-size="28" fill="#71717a">${_escXml(subtitle)}</text>
   <rect x="80" y="510" width="60" height="4" fill="${accent}" rx="2"/>
   <text x="80" y="570" font-family="Arial,sans-serif" font-size="22" fill="#3f3f46">dovedalegeoguesser.com</text>
 </svg>`;
@@ -378,7 +378,7 @@ app.get("/og.png", async (c) => {
 	if (type === "profile" && username) {
 		const user = db.query<User, [string]>("SELECT * FROM users WHERE username = ?").get(username);
 		if (!user || user.is_banned || user.profile_private || (user.discord_id === "0" && !DEV_MODE)) {
-			svg = _buildGenericOg("Dovedale GeoGuesser", "Identify locations across the railway");
+			svg = _buildGenericOg("Dovedale GeoGuesser", "Identify locations across Dovedale Railway");
 		} else {
 			const solo = db
 				.query<{ total_games: number; best_score: number | null }, [number]>(
@@ -429,11 +429,11 @@ app.get("/og.png", async (c) => {
 		svg = _buildDuelOg(roomCode, hostName, rounds, playerCount, status, type === "spectate");
 	} else {
 		const pageCards: Record<string, [string, string]> = {
-			home: ["Dovedale GeoGuesser", "Identify locations across the Dovedale Railway from screenshots"],
-			game: ["Solo GeoGuesser", "5 rounds, 90 seconds each. How well do you know the line?"],
-			duels: ["Duels", "Challenge a friend to a real-time location guessing duel"],
-			daily: ["Daily Challenge", "One location per day. Compete for the top spot on the leaderboard."],
-			leaderboard: ["Leaderboard", "The best GeoGuessers on the Dovedale Railway"],
+			home: ["Dovedale GeoGuesser", "Identify locations across Dovedale Railway"],
+			game: ["Solo GeoGuesser", "5 rounds, 90 seconds each - how well do you know the line?"],
+			duels: ["Duels", "Challenge a friend to a location guessing duel"],
+			daily: ["Daily Challenge", "One location per day - compete for the leaderboard"],
+			leaderboard: ["Leaderboard", "The best GeoGuessers on Dovedale Railway"],
 		};
 		const [title, sub] = pageCards[type] ?? pageCards.home;
 		svg = _buildGenericOg(title, sub);
