@@ -1533,8 +1533,8 @@ const AUDIT_CATEGORIES = [
 		actions: ["user_register", "user_login", "user_delete", "user_delete_operator", "gdpr_export_operator"],
 	},
 	{
-		key: "duels",
-		label: "Duels",
+		key: "games",
+		label: "Games",
 		actions: ["duel_room_create", "duel_join", "quickplay_queue", "duel_start", "duel_end", "duel_abandon"],
 	},
 ];
