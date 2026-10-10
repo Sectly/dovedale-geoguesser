@@ -4,6 +4,7 @@ let uploadPinWorld = null;
 let uploadFile = null;
 let currentTab = "submissions";
 let denyTargetId = null;
+let denyCallback = null;
 
 const LABEL_MIN_LENGTH = 5;
 const LABEL_MAX_LENGTH = 128;
@@ -153,7 +154,11 @@ async function init() {
 
 	el("deny-cancel").addEventListener("click", () => el("deny-modal").classList.add("hidden"));
 	el("deny-confirm").addEventListener("click", () => {
-		if (denyTargetId !== null) denySubmission(denyTargetId, el("deny-reason").value.trim());
+		const reason = el("deny-reason").value.trim();
+		el("deny-modal").classList.add("hidden");
+		if (denyTargetId !== null) denySubmission(denyTargetId, reason);
+		else if (denyCallback) denyCallback(reason);
+		denyCallback = null;
 	});
 
 	window.addEventListener("hashchange", handleHashNav);
@@ -375,12 +380,13 @@ async function approveSubmission(id) {
 
 function openDenyModal(id) {
 	denyTargetId = id;
+	denyCallback = null;
+	el("deny-modal-title").textContent = "Deny Submission";
 	el("deny-reason").value = "";
 	el("deny-modal").classList.remove("hidden");
 }
 
 async function denySubmission(id, reason) {
-	el("deny-modal").classList.add("hidden");
 	try {
 		const r = await fetch(`/api/admin/submissions/${id}/deny`, {
 			method: "POST",
@@ -838,21 +844,25 @@ async function approveSuggestion(id) {
 	}
 }
 
-async function denySuggestion(id) {
-	const reason = await showPrompt("Deny suggestion", "Reason (optional)");
-	if (reason === null) return;
-	try {
-		const r = await fetch(`/api/admin/suggestions/${id}/deny`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ reason }),
-		});
-		if (!r.ok) throw new Error(await r.text());
-		el(`sug-${id}`)?.remove();
-		if (!el("tab-content").querySelector('[id^="sug-"]')) loadSuggestions();
-	} catch (err) {
-		showToast(err.message || "Failed to deny.", "error");
-	}
+function denySuggestion(id) {
+	denyTargetId = null;
+	denyCallback = async (reason) => {
+		try {
+			const r = await fetch(`/api/admin/suggestions/${id}/deny`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ reason }),
+			});
+			if (!r.ok) throw new Error(await r.text());
+			el(`sug-${id}`)?.remove();
+			if (!el("tab-content").querySelector('[id^="sug-"]')) loadSuggestions();
+		} catch (err) {
+			showToast(err.message || "Failed to deny.", "error");
+		}
+	};
+	el("deny-modal-title").textContent = "Deny Suggestion";
+	el("deny-reason").value = "";
+	el("deny-modal").classList.remove("hidden");
 }
 
 async function loadLocations() {
