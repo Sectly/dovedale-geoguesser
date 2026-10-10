@@ -271,7 +271,7 @@
               <input
                 id="suggest-search"
                 type="text"
-                placeholder="Search by label&hellip;"
+                placeholder="Search by label or ID&hellip;"
                 class="flex-1 bg-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600"
               />
               <button
@@ -572,31 +572,59 @@
         const _origDraw = mapCanvas.draw.bind(mapCanvas);
         mapCanvas.draw = function () {
           _origDraw();
-          if (showingPins && allLocPins.length) {
-            const ctx = mapCanvas.ctx;
-            const t = ctx.getTransform();
-            allLocPins.forEach((loc) => {
-              const cp = mapCanvas.worldToCanvas(loc.world_x, loc.world_y);
-              const sx = cp.x * t.a + cp.y * t.c + t.e;
-              const sy = cp.x * t.b + cp.y * t.d + t.f;
-              ctx.save();
-              ctx.resetTransform();
-              ctx.beginPath();
-              ctx.arc(sx, sy, 7, 0, Math.PI * 2);
-              ctx.fillStyle = "#f97316";
-              ctx.fill();
-              ctx.strokeStyle = "#fff";
-              ctx.lineWidth = 1.5;
-              ctx.stroke();
-              const label = String(loc.id);
-              ctx.font = "bold 10px Inter, sans-serif";
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-              ctx.fillStyle = "#fff";
-              ctx.fillText(label, sx, sy);
-              ctx.restore();
-            });
+          if (!showingPins || !allLocPins.length) return;
+          const ctx = mapCanvas.ctx;
+          const t = ctx.getTransform();
+          const vw = mapCanvas.viewWidth;
+          const vh = mapCanvas.viewHeight;
+          const R = 7;
+          const PAD = R + 2;
+
+          // Collect only on-screen pins (viewport culling)
+          const visible = [];
+          for (const loc of allLocPins) {
+            const cp = mapCanvas.worldToCanvas(loc.world_x, loc.world_y);
+            const sx = cp.x * t.a + cp.y * t.c + t.e;
+            const sy = cp.x * t.b + cp.y * t.d + t.f;
+            if (sx < -PAD || sx > vw + PAD || sy < -PAD || sy > vh + PAD) continue;
+            visible.push({ id: loc.id, sx, sy });
           }
+          if (!visible.length) return;
+
+          ctx.save();
+          ctx.resetTransform();
+
+          // All circles — fill pass
+          ctx.fillStyle = "#f97316";
+          ctx.beginPath();
+          for (const { sx, sy } of visible) {
+            ctx.moveTo(sx + R, sy);
+            ctx.arc(sx, sy, R, 0, Math.PI * 2);
+          }
+          ctx.fill();
+
+          // All circles — stroke pass
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          for (const { sx, sy } of visible) {
+            ctx.moveTo(sx + R, sy);
+            ctx.arc(sx, sy, R, 0, Math.PI * 2);
+          }
+          ctx.stroke();
+
+          // ID labels — only when zoomed in enough that they're readable
+          if (t.a >= 1.5) {
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 10px Inter, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            for (const { id, sx, sy } of visible) {
+              ctx.fillText(String(id), sx, sy);
+            }
+          }
+
+          ctx.restore();
         };
 
         el("label-input").addEventListener("input", checkReady);
