@@ -267,6 +267,7 @@ function startRound(room: DuelRoom) {
 		round: room.currentRound,
 		total_rounds: room.rounds,
 		image_url: `/uploads/${loc.image_path}`,
+		location_id: loc.id,
 		time_limit: 60,
 	});
 

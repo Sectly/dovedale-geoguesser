@@ -85,6 +85,11 @@ function showPrompt(title, placeholder = "", { note = "", type = "text", okLabel
 	});
 }
 
+function closeSidebar() {
+	el("admin-sidebar")?.classList.add("hidden");
+	el("sidebar-overlay")?.classList.add("hidden");
+}
+
 async function init() {
 	try {
 		const r = await fetch("/api/auth/me");
@@ -113,8 +118,19 @@ async function init() {
 	}
 
 	document.querySelectorAll(".tab-btn").forEach((btn) => {
-		btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+		btn.addEventListener("click", () => {
+			switchTab(btn.dataset.tab);
+			closeSidebar();
+		});
 	});
+
+	el("sidebar-toggle")?.addEventListener("click", () => {
+		const sidebar = el("admin-sidebar");
+		const overlay = el("sidebar-overlay");
+		sidebar.classList.toggle("hidden");
+		overlay.classList.toggle("hidden");
+	});
+	el("sidebar-overlay")?.addEventListener("click", closeSidebar);
 
 	el("upload-map-back").addEventListener("click", () => {
 		el("upload-map-panel").classList.add("hidden");
@@ -1099,7 +1115,7 @@ function renderUsers(users) {
                     ${u.avatar_url ? `<img src="${escHtml(u.avatar_url)}" class="w-10 h-10 rounded-full flex-shrink-0 mt-0.5" />` : `<div class="w-10 h-10 rounded-full bg-zinc-700 flex-shrink-0 mt-0.5"></div>`}
                     <div class="flex-1 min-w-0">
                         <div class="font-semibold truncate">${escHtml(u.display_name || u.username)}</div>
-                        <div class="text-xs text-zinc-500"><a href="/u/${encodeURIComponent(u.username)}" target="_blank" class="hover:text-zinc-300 hover:underline transition">@${escHtml(u.username)}</a> · User #${u.id} · Discord #${u.discord_id}</div>
+                        <div class="text-xs text-zinc-500"><a href="/u/${encodeURIComponent(u.username)}" target="_blank" class="hover:text-zinc-300 hover:underline transition">@${escHtml(u.username)}</a> · User #${u.id} · Discord #${u.discord_id} · Spoiler warning: ${u.suggestions_agreed_at ? new Date(u.suggestions_agreed_at * 1000).toLocaleDateString() : "never"}</div>
                         <div class="flex gap-1 mt-1 flex-wrap">
                             ${roleBadge}
                             ${isBanned ? `<span class="text-xs bg-red-900 text-red-300 px-1.5 py-0.5 rounded">${u.ban_type === "perm" ? "Banned" : "Temp banned"}</span>` : ""}

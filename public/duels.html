@@ -266,6 +266,11 @@
         </div>
 
         <div
+          id="location-id-badge"
+          class="absolute bottom-2 right-2 text-xs font-mono text-white/20 select-none pointer-events-none z-10"
+        ></div>
+
+        <div
           id="opponent-guessed-badge"
           class="hidden absolute bottom-3 left-3 z-10 bg-black/55 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs text-green-400 flex items-center gap-1.5"
         >
@@ -360,6 +365,9 @@
             <button id="play-again-decline-btn" class="bg-zinc-700 hover:bg-zinc-600 transition px-6 py-2.5 rounded-full text-sm">Decline</button>
           </div>
         </div>
+        <button id="spectate-new-game-btn" class="hidden mt-3 bg-zinc-700 hover:bg-zinc-600 transition px-6 py-2.5 rounded-full text-sm font-semibold">
+          Spectate New Game
+        </button>
       </div>
     </div>
 
@@ -437,6 +445,6 @@
     </script>
 
     <script src="/shared.js"></script>
-    <script type="module" src="/duels.js?v=9"></script>
+    <script type="module" src="/duels.js?v=10"></script>
   </body>
 </html>

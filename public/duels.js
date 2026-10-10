@@ -331,6 +331,9 @@ async function connectWire(code, spectate = false) {
 		el("end-waiting").classList.remove("flex");
 		el("end-incoming").classList.add("hidden");
 		el("end-incoming").classList.remove("flex");
+		el("round-screen").classList.add("hidden");
+		el("result-screen").classList.remove("shown");
+		if (mapCanvas) mapCanvas.clearPin();
 
 		setRoomUrl(data.code);
 		await connectWire(data.code);
@@ -352,6 +355,16 @@ async function connectWire(code, spectate = false) {
 		btn.disabled = true;
 		btn.textContent = "No response";
 		btn.className = btn.className.replace("bg-blue-600 hover:bg-blue-500", "bg-zinc-700 cursor-not-allowed");
+	});
+	wire.on("play_again_available", (data) => {
+		if (!isSpectator) return;
+		const spectateNewBtn = el("spectate-new-game-btn");
+		if (spectateNewBtn) {
+			spectateNewBtn.classList.remove("hidden");
+			spectateNewBtn.onclick = () => {
+				location.href = `/duel/${data.code}?spectate`;
+			};
+		}
 	});
 	wire.on("player_pin", (data) => {
 		if (!isSpectator || !mapCanvas) return;
@@ -568,6 +581,7 @@ function startRound(msg) {
 	el("round-num").textContent = msg.round;
 	el("round-total").textContent = msg.total_rounds;
 	el("round-photo").src = msg.image_url;
+	el("location-id-badge").textContent = msg.location_id ? "LOC-" + String(msg.location_id).padStart(4, "0") : "";
 	setGuessBtnDisabled(true);
 
 	if (isSpectator) {

@@ -817,6 +817,15 @@ wireServer.on("connection", (conn) => {
 					abandonDuel(room, userId);
 					break;
 				}
+				if (room.status === "finished") {
+					if (room.playAgainRequests.size > 0) {
+						if (room._playAgainTimer) { clearTimeout(room._playAgainTimer); room._playAgainTimer = null; }
+						const requester = room.players.find((p) => room.playAgainRequests.has(p.userId) && p.conn !== conn);
+						if (requester) try { requester.conn.emit("play_again_declined", {}); } catch {}
+						room.playAgainRequests.clear();
+					}
+					break;
+				}
 				if (room.status !== "waiting") continue;
 				if (room._countdownTimer) {
 					clearTimeout(room._countdownTimer);
@@ -876,6 +885,11 @@ wireServer.on("connection", (conn) => {
 				}
 				p0.conn.emit("play_again_match", { code: newRoom.code, is_host: true });
 				p1.conn.emit("play_again_match", { code: newRoom.code, is_host: false });
+				for (const spec of room.spectators) {
+					try {
+						spec.emit("play_again_available", { code: newRoom.code });
+					} catch {}
+				}
 			} else {
 				const other = room.players.find((p) => p.userId !== userId);
 				conn.emit("play_again_waiting", {});
@@ -1535,6 +1549,8 @@ app.post("/api/duels/rooms/:code/join", (c) => {
 	if (isBanned(user)) return c.text("You are banned", 403);
 	if (user.duel_limited) return c.text("Your duel ability has been temporarily limited", 403);
 	const code = c.req.param("code").toUpperCase();
+	const targetRoom = duelRooms.get(code);
+	if (targetRoom?.quickplay) return c.text("Quickplay rooms cannot be joined directly. Use Quick Play.", 400);
 	const result = joinDuelRoom(code, user.id);
 	if (result === "not_found") return c.text("Room not found", 404);
 	if (result === "abandoned")

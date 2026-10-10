@@ -88,7 +88,7 @@
       <div class="ml-auto" id="auth-area"></div>
     </nav>
 
-    <div class="flex-1 flex overflow-hidden relative">
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
       <div id="login-gate" class="hidden absolute inset-0 flex items-center justify-center z-20 bg-zinc-950">
         <div class="text-center max-w-sm px-6">
           <span class="material-symbols-outlined text-5xl text-zinc-600 mb-4 block" style="font-variation-settings: &quot;FILL&quot; 1">lock</span>
@@ -112,7 +112,7 @@
         </div>
       </div>
 
-      <div class="w-80 flex-shrink-0 bg-zinc-900 border-r border-zinc-800 flex flex-col overflow-hidden z-10" id="form-panel">
+      <div class="w-full md:w-80 flex-shrink-0 bg-zinc-900 border-r border-zinc-800 flex flex-col overflow-hidden z-10 max-h-[45vh] md:max-h-none" id="form-panel">
         <div class="flex border-b border-zinc-800 flex-shrink-0">
           <button id="mode-new" class="flex-1 py-2.5 text-sm font-semibold transition bg-zinc-800 text-white border-b-2 border-blue-500">New Location</button>
           <button id="mode-suggest" class="flex-1 py-2.5 text-sm font-semibold transition text-zinc-400 hover:text-white border-b-2 border-transparent">

@@ -23,13 +23,13 @@
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
     <nav class="bg-zinc-900 border-b border-zinc-800 flex items-center gap-4 px-4 py-2">
       <a href="/" class="text-zinc-400 hover:text-zinc-100 transition flex items-center gap-1 text-sm">
-        <span class="material-symbols-outlined text-base leading-none">home</span> Home
+        <span class="material-symbols-outlined text-base leading-none">home</span> <span class="hidden sm:inline">Home</span>
       </a>
-      <span class="text-zinc-700">/</span>
-      <a href="/play" class="text-zinc-400 hover:text-zinc-100 transition text-sm">GeoGuesser</a>
-      <a href="/duels" class="text-zinc-400 hover:text-zinc-100 transition text-sm">Duels</a>
+      <span class="text-zinc-700 hidden sm:inline">/</span>
+      <a href="/play" class="text-zinc-400 hover:text-zinc-100 transition text-sm hidden sm:inline">GeoGuesser</a>
+      <a href="/duels" class="text-zinc-400 hover:text-zinc-100 transition text-sm hidden sm:inline">Duels</a>
       <span class="text-zinc-100 font-semibold text-sm">Leaderboard</span>
-      <a href="/submit" class="text-zinc-400 hover:text-zinc-100 transition text-sm">Submit Location</a>
+      <a href="/submit" class="text-zinc-400 hover:text-zinc-100 transition text-sm hidden sm:inline">Submit Location</a>
       <div class="ml-auto" id="auth-area"></div>
     </nav>
 
