@@ -519,9 +519,7 @@ function startRound(msg) {
 	}
 	mapCanvas.setPinEnabled(!isSpectator);
 
-	if (!isSpectator) {
-		startTimer(msg.time_limit);
-	}
+	startTimer(msg.time_limit);
 }
 
 function setTimerColor(remaining, limit) {
@@ -547,7 +545,7 @@ function startTimer(limit) {
 		setTimerColor(remaining, limit);
 		if (remaining <= 0) {
 			clearInterval(timerInterval);
-			if (!hasGuessed) submitGuess();
+			if (!hasGuessed && !isSpectator) submitGuess();
 		}
 	}, 1000);
 }
