@@ -267,6 +267,7 @@ const MIGRATIONS: string[] = [
 	"ALTER TABLE audit_log ADD COLUMN target_id INTEGER",
 	"ALTER TABLE audit_log ADD COLUMN target_username TEXT",
 	"ALTER TABLE audit_log ADD COLUMN details TEXT",
+	"CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_log(target_type, target_id)",
 ];
 
 for (const sql of MIGRATIONS) {

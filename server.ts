@@ -1023,6 +1023,12 @@ app.get("/api/auth/callback", async (c) => {
 				targetId: userId,
 				targetUsername: userInfo.username,
 			});
+		} else {
+			auditLog(null, "user_login", {
+				targetType: "user",
+				targetId: userId,
+				targetUsername: userInfo.username,
+			});
 		}
 
 		const cookieHeader = c.req.header("Cookie") || "";
@@ -2915,6 +2921,10 @@ app.get("/api/admin/audit", (c) => {
 	const offset = Math.max(0, parseInt(c.req.query("offset") || "0"));
 	const action = c.req.query("action") || "";
 	const actorId = c.req.query("actor") || "";
+	const targetType = c.req.query("target_type") || "";
+	const targetId = c.req.query("target_id") || "";
+	const from = c.req.query("from") || "";
+	const to = c.req.query("to") || "";
 	const search = (c.req.query("q") || "").trim().replace(/#/g, "").slice(0, 100);
 	const params: (string | number)[] = [];
 	const clauses: string[] = [];
@@ -2925,6 +2935,22 @@ app.get("/api/admin/audit", (c) => {
 	if (actorId) {
 		clauses.push("a.actor_id = ?");
 		params.push(parseInt(actorId));
+	}
+	if (targetType) {
+		clauses.push("a.target_type = ?");
+		params.push(targetType);
+	}
+	if (targetId) {
+		clauses.push("a.target_id = ?");
+		params.push(parseInt(targetId));
+	}
+	if (from) {
+		const ts = Math.floor(new Date(from).getTime() / 1000);
+		if (!isNaN(ts)) { clauses.push("a.created_at >= ?"); params.push(ts); }
+	}
+	if (to) {
+		const ts = Math.floor(new Date(to).getTime() / 1000);
+		if (!isNaN(ts)) { clauses.push("a.created_at <= ?"); params.push(ts); }
 	}
 	if (search) {
 		const pattern = `%${search}%`;
