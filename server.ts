@@ -27,6 +27,7 @@ import {
 	startDuel,
 	abandonDuel,
 	submitDuelGuess,
+	setDuelAuditCallback,
 	type DuelRoom,
 } from "./game";
 import type { User, Location } from "./db";
@@ -41,6 +42,10 @@ process.on("uncaughtException", (err) => {
 });
 process.on("unhandledRejection", (reason) => {
 	console.error("[server] Unhandled promise rejection (server kept running):", reason);
+});
+
+setDuelAuditCallback((action, targetId, details) => {
+	auditLog(null, action, { targetType: "duel", targetId, details });
 });
 
 generateTileVariants().catch((err) => console.error("Tile variant generation failed:", err));
@@ -1348,6 +1353,7 @@ app.post("/api/duels/quickplay", async (c) => {
 				if (room) room.quickplay = true;
 				quickplayMatchedPlayers.set(user.id, entry.code);
 				quickplayMatchedPlayers.set(waitingUserId, entry.code);
+				auditLog(user, "quickplay_queue", { targetType: "duel", targetId: room?.dbId, details: `matched, room ${entry.code}, ${rounds} rounds` });
 				return c.json({ status: "matched", code: entry.code });
 			}
 		}
@@ -1360,6 +1366,7 @@ app.post("/api/duels/quickplay", async (c) => {
 	const duelRoom = duelRooms.get(room.code);
 	if (duelRoom) duelRoom.quickplay = true;
 	matchmakingQueue.set(user.id, { code: room.code, rounds, joinedAt: Date.now() });
+	auditLog(user, "quickplay_queue", { targetType: "duel", targetId: room.dbId, details: `queued, ${rounds} rounds` });
 	return c.json({ status: "waiting", code: room.code });
 });
 
@@ -1419,6 +1426,7 @@ app.post("/api/duels/rooms", async (c) => {
 	const body = (await c.req.json().catch(() => ({}))) as { rounds?: number };
 	const rounds = Math.min(10, Math.max(1, body.rounds || 5));
 	const room = createDuelRoom(user.id, rounds);
+	auditLog(user, "duel_room_create", { targetType: "duel", targetId: room.dbId, details: `${room.code}, ${rounds} rounds` });
 	sendDiscordWebhook(
 		`⚔️ **Duel room created**: \`${room.code}\` by **${user.display_name || user.username}** (${rounds} rounds)`,
 		"duels",
@@ -1439,6 +1447,8 @@ app.post("/api/duels/rooms/:code/join", (c) => {
 		return c.text("This game was lost when the server restarted. Please create a new room.", 410);
 	if (result === "full") return c.text("Room is full", 409);
 	if (result === "in_progress") return c.text("Game already in progress", 409);
+	const joinedRoom = duelRooms.get(code);
+	if (joinedRoom) auditLog(user, "duel_join", { targetType: "duel", targetId: joinedRoom.dbId, details: `joined room ${code}` });
 	return c.json({ success: true });
 });
 

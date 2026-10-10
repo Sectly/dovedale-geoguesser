@@ -1502,6 +1502,12 @@ const AUDIT_ACTION_LABELS = {
 	user_delete: { label: "Account deleted", color: "text-zinc-500" },
 	user_delete_operator: { label: "Account deleted (op)", color: "text-zinc-500" },
 	gdpr_export_operator: { label: "GDPR export (op)", color: "text-zinc-400" },
+	duel_room_create: { label: "Created duel room", color: "text-blue-400" },
+	duel_join: { label: "Joined duel room", color: "text-blue-300" },
+	quickplay_queue: { label: "Entered quickplay queue", color: "text-blue-400" },
+	duel_start: { label: "Duel started", color: "text-green-400" },
+	duel_end: { label: "Duel ended", color: "text-zinc-300" },
+	duel_abandon: { label: "Duel abandoned", color: "text-orange-400" },
 };
 
 const AUDIT_CATEGORIES = [
@@ -1526,10 +1532,15 @@ const AUDIT_CATEGORIES = [
 		label: "Accounts",
 		actions: ["user_register", "user_login", "user_delete", "user_delete_operator", "gdpr_export_operator"],
 	},
+	{
+		key: "duels",
+		label: "Duels",
+		actions: ["duel_room_create", "duel_join", "quickplay_queue", "duel_start", "duel_end", "duel_abandon"],
+	},
 ];
 
 // These are high-volume routine events that are collapsed by default
-const AUDIT_ROUTINE = new Set(["user_login", "user_register", "ticket_reply", "ticket_close"]);
+const AUDIT_ROUTINE = new Set(["user_login", "user_register", "ticket_reply", "ticket_close", "duel_room_create", "duel_join", "quickplay_queue", "duel_start", "duel_end"]);
 
 let auditOffset = 0;
 const AUDIT_PAGE = 50;

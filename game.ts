@@ -138,6 +138,10 @@ export type DuelRoom = {
 
 export const duelRooms = new Map<string, DuelRoom>();
 
+type DuelAuditFn = (action: string, targetId: number, details: string) => void;
+let _duelAudit: DuelAuditFn | null = null;
+export function setDuelAuditCallback(fn: DuelAuditFn) { _duelAudit = fn; }
+
 export function generateRoomCode(): string {
 	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 	let code: string;
@@ -238,6 +242,11 @@ export function startDuel(room: DuelRoom) {
 		}
 		room.status = "in_progress";
 		db.run("UPDATE duel_games SET status = 'in_progress' WHERE id = ?", [room.dbId]);
+		_duelAudit?.(
+			"duel_start",
+			room.dbId,
+			`${room.players.map((p) => p.username).join(" vs ")}, ${room.rounds} rounds${room.quickplay ? ", quickplay" : ""}`
+		);
 		startRound(room);
 	}, 3000);
 }
@@ -277,6 +286,12 @@ export function abandonDuel(room: DuelRoom, disconnectedUserId: number) {
 			player.userId,
 		]);
 	}
+	const abandoner = room.players.find((p) => p.userId === disconnectedUserId);
+	_duelAudit?.(
+		"duel_abandon",
+		room.dbId,
+		`${abandoner?.username ?? "unknown"} left mid-game, room ${room.code}${room.quickplay ? ", quickplay" : ""}`
+	);
 	broadcast(room, "opponent_disconnected", {
 		player_id: disconnectedUserId,
 		winner: winner ? { user_id: winner.userId, username: winner.username } : null,
@@ -384,6 +399,13 @@ function endGame(room: DuelRoom) {
 		]);
 	}
 
+	_duelAudit?.(
+		"duel_end",
+		room.dbId,
+		isTie
+			? `tie: ${sorted.map((p) => `${p.username} ${p.totalScore}`).join(" / ")}, room ${room.code}${room.quickplay ? ", quickplay" : ""}`
+			: `winner: ${winner.username} (${winner.totalScore} vs ${sorted[1]?.totalScore ?? 0}), room ${room.code}${room.quickplay ? ", quickplay" : ""}`
+	);
 	broadcast(room, "game_end", {
 		scores: sorted.map((p) => ({
 			user_id: p.userId,
