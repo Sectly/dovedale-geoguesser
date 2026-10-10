@@ -2920,6 +2920,7 @@ app.get("/api/admin/audit", (c) => {
 	const limit = Math.min(200, parseInt(c.req.query("limit") || "100"));
 	const offset = Math.max(0, parseInt(c.req.query("offset") || "0"));
 	const action = c.req.query("action") || "";
+	const actions = c.req.query("actions") || "";
 	const actorId = c.req.query("actor") || "";
 	const targetType = c.req.query("target_type") || "";
 	const targetId = c.req.query("target_id") || "";
@@ -2931,6 +2932,15 @@ app.get("/api/admin/audit", (c) => {
 	if (action) {
 		clauses.push("a.action = ?");
 		params.push(action);
+	} else if (actions) {
+		const list = actions.split(",").map((a) => a.trim()).filter(Boolean).slice(0, 20);
+		if (list.length === 1) {
+			clauses.push("a.action = ?");
+			params.push(list[0]);
+		} else if (list.length > 1) {
+			clauses.push(`a.action IN (${list.map(() => "?").join(",")})`);
+			params.push(...list);
+		}
 	}
 	if (actorId) {
 		clauses.push("a.actor_id = ?");
