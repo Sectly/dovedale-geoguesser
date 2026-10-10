@@ -1,3 +1,10 @@
+function _defaultMapQuality() {
+	const ua = navigator.userAgent;
+	const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+	const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS/i.test(ua);
+	return isMobile || isSafari ? "medium" : "high";
+}
+
 class MapCanvas {
 	constructor(canvas, { onPinPlaced } = {}) {
 		this.canvas = canvas;
@@ -16,7 +23,12 @@ class MapCanvas {
 		this.pinEnabled = true;
 		this.correctPin = null;
 		this.replayPins = [];
-		this.quality = localStorage.getItem("mapQuality") || "high";
+		this.namePins = new Map();
+		this.quality = localStorage.getItem("mapQuality") || _defaultMapQuality();
+		this._mapAR = MAP_CONFIG.totalWidth / MAP_CONFIG.totalHeight;
+		this._sf = 0; this._sw = 0; this._sh = 0;
+		this._ox = 0; this._oy = 0; this._cw = 0; this._ch = 0;
+		this._rafId = null;
 
 		this._setupTransforms();
 		this._setupEvents();
@@ -39,10 +51,21 @@ class MapCanvas {
 		this.pinEnabled = enabled;
 	}
 
+	setNamePin(id, worldX, worldY, color, name) {
+		this.namePins.set(id, { worldX, worldY, color, name });
+		this.draw();
+	}
+
+	clearNamePins() {
+		this.namePins.clear();
+		this.draw();
+	}
+
 	clearPin() {
 		this.pin = null;
 		this.correctPin = null;
 		this.replayPins = [];
+		this.namePins.clear();
 		this.draw();
 	}
 
@@ -64,30 +87,37 @@ class MapCanvas {
 		this._loadImages();
 	}
 
+	_updateMetrics() {
+		const sf = this._mapAR > (this.viewWidth / this.viewHeight)
+			? this.viewWidth / MAP_CONFIG.totalWidth
+			: this.viewHeight / MAP_CONFIG.totalHeight;
+		this._sf = sf;
+		this._sw = MAP_CONFIG.totalWidth * sf;
+		this._sh = MAP_CONFIG.totalHeight * sf;
+		this._ox = (this.viewWidth - this._sw) / 2;
+		this._oy = (this.viewHeight - this._sh) / 2;
+		this._cw = this._sw / MAP_CONFIG.columns;
+		this._ch = this._sh / MAP_CONFIG.rows;
+	}
+
+	_scheduleDraw() {
+		if (this._rafId) return;
+		this._rafId = requestAnimationFrame(() => {
+			this._rafId = null;
+			this.draw();
+		});
+	}
+
 	worldToCanvas(wx, wy) {
 		const relX = (wx - WORLD_BOUNDS.TOP_LEFT.x) / WORLD_WIDTH;
 		const relY = (wy - WORLD_BOUNDS.TOP_LEFT.y) / WORLD_HEIGHT;
-		const mapAR = MAP_CONFIG.totalWidth / MAP_CONFIG.totalHeight;
-		const viewAR = this.viewWidth / this.viewHeight;
-		const sf = mapAR > viewAR ? this.viewWidth / MAP_CONFIG.totalWidth : this.viewHeight / MAP_CONFIG.totalHeight;
-		const sw = MAP_CONFIG.totalWidth * sf;
-		const sh = MAP_CONFIG.totalHeight * sf;
-		const ox = (this.viewWidth - sw) / 2;
-		const oy = (this.viewHeight - sh) / 2;
-		return { x: ox + relX * sw, y: oy + relY * sh };
+		return { x: this._ox + relX * this._sw, y: this._oy + relY * this._sh };
 	}
 
 	canvasToWorld(cx, cy) {
-		const mapAR = MAP_CONFIG.totalWidth / MAP_CONFIG.totalHeight;
-		const viewAR = this.viewWidth / this.viewHeight;
-		const sf = mapAR > viewAR ? this.viewWidth / MAP_CONFIG.totalWidth : this.viewHeight / MAP_CONFIG.totalHeight;
-		const sw = MAP_CONFIG.totalWidth * sf;
-		const sh = MAP_CONFIG.totalHeight * sf;
-		const ox = (this.viewWidth - sw) / 2;
-		const oy = (this.viewHeight - sh) / 2;
 		return {
-			x: WORLD_BOUNDS.TOP_LEFT.x + ((cx - ox) / sw) * WORLD_WIDTH,
-			y: WORLD_BOUNDS.TOP_LEFT.y + ((cy - oy) / sh) * WORLD_HEIGHT,
+			x: WORLD_BOUNDS.TOP_LEFT.x + ((cx - this._ox) / this._sw) * WORLD_WIDTH,
+			y: WORLD_BOUNDS.TOP_LEFT.y + ((cy - this._oy) / this._sh) * WORLD_HEIGHT,
 		};
 	}
 
@@ -99,32 +129,19 @@ class MapCanvas {
 		ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		ctx.restore();
 
-		const mapAR = MAP_CONFIG.totalWidth / MAP_CONFIG.totalHeight;
-		const viewAR = this.viewWidth / this.viewHeight;
-		const sf = mapAR > viewAR ? this.viewWidth / MAP_CONFIG.totalWidth : this.viewHeight / MAP_CONFIG.totalHeight;
-		const sw = MAP_CONFIG.totalWidth * sf;
-		const sh = MAP_CONFIG.totalHeight * sf;
-		const ox = (this.viewWidth - sw) / 2;
-		const oy = (this.viewHeight - sh) / 2;
-		const cw = sw / MAP_CONFIG.columns;
-		const ch = sh / MAP_CONFIG.rows;
-
 		ctx.imageSmoothingEnabled = false;
+		const overlap = Math.max(0.5, 2 / this.currentScale);
 		for (let r = 0; r < MAP_CONFIG.rows; r++) {
 			for (let c = 0; c < MAP_CONFIG.columns; c++) {
 				const img = this.mapImages[r]?.[c];
 				if (img?.complete && img.naturalWidth > 0) {
-					const overlap = Math.max(0.5, 2 / this.currentScale);
 					ctx.drawImage(
 						img,
-						0,
-						0,
-						img.width,
-						img.height,
-						ox + c * cw,
-						oy + r * ch,
-						cw + (c < MAP_CONFIG.columns - 1 ? overlap : 0),
-						ch + (r < MAP_CONFIG.rows - 1 ? overlap : 0)
+						0, 0, img.width, img.height,
+						this._ox + c * this._cw,
+						this._oy + r * this._ch,
+						this._cw + (c < MAP_CONFIG.columns - 1 ? overlap : 0),
+						this._ch + (r < MAP_CONFIG.rows - 1 ? overlap : 0)
 					);
 				}
 			}
@@ -144,6 +161,10 @@ class MapCanvas {
 			if (rp.guessX !== null) {
 				this._drawPin(rp.guessX, rp.guessY, "#EF4444", String(rp.roundNum));
 			}
+		}
+
+		for (const { worldX, worldY, color, name } of this.namePins.values()) {
+			this._drawNamePin(worldX, worldY, color, name);
 		}
 	}
 
@@ -184,6 +205,47 @@ class MapCanvas {
 			ctx.fillStyle = "#fff";
 			ctx.fillText(label, sx, sy);
 		}
+
+		ctx.restore();
+	}
+
+	_drawNamePin(worldX, worldY, color, name) {
+		const ctx = this.ctx;
+		const cp = this.worldToCanvas(worldX, worldY);
+		const t = ctx.getTransform();
+		const sx = cp.x * t.a + cp.y * t.c + t.e;
+		const sy = cp.x * t.b + cp.y * t.d + t.f;
+		const r = 10;
+
+		ctx.save();
+		const _scale = this.currentScale;
+		ctx.resetTransform();
+		this.currentScale = _scale;
+
+		ctx.beginPath();
+		ctx.arc(sx, sy, r, 0, Math.PI * 2);
+		ctx.fillStyle = color;
+		ctx.fill();
+		ctx.strokeStyle = "#fff";
+		ctx.lineWidth = 2;
+		ctx.stroke();
+
+		const label = name.length > 12 ? name.slice(0, 11) + "…" : name;
+		ctx.font = `bold 11px Inter, sans-serif`;
+		const tw = ctx.measureText(label).width;
+		const pad = 5;
+		const tagH = 18;
+		const tagY = sy - r - tagH - 4;
+
+		ctx.fillStyle = "rgba(0,0,0,0.75)";
+		ctx.beginPath();
+		ctx.roundRect(sx - tw / 2 - pad, tagY, tw + pad * 2, tagH, 4);
+		ctx.fill();
+
+		ctx.fillStyle = "#fff";
+		ctx.textAlign = "center";
+		ctx.textBaseline = "middle";
+		ctx.fillText(label, sx, tagY + tagH / 2);
 
 		ctx.restore();
 	}
@@ -241,6 +303,7 @@ class MapCanvas {
 		if (pw === this.canvas.width && ph === this.canvas.height) {
 			this.viewWidth = newVw;
 			this.viewHeight = newVh;
+			this._updateMetrics();
 			this.canvas.style.width = `${newVw}px`;
 			this.canvas.style.height = `${newVh}px`;
 			this.draw();
@@ -257,6 +320,7 @@ class MapCanvas {
 
 		this.viewWidth = newVw;
 		this.viewHeight = newVh;
+		this._updateMetrics();
 		this.canvas.width = pw;
 		this.canvas.height = ph;
 		this.canvas.style.width = `${newVw}px`;
@@ -341,7 +405,7 @@ class MapCanvas {
 		this.ctx.translate(pt.x, pt.y);
 		this.ctx.scale(factor, factor);
 		this.ctx.translate(-pt.x, -pt.y);
-		this.draw();
+		this._scheduleDraw();
 	}
 
 	_canvasCoords(e) {
@@ -367,7 +431,7 @@ class MapCanvas {
 			const pos = this._canvasCoords(e);
 			const cur = this.ctx.transformedPoint(pos.x, pos.y);
 			this.ctx.translate(cur.x - this.dragStart.x, cur.y - this.dragStart.y);
-			this.draw();
+			this._scheduleDraw();
 		});
 
 		canvas.addEventListener("mouseup", (e) => {
@@ -439,7 +503,7 @@ class MapCanvas {
 					const pos = this._canvasCoords(e.touches[0]);
 					const cur = this.ctx.transformedPoint(pos.x, pos.y);
 					this.ctx.translate(cur.x - this.dragStart.x, cur.y - this.dragStart.y);
-					this.draw();
+					this._scheduleDraw();
 				} else if (e.touches.length === 2) {
 					const dist = Math.hypot(
 						e.touches[0].clientX - e.touches[1].clientX,

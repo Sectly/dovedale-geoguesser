@@ -131,12 +131,20 @@ export type DuelRoom = {
 	roundStartTime: number;
 	createdAt: number;
 	quickplay: boolean;
+	playAgainRequests: Set<number>;
+	_playAgainTimer: ReturnType<typeof setTimeout> | null;
 	_autoStartScheduled?: boolean;
 	_countdownScheduled?: boolean;
 	_countdownTimer?: ReturnType<typeof setTimeout> | null;
 };
 
 export const duelRooms = new Map<string, DuelRoom>();
+
+type DuelAuditFn = (action: string, targetId: number, details: string) => void;
+let _duelAudit: DuelAuditFn | null = null;
+export function setDuelAuditCallback(fn: DuelAuditFn) {
+	_duelAudit = fn;
+}
 
 export function generateRoomCode(): string {
 	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -171,6 +179,8 @@ export function createDuelRoom(creatorUserId: number, rounds: number): { code: s
 		roundStartTime: 0,
 		createdAt: Date.now(),
 		quickplay: false,
+		playAgainRequests: new Set(),
+		_playAgainTimer: null,
 	});
 	return { code, dbId };
 }
@@ -238,6 +248,11 @@ export function startDuel(room: DuelRoom) {
 		}
 		room.status = "in_progress";
 		db.run("UPDATE duel_games SET status = 'in_progress' WHERE id = ?", [room.dbId]);
+		_duelAudit?.(
+			"duel_start",
+			room.dbId,
+			`${room.players.map((p) => p.username).join(" vs ")}, ${room.rounds} rounds${room.quickplay ? ", quickplay" : ""}`
+		);
 		startRound(room);
 	}, 3000);
 }
@@ -252,6 +267,7 @@ function startRound(room: DuelRoom) {
 		round: room.currentRound,
 		total_rounds: room.rounds,
 		image_url: `/uploads/${loc.image_path}`,
+		location_id: loc.id,
 		time_limit: 60,
 	});
 
@@ -277,6 +293,12 @@ export function abandonDuel(room: DuelRoom, disconnectedUserId: number) {
 			player.userId,
 		]);
 	}
+	const abandoner = room.players.find((p) => p.userId === disconnectedUserId);
+	_duelAudit?.(
+		"duel_abandon",
+		room.dbId,
+		`${abandoner?.username ?? "unknown"} left mid-game, room ${room.code}${room.quickplay ? ", quickplay" : ""}`
+	);
 	broadcast(room, "opponent_disconnected", {
 		player_id: disconnectedUserId,
 		winner: winner ? { user_id: winner.userId, username: winner.username } : null,
@@ -296,10 +318,19 @@ export function submitDuelGuess(room: DuelRoom, userId: number, worldX: number, 
 
 	room.guesses.set(userId, { worldX, worldY, timeTaken, score, distance });
 
+	const guesser = room.players.find((p) => p.userId === userId);
 	for (const p of room.players) {
 		if (p.userId !== userId) {
 			sendTo(p.conn, "opponent_guessed", { round: room.currentRound });
 		}
+	}
+	for (const spec of room.spectators) {
+		sendTo(spec, "player_pin", {
+			user_id: userId,
+			username: guesser?.username ?? "",
+			world_x: worldX,
+			world_y: worldY,
+		});
 	}
 
 	if (room.guesses.size >= room.players.length) {
@@ -384,6 +415,13 @@ function endGame(room: DuelRoom) {
 		]);
 	}
 
+	_duelAudit?.(
+		"duel_end",
+		room.dbId,
+		isTie
+			? `tie: ${sorted.map((p) => `${p.username} ${p.totalScore}`).join(" / ")}, room ${room.code}${room.quickplay ? ", quickplay" : ""}`
+			: `winner: ${winner.username} (${winner.totalScore} vs ${sorted[1]?.totalScore ?? 0}), room ${room.code}${room.quickplay ? ", quickplay" : ""}`
+	);
 	broadcast(room, "game_end", {
 		scores: sorted.map((p) => ({
 			user_id: p.userId,

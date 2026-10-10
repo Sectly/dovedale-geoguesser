@@ -85,6 +85,11 @@ function showPrompt(title, placeholder = "", { note = "", type = "text", okLabel
 	});
 }
 
+function closeSidebar() {
+	el("admin-sidebar")?.classList.add("hidden");
+	el("sidebar-overlay")?.classList.add("hidden");
+}
+
 async function init() {
 	try {
 		const r = await fetch("/api/auth/me");
@@ -113,8 +118,19 @@ async function init() {
 	}
 
 	document.querySelectorAll(".tab-btn").forEach((btn) => {
-		btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+		btn.addEventListener("click", () => {
+			switchTab(btn.dataset.tab);
+			closeSidebar();
+		});
 	});
+
+	el("sidebar-toggle")?.addEventListener("click", () => {
+		const sidebar = el("admin-sidebar");
+		const overlay = el("sidebar-overlay");
+		sidebar.classList.toggle("hidden");
+		overlay.classList.toggle("hidden");
+	});
+	el("sidebar-overlay")?.addEventListener("click", closeSidebar);
 
 	el("upload-map-back").addEventListener("click", () => {
 		el("upload-map-panel").classList.add("hidden");
@@ -202,6 +218,10 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 	else if (tab === "staff") loadStaff();
 	else if (tab === "stats") loadStats();
 	else if (tab === "audit") loadAudit();
+	else if (tab === "games") {
+		auditCategory = "games";
+		loadAudit();
+	}
 }
 
 let expandedSubId = null;
@@ -1095,7 +1115,7 @@ function renderUsers(users) {
                     ${u.avatar_url ? `<img src="${escHtml(u.avatar_url)}" class="w-10 h-10 rounded-full flex-shrink-0 mt-0.5" />` : `<div class="w-10 h-10 rounded-full bg-zinc-700 flex-shrink-0 mt-0.5"></div>`}
                     <div class="flex-1 min-w-0">
                         <div class="font-semibold truncate">${escHtml(u.display_name || u.username)}</div>
-                        <div class="text-xs text-zinc-500"><a href="/u/${encodeURIComponent(u.username)}" target="_blank" class="hover:text-zinc-300 hover:underline transition">@${escHtml(u.username)}</a> · User #${u.id} · Discord #${u.discord_id}</div>
+                        <div class="text-xs text-zinc-500"><a href="/u/${encodeURIComponent(u.username)}" target="_blank" class="hover:text-zinc-300 hover:underline transition">@${escHtml(u.username)}</a> · User #${u.id} · Discord #${u.discord_id} · Spoiler warning: ${u.suggestions_agreed_at ? new Date(u.suggestions_agreed_at * 1000).toLocaleDateString() : "never"}</div>
                         <div class="flex gap-1 mt-1 flex-wrap">
                             ${roleBadge}
                             ${isBanned ? `<span class="text-xs bg-red-900 text-red-300 px-1.5 py-0.5 rounded">${u.ban_type === "perm" ? "Banned" : "Temp banned"}</span>` : ""}
@@ -1502,6 +1522,12 @@ const AUDIT_ACTION_LABELS = {
 	user_delete: { label: "Account deleted", color: "text-zinc-500" },
 	user_delete_operator: { label: "Account deleted (op)", color: "text-zinc-500" },
 	gdpr_export_operator: { label: "GDPR export (op)", color: "text-zinc-400" },
+	duel_room_create: { label: "Created duel room", color: "text-blue-400" },
+	duel_join: { label: "Joined duel room", color: "text-blue-300" },
+	quickplay_queue: { label: "Entered quickplay queue", color: "text-blue-400" },
+	duel_start: { label: "Duel started", color: "text-green-400" },
+	duel_end: { label: "Duel ended", color: "text-zinc-300" },
+	duel_abandon: { label: "Duel abandoned", color: "text-orange-400" },
 };
 
 const AUDIT_CATEGORIES = [
@@ -1509,12 +1535,29 @@ const AUDIT_CATEGORIES = [
 	{
 		key: "moderation",
 		label: "Moderation",
-		actions: ["user_ban_perm", "user_ban_temp", "user_unban", "user_warn", "warning_delete", "warning_edit", "user_role_change"],
+		actions: [
+			"user_ban_perm",
+			"user_ban_temp",
+			"user_unban",
+			"user_warn",
+			"warning_delete",
+			"warning_edit",
+			"user_role_change",
+		],
 	},
 	{
 		key: "content",
 		label: "Content",
-		actions: ["submission_approve", "submission_deny", "suggestion_approve", "suggestion_deny", "location_activate", "location_deactivate", "location_delete", "location_label_edit"],
+		actions: [
+			"submission_approve",
+			"submission_deny",
+			"suggestion_approve",
+			"suggestion_deny",
+			"location_activate",
+			"location_deactivate",
+			"location_delete",
+			"location_label_edit",
+		],
 	},
 	{
 		key: "tickets",
@@ -1526,10 +1569,25 @@ const AUDIT_CATEGORIES = [
 		label: "Accounts",
 		actions: ["user_register", "user_login", "user_delete", "user_delete_operator", "gdpr_export_operator"],
 	},
+	{
+		key: "games",
+		label: "Games",
+		actions: ["duel_room_create", "duel_join", "quickplay_queue", "duel_start", "duel_end", "duel_abandon"],
+	},
 ];
 
 // These are high-volume routine events that are collapsed by default
-const AUDIT_ROUTINE = new Set(["user_login", "user_register", "ticket_reply", "ticket_close"]);
+const AUDIT_ROUTINE = new Set([
+	"user_login",
+	"user_register",
+	"ticket_reply",
+	"ticket_close",
+	"duel_room_create",
+	"duel_join",
+	"quickplay_queue",
+	"duel_start",
+	"duel_end",
+]);
 
 let auditOffset = 0;
 const AUDIT_PAGE = 50;

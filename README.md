@@ -40,13 +40,13 @@ Visit `http://localhost:4000`.
 
 See `.env.example` for all options. Required for production:
 
-| Variable                    | Description                                          |
-| --------------------------- | ---------------------------------------------------- |
-| `DISCORD_CLIENT_ID`         | Discord OAuth app client ID                          |
-| `DISCORD_CLIENT_SECRET`     | Discord OAuth app client secret                      |
-| `DISCORD_REDIRECT_URI`      | Must match what's registered in the Discord dev portal |
-| `OPERATOR_IDS`              | Comma-separated Discord user IDs with full admin access |
-| `SITE_URL`                  | Public-facing URL (used for OG image embeds)         |
+| Variable                | Description                                             |
+| ----------------------- | ------------------------------------------------------- |
+| `DISCORD_CLIENT_ID`     | Discord OAuth app client ID                             |
+| `DISCORD_CLIENT_SECRET` | Discord OAuth app client secret                         |
+| `DISCORD_REDIRECT_URI`  | Must match what's registered in the Discord dev portal  |
+| `OPERATOR_IDS`          | Comma-separated Discord user IDs with full admin access |
+| `SITE_URL`              | Public-facing URL (used for OG image embeds)            |
 
 ## Map tiles
 

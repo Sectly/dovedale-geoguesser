@@ -217,9 +217,7 @@
         <button id="start-duel-btn" class="hidden bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3">
           Start Game
         </button>
-        <button id="ready-btn" class="hidden bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3">
-          Ready
-        </button>
+        <button id="ready-btn" class="hidden bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3">Ready</button>
         <p class="text-zinc-500 text-sm mb-4" id="waiting-hint">Share the code with your opponent</p>
         <div class="flex items-center justify-center gap-5">
           <button id="leave-btn" class="text-zinc-600 hover:text-zinc-400 transition text-sm">Leave room</button>
@@ -236,10 +234,7 @@
       </div>
     </div>
 
-    <div
-      id="spectator-banner"
-      class="hidden absolute top-3 inset-x-0 z-30 flex items-center justify-center pointer-events-none"
-    >
+    <div id="spectator-banner" class="hidden absolute top-3 inset-x-0 z-30 flex items-center justify-center pointer-events-none">
       <div class="bg-black/70 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs text-zinc-400 flex items-center gap-1.5 border border-zinc-700/60">
         <span class="material-symbols-outlined text-sm leading-none">visibility</span>
         Spectating
@@ -269,6 +264,11 @@
           <span class="material-symbols-outlined text-base leading-none" style="font-variation-settings: &quot;FILL&quot; 1">timer</span>
           <span id="timer-val">60</span>
         </div>
+
+        <div
+          id="location-id-badge"
+          class="absolute bottom-2 right-2 text-xs font-mono text-white/20 select-none pointer-events-none z-10"
+        ></div>
 
         <div
           id="opponent-guessed-badge"
@@ -343,23 +343,38 @@
 
         <div id="end-scores" class="flex flex-col gap-3 mb-8 max-w-xs mx-auto"></div>
 
-        <div class="flex gap-3 justify-center">
+        <div id="end-actions" class="flex gap-3 justify-center">
           <a
-            href="/"
+            href="/duels"
+            id="end-leave-btn"
             class="flex-1 max-w-[140px] bg-zinc-800 hover:bg-zinc-700 transition py-3 rounded-full font-semibold text-sm text-center border border-zinc-700"
-            >Home</a
+            >Leave</a
           >
           <button id="play-again-btn" class="flex-1 max-w-[140px] bg-blue-600 hover:bg-blue-500 transition py-3 rounded-full font-bold text-sm shadow-sm">
             Play Again
           </button>
         </div>
+        <div id="end-waiting" class="hidden flex-col items-center gap-3 mt-1">
+          <p class="text-sm text-zinc-400">Waiting for opponent…</p>
+          <button id="play-again-cancel-btn" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline">Cancel</button>
+        </div>
+        <div id="end-incoming" class="hidden flex-col items-center gap-3 mt-1">
+          <p class="text-sm text-zinc-300 font-semibold">Opponent wants to play again!</p>
+          <div class="flex gap-3">
+            <button id="play-again-accept-btn" class="bg-green-600 hover:bg-green-500 transition px-6 py-2.5 rounded-full font-bold text-sm">Accept</button>
+            <button id="play-again-decline-btn" class="bg-zinc-700 hover:bg-zinc-600 transition px-6 py-2.5 rounded-full text-sm">Decline</button>
+          </div>
+        </div>
+        <button id="spectate-new-game-btn" class="hidden mt-3 bg-zinc-700 hover:bg-zinc-600 transition px-6 py-2.5 rounded-full text-sm font-semibold">
+          Spectate New Game
+        </button>
       </div>
     </div>
 
     <script src="/guard.js?v=1"></script>
     <script src="/fp.js"></script>
     <script src="/map-upstream.js"></script>
-    <script src="/map-canvas.js?v=3"></script>
+    <script src="/map-canvas.js?v=4"></script>
 
     <script>
       document.querySelectorAll(".duel-rounds-pill").forEach((btn) => {
@@ -430,6 +445,6 @@
     </script>
 
     <script src="/shared.js"></script>
-    <script type="module" src="/duels.js?v=6"></script>
+    <script type="module" src="/duels.js?v=10"></script>
   </body>
 </html>
