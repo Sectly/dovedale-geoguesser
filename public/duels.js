@@ -12,6 +12,7 @@ let pinWorld = null;
 let hasGuessed = false;
 let roundStartTime = 0;
 let startCountdownInterval = null;
+let currentRoundLocationId = null;
 const SPECTATOR_PIN_COLORS = ["#3B82F6", "#F97316", "#A855F7", "#EC4899"];
 const _spectatorPinColorMap = new Map();
 
@@ -568,7 +569,8 @@ function startRound(msg) {
 	el("round-num").textContent = msg.round;
 	el("round-total").textContent = msg.total_rounds;
 	el("round-photo").src = msg.image_url;
-	el("location-id-badge").textContent = msg.location_id ? locId(msg.location_id) : "";
+	currentRoundLocationId = msg.location_id || null;
+	el("location-id-badge").textContent = "";
 	setGuessBtnDisabled(true);
 
 	if (isSpectator) {
@@ -634,6 +636,7 @@ function submitGuess() {
 	clearInterval(timerInterval);
 	setGuessBtnDisabled(true);
 	mapCanvas?.setPinEnabled(false);
+	if (currentRoundLocationId) el("location-id-badge").textContent = locId(currentRoundLocationId);
 	const badge = el("opponent-guessed-badge");
 	badge.innerHTML =
 		'<span class="material-symbols-outlined text-xs leading-none">pause_circle</span> Timer paused · waiting for opponent…';
@@ -670,6 +673,13 @@ function showRoundResult(msg) {
                 </div>
             </div>`;
 	}).join("");
+
+	if (currentRoundLocationId) {
+		rows.innerHTML += `<div class="flex items-center justify-between mt-2 pt-2 border-t border-zinc-700">
+            <span class="text-xs font-mono text-zinc-500">${escHtml(locId(currentRoundLocationId))}</span>
+            <a href="/settings?ticket=report_location&loc=${currentRoundLocationId}" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline">Report location</a>
+        </div>`;
+	}
 
 	el("result-screen").classList.add("shown");
 

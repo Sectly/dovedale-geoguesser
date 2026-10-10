@@ -196,9 +196,12 @@ function showResult(data) {
 					: "text-red-400");
 	el("result-distance-display").textContent =
 		data.distance !== null ? `~${data.distance.toLocaleString()} units away` : "No guess submitted";
-	el("result-location-label").textContent = data.location_id
-		? "LOC-" + String(data.location_id).padStart(4, "0")
-		: "";
+	el("result-location-label").textContent = data.location_id ? locId(data.location_id) : "";
+	const reportLink = el("result-report-link");
+	if (reportLink && data.location_id) {
+		reportLink.href = `/settings?ticket=report_location&loc=${data.location_id}`;
+		reportLink.classList.remove("hidden");
+	}
 
 	const bar = el("result-score-bar");
 	setTimeout(() => {

@@ -2280,10 +2280,10 @@ function collectGdprData(userId: number) {
 		)
 		.all(userId);
 	const submissions = db
-		.query("SELECT id, image_path, world_x, world_y, label, status, created_at FROM submissions WHERE submitted_by = ?")
+		.query("SELECT id, image_path, world_x, world_y, label, status, deny_reason, reviewed_at, created_at FROM submissions WHERE submitted_by = ?")
 		.all(userId);
 	const suggestions = db
-		.query("SELECT id, location_id, type, content, status, created_at FROM location_suggestions WHERE user_id = ?")
+		.query("SELECT id, location_id, type, content, status, deny_reason, reviewed_at, created_at FROM location_suggestions WHERE user_id = ?")
 		.all(userId);
 	const tickets = db
 		.query("SELECT id, subject, message, status, created_at FROM support_tickets WHERE user_id = ?")
@@ -2319,8 +2319,18 @@ app.get("/api/gdpr/export", (c) => {
 			username: user.username,
 			display_name: user.display_name,
 			avatar_url: user.avatar_url,
-			is_banned: !!user.is_banned,
 			created_at: user.created_at,
+			profile_private: !!user.profile_private,
+			is_banned: !!user.is_banned,
+			ban_type: user.ban_type,
+			ban_expires_at: user.ban_expires_at,
+			upload_limited: !!user.upload_limited,
+			upload_limit_expires_at: user.upload_limit_expires_at,
+			duel_limited: !!user.duel_limited,
+			duel_limit_expires_at: user.duel_limit_expires_at,
+			current_streak: user.current_streak,
+			longest_streak: user.longest_streak,
+			last_played_date: user.last_played_date,
 		},
 		solo_scores: soloScores,
 		daily_scores: dailyScores,
@@ -2333,7 +2343,7 @@ app.get("/api/gdpr/export", (c) => {
 		warnings,
 		fingerprints,
 		exported_at: new Date().toISOString(),
-		export_version: 3,
+		export_version: 4,
 	});
 });
 
@@ -2372,12 +2382,7 @@ app.get("/api/admin/users/:id/gdpr-export", (c) => {
 	const actor = getOpUser(c);
 	if (!actor) return c.text("Forbidden", 403);
 	const userId = parseInt(c.req.param("id"));
-	const target = db
-		.query<
-			{ id: number; username: string; display_name: string | null; avatar_url: string | null; is_banned: number; created_at: number },
-			[number]
-		>("SELECT id, username, display_name, avatar_url, is_banned, created_at FROM users WHERE id = ?")
-		.get(userId);
+	const target = db.query<User, [number]>("SELECT * FROM users WHERE id = ?").get(userId);
 	if (!target) return c.text("User not found", 404);
 	const { soloScores, dailyScores, duelGames, submissions, suggestions, tickets, ticketReplies, roundScores, warnings, fingerprints } = collectGdprData(userId);
 	auditLog(actor, "gdpr_export_operator", { targetType: "user", targetId: userId, targetUsername: target.username });
@@ -2387,8 +2392,20 @@ app.get("/api/admin/users/:id/gdpr-export", (c) => {
 			username: target.username,
 			display_name: target.display_name,
 			avatar_url: target.avatar_url,
-			is_banned: !!target.is_banned,
 			created_at: target.created_at,
+			profile_private: !!target.profile_private,
+			is_banned: !!target.is_banned,
+			ban_type: target.ban_type,
+			ban_expires_at: target.ban_expires_at,
+			upload_limited: !!target.upload_limited,
+			upload_limit_expires_at: target.upload_limit_expires_at,
+			duel_limited: !!target.duel_limited,
+			duel_limit_expires_at: target.duel_limit_expires_at,
+			current_streak: target.current_streak,
+			longest_streak: target.longest_streak,
+			last_played_date: target.last_played_date,
+			suggestions_agreed: !!target.suggestions_agreed,
+			suggestions_agreed_at: target.suggestions_agreed_at,
 		},
 		solo_scores: soloScores,
 		daily_scores: dailyScores,
@@ -2401,7 +2418,7 @@ app.get("/api/admin/users/:id/gdpr-export", (c) => {
 		warnings,
 		fingerprints,
 		exported_at: new Date().toISOString(),
-		export_version: 3,
+		export_version: 4,
 		exported_by_operator: actor.username,
 	});
 });
