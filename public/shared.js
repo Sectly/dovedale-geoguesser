@@ -1,5 +1,13 @@
 const el = (id) => document.getElementById(id);
 
+function setGuessBtnDisabled(disabled) {
+	const btn = el("guess-btn");
+	btn.disabled = disabled;
+	btn.className = disabled
+		? "pointer-events-auto bg-zinc-700 text-zinc-500 pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm whitespace-nowrap cursor-not-allowed transition flex items-center gap-2"
+		: "pointer-events-auto bg-blue-600 hover:bg-blue-500 active:scale-95 transition pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm shadow-sm whitespace-nowrap cursor-pointer flex items-center gap-2";
+}
+
 function setupPhotoLens(imgEl) {
 	if (!imgEl) return;
 	const container = imgEl.parentElement;
@@ -79,6 +87,8 @@ function setupPhotoLens(imgEl) {
 		{ passive: false }
 	);
 }
+const locId = (id) => "LOC-" + String(id).padStart(4, "0");
+
 const escHtml = (s) =>
 	String(s ?? "")
 		.replace(/&/g, "&amp;")

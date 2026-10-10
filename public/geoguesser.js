@@ -18,8 +18,6 @@ let hintsUsed = 0;
 let hintsShown = 0;
 let guessSubmitted = false;
 
-const locId = (id) => "LOC-" + String(id).padStart(4, "0");
-
 async function init() {
 	currentUser = await fetchUser();
 	renderAuthArea();
@@ -256,7 +254,6 @@ function showRoundResult(score, distance, label, locationId) {
 	scoreEl.className = `text-3xl font-bold leading-none ${score > 3000 ? "text-green-400" : score > 1500 ? "text-yellow-400" : "text-red-400"}`;
 	el("result-distance-display").textContent =
 		distance !== null ? `~${Math.round(distance).toLocaleString()} units away` : "No guess submitted";
-	el("result-location-label").textContent = "";
 	el("result-location-id").textContent = locId(locationId);
 
 	const reportLink = el("result-report-link");

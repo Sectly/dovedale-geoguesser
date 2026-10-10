@@ -264,7 +264,6 @@
             </div>
           </div>
 
-          <!-- Location picker -->
           <div id="suggest-pick" style="display: none" class="flex-1 min-h-0 flex flex-col gap-3">
             <p class="text-zinc-500 text-xs">Pick a location to suggest an improvement for.</p>
             <div class="flex items-center gap-2">
@@ -287,7 +286,6 @@
             </div>
           </div>
 
-          <!-- Suggestion form -->
           <div id="suggest-form" style="display: none" class="flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto scrollbar-thin">
             <div class="flex items-center gap-2">
               <button id="suggest-back" class="text-zinc-400 hover:text-zinc-100 transition">
@@ -486,7 +484,6 @@
       </div>
     </div>
 
-    <!-- Lightbox for suggest current screenshot -->
     <div
       id="suggest-lightbox"
       style="display: none"
@@ -594,7 +591,7 @@
           ctx.save();
           ctx.resetTransform();
 
-          // All circles — fill pass
+          // All circles - fill pass
           ctx.fillStyle = "#f97316";
           ctx.beginPath();
           for (const { sx, sy } of visible) {
@@ -603,7 +600,7 @@
           }
           ctx.fill();
 
-          // All circles — stroke pass
+          // All circles - stroke pass
           ctx.strokeStyle = "#fff";
           ctx.lineWidth = 1.5;
           ctx.beginPath();
@@ -613,7 +610,7 @@
           }
           ctx.stroke();
 
-          // ID labels — only when zoomed in enough that they're readable
+          // ID labels - only when zoomed in enough
           if (t.a >= 1.5) {
             ctx.fillStyle = "#fff";
             ctx.font = "bold 10px Inter, sans-serif";

@@ -85,9 +85,11 @@ function showPrompt(title, placeholder = "", { note = "", type = "text", okLabel
 	});
 }
 
+let _sidebar, _sidebarOverlay;
+
 function closeSidebar() {
-	el("admin-sidebar")?.classList.add("hidden");
-	el("sidebar-overlay")?.classList.add("hidden");
+	_sidebar?.classList.add("hidden");
+	_sidebarOverlay?.classList.add("hidden");
 }
 
 async function init() {
@@ -124,13 +126,13 @@ async function init() {
 		});
 	});
 
+	_sidebar = el("admin-sidebar");
+	_sidebarOverlay = el("sidebar-overlay");
 	el("sidebar-toggle")?.addEventListener("click", () => {
-		const sidebar = el("admin-sidebar");
-		const overlay = el("sidebar-overlay");
-		sidebar.classList.toggle("hidden");
-		overlay.classList.toggle("hidden");
+		_sidebar.classList.toggle("hidden");
+		_sidebarOverlay.classList.toggle("hidden");
 	});
-	el("sidebar-overlay")?.addEventListener("click", closeSidebar);
+	_sidebarOverlay?.addEventListener("click", closeSidebar);
 
 	el("upload-map-back").addEventListener("click", () => {
 		el("upload-map-panel").classList.add("hidden");
@@ -1688,7 +1690,6 @@ function renderAudit({ rows, total, offset }, reset) {
 		if (totalEl) totalEl.textContent = `${total.toLocaleString()} entries`;
 	}
 
-	// Separate routine from significant, and group tickets
 	const routineRows = [];
 	const ticketGroups = new Map();
 	const significantRows = [];

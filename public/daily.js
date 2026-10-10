@@ -12,14 +12,6 @@ let hints = [];
 let startTime = 0;
 let guessSubmitted = false;
 
-function setGuessBtnDisabled(disabled) {
-	const btn = el("guess-btn");
-	btn.disabled = disabled;
-	btn.className = disabled
-		? "pointer-events-auto bg-zinc-700 text-zinc-500 pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm whitespace-nowrap cursor-not-allowed transition flex items-center gap-2"
-		: "pointer-events-auto bg-blue-600 hover:bg-blue-500 active:scale-95 transition pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm shadow-sm whitespace-nowrap cursor-pointer flex items-center gap-2";
-}
-
 function showNoChallenge(msg) {
 	el("loading-msg").textContent = msg;
 	el("loading-home-btn")?.classList.remove("hidden");
@@ -71,8 +63,6 @@ async function init() {
 		},
 	});
 
-	el("zoom-in").addEventListener("click", () => mapCanvas?.zoomIn());
-	el("zoom-out").addEventListener("click", () => mapCanvas?.zoomOut());
 	el("guess-btn").addEventListener("click", submitGuess);
 
 	renderHints();

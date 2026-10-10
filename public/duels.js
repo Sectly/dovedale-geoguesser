@@ -15,14 +15,6 @@ let startCountdownInterval = null;
 const SPECTATOR_PIN_COLORS = ["#3B82F6", "#F97316", "#A855F7", "#EC4899"];
 const _spectatorPinColorMap = new Map();
 
-function setGuessBtnDisabled(disabled) {
-	const btn = el("guess-btn");
-	btn.disabled = disabled;
-	btn.className = disabled
-		? "pointer-events-auto bg-zinc-700 text-zinc-500 pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm whitespace-nowrap cursor-not-allowed transition flex items-center gap-2"
-		: "pointer-events-auto bg-blue-600 hover:bg-blue-500 active:scale-95 transition pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm shadow-sm whitespace-nowrap cursor-pointer flex items-center gap-2";
-}
-
 async function init() {
 	currentUser = await fetchUser();
 	renderAuthArea();
@@ -359,13 +351,12 @@ async function connectWire(code, spectate = false) {
 	wire.on("play_again_available", (data) => {
 		if (!isSpectator) return;
 		const spectateNewBtn = el("spectate-new-game-btn");
-		if (spectateNewBtn) {
-			spectateNewBtn.classList.remove("hidden");
-			spectateNewBtn.onclick = () => {
-				location.href = `/duel/${data.code}?spectate`;
-			};
-		}
+		spectateNewBtn.classList.remove("hidden");
+		spectateNewBtn.onclick = () => {
+			location.href = `/duel/${data.code}?spectate`;
+		};
 	});
+
 	wire.on("player_pin", (data) => {
 		if (!isSpectator || !mapCanvas) return;
 		if (!_spectatorPinColorMap.has(data.user_id)) {
@@ -417,7 +408,6 @@ function showWaitingRoom(msg) {
 	el("waiting-screen").classList.remove("hidden");
 	el("room-code-display").textContent = roomCode;
 
-	// Sync isHost from server state so host-transfers work correctly
 	if (!isSpectator) {
 		const me = msg.players.find((p) => p.user_id === currentUser?.id);
 		if (me) isHost = me.is_host;
@@ -442,7 +432,8 @@ function showWaitingRoom(msg) {
 
 	const searchingEl = el("quickplay-searching");
 	const normalHeader = el("normal-waiting-header");
-	const searching = isQuickPlay && msg.players.length < 2;
+	const needsSlot = msg.players.length < 2;
+	const searching = isQuickPlay && needsSlot;
 	searchingEl.classList.toggle("hidden", !searching);
 	normalHeader.classList.toggle("hidden", searching);
 	if (!searching && _quickPlayNoPlayersTimer) {
@@ -459,7 +450,7 @@ function showWaitingRoom(msg) {
                 <span class="text-sm">${escHtml(p.display_name || p.username)}</span>
                 ${p.is_host ? '<span class="text-xs text-blue-400">Host</span>' : p.is_ready ? '<span class="text-xs text-green-400">Ready</span>' : '<span class="text-xs text-zinc-500">Not ready</span>'}
             </div>`);
-	if (msg.players.length < 2) {
+	if (needsSlot) {
 		playerCards.push(`
             <div class="flex flex-col items-center gap-2 opacity-40">
                 <div class="w-12 h-12 rounded-full bg-zinc-700 border-2 border-dashed border-zinc-600 flex items-center justify-center">
@@ -470,7 +461,7 @@ function showWaitingRoom(msg) {
 	}
 	playersDiv.innerHTML = playerCards.join("");
 
-	if (msg.players.length < 2) {
+	if (needsSlot) {
 		el("start-duel-btn").classList.add("hidden");
 		el("ready-btn").classList.add("hidden");
 		el("spectate-instead-btn").classList.add("hidden");
@@ -512,7 +503,6 @@ function showWaitingRoom(msg) {
 			el("waiting-hint").textContent = "Waiting for the host to start...";
 		}
 	} else {
-		// quickplay
 		el("start-duel-btn").classList.add("hidden");
 		el("ready-btn").classList.add("hidden");
 		el("spectate-instead-btn").classList.add("hidden");
@@ -578,7 +568,7 @@ function startRound(msg) {
 	el("round-num").textContent = msg.round;
 	el("round-total").textContent = msg.total_rounds;
 	el("round-photo").src = msg.image_url;
-	el("location-id-badge").textContent = msg.location_id ? "LOC-" + String(msg.location_id).padStart(4, "0") : "";
+	el("location-id-badge").textContent = msg.location_id ? locId(msg.location_id) : "";
 	setGuessBtnDisabled(true);
 
 	if (isSpectator) {
@@ -706,7 +696,6 @@ function showGameEnd(msg) {
 	el("spectator-banner").classList.add("hidden");
 	el("end-screen").classList.remove("hidden");
 
-	// reset play-again UI state
 	el("end-actions").classList.remove("hidden");
 	el("end-waiting").classList.add("hidden");
 	el("end-waiting").classList.remove("flex");
@@ -740,10 +729,10 @@ function showGameEnd(msg) {
             <div class="flex items-center gap-4 bg-zinc-900 rounded-2xl px-5 py-4 ${isMe ? "ring-2 ring-blue-500" : ""}${isFirst ? " ring-2 ring-yellow-500/40" : ""}">
                 ${i < 3 ? `<span class="material-symbols-outlined text-2xl ${rankColors[i]}" style="font-variation-settings:'FILL' 1">${rankIcons[i]}</span>` : `<span class="text-2xl font-bold text-zinc-600">#${i + 1}</span>`}
                 ${p.avatar_url ? `<img src="${escHtml(p.avatar_url)}" class="w-10 h-10 rounded-full" />` : `<div class="w-10 h-10 rounded-full bg-zinc-700"></div>`}
-                <div class="flex-1">
-                    <div class="font-semibold">${escHtml(p.display_name || p.username)} ${isMe ? "(you)" : ""}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold truncate">${escHtml(p.display_name || p.username)} ${isMe ? "(you)" : ""}</div>
                 </div>
-                <div class="text-2xl font-bold font-mono ${isFirst ? "text-yellow-400" : ""}">${p.total_score.toLocaleString()}</div>
+                <div class="text-2xl font-bold font-mono flex-shrink-0 ${isFirst ? "text-yellow-400" : ""}">${p.total_score.toLocaleString()}</div>
             </div>`;
 	}).join("");
 }

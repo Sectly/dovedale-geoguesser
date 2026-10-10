@@ -12,7 +12,6 @@ import {
 	createSession,
 	deleteSession,
 	getUserFromContext,
-	setSessionCookie,
 	sessionCookieHeader,
 	clearSessionCookie,
 	isBanned,
@@ -60,26 +59,18 @@ setInterval(
 	60 * 60 * 1000
 );
 
-// Periodic DB + memory cleanup (runs every 6 hours)
 setInterval(
 	() => {
-		// Audit log: keep 6 months
 		db.run("DELETE FROM audit_log WHERE created_at < unixepoch() - 15552000");
-		// Fingerprints: remove entries unseen for 90 days
 		db.run("DELETE FROM fingerprints WHERE last_seen < unixepoch() - 7776000");
-		// Resolved location suggestions: keep 30 days after review
 		db.run("DELETE FROM location_suggestions WHERE status != 'pending' AND reviewed_at < unixepoch() - 2592000");
-		// Solo scores: keep at most 200 per user (drop oldest beyond that)
 		db.run(`DELETE FROM solo_scores WHERE id NOT IN (
 		SELECT s2.id FROM solo_scores s2
 		WHERE s2.user_id = solo_scores.user_id
 		ORDER BY s2.created_at DESC LIMIT 200
 	)`);
-		// Closed support tickets older than 6 months
 		db.run("DELETE FROM support_tickets WHERE status = 'closed' AND created_at < unixepoch() - 15552000");
-		// Orphaned waiting duel rooms older than 10 minutes
 		db.run("DELETE FROM duel_games WHERE status = 'waiting' AND created_at < unixepoch() - 600");
-		// Clean up in-memory stale OG cache entries
 		const now = Date.now();
 		for (const [k, v] of _ogCache) {
 			if (now - v.ts > OG_TTL) _ogCache.delete(k);
@@ -573,6 +564,12 @@ function buildRoomState(room: DuelRoom, extra: Record<string, unknown> = {}) {
 	};
 }
 
+function broadcastToSpectators(room: DuelRoom, event: string, data: unknown) {
+	for (const spec of room.spectators) {
+		try { spec.emit(event, data); } catch {}
+	}
+}
+
 function safeHandler<T>(name: string, fn: (data: T) => void): (data: T) => void {
 	return (data) => {
 		try {
@@ -600,6 +597,11 @@ wireServer.on("connection", (conn) => {
 			if (room.status === "finished") {
 				conn.emit("error", { message: "Game already finished" });
 				conn.close(1008, "Game already finished");
+				return;
+			}
+			if (room.quickplay) {
+				conn.emit("error", { message: "Quickplay rooms cannot be joined directly. Use Quick Play." });
+				conn.close(1008, "Quickplay room");
 				return;
 			}
 
@@ -668,6 +670,7 @@ wireServer.on("connection", (conn) => {
 						round: room.currentRound,
 						total_rounds: room.rounds,
 						image_url: `/uploads/${loc.image_path}`,
+						location_id: loc.id,
 						time_limit: 60,
 					});
 				} catch {}
@@ -708,11 +711,7 @@ wireServer.on("connection", (conn) => {
 							p.conn.emit("room_state", state);
 						} catch {}
 					}
-					for (const s of room.spectators) {
-						try {
-							s.emit("room_state", state);
-						} catch {}
-					}
+					broadcastToSpectators(room, "room_state", state);
 					return;
 				}
 			}
@@ -797,6 +796,7 @@ wireServer.on("connection", (conn) => {
 						round: room.currentRound,
 						total_rounds: room.rounds,
 						image_url: `/uploads/${loc.image_path}`,
+						location_id: loc.id,
 						time_limit: 60,
 					});
 				} catch {}
@@ -885,11 +885,7 @@ wireServer.on("connection", (conn) => {
 				}
 				p0.conn.emit("play_again_match", { code: newRoom.code, is_host: true });
 				p1.conn.emit("play_again_match", { code: newRoom.code, is_host: false });
-				for (const spec of room.spectators) {
-					try {
-						spec.emit("play_again_available", { code: newRoom.code });
-					} catch {}
-				}
+				broadcastToSpectators(room, "play_again_available", { code: newRoom.code });
 			} else {
 				const other = room.players.find((p) => p.userId !== userId);
 				conn.emit("play_again_waiting", {});
@@ -1554,7 +1550,7 @@ app.post("/api/duels/rooms/:code/join", (c) => {
 	const result = joinDuelRoom(code, user.id);
 	if (result === "not_found") return c.text("Room not found", 404);
 	if (result === "abandoned")
-		return c.text("This game was lost when the server restarted. Please create a new room.", 410);
+		return c.text("This room doesn't exist or can't be joined.", 410);
 	if (result === "full") return c.text("Room is full", 409);
 	if (result === "in_progress") return c.text("Game already in progress", 409);
 	const joinedRoom = duelRooms.get(code);
@@ -2273,47 +2269,50 @@ app.get("/api/me/moderation", (c) => {
 	return c.json({ warnings, bans });
 });
 
+function collectGdprData(userId: number) {
+	const soloScores = db
+		.query("SELECT id, total_score, max_possible, rounds, created_at FROM solo_scores WHERE user_id = ?")
+		.all(userId);
+	const dailyScores = db.query("SELECT id, score, date, created_at FROM daily_scores WHERE user_id = ?").all(userId);
+	const duelGames = db
+		.query(
+			"SELECT dp.game_id, dp.total_score, dg.room_code, dg.status, dg.winner_id, dg.created_at FROM duel_participants dp JOIN duel_games dg ON dg.id = dp.game_id WHERE dp.user_id = ?"
+		)
+		.all(userId);
+	const submissions = db
+		.query("SELECT id, image_path, world_x, world_y, label, status, created_at FROM submissions WHERE submitted_by = ?")
+		.all(userId);
+	const suggestions = db
+		.query("SELECT id, location_id, type, content, status, created_at FROM location_suggestions WHERE user_id = ?")
+		.all(userId);
+	const tickets = db
+		.query("SELECT id, subject, message, status, created_at FROM support_tickets WHERE user_id = ?")
+		.all(userId);
+	const ticketReplies = db
+		.query(
+			"SELECT tr.id, tr.ticket_id, tr.body, tr.type, tr.created_at FROM ticket_replies tr JOIN support_tickets st ON st.id = tr.ticket_id WHERE st.user_id = ?"
+		)
+		.all(userId);
+	const roundScores = db
+		.query(
+			"SELECT game_id, round_number, guessed_x, guessed_y, distance, score, created_at FROM duel_round_scores WHERE user_id = ?"
+		)
+		.all(userId);
+	const warnings = db
+		.query("SELECT id, issued_by_username, reason, created_at FROM user_warnings WHERE user_id = ?")
+		.all(userId);
+	const fingerprints = db
+		.query("SELECT fp_hash, first_seen, last_seen FROM fingerprints WHERE user_id = ?")
+		.all(userId);
+	return { soloScores, dailyScores, duelGames, submissions, suggestions, tickets, ticketReplies, roundScores, warnings, fingerprints };
+}
+
 app.get("/api/gdpr/export", (c) => {
 	const user = getUserFromContext(c);
 	if (!user) return c.text("Login required", 401);
 	if (!checkRateLimitUser(user, `gdpr:${user.id}`, 3, 24 * 60 * 60 * 1000))
 		return c.text("Too many export requests today. Try again tomorrow.", 429);
-
-	const soloScores = db
-		.query("SELECT id, total_score, max_possible, rounds, created_at FROM solo_scores WHERE user_id = ?")
-		.all(user.id);
-	const dailyScores = db.query("SELECT id, score, date, created_at FROM daily_scores WHERE user_id = ?").all(user.id);
-	const duelGames = db
-		.query(
-			"SELECT dp.game_id, dp.total_score, dg.room_code, dg.status, dg.winner_id, dg.created_at FROM duel_participants dp JOIN duel_games dg ON dg.id = dp.game_id WHERE dp.user_id = ?"
-		)
-		.all(user.id);
-	const submissions = db
-		.query(
-			"SELECT id, image_path, world_x, world_y, label, status, created_at FROM submissions WHERE submitted_by = ?"
-		)
-		.all(user.id);
-	const suggestions = db
-		.query("SELECT id, location_id, type, content, status, created_at FROM location_suggestions WHERE user_id = ?")
-		.all(user.id);
-	const tickets = db
-		.query("SELECT id, subject, message, status, created_at FROM support_tickets WHERE user_id = ?")
-		.all(user.id);
-	const ticketReplies = db
-		.query(
-			"SELECT tr.id, tr.ticket_id, tr.body, tr.type, tr.created_at FROM ticket_replies tr JOIN support_tickets st ON st.id = tr.ticket_id WHERE st.user_id = ?"
-		)
-		.all(user.id);
-	const roundScores = db
-		.query(
-			"SELECT game_id, round_number, guessed_x, guessed_y, distance, score, created_at FROM duel_round_scores WHERE user_id = ?"
-		)
-		.all(user.id);
-	const warnings = db.query("SELECT id, reason, created_at FROM user_warnings WHERE user_id = ?").all(user.id);
-	const fingerprints = db
-		.query("SELECT fp_hash, first_seen, last_seen FROM fingerprints WHERE user_id = ?")
-		.all(user.id);
-
+	const { soloScores, dailyScores, duelGames, submissions, suggestions, tickets, ticketReplies, roundScores, warnings, fingerprints } = collectGdprData(user.id);
 	return c.json({
 		account: {
 			id: user.id,
@@ -2338,30 +2337,32 @@ app.get("/api/gdpr/export", (c) => {
 	});
 });
 
+function deleteUserAccount(userId: number) {
+	db.transaction(() => {
+		db.run(
+			`UPDATE users SET username = '[deleted]', display_name = NULL, avatar_url = NULL,
+			discord_id = '[deleted:' || ? || ']', profile_private = 1 WHERE id = ?`,
+			[userId, userId]
+		);
+		db.run("DELETE FROM sessions WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM solo_scores WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM daily_scores WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM duel_round_scores WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM duel_participants WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM fingerprints WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM support_tickets WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM location_suggestions WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM user_warnings WHERE user_id = ?", [userId]);
+		db.run("UPDATE submissions SET submitted_by = NULL WHERE submitted_by = ?", [userId]);
+	})();
+}
+
 app.delete("/api/account", async (c) => {
 	const user = getUserFromContext(c);
 	if (!user) return c.text("Login required", 401);
 	const body = (await c.req.json().catch(() => ({}))) as { confirm?: unknown };
 	if (body.confirm !== true) return c.text("Confirmation required", 400);
-	db.transaction(() => {
-		db.run(
-			`UPDATE users SET
-			username = '[deleted]', display_name = NULL, avatar_url = NULL,
-			discord_id = '[deleted:' || ? || ']', profile_private = 1
-			WHERE id = ?`,
-			[user.id, user.id]
-		);
-		db.run("DELETE FROM sessions WHERE user_id = ?", [user.id]);
-		db.run("DELETE FROM solo_scores WHERE user_id = ?", [user.id]);
-		db.run("DELETE FROM daily_scores WHERE user_id = ?", [user.id]);
-		db.run("DELETE FROM duel_round_scores WHERE user_id = ?", [user.id]);
-		db.run("DELETE FROM duel_participants WHERE user_id = ?", [user.id]);
-		db.run("DELETE FROM fingerprints WHERE user_id = ?", [user.id]);
-		db.run("DELETE FROM support_tickets WHERE user_id = ?", [user.id]);
-		db.run("DELETE FROM location_suggestions WHERE user_id = ?", [user.id]);
-		db.run("DELETE FROM user_warnings WHERE user_id = ?", [user.id]);
-		db.run("UPDATE submissions SET submitted_by = NULL WHERE submitted_by = ?", [user.id]);
-	})();
+	deleteUserAccount(user.id);
 	auditLog(null, "user_delete", { targetType: "user", targetId: user.id, targetUsername: user.username });
 	clearSessionCookie(c);
 	return c.json({ success: true });
@@ -2373,54 +2374,12 @@ app.get("/api/admin/users/:id/gdpr-export", (c) => {
 	const userId = parseInt(c.req.param("id"));
 	const target = db
 		.query<
-			{
-				id: number;
-				username: string;
-				display_name: string | null;
-				avatar_url: string | null;
-				is_banned: number;
-				created_at: number;
-			},
+			{ id: number; username: string; display_name: string | null; avatar_url: string | null; is_banned: number; created_at: number },
 			[number]
 		>("SELECT id, username, display_name, avatar_url, is_banned, created_at FROM users WHERE id = ?")
 		.get(userId);
 	if (!target) return c.text("User not found", 404);
-	const soloScores = db
-		.query("SELECT id, total_score, max_possible, rounds, created_at FROM solo_scores WHERE user_id = ?")
-		.all(userId);
-	const dailyScores = db.query("SELECT id, score, date, created_at FROM daily_scores WHERE user_id = ?").all(userId);
-	const duelGames = db
-		.query(
-			"SELECT dp.game_id, dp.total_score, dg.room_code, dg.status, dg.winner_id, dg.created_at FROM duel_participants dp JOIN duel_games dg ON dg.id = dp.game_id WHERE dp.user_id = ?"
-		)
-		.all(userId);
-	const submissions = db
-		.query(
-			"SELECT id, image_path, world_x, world_y, label, status, created_at FROM submissions WHERE submitted_by = ?"
-		)
-		.all(userId);
-	const suggestions = db
-		.query("SELECT id, location_id, type, content, status, created_at FROM location_suggestions WHERE user_id = ?")
-		.all(userId);
-	const tickets = db
-		.query("SELECT id, subject, message, status, created_at FROM support_tickets WHERE user_id = ?")
-		.all(userId);
-	const ticketReplies = db
-		.query(
-			"SELECT tr.id, tr.ticket_id, tr.body, tr.type, tr.created_at FROM ticket_replies tr JOIN support_tickets st ON st.id = tr.ticket_id WHERE st.user_id = ?"
-		)
-		.all(userId);
-	const roundScores = db
-		.query(
-			"SELECT game_id, round_number, guessed_x, guessed_y, distance, score, created_at FROM duel_round_scores WHERE user_id = ?"
-		)
-		.all(userId);
-	const warnings = db
-		.query("SELECT id, issued_by_username, reason, created_at FROM user_warnings WHERE user_id = ?")
-		.all(userId);
-	const fingerprints = db
-		.query("SELECT fp_hash, first_seen, last_seen FROM fingerprints WHERE user_id = ?")
-		.all(userId);
+	const { soloScores, dailyScores, duelGames, submissions, suggestions, tickets, ticketReplies, roundScores, warnings, fingerprints } = collectGdprData(userId);
 	auditLog(actor, "gdpr_export_operator", { targetType: "user", targetId: userId, targetUsername: target.username });
 	return c.json({
 		account: {
@@ -2453,22 +2412,7 @@ app.delete("/api/admin/users/:id/account", async (c) => {
 	const userId = parseInt(c.req.param("id"));
 	const target = db.query<{ username: string }, [number]>("SELECT username FROM users WHERE id = ?").get(userId);
 	if (!target) return c.text("User not found", 404);
-	db.transaction(() => {
-		db.run(
-			`UPDATE users SET username = '[deleted]', display_name = NULL, avatar_url = NULL, discord_id = '[deleted:' || ? || ']', profile_private = 1 WHERE id = ?`,
-			[userId, userId]
-		);
-		db.run("DELETE FROM sessions WHERE user_id = ?", [userId]);
-		db.run("DELETE FROM solo_scores WHERE user_id = ?", [userId]);
-		db.run("DELETE FROM daily_scores WHERE user_id = ?", [userId]);
-		db.run("DELETE FROM duel_round_scores WHERE user_id = ?", [userId]);
-		db.run("DELETE FROM duel_participants WHERE user_id = ?", [userId]);
-		db.run("DELETE FROM fingerprints WHERE user_id = ?", [userId]);
-		db.run("DELETE FROM support_tickets WHERE user_id = ?", [userId]);
-		db.run("DELETE FROM location_suggestions WHERE user_id = ?", [userId]);
-		db.run("DELETE FROM user_warnings WHERE user_id = ?", [userId]);
-		db.run("UPDATE submissions SET submitted_by = NULL WHERE submitted_by = ?", [userId]);
-	})();
+	deleteUserAccount(userId);
 	auditLog(actor, "user_delete_operator", { targetType: "user", targetId: userId, targetUsername: target.username });
 	return c.json({ success: true });
 });
