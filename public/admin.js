@@ -202,6 +202,7 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 	else if (tab === "staff") loadStaff();
 	else if (tab === "stats") loadStats();
 	else if (tab === "audit") loadAudit();
+	else if (tab === "games") { auditCategory = "games"; loadAudit(); }
 }
 
 let expandedSubId = null;
