@@ -431,15 +431,12 @@ function showWaitingRoom(msg) {
 		el("spectate-instead-btn").classList.add("hidden");
 		el("waiting-hint").textContent = "Waiting for the duel to start…";
 		const playersDiv = el("waiting-players");
-		playersDiv.innerHTML = "";
-		for (const p of msg.players) {
-			playersDiv.innerHTML += `
+		playersDiv.innerHTML = msg.players.map((p) => `
             <div class="flex flex-col items-center gap-2">
                 ${p.avatar_url ? `<img src="${escHtml(p.avatar_url)}" class="w-12 h-12 rounded-full border-2 border-zinc-600" />` : `<div class="w-12 h-12 rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined">person</span></div>`}
                 <span class="text-sm">${escHtml(p.display_name || p.username)}</span>
                 ${p.is_host ? '<span class="text-xs text-blue-400">Host</span>' : p.is_ready ? '<span class="text-xs text-green-400">Ready</span>' : '<span class="text-xs text-zinc-500">Not ready</span>'}
-            </div>`;
-		}
+            </div>`).join("");
 		return;
 	}
 
@@ -456,24 +453,24 @@ function showWaitingRoom(msg) {
 	}
 
 	const playersDiv = el("waiting-players");
-	playersDiv.innerHTML = "";
-	for (const p of msg.players) {
-		playersDiv.innerHTML += `
+	const playerCards = msg.players.map((p) => `
             <div class="flex flex-col items-center gap-2">
                 ${p.avatar_url ? `<img src="${escHtml(p.avatar_url)}" class="w-12 h-12 rounded-full border-2 border-zinc-600" />` : `<div class="w-12 h-12 rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined">person</span></div>`}
                 <span class="text-sm">${escHtml(p.display_name || p.username)}</span>
                 ${p.is_host ? '<span class="text-xs text-blue-400">Host</span>' : p.is_ready ? '<span class="text-xs text-green-400">Ready</span>' : '<span class="text-xs text-zinc-500">Not ready</span>'}
-            </div>`;
-	}
-
+            </div>`);
 	if (msg.players.length < 2) {
-		playersDiv.innerHTML += `
+		playerCards.push(`
             <div class="flex flex-col items-center gap-2 opacity-40">
                 <div class="w-12 h-12 rounded-full bg-zinc-700 border-2 border-dashed border-zinc-600 flex items-center justify-center">
                     <span class="material-symbols-outlined">person_add</span>
                 </div>
                 <span class="text-sm">Waiting...</span>
-            </div>`;
+            </div>`);
+	}
+	playersDiv.innerHTML = playerCards.join("");
+
+	if (msg.players.length < 2) {
 		el("start-duel-btn").classList.add("hidden");
 		el("ready-btn").classList.add("hidden");
 		el("spectate-instead-btn").classList.add("hidden");
@@ -667,11 +664,10 @@ function showRoundResult(msg) {
 
 	const sorted = [...msg.results].sort((a, b) => b.total_score - a.total_score);
 	const rows = el("result-rows");
-	rows.innerHTML = "";
-	for (const r of sorted) {
+	rows.innerHTML = sorted.map((r) => {
 		const isMe = r.user_id === currentUser?.id;
 		const isFirst = r === sorted[0];
-		rows.innerHTML += `
+		return `
             <div class="flex items-center gap-3 ${isMe ? "text-white" : "text-zinc-400"}">
                 ${r.avatar_url ? `<img src="${escHtml(r.avatar_url)}" class="w-8 h-8 rounded-full" />` : `<div class="w-8 h-8 rounded-full bg-zinc-700"></div>`}
                 <div class="flex-1">
@@ -683,7 +679,7 @@ function showRoundResult(msg) {
                     <div class="text-xs text-zinc-500">total: ${r.total_score.toLocaleString()}</div>
                 </div>
             </div>`;
-	}
+	}).join("");
 
 	el("result-screen").classList.add("shown");
 
@@ -734,14 +730,13 @@ function showGameEnd(msg) {
 		headline.textContent = `${msg.winner?.username || "Opponent"} Wins`;
 	}
 
+	const rankIcons = ["emoji_events", "military_tech", "workspace_premium"];
+	const rankColors = ["text-yellow-400", "text-zinc-300", "text-amber-600"];
 	const scoresDiv = el("end-scores");
-	scoresDiv.innerHTML = "";
-	msg.scores.forEach((p, i) => {
+	scoresDiv.innerHTML = msg.scores.map((p, i) => {
 		const isMe = p.user_id === currentUser?.id;
 		const isFirst = i === 0;
-		const rankIcons = ["emoji_events", "military_tech", "workspace_premium"];
-		const rankColors = ["text-yellow-400", "text-zinc-300", "text-amber-600"];
-		scoresDiv.innerHTML += `
+		return `
             <div class="flex items-center gap-4 bg-zinc-900 rounded-2xl px-5 py-4 ${isMe ? "ring-2 ring-blue-500" : ""}${isFirst ? " ring-2 ring-yellow-500/40" : ""}">
                 ${i < 3 ? `<span class="material-symbols-outlined text-2xl ${rankColors[i]}" style="font-variation-settings:'FILL' 1">${rankIcons[i]}</span>` : `<span class="text-2xl font-bold text-zinc-600">#${i + 1}</span>`}
                 ${p.avatar_url ? `<img src="${escHtml(p.avatar_url)}" class="w-10 h-10 rounded-full" />` : `<div class="w-10 h-10 rounded-full bg-zinc-700"></div>`}
@@ -750,7 +745,7 @@ function showGameEnd(msg) {
                 </div>
                 <div class="text-2xl font-bold font-mono ${isFirst ? "text-yellow-400" : ""}">${p.total_score.toLocaleString()}</div>
             </div>`;
-	});
+	}).join("");
 }
 
 function copyInviteLink() {
