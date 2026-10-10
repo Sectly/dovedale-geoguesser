@@ -220,6 +220,7 @@ class MapCanvas {
 	}
 
 	_initCenter() {
+		if (this.viewWidth <= 0 || this.viewHeight <= 0) return;
 		const centerWorld = {
 			x: (WORLD_BOUNDS.TOP_LEFT.x + WORLD_BOUNDS.BOTTOM_RIGHT.x) / 2,
 			y: (WORLD_BOUNDS.TOP_LEFT.y + WORLD_BOUNDS.BOTTOM_RIGHT.y) / 2,
@@ -248,7 +249,8 @@ class MapCanvas {
 
 		let worldCenter = null;
 		const savedScale = this.currentScale;
-		if (this.mapInitialized) {
+		const hadValidDimensions = this.viewWidth > 0 && this.viewHeight > 0;
+		if (this.mapInitialized && hadValidDimensions) {
 			const center = this.ctx.transformedPoint(this.viewWidth / 2, this.viewHeight / 2);
 			worldCenter = this.canvasToWorld(center.x, center.y);
 		}
@@ -266,6 +268,10 @@ class MapCanvas {
 			const cp = this.worldToCanvas(worldCenter.x, worldCenter.y);
 			this.ctx.translate(newVw / 2 - cp.x, newVh / 2 - cp.y);
 			if (savedScale !== 1) this._zoomAt(newVw / 2, newVh / 2, savedScale);
+		} else if (this.mapInitialized) {
+			this.ctx.resetTransform();
+			this._initCenter();
+			return;
 		}
 
 		this.draw();

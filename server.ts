@@ -27,6 +27,7 @@ import {
 	startDuel,
 	abandonDuel,
 	submitDuelGuess,
+	type DuelRoom,
 } from "./game";
 import type { User, Location } from "./db";
 import { randomBytes } from "crypto";
@@ -544,6 +545,22 @@ const wireServer = new WebWireServer({
 	},
 });
 
+function buildRoomState(room: DuelRoom, extra: Record<string, unknown> = {}) {
+	return {
+		code: room.code,
+		status: room.status,
+		players: room.players.map((pl) => ({
+			user_id: pl.userId,
+			username: pl.username,
+			display_name: pl.displayName,
+			avatar_url: pl.avatarUrl,
+			is_host: pl.userId === room.players[0]?.userId,
+			is_ready: pl.userId === room.players[0]?.userId || room.readyPlayers.has(pl.userId),
+		})),
+		...extra,
+	};
+}
+
 wireServer.on("connection", (conn) => {
 	const userId = (conn.auth as { userId: number }).userId;
 
@@ -604,17 +621,7 @@ wireServer.on("connection", (conn) => {
 			});
 		}
 
-		const roomState = {
-			code: room.code,
-			status: room.status,
-			players: room.players.map((pl) => ({
-				user_id: pl.userId,
-				username: pl.username,
-				display_name: pl.displayName,
-				avatar_url: pl.avatarUrl,
-				is_host: pl.userId === room.players[0]?.userId,
-			})),
-		};
+		const roomState = buildRoomState(room);
 		for (const p of room.players) {
 			try {
 				p.conn.emit("room_state", roomState);
@@ -646,9 +653,63 @@ wireServer.on("connection", (conn) => {
 		for (const room of duelRooms.values()) {
 			if (room.players[0]?.userId === userId && room.players[0]?.conn === conn) {
 				if (room.status !== "waiting" || room.players.length < 2) return;
+				if (!room.quickplay) {
+					const joiner = room.players[1];
+					if (joiner && !room.readyPlayers.has(joiner.userId)) {
+						conn.emit("error", { message: "Waiting for your opponent to ready up" });
+						return;
+					}
+				}
 				startDuel(room);
 				return;
 			}
+		}
+	});
+
+	conn.on("ready", () => {
+		for (const room of duelRooms.values()) {
+			if (room.players.some((p) => p.userId === userId && p.conn === conn)) {
+				if (room.status !== "waiting") return;
+				room.readyPlayers.add(userId);
+				const state = buildRoomState(room);
+				for (const p of room.players) {
+					try { p.conn.emit("room_state", state); } catch {}
+				}
+				for (const s of room.spectators) {
+					try { s.emit("room_state", state); } catch {}
+				}
+				return;
+			}
+		}
+	});
+
+	conn.on("leave", () => {
+		for (const room of duelRooms.values()) {
+			const idx = room.players.findIndex((p) => p.userId === userId && p.conn === conn);
+			if (idx === -1) continue;
+			if (room.status === "in_progress") {
+				abandonDuel(room, userId);
+			} else if (room.status === "waiting") {
+				if (room._countdownTimer) {
+					clearTimeout(room._countdownTimer);
+					room._countdownTimer = null;
+					room._countdownScheduled = false;
+					for (const p of room.players) {
+						try { p.conn.emit("countdown_cancelled", {}); } catch {}
+					}
+				}
+				room.readyPlayers.delete(userId);
+				room.players.splice(idx, 1);
+				if (room.players.length === 0) {
+					duelRooms.delete(room.code);
+				} else {
+					const state = buildRoomState(room);
+					for (const p of room.players) {
+						try { p.conn.emit("room_state", state); } catch {}
+					}
+				}
+			}
+			return;
 		}
 	});
 
@@ -680,18 +741,7 @@ wireServer.on("connection", (conn) => {
 			return;
 		}
 		room.spectators.push(conn);
-		conn.emit("room_state", {
-			code: room.code,
-			status: room.status,
-			spectating: true,
-			players: room.players.map((pl) => ({
-				user_id: pl.userId,
-				username: pl.username,
-				display_name: pl.displayName,
-				avatar_url: pl.avatarUrl,
-				is_host: pl.userId === room.players[0]?.userId,
-			})),
-		});
+		conn.emit("room_state", buildRoomState(room, { spectating: true }));
 		if (room.status === "in_progress" && room.currentRound > 0) {
 			const loc = room.locations[room.currentRound - 1];
 			try {
@@ -732,24 +782,13 @@ wireServer.on("connection", (conn) => {
 				if (!r) return;
 				const i = r.players.findIndex((p) => p.userId === userId && p.conn === conn);
 				if (i !== -1) {
+					r.readyPlayers.delete(userId);
 					r.players.splice(i, 1);
 					if (r.players.length === 0) duelRooms.delete(room.code);
 					else {
-						const roomState = {
-							code: r.code,
-							status: r.status,
-							players: r.players.map((pl) => ({
-								user_id: pl.userId,
-								username: pl.username,
-								display_name: pl.displayName,
-								avatar_url: pl.avatarUrl,
-								is_host: pl.userId === r.players[0]?.userId,
-							})),
-						};
+						const state = buildRoomState(r);
 						for (const p of r.players) {
-							try {
-								p.conn.emit("room_state", roomState);
-							} catch {}
+							try { p.conn.emit("room_state", state); } catch {}
 						}
 					}
 				}

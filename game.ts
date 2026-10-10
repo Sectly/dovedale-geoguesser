@@ -116,13 +116,14 @@ type RoundGuess = {
 	distance: number;
 };
 
-type DuelRoom = {
+export type DuelRoom = {
 	code: string;
 	dbId: number;
 	rounds: number;
 	status: "waiting" | "in_progress" | "finished";
 	players: DuelPlayer[];
 	spectators: WireConnection[];
+	readyPlayers: Set<number>;
 	currentRound: number;
 	locations: Location[];
 	guesses: Map<number, RoundGuess>;
@@ -162,6 +163,7 @@ export function createDuelRoom(creatorUserId: number, rounds: number): { code: s
 		status: "waiting",
 		players: [],
 		spectators: [],
+		readyPlayers: new Set(),
 		currentRound: 0,
 		locations: [],
 		guesses: new Map(),
