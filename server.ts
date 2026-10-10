@@ -1717,7 +1717,16 @@ app.post("/api/admin/submissions/:id/deny", async (c) => {
 app.get("/api/admin/locations", (c) => {
 	const user = getModUser(c);
 	if (!user) return c.text("Forbidden", 403);
-	return c.json(db.query("SELECT * FROM locations ORDER BY created_at DESC").all());
+	return c.json(
+		db
+			.query(
+				`SELECT l.*, u.username AS submitted_by_username, u.display_name AS submitted_by_display_name
+         FROM locations l
+         LEFT JOIN users u ON u.id = l.submitted_by
+         ORDER BY l.created_at DESC`
+			)
+			.all()
+	);
 });
 
 app.post("/api/admin/locations", async (c) => {

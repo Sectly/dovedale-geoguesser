@@ -911,6 +911,8 @@ function renderLocations(items) {
 						loc.world_x,
 						loc.world_y,
 						loc.is_active ? "active" : "inactive",
+						loc.submitted_by_username,
+						loc.submitted_by_display_name,
 					].join(" ");
 					return `
                 <div class="bg-zinc-900 rounded-2xl overflow-hidden" id="loc-${loc.id}" data-search="${escHtml(searchText)}">
@@ -923,7 +925,7 @@ function renderLocations(items) {
                             </div>
                             <span class="text-xs font-mono text-zinc-600 flex-shrink-0">LOC-${String(loc.id).padStart(4, "0")}</span>
                         </div>
-                        <div class="text-xs text-zinc-600 mb-2">${new Date(loc.created_at * 1000).toLocaleDateString()} · ${loc.is_active ? '<span class="text-green-400">Active</span>' : '<span class="text-zinc-500">Inactive</span>'}</div>
+                        <div class="text-xs text-zinc-600 mb-2">${new Date(loc.created_at * 1000).toLocaleDateString()} · ${loc.is_active ? '<span class="text-green-400">Active</span>' : '<span class="text-zinc-500">Inactive</span>'}${loc.submitted_by ? ` · <span class="text-zinc-500">By: <span class="text-zinc-400">${escHtml(loc.submitted_by_display_name || loc.submitted_by_username || `#${loc.submitted_by}`)}</span></span>` : ""}</div>
                         <div class="mb-2">
                             <div class="text-xs text-zinc-500 mb-1">Hints</div>
                             <div id="hints-${loc.id}">${hintsHtml}</div>
