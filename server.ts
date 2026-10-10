@@ -421,10 +421,10 @@ app.get("/og.png", async (c) => {
 		svg = _buildDuelOg(roomCode, hostName, rounds, playerCount, status, type === "spectate");
 	} else {
 		const pageCards: Record<string, [string, string]> = {
-			home: ["Dovedale GeoGuesser", "Identify locations across the railway from screenshots"],
-			game: ["Solo GeoGuesser", "5 rounds, 60 seconds each. How well do you know the line?"],
-			duels: ["Duels", "Challenge a friend to a real-time location duel"],
-			daily: ["Daily Challenge", "One location per day. Compete for the leaderboard."],
+			home: ["Dovedale GeoGuesser", "Identify locations across the Dovedale Railway from screenshots"],
+			game: ["Solo GeoGuesser", "5 rounds, 90 seconds each. How well do you know the line?"],
+			duels: ["Duels", "Challenge a friend to a real-time location guessing duel"],
+			daily: ["Daily Challenge", "One location per day. Compete for the top spot on the leaderboard."],
 			leaderboard: ["Leaderboard", "The best GeoGuessers on the Dovedale Railway"],
 		};
 		const [title, sub] = pageCards[type] ?? pageCards.home;
