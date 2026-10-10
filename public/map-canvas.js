@@ -237,8 +237,15 @@ class MapCanvas {
 		const newVw = pw / dpr;
 		const newVh = ph / dpr;
 
-		// Save the world point at the viewport centre so we can restore it after
-		// the resize changes ox/oy/sf, which would otherwise shift stored pins.
+		if (pw === this.canvas.width && ph === this.canvas.height) {
+			this.viewWidth = newVw;
+			this.viewHeight = newVh;
+			this.canvas.style.width = `${newVw}px`;
+			this.canvas.style.height = `${newVh}px`;
+			this.draw();
+			return;
+		}
+
 		let worldCenter = null;
 		const savedScale = this.currentScale;
 		if (this.mapInitialized) {
