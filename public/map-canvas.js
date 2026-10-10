@@ -16,6 +16,7 @@ class MapCanvas {
 		this.pinEnabled = true;
 		this.correctPin = null;
 		this.replayPins = [];
+		this.namePins = new Map();
 		this.quality = localStorage.getItem("mapQuality") || "high";
 
 		this._setupTransforms();
@@ -39,10 +40,21 @@ class MapCanvas {
 		this.pinEnabled = enabled;
 	}
 
+	setNamePin(id, worldX, worldY, color, name) {
+		this.namePins.set(id, { worldX, worldY, color, name });
+		this.draw();
+	}
+
+	clearNamePins() {
+		this.namePins.clear();
+		this.draw();
+	}
+
 	clearPin() {
 		this.pin = null;
 		this.correctPin = null;
 		this.replayPins = [];
+		this.namePins.clear();
 		this.draw();
 	}
 
@@ -145,6 +157,10 @@ class MapCanvas {
 				this._drawPin(rp.guessX, rp.guessY, "#EF4444", String(rp.roundNum));
 			}
 		}
+
+		for (const { worldX, worldY, color, name } of this.namePins.values()) {
+			this._drawNamePin(worldX, worldY, color, name);
+		}
 	}
 
 	_screenPos(worldX, worldY) {
@@ -184,6 +200,47 @@ class MapCanvas {
 			ctx.fillStyle = "#fff";
 			ctx.fillText(label, sx, sy);
 		}
+
+		ctx.restore();
+	}
+
+	_drawNamePin(worldX, worldY, color, name) {
+		const ctx = this.ctx;
+		const cp = this.worldToCanvas(worldX, worldY);
+		const t = ctx.getTransform();
+		const sx = cp.x * t.a + cp.y * t.c + t.e;
+		const sy = cp.x * t.b + cp.y * t.d + t.f;
+		const r = 10;
+
+		ctx.save();
+		const _scale = this.currentScale;
+		ctx.resetTransform();
+		this.currentScale = _scale;
+
+		ctx.beginPath();
+		ctx.arc(sx, sy, r, 0, Math.PI * 2);
+		ctx.fillStyle = color;
+		ctx.fill();
+		ctx.strokeStyle = "#fff";
+		ctx.lineWidth = 2;
+		ctx.stroke();
+
+		const label = name.length > 12 ? name.slice(0, 11) + "…" : name;
+		ctx.font = `bold 11px Inter, sans-serif`;
+		const tw = ctx.measureText(label).width;
+		const pad = 5;
+		const tagH = 18;
+		const tagY = sy - r - tagH - 4;
+
+		ctx.fillStyle = "rgba(0,0,0,0.75)";
+		ctx.beginPath();
+		ctx.roundRect(sx - tw / 2 - pad, tagY, tw + pad * 2, tagH, 4);
+		ctx.fill();
+
+		ctx.fillStyle = "#fff";
+		ctx.textAlign = "center";
+		ctx.textBaseline = "middle";
+		ctx.fillText(label, sx, tagY + tagH / 2);
 
 		ctx.restore();
 	}

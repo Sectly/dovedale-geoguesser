@@ -12,6 +12,8 @@ let pinWorld = null;
 let hasGuessed = false;
 let roundStartTime = 0;
 let startCountdownInterval = null;
+const SPECTATOR_PIN_COLORS = ["#3B82F6", "#F97316", "#A855F7", "#EC4899"];
+const _spectatorPinColorMap = new Map();
 
 function setGuessBtnDisabled(disabled) {
 	const btn = el("guess-btn");
@@ -290,6 +292,14 @@ async function connectWire(code, spectate = false) {
 	wire.on("round_result", (data) => showRoundResult(data));
 	wire.on("game_end", (data) => showGameEnd(data));
 	wire.on("error", (data) => showError(data.message || "Unknown error"));
+	wire.on("player_pin", (data) => {
+		if (!isSpectator || !mapCanvas) return;
+		if (!_spectatorPinColorMap.has(data.user_id)) {
+			_spectatorPinColorMap.set(data.user_id, SPECTATOR_PIN_COLORS[_spectatorPinColorMap.size % SPECTATOR_PIN_COLORS.length]);
+		}
+		const color = _spectatorPinColorMap.get(data.user_id);
+		mapCanvas.setNamePin(data.user_id, data.world_x, data.world_y, color, data.username);
+	});
 
 	w.on("disconnect", () => {
 		// Ignore closes from a wire that is no longer the active connection.
@@ -503,6 +513,7 @@ function startRound(msg) {
 	hasGuessed = false;
 	pinWorld = null;
 	roundStartTime = Date.now();
+	_spectatorPinColorMap.clear();
 
 	if (!mapCanvas) {
 		const canvas = el("map-canvas");

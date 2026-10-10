@@ -311,10 +311,14 @@ export function submitDuelGuess(room: DuelRoom, userId: number, worldX: number, 
 
 	room.guesses.set(userId, { worldX, worldY, timeTaken, score, distance });
 
+	const guesser = room.players.find((p) => p.userId === userId);
 	for (const p of room.players) {
 		if (p.userId !== userId) {
 			sendTo(p.conn, "opponent_guessed", { round: room.currentRound });
 		}
+	}
+	for (const spec of room.spectators) {
+		sendTo(spec, "player_pin", { user_id: userId, username: guesser?.username ?? "", world_x: worldX, world_y: worldY });
 	}
 
 	if (room.guesses.size >= room.players.length) {
