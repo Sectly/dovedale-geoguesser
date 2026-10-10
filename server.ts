@@ -36,6 +36,13 @@ import { mkdirSync, readFileSync } from "fs";
 import { generateTileVariants } from "./tile-images";
 import sharp from "sharp";
 
+process.on("uncaughtException", (err) => {
+	console.error("[server] Uncaught exception (server kept running):", err);
+});
+process.on("unhandledRejection", (reason) => {
+	console.error("[server] Unhandled promise rejection (server kept running):", reason);
+});
+
 generateTileVariants().catch((err) => console.error("Tile variant generation failed:", err));
 mkdirSync("./public/uploads", { recursive: true });
 
@@ -561,10 +568,20 @@ function buildRoomState(room: DuelRoom, extra: Record<string, unknown> = {}) {
 	};
 }
 
+function safeHandler<T>(name: string, fn: (data: T) => void): (data: T) => void {
+	return (data) => {
+		try {
+			fn(data);
+		} catch (err) {
+			console.error(`[ws] Error in "${name}" handler:`, err);
+		}
+	};
+}
+
 wireServer.on("connection", (conn) => {
 	const userId = (conn.auth as { userId: number }).userId;
 
-	conn.on("join", (data: { room: string }) => {
+	conn.on("join", safeHandler("join", (data: { room: string }) => {
 		const roomCode = (data?.room || "").toUpperCase();
 		const room = duelRooms.get(roomCode);
 
@@ -647,9 +664,9 @@ wireServer.on("connection", (conn) => {
 				});
 			} catch {}
 		}
-	});
+	}));
 
-	conn.on("start", () => {
+	conn.on("start", safeHandler("start", () => {
 		for (const room of duelRooms.values()) {
 			if (room.players[0]?.userId === userId && room.players[0]?.conn === conn) {
 				if (room.status !== "waiting" || room.players.length < 2) return;
@@ -664,9 +681,9 @@ wireServer.on("connection", (conn) => {
 				return;
 			}
 		}
-	});
+	}));
 
-	conn.on("ready", () => {
+	conn.on("ready", safeHandler("ready", () => {
 		for (const room of duelRooms.values()) {
 			if (room.players.some((p) => p.userId === userId && p.conn === conn)) {
 				if (room.status !== "waiting") return;
@@ -681,9 +698,9 @@ wireServer.on("connection", (conn) => {
 				return;
 			}
 		}
-	});
+	}));
 
-	conn.on("leave", () => {
+	conn.on("leave", safeHandler("leave", () => {
 		for (const room of duelRooms.values()) {
 			const idx = room.players.findIndex((p) => p.userId === userId && p.conn === conn);
 			if (idx === -1) continue;
@@ -711,9 +728,9 @@ wireServer.on("connection", (conn) => {
 			}
 			return;
 		}
-	});
+	}));
 
-	conn.on("guess", (data: { world_x?: number; world_y?: number }) => {
+	conn.on("guess", safeHandler("guess", (data: { world_x?: number; world_y?: number }) => {
 		for (const room of duelRooms.values()) {
 			if (room.players.some((p) => p.userId === userId && p.conn === conn)) {
 				if (room.status !== "in_progress") return;
@@ -726,9 +743,9 @@ wireServer.on("connection", (conn) => {
 				return;
 			}
 		}
-	});
+	}));
 
-	conn.on("spectate", (data: { room: string }) => {
+	conn.on("spectate", safeHandler("spectate", (data: { room: string }) => {
 		const roomCode = (data?.room || "").toUpperCase();
 		const room = duelRooms.get(roomCode);
 		if (!room || room.status === "finished") {
@@ -756,9 +773,9 @@ wireServer.on("connection", (conn) => {
 		conn.on("disconnect", () => {
 			room.spectators = room.spectators.filter((s) => s !== conn);
 		});
-	});
+	}));
 
-	conn.on("disconnect", () => {
+	conn.on("disconnect", safeHandler("disconnect", () => {
 		for (const room of duelRooms.values()) {
 			const idx = room.players.findIndex((p) => p.userId === userId && p.conn === conn);
 			if (idx === -1) continue;
@@ -795,7 +812,7 @@ wireServer.on("connection", (conn) => {
 			}, 30_000);
 			break;
 		}
-	});
+	}));
 });
 
 app.get("/sitemap.xml", (c) => {

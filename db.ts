@@ -263,6 +263,10 @@ const MIGRATIONS: string[] = [
 	"ALTER TABLE submissions ADD COLUMN hints TEXT DEFAULT '[]'",
 	"ALTER TABLE solo_scores ADD COLUMN time_limit INTEGER NOT NULL DEFAULT 90",
 	"ALTER TABLE duel_games ADD COLUMN quickplay INTEGER NOT NULL DEFAULT 0",
+	"ALTER TABLE audit_log ADD COLUMN target_type TEXT",
+	"ALTER TABLE audit_log ADD COLUMN target_id INTEGER",
+	"ALTER TABLE audit_log ADD COLUMN target_username TEXT",
+	"ALTER TABLE audit_log ADD COLUMN details TEXT",
 ];
 
 for (const sql of MIGRATIONS) {
