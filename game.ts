@@ -131,6 +131,8 @@ export type DuelRoom = {
 	roundStartTime: number;
 	createdAt: number;
 	quickplay: boolean;
+	playAgainRequests: Set<number>;
+	_playAgainTimer: ReturnType<typeof setTimeout> | null;
 	_autoStartScheduled?: boolean;
 	_countdownScheduled?: boolean;
 	_countdownTimer?: ReturnType<typeof setTimeout> | null;
@@ -140,7 +142,9 @@ export const duelRooms = new Map<string, DuelRoom>();
 
 type DuelAuditFn = (action: string, targetId: number, details: string) => void;
 let _duelAudit: DuelAuditFn | null = null;
-export function setDuelAuditCallback(fn: DuelAuditFn) { _duelAudit = fn; }
+export function setDuelAuditCallback(fn: DuelAuditFn) {
+	_duelAudit = fn;
+}
 
 export function generateRoomCode(): string {
 	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -175,6 +179,8 @@ export function createDuelRoom(creatorUserId: number, rounds: number): { code: s
 		roundStartTime: 0,
 		createdAt: Date.now(),
 		quickplay: false,
+		playAgainRequests: new Set(),
+		_playAgainTimer: null,
 	});
 	return { code, dbId };
 }
@@ -318,7 +324,12 @@ export function submitDuelGuess(room: DuelRoom, userId: number, worldX: number, 
 		}
 	}
 	for (const spec of room.spectators) {
-		sendTo(spec, "player_pin", { user_id: userId, username: guesser?.username ?? "", world_x: worldX, world_y: worldY });
+		sendTo(spec, "player_pin", {
+			user_id: userId,
+			username: guesser?.username ?? "",
+			world_x: worldX,
+			world_y: worldY,
+		});
 	}
 
 	if (room.guesses.size >= room.players.length) {

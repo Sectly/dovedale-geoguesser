@@ -202,7 +202,10 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 	else if (tab === "staff") loadStaff();
 	else if (tab === "stats") loadStats();
 	else if (tab === "audit") loadAudit();
-	else if (tab === "games") { auditCategory = "games"; loadAudit(); }
+	else if (tab === "games") {
+		auditCategory = "games";
+		loadAudit();
+	}
 }
 
 let expandedSubId = null;
@@ -1516,12 +1519,29 @@ const AUDIT_CATEGORIES = [
 	{
 		key: "moderation",
 		label: "Moderation",
-		actions: ["user_ban_perm", "user_ban_temp", "user_unban", "user_warn", "warning_delete", "warning_edit", "user_role_change"],
+		actions: [
+			"user_ban_perm",
+			"user_ban_temp",
+			"user_unban",
+			"user_warn",
+			"warning_delete",
+			"warning_edit",
+			"user_role_change",
+		],
 	},
 	{
 		key: "content",
 		label: "Content",
-		actions: ["submission_approve", "submission_deny", "suggestion_approve", "suggestion_deny", "location_activate", "location_deactivate", "location_delete", "location_label_edit"],
+		actions: [
+			"submission_approve",
+			"submission_deny",
+			"suggestion_approve",
+			"suggestion_deny",
+			"location_activate",
+			"location_deactivate",
+			"location_delete",
+			"location_label_edit",
+		],
 	},
 	{
 		key: "tickets",
@@ -1541,7 +1561,17 @@ const AUDIT_CATEGORIES = [
 ];
 
 // These are high-volume routine events that are collapsed by default
-const AUDIT_ROUTINE = new Set(["user_login", "user_register", "ticket_reply", "ticket_close", "duel_room_create", "duel_join", "quickplay_queue", "duel_start", "duel_end"]);
+const AUDIT_ROUTINE = new Set([
+	"user_login",
+	"user_register",
+	"ticket_reply",
+	"ticket_close",
+	"duel_room_create",
+	"duel_join",
+	"quickplay_queue",
+	"duel_start",
+	"duel_end",
+]);
 
 let auditOffset = 0;
 const AUDIT_PAGE = 50;

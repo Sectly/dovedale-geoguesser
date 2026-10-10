@@ -80,18 +80,25 @@ async function init() {
 	el("quickplay-btn").addEventListener("click", quickPlay);
 	el("guess-btn").addEventListener("click", submitGuess);
 	el("play-again-btn").addEventListener("click", () => {
-		el("end-screen").classList.add("hidden");
-		el("lobby-screen").classList.remove("hidden");
-		if (wire) {
-			const w = wire;
-			wire = null;
-			w.disconnect();
+		if (isSpectator) {
+			location.href = "/duels";
+			return;
 		}
-		roomCode = null;
-		isHost = false;
-		isSpectator = false;
-		isQuickPlay = false;
-		clearRoomUrl();
+		wire?.emit("play_again", {});
+		el("end-actions").classList.add("hidden");
+		el("end-waiting").classList.remove("hidden");
+		el("end-waiting").classList.add("flex");
+	});
+	el("play-again-cancel-btn").addEventListener("click", () => {
+		wire?.emit("play_again_decline", {});
+		location.href = "/duels";
+	});
+	el("play-again-accept-btn").addEventListener("click", () => {
+		wire?.emit("play_again", {});
+	});
+	el("play-again-decline-btn").addEventListener("click", () => {
+		wire?.emit("play_again_decline", {});
+		location.href = "/duels";
 	});
 
 	if (joinCode) {
@@ -292,10 +299,67 @@ async function connectWire(code, spectate = false) {
 	wire.on("round_result", (data) => showRoundResult(data));
 	wire.on("game_end", (data) => showGameEnd(data));
 	wire.on("error", (data) => showError(data.message || "Unknown error"));
+
+	wire.on("play_again_waiting", () => {
+		el("end-actions").classList.add("hidden");
+		el("end-waiting").classList.remove("hidden");
+		el("end-waiting").classList.add("flex");
+	});
+	wire.on("play_again_incoming", () => {
+		el("end-actions").classList.add("hidden");
+		el("end-incoming").classList.remove("hidden");
+		el("end-incoming").classList.add("flex");
+	});
+	wire.on("play_again_match", async (data) => {
+		const oldWire = wire;
+		wire = null;
+		oldWire.disconnect();
+
+		clearInterval(timerInterval);
+		clearInterval(startCountdownInterval);
+		roomCode = data.code;
+		isHost = data.is_host;
+		isSpectator = false;
+		isQuickPlay = false;
+		pinWorld = null;
+		hasGuessed = false;
+		_spectatorPinColorMap.clear();
+
+		el("end-screen").classList.add("hidden");
+		el("end-actions").classList.remove("hidden");
+		el("end-waiting").classList.add("hidden");
+		el("end-waiting").classList.remove("flex");
+		el("end-incoming").classList.add("hidden");
+		el("end-incoming").classList.remove("flex");
+
+		setRoomUrl(data.code);
+		await connectWire(data.code);
+	});
+	wire.on("play_again_declined", () => {
+		el("end-waiting").classList.add("hidden");
+		el("end-waiting").classList.remove("flex");
+		el("end-actions").classList.remove("hidden");
+		const btn = el("play-again-btn");
+		btn.disabled = true;
+		btn.textContent = "Opponent declined";
+		btn.className = btn.className.replace("bg-blue-600 hover:bg-blue-500", "bg-zinc-700 cursor-not-allowed");
+	});
+	wire.on("play_again_expired", () => {
+		el("end-waiting").classList.add("hidden");
+		el("end-waiting").classList.remove("flex");
+		el("end-actions").classList.remove("hidden");
+		const btn = el("play-again-btn");
+		btn.disabled = true;
+		btn.textContent = "No response";
+		btn.className = btn.className.replace("bg-blue-600 hover:bg-blue-500", "bg-zinc-700 cursor-not-allowed");
+	});
 	wire.on("player_pin", (data) => {
 		if (!isSpectator || !mapCanvas) return;
 		if (!_spectatorPinColorMap.has(data.user_id)) {
-			_spectatorPinColorMap.set(data.user_id, SPECTATOR_PIN_COLORS[_spectatorPinColorMap.size % SPECTATOR_PIN_COLORS.length]);
+			_spectatorPinColorMap.set(
+				data.user_id,
+				SPECTATOR_PIN_COLORS[_spectatorPinColorMap.size % SPECTATOR_PIN_COLORS.length]
+			);
 		}
 		const color = _spectatorPinColorMap.get(data.user_id);
 		mapCanvas.setNamePin(data.user_id, data.world_x, data.world_y, color, data.username);
@@ -360,7 +424,7 @@ function showWaitingRoom(msg) {
             <div class="flex flex-col items-center gap-2">
                 ${p.avatar_url ? `<img src="${escHtml(p.avatar_url)}" class="w-12 h-12 rounded-full border-2 border-zinc-600" />` : `<div class="w-12 h-12 rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined">person</span></div>`}
                 <span class="text-sm">${escHtml(p.display_name || p.username)}</span>
-                ${p.is_host ? '<span class="text-xs text-blue-400">Host</span>' : (p.is_ready ? '<span class="text-xs text-green-400">Ready</span>' : '<span class="text-xs text-zinc-500">Not ready</span>')}
+                ${p.is_host ? '<span class="text-xs text-blue-400">Host</span>' : p.is_ready ? '<span class="text-xs text-green-400">Ready</span>' : '<span class="text-xs text-zinc-500">Not ready</span>'}
             </div>`;
 		}
 		return;
@@ -385,7 +449,7 @@ function showWaitingRoom(msg) {
             <div class="flex flex-col items-center gap-2">
                 ${p.avatar_url ? `<img src="${escHtml(p.avatar_url)}" class="w-12 h-12 rounded-full border-2 border-zinc-600" />` : `<div class="w-12 h-12 rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined">person</span></div>`}
                 <span class="text-sm">${escHtml(p.display_name || p.username)}</span>
-                ${p.is_host ? '<span class="text-xs text-blue-400">Host</span>' : (p.is_ready ? '<span class="text-xs text-green-400">Ready</span>' : '<span class="text-xs text-zinc-500">Not ready</span>')}
+                ${p.is_host ? '<span class="text-xs text-blue-400">Host</span>' : p.is_ready ? '<span class="text-xs text-green-400">Ready</span>' : '<span class="text-xs text-zinc-500">Not ready</span>'}
             </div>`;
 	}
 
@@ -425,13 +489,15 @@ function showWaitingRoom(msg) {
 		if (me && !me.is_ready) {
 			readyBtn.classList.remove("hidden");
 			readyBtn.disabled = false;
-			readyBtn.className = "bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3";
+			readyBtn.className =
+				"bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3";
 			readyBtn.textContent = "Ready";
 			el("waiting-hint").textContent = "Press Ready when you're set to play!";
 		} else {
 			readyBtn.classList.remove("hidden");
 			readyBtn.disabled = true;
-			readyBtn.className = "bg-zinc-700 text-green-400 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3 cursor-not-allowed";
+			readyBtn.className =
+				"bg-zinc-700 text-green-400 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3 cursor-not-allowed";
 			readyBtn.textContent = "Ready ✓";
 			el("waiting-hint").textContent = "Waiting for the host to start...";
 		}
@@ -629,6 +695,19 @@ function showGameEnd(msg) {
 	el("result-screen").classList.add("hidden");
 	el("spectator-banner").classList.add("hidden");
 	el("end-screen").classList.remove("hidden");
+
+	// reset play-again UI state
+	el("end-actions").classList.remove("hidden");
+	el("end-waiting").classList.add("hidden");
+	el("end-waiting").classList.remove("flex");
+	el("end-incoming").classList.add("hidden");
+	el("end-incoming").classList.remove("flex");
+	const paBtn = el("play-again-btn");
+	paBtn.disabled = false;
+	paBtn.textContent = isSpectator ? "Back to Duels" : "Play Again";
+	paBtn.className = paBtn.className.replace("bg-zinc-700 cursor-not-allowed", "bg-blue-600 hover:bg-blue-500");
+	if (isSpectator) el("end-leave-btn").classList.add("hidden");
+	else el("end-leave-btn").classList.remove("hidden");
 
 	const headline = el("end-headline");
 	if (msg.is_tie) {

@@ -586,238 +586,324 @@ function safeHandler<T>(name: string, fn: (data: T) => void): (data: T) => void 
 wireServer.on("connection", (conn) => {
 	const userId = (conn.auth as { userId: number }).userId;
 
-	conn.on("join", safeHandler("join", (data: { room: string }) => {
-		const roomCode = (data?.room || "").toUpperCase();
-		const room = duelRooms.get(roomCode);
+	conn.on(
+		"join",
+		safeHandler("join", (data: { room: string }) => {
+			const roomCode = (data?.room || "").toUpperCase();
+			const room = duelRooms.get(roomCode);
 
-		if (!room) {
-			conn.emit("error", { message: "Room not found" });
-			conn.close(1008, "Room not found");
-			return;
-		}
-		if (room.status === "finished") {
-			conn.emit("error", { message: "Game already finished" });
-			conn.close(1008, "Game already finished");
-			return;
-		}
-
-		const participant = db
-			.query<{ id: number }, [number, number]>(
-				"SELECT id FROM duel_participants WHERE game_id = ? AND user_id = ?"
-			)
-			.get(room.dbId, userId);
-		if (!participant) {
-			conn.emit("error", { message: "You haven't joined this room" });
-			conn.close(1008, "Not a participant");
-			return;
-		}
-
-		const user = db
-			.query<{ id: number; username: string; display_name: string | null; avatar_url: string | null }, [number]>(
-				"SELECT id, username, display_name, avatar_url FROM users WHERE id = ?"
-			)
-			.get(userId);
-		if (!user) {
-			conn.close();
-			return;
-		}
-
-		quickplayMatchedPlayers.delete(userId);
-
-		const existing = room.players.find((p) => p.userId === userId);
-		if (existing) {
-			existing.conn = conn;
-		} else {
-			if (room.players.length >= 2) {
-				conn.emit("error", { message: "Room is full" });
-				conn.close(1008, "Room full");
+			if (!room) {
+				conn.emit("error", { message: "Room not found" });
+				conn.close(1008, "Room not found");
 				return;
 			}
-			room.players.push({
-				userId: user.id,
-				username: user.username,
-				displayName: user.display_name || user.username,
-				avatarUrl: user.avatar_url || "",
-				conn,
-				totalScore: 0,
-			});
-		}
+			if (room.status === "finished") {
+				conn.emit("error", { message: "Game already finished" });
+				conn.close(1008, "Game already finished");
+				return;
+			}
 
-		const roomState = buildRoomState(room);
-		for (const p of room.players) {
-			try {
-				p.conn.emit("room_state", roomState);
-			} catch {}
-		}
+			const participant = db
+				.query<{ id: number }, [number, number]>(
+					"SELECT id FROM duel_participants WHERE game_id = ? AND user_id = ?"
+				)
+				.get(room.dbId, userId);
+			if (!participant) {
+				conn.emit("error", { message: "You haven't joined this room" });
+				conn.close(1008, "Not a participant");
+				return;
+			}
 
-		if (room.quickplay && room.status === "waiting" && room.players.length === 2 && !room._autoStartScheduled) {
-			room._autoStartScheduled = true;
-			setTimeout(() => {
-				room._autoStartScheduled = false;
-				if (room.status === "waiting" && room.players.length === 2) startDuel(room);
-			}, 1000);
-		}
+			const user = db
+				.query<
+					{ id: number; username: string; display_name: string | null; avatar_url: string | null },
+					[number]
+				>("SELECT id, username, display_name, avatar_url FROM users WHERE id = ?")
+				.get(userId);
+			if (!user) {
+				conn.close();
+				return;
+			}
 
-		if (room.status === "in_progress" && room.currentRound > 0) {
-			const loc = room.locations[room.currentRound - 1];
-			try {
-				conn.emit("round_start", {
-					round: room.currentRound,
-					total_rounds: room.rounds,
-					image_url: `/uploads/${loc.image_path}`,
-					time_limit: 60,
+			quickplayMatchedPlayers.delete(userId);
+
+			const existing = room.players.find((p) => p.userId === userId);
+			if (existing) {
+				existing.conn = conn;
+			} else {
+				if (room.players.length >= 2) {
+					conn.emit("error", { message: "Room is full" });
+					conn.close(1008, "Room full");
+					return;
+				}
+				room.players.push({
+					userId: user.id,
+					username: user.username,
+					displayName: user.display_name || user.username,
+					avatarUrl: user.avatar_url || "",
+					conn,
+					totalScore: 0,
 				});
-			} catch {}
-		}
-	}));
+			}
 
-	conn.on("start", safeHandler("start", () => {
-		for (const room of duelRooms.values()) {
-			if (room.players[0]?.userId === userId && room.players[0]?.conn === conn) {
-				if (room.status !== "waiting" || room.players.length < 2) return;
-				if (!room.quickplay) {
-					const joiner = room.players[1];
-					if (joiner && !room.readyPlayers.has(joiner.userId)) {
-						conn.emit("error", { message: "Waiting for your opponent to ready up" });
-						return;
+			const roomState = buildRoomState(room);
+			for (const p of room.players) {
+				try {
+					p.conn.emit("room_state", roomState);
+				} catch {}
+			}
+
+			if (room.quickplay && room.status === "waiting" && room.players.length === 2 && !room._autoStartScheduled) {
+				room._autoStartScheduled = true;
+				setTimeout(() => {
+					room._autoStartScheduled = false;
+					if (room.status === "waiting" && room.players.length === 2) startDuel(room);
+				}, 1000);
+			}
+
+			if (room.status === "in_progress" && room.currentRound > 0) {
+				const loc = room.locations[room.currentRound - 1];
+				try {
+					conn.emit("round_start", {
+						round: room.currentRound,
+						total_rounds: room.rounds,
+						image_url: `/uploads/${loc.image_path}`,
+						time_limit: 60,
+					});
+				} catch {}
+			}
+		})
+	);
+
+	conn.on(
+		"start",
+		safeHandler("start", () => {
+			for (const room of duelRooms.values()) {
+				if (room.players[0]?.userId === userId && room.players[0]?.conn === conn) {
+					if (room.status !== "waiting" || room.players.length < 2) return;
+					if (!room.quickplay) {
+						const joiner = room.players[1];
+						if (joiner && !room.readyPlayers.has(joiner.userId)) {
+							conn.emit("error", { message: "Waiting for your opponent to ready up" });
+							return;
+						}
+					}
+					startDuel(room);
+					return;
+				}
+			}
+		})
+	);
+
+	conn.on(
+		"ready",
+		safeHandler("ready", () => {
+			for (const room of duelRooms.values()) {
+				if (room.players.some((p) => p.userId === userId && p.conn === conn)) {
+					if (room.status !== "waiting") return;
+					room.readyPlayers.add(userId);
+					const state = buildRoomState(room);
+					for (const p of room.players) {
+						try {
+							p.conn.emit("room_state", state);
+						} catch {}
+					}
+					for (const s of room.spectators) {
+						try {
+							s.emit("room_state", state);
+						} catch {}
+					}
+					return;
+				}
+			}
+		})
+	);
+
+	conn.on(
+		"leave",
+		safeHandler("leave", () => {
+			for (const room of duelRooms.values()) {
+				const idx = room.players.findIndex((p) => p.userId === userId && p.conn === conn);
+				if (idx === -1) continue;
+				if (room.status === "in_progress") {
+					abandonDuel(room, userId);
+				} else if (room.status === "waiting") {
+					if (room._countdownTimer) {
+						clearTimeout(room._countdownTimer);
+						room._countdownTimer = null;
+						room._countdownScheduled = false;
+						for (const p of room.players) {
+							try {
+								p.conn.emit("countdown_cancelled", {});
+							} catch {}
+						}
+					}
+					room.readyPlayers.delete(userId);
+					room.players.splice(idx, 1);
+					if (room.players.length === 0) {
+						duelRooms.delete(room.code);
+					} else {
+						const state = buildRoomState(room);
+						for (const p of room.players) {
+							try {
+								p.conn.emit("room_state", state);
+							} catch {}
+						}
 					}
 				}
-				startDuel(room);
 				return;
 			}
-		}
-	}));
+		})
+	);
 
-	conn.on("ready", safeHandler("ready", () => {
-		for (const room of duelRooms.values()) {
-			if (room.players.some((p) => p.userId === userId && p.conn === conn)) {
-				if (room.status !== "waiting") return;
-				room.readyPlayers.add(userId);
-				const state = buildRoomState(room);
-				for (const p of room.players) {
-					try { p.conn.emit("room_state", state); } catch {}
+	conn.on(
+		"guess",
+		safeHandler("guess", (data: { world_x?: number; world_y?: number }) => {
+			for (const room of duelRooms.values()) {
+				if (room.players.some((p) => p.userId === userId && p.conn === conn)) {
+					if (room.status !== "in_progress") return;
+					submitDuelGuess(
+						room,
+						userId,
+						typeof data?.world_x === "number" ? data.world_x : 0,
+						typeof data?.world_y === "number" ? data.world_y : 0
+					);
+					return;
 				}
-				for (const s of room.spectators) {
-					try { s.emit("room_state", state); } catch {}
-				}
+			}
+		})
+	);
+
+	conn.on(
+		"spectate",
+		safeHandler("spectate", (data: { room: string }) => {
+			const roomCode = (data?.room || "").toUpperCase();
+			const room = duelRooms.get(roomCode);
+			if (!room || room.status === "finished") {
+				conn.emit("error", { message: "Room not found or already finished" });
 				return;
 			}
-		}
-	}));
+			if ((room.spectators?.length ?? 0) >= 50) {
+				conn.emit("error", { message: "Spectator limit reached (50)" });
+				conn.close(1008, "Spectator limit");
+				return;
+			}
+			room.spectators.push(conn);
+			conn.emit("room_state", buildRoomState(room, { spectating: true }));
+			if (room.status === "in_progress" && room.currentRound > 0) {
+				const loc = room.locations[room.currentRound - 1];
+				try {
+					conn.emit("round_start", {
+						round: room.currentRound,
+						total_rounds: room.rounds,
+						image_url: `/uploads/${loc.image_path}`,
+						time_limit: 60,
+					});
+				} catch {}
+			}
+			conn.on("disconnect", () => {
+				room.spectators = room.spectators.filter((s) => s !== conn);
+			});
+		})
+	);
 
-	conn.on("leave", safeHandler("leave", () => {
-		for (const room of duelRooms.values()) {
-			const idx = room.players.findIndex((p) => p.userId === userId && p.conn === conn);
-			if (idx === -1) continue;
-			if (room.status === "in_progress") {
-				abandonDuel(room, userId);
-			} else if (room.status === "waiting") {
+	conn.on(
+		"disconnect",
+		safeHandler("disconnect", () => {
+			for (const room of duelRooms.values()) {
+				const idx = room.players.findIndex((p) => p.userId === userId && p.conn === conn);
+				if (idx === -1) continue;
+				if (room.status === "in_progress") {
+					abandonDuel(room, userId);
+					break;
+				}
+				if (room.status !== "waiting") continue;
 				if (room._countdownTimer) {
 					clearTimeout(room._countdownTimer);
 					room._countdownTimer = null;
 					room._countdownScheduled = false;
 					for (const p of room.players) {
-						try { p.conn.emit("countdown_cancelled", {}); } catch {}
+						try {
+							p.conn.emit("countdown_cancelled", {});
+						} catch {}
 					}
 				}
-				room.readyPlayers.delete(userId);
-				room.players.splice(idx, 1);
-				if (room.players.length === 0) {
-					duelRooms.delete(room.code);
-				} else {
-					const state = buildRoomState(room);
-					for (const p of room.players) {
-						try { p.conn.emit("room_state", state); } catch {}
-					}
-				}
-			}
-			return;
-		}
-	}));
-
-	conn.on("guess", safeHandler("guess", (data: { world_x?: number; world_y?: number }) => {
-		for (const room of duelRooms.values()) {
-			if (room.players.some((p) => p.userId === userId && p.conn === conn)) {
-				if (room.status !== "in_progress") return;
-				submitDuelGuess(
-					room,
-					userId,
-					typeof data?.world_x === "number" ? data.world_x : 0,
-					typeof data?.world_y === "number" ? data.world_y : 0
-				);
-				return;
-			}
-		}
-	}));
-
-	conn.on("spectate", safeHandler("spectate", (data: { room: string }) => {
-		const roomCode = (data?.room || "").toUpperCase();
-		const room = duelRooms.get(roomCode);
-		if (!room || room.status === "finished") {
-			conn.emit("error", { message: "Room not found or already finished" });
-			return;
-		}
-		if ((room.spectators?.length ?? 0) >= 50) {
-			conn.emit("error", { message: "Spectator limit reached (50)" });
-			conn.close(1008, "Spectator limit");
-			return;
-		}
-		room.spectators.push(conn);
-		conn.emit("room_state", buildRoomState(room, { spectating: true }));
-		if (room.status === "in_progress" && room.currentRound > 0) {
-			const loc = room.locations[room.currentRound - 1];
-			try {
-				conn.emit("round_start", {
-					round: room.currentRound,
-					total_rounds: room.rounds,
-					image_url: `/uploads/${loc.image_path}`,
-					time_limit: 60,
-				});
-			} catch {}
-		}
-		conn.on("disconnect", () => {
-			room.spectators = room.spectators.filter((s) => s !== conn);
-		});
-	}));
-
-	conn.on("disconnect", safeHandler("disconnect", () => {
-		for (const room of duelRooms.values()) {
-			const idx = room.players.findIndex((p) => p.userId === userId && p.conn === conn);
-			if (idx === -1) continue;
-			if (room.status === "in_progress") {
-				abandonDuel(room, userId);
-				break;
-			}
-			if (room.status !== "waiting") continue;
-			if (room._countdownTimer) {
-				clearTimeout(room._countdownTimer);
-				room._countdownTimer = null;
-				room._countdownScheduled = false;
-				for (const p of room.players) {
-					try {
-						p.conn.emit("countdown_cancelled", {});
-					} catch {}
-				}
-			}
-			setTimeout(() => {
-				const r = duelRooms.get(room.code);
-				if (!r) return;
-				const i = r.players.findIndex((p) => p.userId === userId && p.conn === conn);
-				if (i !== -1) {
-					r.readyPlayers.delete(userId);
-					r.players.splice(i, 1);
-					if (r.players.length === 0) duelRooms.delete(room.code);
-					else {
-						const state = buildRoomState(r);
-						for (const p of r.players) {
-							try { p.conn.emit("room_state", state); } catch {}
+				setTimeout(() => {
+					const r = duelRooms.get(room.code);
+					if (!r) return;
+					const i = r.players.findIndex((p) => p.userId === userId && p.conn === conn);
+					if (i !== -1) {
+						r.readyPlayers.delete(userId);
+						r.players.splice(i, 1);
+						if (r.players.length === 0) duelRooms.delete(room.code);
+						else {
+							const state = buildRoomState(r);
+							for (const p of r.players) {
+								try {
+									p.conn.emit("room_state", state);
+								} catch {}
+							}
 						}
 					}
+				}, 30_000);
+				break;
+			}
+		})
+	);
+
+	conn.on(
+		"play_again",
+		safeHandler("play_again", () => {
+			const room = [...duelRooms.values()].find((r) =>
+				r.players.some((p) => p.userId === userId && p.conn === conn)
+			);
+			if (!room || room.status !== "finished") return;
+
+			room.playAgainRequests.add(userId);
+
+			if (room.playAgainRequests.size >= 2) {
+				if (room._playAgainTimer) {
+					clearTimeout(room._playAgainTimer);
+					room._playAgainTimer = null;
 				}
-			}, 30_000);
-			break;
-		}
-	}));
+				const [p0, p1] = room.players;
+				const newRoom = createDuelRoom(p0.userId, room.rounds);
+				joinDuelRoom(newRoom.code, p1.userId);
+				if (room.quickplay) {
+					db.run("UPDATE duel_games SET quickplay = 1 WHERE id = ?", [newRoom.dbId]);
+					const nr = duelRooms.get(newRoom.code);
+					if (nr) nr.quickplay = true;
+				}
+				p0.conn.emit("play_again_match", { code: newRoom.code, is_host: true });
+				p1.conn.emit("play_again_match", { code: newRoom.code, is_host: false });
+			} else {
+				const other = room.players.find((p) => p.userId !== userId);
+				conn.emit("play_again_waiting", {});
+				if (other) other.conn.emit("play_again_incoming", {});
+				room._playAgainTimer = setTimeout(() => {
+					room._playAgainTimer = null;
+					conn.emit("play_again_expired", {});
+				}, 30_000);
+			}
+		})
+	);
+
+	conn.on(
+		"play_again_decline",
+		safeHandler("play_again_decline", () => {
+			const room = [...duelRooms.values()].find((r) =>
+				r.players.some((p) => p.userId === userId && p.conn === conn)
+			);
+			if (!room) return;
+			if (room._playAgainTimer) {
+				clearTimeout(room._playAgainTimer);
+				room._playAgainTimer = null;
+			}
+			const requester = room.players.find((p) => room.playAgainRequests.has(p.userId));
+			if (requester) requester.conn.emit("play_again_declined", {});
+			room.playAgainRequests.clear();
+		})
+	);
 });
 
 app.get("/sitemap.xml", (c) => {
@@ -1353,7 +1439,11 @@ app.post("/api/duels/quickplay", async (c) => {
 				if (room) room.quickplay = true;
 				quickplayMatchedPlayers.set(user.id, entry.code);
 				quickplayMatchedPlayers.set(waitingUserId, entry.code);
-				auditLog(user, "quickplay_queue", { targetType: "duel", targetId: room?.dbId, details: `matched, room ${entry.code}, ${rounds} rounds` });
+				auditLog(user, "quickplay_queue", {
+					targetType: "duel",
+					targetId: room?.dbId,
+					details: `matched, room ${entry.code}, ${rounds} rounds`,
+				});
 				return c.json({ status: "matched", code: entry.code });
 			}
 		}
@@ -1426,7 +1516,11 @@ app.post("/api/duels/rooms", async (c) => {
 	const body = (await c.req.json().catch(() => ({}))) as { rounds?: number };
 	const rounds = Math.min(10, Math.max(1, body.rounds || 5));
 	const room = createDuelRoom(user.id, rounds);
-	auditLog(user, "duel_room_create", { targetType: "duel", targetId: room.dbId, details: `${room.code}, ${rounds} rounds` });
+	auditLog(user, "duel_room_create", {
+		targetType: "duel",
+		targetId: room.dbId,
+		details: `${room.code}, ${rounds} rounds`,
+	});
 	sendDiscordWebhook(
 		`⚔️ **Duel room created**: \`${room.code}\` by **${user.display_name || user.username}** (${rounds} rounds)`,
 		"duels",
@@ -1448,7 +1542,8 @@ app.post("/api/duels/rooms/:code/join", (c) => {
 	if (result === "full") return c.text("Room is full", 409);
 	if (result === "in_progress") return c.text("Game already in progress", 409);
 	const joinedRoom = duelRooms.get(code);
-	if (joinedRoom) auditLog(user, "duel_join", { targetType: "duel", targetId: joinedRoom.dbId, details: `joined room ${code}` });
+	if (joinedRoom)
+		auditLog(user, "duel_join", { targetType: "duel", targetId: joinedRoom.dbId, details: `joined room ${code}` });
 	return c.json({ success: true });
 });
 
@@ -2943,7 +3038,11 @@ app.get("/api/admin/audit", (c) => {
 		clauses.push("a.action = ?");
 		params.push(action);
 	} else if (actions) {
-		const list = actions.split(",").map((a) => a.trim()).filter(Boolean).slice(0, 20);
+		const list = actions
+			.split(",")
+			.map((a) => a.trim())
+			.filter(Boolean)
+			.slice(0, 20);
 		if (list.length === 1) {
 			clauses.push("a.action = ?");
 			params.push(list[0]);
@@ -2966,11 +3065,17 @@ app.get("/api/admin/audit", (c) => {
 	}
 	if (from) {
 		const ts = Math.floor(new Date(from).getTime() / 1000);
-		if (!isNaN(ts)) { clauses.push("a.created_at >= ?"); params.push(ts); }
+		if (!isNaN(ts)) {
+			clauses.push("a.created_at >= ?");
+			params.push(ts);
+		}
 	}
 	if (to) {
 		const ts = Math.floor(new Date(to).getTime() / 1000);
-		if (!isNaN(ts)) { clauses.push("a.created_at <= ?"); params.push(ts); }
+		if (!isNaN(ts)) {
+			clauses.push("a.created_at <= ?");
+			params.push(ts);
+		}
 	}
 	if (search) {
 		const pattern = `%${search}%`;
