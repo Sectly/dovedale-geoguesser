@@ -1,0 +1,22 @@
+{
+	"name": "dovedale-geoguesser",
+	"repository": "https://github.com/Sectly/dovedale-geoguesser",
+	"scripts": {
+		"start": "bun run server.ts",
+		"dev": "bun run --watch server.ts",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"sync-map": "bun run scripts/sync-map.ts"
+	},
+	"dependencies": {
+		"@webwirejs/client": "^0.1.0",
+		"@webwirejs/hono": "^0.1.0",
+		"@webwirejs/server": "^0.1.0",
+		"hono": "^4.11.0",
+		"sharp": "^0.35.5"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.3.4",
+		"prettier": "^3.4.2"
+	}
+}

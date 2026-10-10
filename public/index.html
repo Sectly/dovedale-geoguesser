@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dovedale GeoGuesser</title>
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&family=Inter:opsz,wght@14..32,200..700"
+    />
+    <link rel="manifest" href="/manifest.json" />
+    <meta
+      name="description"
+      content="GeoGuesser for the Dovedale Railway Roblox game. Guess locations from screenshots, challenge friends to duels, climb the leaderboard."
+    />
+    <link rel="canonical" href="https://dovedalegeoguesser.com/" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta property="og:title" content="Dovedale GeoGuesser" />
+    <meta property="og:description" content="Identify locations across the Dovedale Railway from screenshots. Challenge friends, climb the leaderboard." />
+    <meta property="og:image" content="__OG_IMAGE__" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://dovedalegeoguesser.com/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Dovedale GeoGuesser" />
+    <meta name="twitter:description" content="Identify locations across the Dovedale Railway from screenshots. Challenge friends, climb the leaderboard." />
+    <meta name="twitter:image" content="__OG_IMAGE__" />
+    <link rel="stylesheet" href="/shared.css?v=2" />
+  </head>
+  <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col items-center px-6">
+    <div class="flex-1 flex items-center justify-center py-12">
+      <div class="text-center max-w-lg">
+        <h1 class="text-5xl font-bold mb-3">Dovedale GeoGuesser</h1>
+        <p class="text-zinc-400 text-lg mb-10">Identify locations across the Dovedale Railway from screenshots. Challenge friends, climb the leaderboard.</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <a href="/play" class="md-card md-card-filled p-6 text-left group">
+            <span class="material-symbols-outlined text-3xl mb-2 block" style="font-variation-settings: &quot;FILL&quot; 1">explore</span>
+            <div class="font-bold text-xl mb-1">Solo</div>
+            <div class="text-blue-200 text-sm">Guess locations at your own pace.</div>
+          </a>
+          <a href="/duels" class="md-card p-6 text-left group">
+            <span class="material-symbols-outlined text-3xl mb-2 block text-[var(--md-primary-bright)]" style="font-variation-settings: &quot;FILL&quot; 1"
+              >swords</span
+            >
+            <div class="font-bold text-xl mb-1">Duels</div>
+            <div class="text-zinc-400 text-sm">Head-to-head 1v1 matches. Login required.</div>
+          </a>
+          <a href="/leaderboard" class="md-card p-6 text-left group">
+            <span class="material-symbols-outlined text-3xl mb-2 block text-[var(--md-primary-bright)]" style="font-variation-settings: &quot;FILL&quot; 1"
+              >leaderboard</span
+            >
+            <div class="font-bold text-xl mb-1">Leaderboard</div>
+            <div class="text-zinc-400 text-sm">Top scores for solo and duels.</div>
+          </a>
+          <a href="/daily" class="md-card p-6 text-left group">
+            <span class="material-symbols-outlined text-3xl mb-2 block text-[var(--md-primary-bright)]" style="font-variation-settings: &quot;FILL&quot; 1"
+              >calendar_today</span
+            >
+            <div class="font-bold text-xl mb-1">Daily Challenge</div>
+            <div class="text-zinc-400 text-sm">One location per day. Track your streak. Login required.</div>
+          </a>
+          <a href="/submit" class="md-card p-6 text-left group">
+            <span class="material-symbols-outlined text-3xl mb-2 block text-[var(--md-primary-bright)]" style="font-variation-settings: &quot;FILL&quot; 1"
+              >add_photo_alternate</span
+            >
+            <div class="font-bold text-xl mb-1">Submit a Location</div>
+            <div class="text-zinc-400 text-sm">Contribute screenshots to the game. Login required.</div>
+          </a>
+          <a href="/settings" id="profile-card" class="md-card p-6 text-left group">
+            <span class="material-symbols-outlined text-3xl mb-2 block text-[var(--md-primary-bright)]" style="font-variation-settings: &quot;FILL&quot; 1"
+              >person</span
+            >
+            <div class="font-bold text-xl mb-1">Profile</div>
+            <div class="text-zinc-400 text-sm" id="profile-card-sub">View stats, streaks, and settings.</div>
+          </a>
+        </div>
+        <p class="text-zinc-600 text-xs mt-5" id="footer-map-credit">
+          Map data &amp; tiles from the
+          <a
+            href="https://github.com/dovedalerailway/dovedale-map"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="underline underline-offset-2 hover:text-zinc-400 transition"
+            >Dovedale Live Map</a
+          >
+        </p>
+      </div>
+    </div>
+
+    <footer class="w-full flex flex-col items-center gap-1 py-6 mt-auto">
+      <div class="flex gap-3 text-zinc-700 text-xs">
+        <a href="/tos" class="hover:text-zinc-500 transition">Terms of Service</a>
+        <a href="/privacy" class="hover:text-zinc-500 transition">Privacy Policy</a>
+        <a href="/fairplay" class="hover:text-zinc-500 transition">Fair Play</a>
+        <a href="/guidelines" class="hover:text-zinc-500 transition">Upload Guidelines</a>
+        <a href="/settings" class="hover:text-zinc-500 transition">Settings</a>
+      </div>
+      <p class="text-zinc-700 text-xs mt-1">
+        Dovedale GeoGuesser is in <span class="text-yellow-700 font-medium">beta</span>: expect bugs and rough edges. | Not an official Dovedale Railway
+        project.
+      </p>
+    </footer>
+    <script>
+      fetch("/api/meta")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!d?.repo) return;
+          const el = document.getElementById("footer-map-credit");
+          if (el)
+            el.innerHTML += ` | <a href="${d.repo}" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-zinc-400 transition">Contribute to Dovedale GeoGuesser</a>`;
+        })
+        .catch(() => {});
+      fetch("/api/auth/me")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((user) => {
+          if (!user) return;
+          const card = document.getElementById("profile-card");
+          const sub = document.getElementById("profile-card-sub");
+          if (card) card.href = `/u/${encodeURIComponent(user.username)}`;
+          if (sub) sub.textContent = `Logged in as ${user.display_name || user.username}.`;
+        })
+        .catch(() => {});
+    </script>
+    <script src="/fp.js"></script>
+  </body>
+</html>

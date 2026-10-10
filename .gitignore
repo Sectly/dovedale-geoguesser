@@ -1,0 +1,11 @@
+.env
+node_modules
+bun.lockb
+rorender
+**/.DS_Store
+bun.lock
+package-lock.json
+public/images/generated
+public/uploads/
+data/
+memory/

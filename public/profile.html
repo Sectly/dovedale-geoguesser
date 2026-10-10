@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile | Dovedale GeoGuesser</title>
+    <meta name="description" content="Player profile on Dovedale GeoGuesser." />
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&family=Inter:opsz,wght@14..32,200..700"
+    />
+    <link rel="stylesheet" href="/shared.css?v=2" />
+  </head>
+  <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
+    <nav class="bg-zinc-900 border-b border-zinc-800 flex items-center gap-4 px-4 py-2">
+      <a href="/" class="text-zinc-400 hover:text-zinc-100 transition flex items-center gap-1 text-sm">
+        <span class="material-symbols-outlined text-base leading-none">home</span> Home
+      </a>
+      <span class="text-zinc-700">/</span>
+      <span class="text-zinc-100 font-semibold text-sm" id="nav-username">Profile</span>
+      <div class="ml-auto" id="auth-area"></div>
+    </nav>
+
+    <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-8" id="main">
+      <div class="text-zinc-500 text-center py-16">Loading...</div>
+    </main>
+
+    <script src="/shared.js"></script>
+    <script>
+      const _pathMatch = location.pathname.match(/^\/u\/([^/]+)/);
+      const username = _pathMatch ? decodeURIComponent(_pathMatch[1]) : new URLSearchParams(location.search).get("u") || "";
+
+      async function init() {
+        let me = null;
+        try {
+          const r = await fetch("/api/auth/me");
+          if (r.ok) me = await r.json();
+        } catch {}
+
+        const area = el("auth-area");
+        if (me) {
+          area.innerHTML = `<div class="flex items-center gap-2">
+          ${me.avatar_url ? `<img src="${escHtml(me.avatar_url)}" class="w-7 h-7 rounded-full" />` : ""}
+          <a href="/u/${encodeURIComponent(me.username)}" class="text-sm text-zinc-300 hover:text-white transition">${escHtml(me.display_name || me.username)}</a>
+          <a href="/api/auth/logout" class="text-xs text-zinc-500 hover:text-zinc-300 transition ml-1">Logout</a>
+        </div>`;
+        } else {
+          area.innerHTML = `<a href="/api/auth/login" class="text-sm bg-zinc-700 hover:bg-zinc-600 transition px-3 py-1.5 rounded-lg">Login with Discord</a>`;
+        }
+
+        if (!username) {
+          el("main").innerHTML = notFoundMsg("No user specified.");
+          return;
+        }
+
+        const r = await fetch(`/api/profile/${encodeURIComponent(username)}`);
+        if (!r.ok) {
+          const msg = r.status === 403 ? "This profile is private." : "User not found.";
+          el("main").innerHTML = notFoundMsg(msg);
+          return;
+        }
+        const p = await r.json();
+        render(p, me);
+      }
+
+      function notFoundMsg(msg) {
+        return `<div class="text-center py-16">
+        <span class="material-symbols-outlined text-5xl text-zinc-700 block mb-4">search_off</span>
+        <div class="text-zinc-400 text-lg font-semibold mb-1">${escHtml(msg)}</div>
+        <a href="/" class="inline-flex items-center gap-2 mt-6 bg-zinc-800 hover:bg-zinc-700 transition px-6 py-2.5 rounded-full font-semibold text-sm text-zinc-200 border border-zinc-700">
+          <span class="material-symbols-outlined text-base leading-none">home</span> Return Home
+        </a>
+      </div>`;
+      }
+
+      function stat(label, value, sub) {
+        return `<div class="bg-zinc-900 rounded-2xl px-5 py-4 text-center">
+        <div class="text-2xl font-bold font-mono">${value ?? "-"}</div>
+        <div class="text-zinc-400 text-sm mt-1">${label}</div>
+        ${sub ? `<div class="text-zinc-600 text-xs mt-0.5">${sub}</div>` : ""}
+      </div>`;
+      }
+
+      function render(p, me) {
+        const isMe = me?.id === p.id;
+        document.title = `${p.display_name || p.username} | Dovedale GeoGuesser`;
+        el("nav-username").textContent = p.display_name || p.username;
+        const ogImg = `/og.png?type=profile&u=${encodeURIComponent(p.username)}`;
+        document.querySelector('meta[property="og:title"]')?.setAttribute("content", `${p.display_name || p.username} | Dovedale GeoGuesser`);
+        document
+          .querySelector('meta[property="og:description"]')
+          ?.setAttribute("content", `View ${p.display_name || p.username}'s GeoGuesser stats on the Dovedale Railway.`);
+        document.querySelector('meta[property="og:image"]')?.setAttribute("content", ogImg);
+        document.querySelector('meta[name="twitter:image"]')?.setAttribute("content", ogImg);
+
+        const soloGames = p.solo?.total_games ?? 0;
+        const duelGames = p.duels?.games ?? 0;
+        const duelWins = p.duels?.wins ?? 0;
+        const winRate = duelGames > 0 ? Math.round((duelWins / duelGames) * 100) : null;
+        const joined = new Date(p.created_at * 1000).toLocaleDateString(undefined, { year: "numeric", month: "long" });
+
+        el("main").innerHTML = `
+        <div class="flex items-center gap-5 mb-8">
+          ${
+            p.avatar_url
+              ? `<img src="${escHtml(p.avatar_url)}" class="w-20 h-20 rounded-full border-2 border-zinc-700" />`
+              : `<div class="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center"><span class="material-symbols-outlined text-4xl text-zinc-600">person</span></div>`
+          }
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="text-3xl font-bold">${escHtml(p.display_name || p.username)}</h1>
+              ${p.role ? `<span class="text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${p.role === "operator" ? "bg-yellow-900/60 text-yellow-300" : p.role === "supervisor" ? "bg-purple-900/60 text-purple-300" : "bg-blue-900/60 text-blue-300"}"><span class="material-symbols-outlined" style="font-size:12px;font-variation-settings:'FILL' 1">shield</span>${escHtml(p.role.charAt(0).toUpperCase() + p.role.slice(1))}</span>` : ""}
+            </div>
+            <div class="text-zinc-500 text-sm">@${escHtml(p.username)}</div>
+            <div class="text-zinc-600 text-xs mt-1">Member since ${joined}</div>
+          </div>
+          <div class="ml-auto flex gap-3 items-center">
+            ${
+              p.profile_private
+                ? `<span class="text-xs ${me?.role ? "text-zinc-500" : "text-zinc-600"} flex items-center gap-1"><span class="material-symbols-outlined text-sm leading-none">lock</span> Private${me?.role && !isMe ? " (staff view)" : ""}</span>`
+                : `<button id="share-btn" class="text-xs text-zinc-500 hover:text-zinc-300 transition flex items-center gap-1"><span class="material-symbols-outlined text-sm leading-none">share</span> Share</button>`
+            }
+            ${me?.role ? `<a href="/admin" class="text-xs text-zinc-500 hover:text-zinc-300 transition flex items-center gap-1"><span class="material-symbols-outlined text-sm leading-none">admin_panel_settings</span> Staff Panel</a>` : ""}
+            ${
+              isMe
+                ? `<a href="/settings" class="text-xs text-zinc-500 hover:text-zinc-300 transition">Settings</a>
+            <a href="/api/auth/logout" class="text-xs text-zinc-500 hover:text-zinc-300 transition">Logout</a>`
+                : ""
+            }
+          </div>
+        </div>
+
+        ${
+          p.current_streak > 0 || p.longest_streak > 0
+            ? `
+        <div class="flex gap-4 mb-6">
+          <div class="flex-1 bg-orange-900/30 border border-orange-800/40 rounded-2xl px-5 py-4 flex items-center gap-3">
+            <span class="material-symbols-outlined text-3xl text-orange-400" style="font-variation-settings:'FILL' 1">local_fire_department</span>
+            <div>
+              <div class="text-xl font-bold">${p.current_streak} day${p.current_streak !== 1 ? "s" : ""}</div>
+              <div class="text-orange-300/70 text-xs">Current streak</div>
+            </div>
+          </div>
+          <div class="flex-1 bg-zinc-900 rounded-2xl px-5 py-4 flex items-center gap-3">
+            <span class="material-symbols-outlined text-3xl text-yellow-400" style="font-variation-settings:'FILL' 1">grade</span>
+            <div>
+              <div class="text-xl font-bold">${p.longest_streak}</div>
+              <div class="text-zinc-400 text-xs">Longest streak</div>
+            </div>
+          </div>
+        </div>`
+            : ""
+        }
+
+        <h2 class="font-bold text-zinc-300 mb-3 mt-2">Solo</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+          ${stat("Best Score", p.solo?.best_score !== null ? (p.solo.best_score ?? 0).toLocaleString() : "-")}
+          ${stat("Games Played", soloGames.toLocaleString())}
+          ${stat("Avg Score", p.solo?.avg_score != null ? Math.round(p.solo.avg_score).toLocaleString() : "-")}
+        </div>
+
+        <h2 class="font-bold text-zinc-300 mb-3">Daily Challenge</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+          ${stat("Best Daily Score", p.daily?.best !== null ? (p.daily?.best ?? 0).toLocaleString() : "-")}
+          ${stat("Days Played", (p.daily?.played ?? 0).toLocaleString())}
+          ${stat("Avg Score", p.daily?.avg != null ? Math.round(p.daily.avg).toLocaleString() : "-")}
+        </div>
+
+        <h2 class="font-bold text-zinc-300 mb-3">Duels</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+          ${stat("Wins", duelWins.toLocaleString())}
+          ${stat("Games", duelGames.toLocaleString())}
+          ${stat("Win Rate", winRate !== null ? `${winRate}%` : "-")}
+        </div>
+
+        ${
+          (p.submissions?.total ?? 0) > 0
+            ? `
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold text-zinc-300">Submissions</h2>
+          ${isMe ? `<a href="/settings#submissions" class="text-xs text-zinc-500 hover:text-zinc-300 transition">View my submissions →</a>` : ""}
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-6">
+          ${stat("Submitted", p.submissions.total.toLocaleString())}
+          ${stat("Approved", p.submissions.approved?.toLocaleString() ?? "0")}
+        </div>`
+            : ""
+        }
+      `;
+        el("share-btn")?.addEventListener("click", () => shareProfile(p.username));
+      }
+
+      function shareProfile(username) {
+        const url = `${location.origin}/u/${encodeURIComponent(username)}`;
+        navigator.clipboard
+          .writeText(url)
+          .then(() => {
+            const btn = el("share-btn");
+            if (btn) {
+              btn.innerHTML = '<span class="material-symbols-outlined text-sm leading-none">check</span> Copied!';
+              setTimeout(() => {
+                btn.innerHTML = '<span class="material-symbols-outlined text-sm leading-none">share</span> Share';
+              }, 2000);
+            }
+          })
+          .catch(() => {
+            prompt("Profile link:", url);
+          });
+      }
+
+      init();
+    </script>
+    <script src="/fp.js"></script>
+  </body>
+</html>

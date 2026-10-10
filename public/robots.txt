@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Allow: /u/
+Allow: /duel/
+
+Disallow: /admin
+Disallow: /api/
+Disallow: /uploads/
+Disallow: /play
+Disallow: /duels
+Disallow: /daily
+Disallow: /submit
+
+Sitemap: https://dovedalegeoguesser.com/sitemap.xml
