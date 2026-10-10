@@ -296,7 +296,9 @@ class MapCanvas {
 		};
 		ctx.getTransform = () => transform;
 		ctx.save = () => {
-			savedStack.push(new DOMMatrix([transform.a, transform.b, transform.c, transform.d, transform.e, transform.f]));
+			savedStack.push(
+				new DOMMatrix([transform.a, transform.b, transform.c, transform.d, transform.e, transform.f])
+			);
 			original.save();
 		};
 		ctx.restore = () => {
