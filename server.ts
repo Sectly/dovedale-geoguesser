@@ -780,6 +780,7 @@ wireServer.on("connection", (conn) => {
 			const room = duelRooms.get(roomCode);
 			if (!room || room.status === "finished") {
 				conn.emit("error", { message: "Room not found or already finished" });
+				conn.close(1008, "Room not found or already finished");
 				return;
 			}
 			if ((room.spectators?.length ?? 0) >= 50) {

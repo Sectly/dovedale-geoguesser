@@ -291,7 +291,15 @@ async function connectWire(code, spectate = false) {
 	});
 	wire.on("round_result", (data) => showRoundResult(data));
 	wire.on("game_end", (data) => showGameEnd(data));
-	wire.on("error", (data) => showError(data.message || "Unknown error"));
+	wire.on("error", (data) => {
+		showError(data.message || "Unknown error");
+		if (!el("end-screen").classList.contains("hidden")) return;
+		el("spectator-banner").classList.add("hidden");
+		el("waiting-screen").classList.add("hidden");
+		el("round-screen").classList.add("hidden");
+		el("lobby-screen").classList.remove("hidden");
+		clearRoomUrl();
+	});
 
 	wire.on("play_again_waiting", () => {
 		el("end-actions").classList.add("hidden");
@@ -469,7 +477,7 @@ function showWaitingRoom(msg) {
 		el("waiting-hint").textContent = isQuickPlay
 			? "Searching for an opponent…"
 			: "Waiting for another player to join...";
-	} else if (isHost && !isSpectator && !isQuickPlay) {
+	} else if (isHost && !isSpectator) {
 		const joiner = msg.players.find((p) => !p.is_host);
 		const joinerReady = !joiner || joiner.is_ready;
 		const startBtn = el("start-duel-btn");
