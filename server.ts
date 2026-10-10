@@ -868,7 +868,7 @@ const _htmlPages: Record<string, string> = Object.fromEntries(
 );
 
 const _staticSiteUrl = (process.env.SITE_URL || "").replace(/\/$/, "");
-const _ogVersion = Math.floor(Date.now() / 1000) % 10000;
+const _ogVersion = 2;
 const _htmlPagesFixed = Object.fromEntries(
 	Object.entries(_htmlPages).map(([route, html]) => [
 		route,

@@ -1666,7 +1666,7 @@ function renderAudit({ rows, total, offset }, reset) {
 		routineHtml = `<div class="mt-1 border border-zinc-800 rounded-xl overflow-hidden">
             <button onclick="toggleAuditRoutine()" class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-zinc-800/40 transition text-zinc-500">
                 <span class="material-symbols-outlined text-base leading-none">expand_more</span>
-                <span>${routineRows.length} routine event${routineRows.length !== 1 ? "s" : ""} — logins, registrations, ticket replies</span>
+                <span>${routineRows.length} routine event${routineRows.length !== 1 ? "s" : ""} - logins, registrations, ticket replies</span>
             </button>
         </div>`;
 	}
