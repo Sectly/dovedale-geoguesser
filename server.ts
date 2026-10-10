@@ -2702,16 +2702,20 @@ app.post("/api/locations/:id/suggest", async (c) => {
 	if (!user) return c.text("Login required", 401);
 	if (isBanned(user)) return c.text("You are banned", 403);
 
-	const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
-	if (user.created_at > thirtyDaysAgo)
-		return c.text("Your account must be at least 30 days old to suggest improvements", 403);
+	const isStaff = user.role && ["moderator", "supervisor", "operator"].includes(user.role);
 
-	const gamesRow = db
-		.query<{ total: number }, [number, number]>(
-			"SELECT (SELECT COUNT(*) FROM solo_scores WHERE user_id = ?) + (SELECT COUNT(*) FROM daily_scores WHERE user_id = ?) AS total"
-		)
-		.get(user.id, user.id);
-	if ((gamesRow?.total ?? 0) < 5) return c.text("You must have played at least 5 games to suggest improvements", 403);
+	if (!isStaff) {
+		const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
+		if (user.created_at > thirtyDaysAgo)
+			return c.text("Your account must be at least 30 days old to suggest changes", 403);
+
+		const gamesRow = db
+			.query<{ total: number }, [number, number]>(
+				"SELECT (SELECT COUNT(*) FROM solo_scores WHERE user_id = ?) + (SELECT COUNT(*) FROM daily_scores WHERE user_id = ?) AS total"
+			)
+			.get(user.id, user.id);
+		if ((gamesRow?.total ?? 0) < 5) return c.text("You must have played at least 5 games to suggest changes", 403);
+	}
 
 	if (!user.suggestions_agreed) return c.text("You must agree to the suggestions policy first", 403);
 
