@@ -2113,6 +2113,9 @@ app.get("/api/gdpr/export", (c) => {
 		)
 		.all(user.id);
 	const warnings = db.query("SELECT id, reason, created_at FROM user_warnings WHERE user_id = ?").all(user.id);
+	const fingerprints = db
+		.query("SELECT fp_hash, first_seen, last_seen FROM fingerprints WHERE user_id = ?")
+		.all(user.id);
 
 	return c.json({
 		account: {
@@ -2132,8 +2135,9 @@ app.get("/api/gdpr/export", (c) => {
 		support_tickets: tickets,
 		ticket_replies: ticketReplies,
 		warnings,
+		fingerprints,
 		exported_at: new Date().toISOString(),
-		export_version: 2,
+		export_version: 3,
 	});
 });
 
@@ -2142,23 +2146,25 @@ app.delete("/api/account", async (c) => {
 	if (!user) return c.text("Login required", 401);
 	const body = (await c.req.json().catch(() => ({}))) as { confirm?: unknown };
 	if (body.confirm !== true) return c.text("Confirmation required", 400);
-	db.run(
-		`UPDATE users SET
-		username = '[deleted]', display_name = NULL, avatar_url = NULL,
-		discord_id = '[deleted:' || user.id || ']', profile_private = 1
-		WHERE id = ?`,
-		[user.id]
-	);
-	db.run("DELETE FROM sessions WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM solo_scores WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM daily_scores WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM duel_round_scores WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM duel_participants WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM fingerprints WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM support_tickets WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM location_suggestions WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM user_warnings WHERE user_id = ?", [user.id]);
-	db.run("UPDATE submissions SET submitted_by = NULL WHERE submitted_by = ?", [user.id]);
+	db.transaction(() => {
+		db.run(
+			`UPDATE users SET
+			username = '[deleted]', display_name = NULL, avatar_url = NULL,
+			discord_id = '[deleted:' || ? || ']', profile_private = 1
+			WHERE id = ?`,
+			[user.id, user.id]
+		);
+		db.run("DELETE FROM sessions WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM solo_scores WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM daily_scores WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM duel_round_scores WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM duel_participants WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM fingerprints WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM support_tickets WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM location_suggestions WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM user_warnings WHERE user_id = ?", [user.id]);
+		db.run("UPDATE submissions SET submitted_by = NULL WHERE submitted_by = ?", [user.id]);
+	})();
 	auditLog(null, "user_delete", { targetType: "user", targetId: user.id, targetUsername: user.username });
 	clearSessionCookie(c);
 	return c.json({ success: true });
@@ -2215,6 +2221,9 @@ app.get("/api/admin/users/:id/gdpr-export", (c) => {
 	const warnings = db
 		.query("SELECT id, issued_by_username, reason, created_at FROM user_warnings WHERE user_id = ?")
 		.all(userId);
+	const fingerprints = db
+		.query("SELECT fp_hash, first_seen, last_seen FROM fingerprints WHERE user_id = ?")
+		.all(userId);
 	auditLog(actor, "gdpr_export_operator", { targetType: "user", targetId: userId, targetUsername: target.username });
 	return c.json({
 		account: {
@@ -2234,8 +2243,9 @@ app.get("/api/admin/users/:id/gdpr-export", (c) => {
 		support_tickets: tickets,
 		ticket_replies: ticketReplies,
 		warnings,
+		fingerprints,
 		exported_at: new Date().toISOString(),
-		export_version: 2,
+		export_version: 3,
 		exported_by_operator: actor.username,
 	});
 });
@@ -2246,17 +2256,22 @@ app.delete("/api/admin/users/:id/account", async (c) => {
 	const userId = parseInt(c.req.param("id"));
 	const target = db.query<{ username: string }, [number]>("SELECT username FROM users WHERE id = ?").get(userId);
 	if (!target) return c.text("User not found", 404);
-	db.run(
-		`UPDATE users SET username = '[deleted]', display_name = NULL, avatar_url = NULL, discord_id = '[deleted:' || id || ']', profile_private = 1 WHERE id = ?`,
-		[userId]
-	);
-	db.run("DELETE FROM sessions WHERE user_id = ?", [userId]);
-	db.run("DELETE FROM solo_scores WHERE user_id = ?", [userId]);
-	db.run("DELETE FROM daily_scores WHERE user_id = ?", [userId]);
-	db.run("DELETE FROM duel_participants WHERE user_id = ?", [userId]);
-	db.run("DELETE FROM fingerprints WHERE user_id = ?", [userId]);
-	db.run("DELETE FROM support_tickets WHERE user_id = ?", [userId]);
-	db.run("UPDATE submissions SET submitted_by = NULL WHERE submitted_by = ?", [userId]);
+	db.transaction(() => {
+		db.run(
+			`UPDATE users SET username = '[deleted]', display_name = NULL, avatar_url = NULL, discord_id = '[deleted:' || ? || ']', profile_private = 1 WHERE id = ?`,
+			[userId, userId]
+		);
+		db.run("DELETE FROM sessions WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM solo_scores WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM daily_scores WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM duel_round_scores WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM duel_participants WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM fingerprints WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM support_tickets WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM location_suggestions WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM user_warnings WHERE user_id = ?", [userId]);
+		db.run("UPDATE submissions SET submitted_by = NULL WHERE submitted_by = ?", [userId]);
+	})();
 	auditLog(actor, "user_delete_operator", { targetType: "user", targetId: userId, targetUsername: target.username });
 	return c.json({ success: true });
 });
