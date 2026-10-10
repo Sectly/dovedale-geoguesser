@@ -220,6 +220,7 @@ class MapCanvas {
 	}
 
 	_initCenter() {
+		if (this.viewWidth <= 0 || this.viewHeight <= 0) return;
 		const centerWorld = {
 			x: (WORLD_BOUNDS.TOP_LEFT.x + WORLD_BOUNDS.BOTTOM_RIGHT.x) / 2,
 			y: (WORLD_BOUNDS.TOP_LEFT.y + WORLD_BOUNDS.BOTTOM_RIGHT.y) / 2,
@@ -234,13 +235,45 @@ class MapCanvas {
 		const dpr = window.devicePixelRatio || 1;
 		const pw = Math.round(w * dpr);
 		const ph = Math.round(h * dpr);
-		this.viewWidth = pw / dpr;
-		this.viewHeight = ph / dpr;
+		const newVw = pw / dpr;
+		const newVh = ph / dpr;
+
+		if (pw === this.canvas.width && ph === this.canvas.height) {
+			this.viewWidth = newVw;
+			this.viewHeight = newVh;
+			this.canvas.style.width = `${newVw}px`;
+			this.canvas.style.height = `${newVh}px`;
+			this.draw();
+			return;
+		}
+
+		let worldCenter = null;
+		const savedScale = this.currentScale;
+		const hadValidDimensions = this.viewWidth > 0 && this.viewHeight > 0;
+		if (this.mapInitialized && hadValidDimensions) {
+			const center = this.ctx.transformedPoint(this.viewWidth / 2, this.viewHeight / 2);
+			worldCenter = this.canvasToWorld(center.x, center.y);
+		}
+
+		this.viewWidth = newVw;
+		this.viewHeight = newVh;
 		this.canvas.width = pw;
 		this.canvas.height = ph;
-		this.canvas.style.width = `${this.viewWidth}px`;
-		this.canvas.style.height = `${this.viewHeight}px`;
+		this.canvas.style.width = `${newVw}px`;
+		this.canvas.style.height = `${newVh}px`;
 		this.ctx.setDevicePixelRatio?.(dpr);
+
+		if (worldCenter !== null) {
+			this.ctx.resetTransform();
+			const cp = this.worldToCanvas(worldCenter.x, worldCenter.y);
+			this.ctx.translate(newVw / 2 - cp.x, newVh / 2 - cp.y);
+			if (savedScale !== 1) this._zoomAt(newVw / 2, newVh / 2, savedScale);
+		} else if (this.mapInitialized) {
+			this.ctx.resetTransform();
+			this._initCenter();
+			return;
+		}
+
 		this.draw();
 	}
 
@@ -269,7 +302,9 @@ class MapCanvas {
 		};
 		ctx.getTransform = () => transform;
 		ctx.save = () => {
-			savedStack.push(new DOMMatrix([transform.a, transform.b, transform.c, transform.d, transform.e, transform.f]));
+			savedStack.push(
+				new DOMMatrix([transform.a, transform.b, transform.c, transform.d, transform.e, transform.f])
+			);
 			original.save();
 		};
 		ctx.restore = () => {

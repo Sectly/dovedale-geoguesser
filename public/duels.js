@@ -72,7 +72,9 @@ async function init() {
 		if (e.key === "Enter") joinRoom();
 	});
 	el("start-duel-btn").addEventListener("click", sendStart);
+	el("ready-btn").addEventListener("click", sendReady);
 	el("leave-btn").addEventListener("click", leaveRoom);
+	el("spectate-instead-btn").addEventListener("click", () => spectateInstead(roomCode));
 	el("quickplay-btn").addEventListener("click", quickPlay);
 	el("guess-btn").addEventListener("click", submitGuess);
 	el("play-again-btn").addEventListener("click", () => {
@@ -226,6 +228,13 @@ function showErrorWithSpectate(code, msg) {
 
 async function spectateInstead(code) {
 	el("lobby-error").classList.add("hidden");
+	if (wire) {
+		wire.emit("leave", {});
+		const w = wire;
+		wire = null;
+		w.disconnect();
+	}
+	isHost = false;
 	roomCode = code;
 	isSpectator = true;
 	await spectateRoom(code);
@@ -321,10 +330,18 @@ function showWaitingRoom(msg) {
 	el("waiting-screen").classList.remove("hidden");
 	el("room-code-display").textContent = roomCode;
 
+	// Sync isHost from server state so host-transfers work correctly
+	if (!isSpectator) {
+		const me = msg.players.find((p) => p.user_id === currentUser?.id);
+		if (me) isHost = me.is_host;
+	}
+
 	if (isSpectator && msg.status === "waiting") {
 		el("quickplay-searching").classList.add("hidden");
 		el("normal-waiting-header").classList.add("hidden");
 		el("start-duel-btn").classList.add("hidden");
+		el("ready-btn").classList.add("hidden");
+		el("spectate-instead-btn").classList.add("hidden");
 		el("waiting-hint").textContent = "Waiting for the duel to start…";
 		const playersDiv = el("waiting-players");
 		playersDiv.innerHTML = "";
@@ -333,7 +350,7 @@ function showWaitingRoom(msg) {
             <div class="flex flex-col items-center gap-2">
                 ${p.avatar_url ? `<img src="${escHtml(p.avatar_url)}" class="w-12 h-12 rounded-full border-2 border-zinc-600" />` : `<div class="w-12 h-12 rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined">person</span></div>`}
                 <span class="text-sm">${escHtml(p.display_name || p.username)}</span>
-                ${p.is_host ? '<span class="text-xs text-blue-400">Host</span>' : ""}
+                ${p.is_host ? '<span class="text-xs text-blue-400">Host</span>' : (p.is_ready ? '<span class="text-xs text-green-400">Ready</span>' : '<span class="text-xs text-zinc-500">Not ready</span>')}
             </div>`;
 		}
 		return;
@@ -358,7 +375,7 @@ function showWaitingRoom(msg) {
             <div class="flex flex-col items-center gap-2">
                 ${p.avatar_url ? `<img src="${escHtml(p.avatar_url)}" class="w-12 h-12 rounded-full border-2 border-zinc-600" />` : `<div class="w-12 h-12 rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined">person</span></div>`}
                 <span class="text-sm">${escHtml(p.display_name || p.username)}</span>
-                ${p.is_host ? '<span class="text-xs text-blue-400">Host</span>' : ""}
+                ${p.is_host ? '<span class="text-xs text-blue-400">Host</span>' : (p.is_ready ? '<span class="text-xs text-green-400">Ready</span>' : '<span class="text-xs text-zinc-500">Not ready</span>')}
             </div>`;
 	}
 
@@ -371,24 +388,58 @@ function showWaitingRoom(msg) {
                 <span class="text-sm">Waiting...</span>
             </div>`;
 		el("start-duel-btn").classList.add("hidden");
+		el("ready-btn").classList.add("hidden");
+		el("spectate-instead-btn").classList.add("hidden");
 		el("waiting-hint").textContent = isQuickPlay
 			? "Searching for an opponent…"
 			: "Waiting for another player to join...";
-	} else {
-		if (isHost && !isSpectator && !isQuickPlay) {
-			el("start-duel-btn").classList.remove("hidden");
-			el("waiting-hint").textContent = "Both players are here. Start when ready!";
+	} else if (isHost && !isSpectator && !isQuickPlay) {
+		const joiner = msg.players.find((p) => !p.is_host);
+		const joinerReady = !joiner || joiner.is_ready;
+		const startBtn = el("start-duel-btn");
+		startBtn.classList.remove("hidden");
+		startBtn.disabled = !joinerReady;
+		startBtn.className = joinerReady
+			? "bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3"
+			: "bg-zinc-700 text-zinc-500 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3 cursor-not-allowed";
+		el("ready-btn").classList.add("hidden");
+		el("spectate-instead-btn").classList.add("hidden");
+		el("waiting-hint").textContent = joinerReady
+			? "Opponent is ready. Start when ready!"
+			: "Waiting for opponent to ready up…";
+	} else if (!isHost && !isSpectator && !isQuickPlay) {
+		el("start-duel-btn").classList.add("hidden");
+		el("spectate-instead-btn").classList.remove("hidden");
+		const me = msg.players.find((p) => p.user_id === currentUser?.id);
+		const readyBtn = el("ready-btn");
+		if (me && !me.is_ready) {
+			readyBtn.classList.remove("hidden");
+			readyBtn.disabled = false;
+			readyBtn.className = "bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3";
+			readyBtn.textContent = "Ready";
+			el("waiting-hint").textContent = "Press Ready when you're set to play!";
 		} else {
-			el("start-duel-btn").classList.add("hidden");
-			el("waiting-hint").textContent = isQuickPlay
-				? "Match found! Starting…"
-				: "Waiting for the host to start...";
+			readyBtn.classList.remove("hidden");
+			readyBtn.disabled = true;
+			readyBtn.className = "bg-zinc-700 text-green-400 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3 cursor-not-allowed";
+			readyBtn.textContent = "Ready ✓";
+			el("waiting-hint").textContent = "Waiting for the host to start...";
 		}
+	} else {
+		// quickplay
+		el("start-duel-btn").classList.add("hidden");
+		el("ready-btn").classList.add("hidden");
+		el("spectate-instead-btn").classList.add("hidden");
+		el("waiting-hint").textContent = isQuickPlay ? "Match found! Starting…" : "Waiting for the host to start...";
 	}
 }
 
 function sendStart() {
 	wire?.emit("start", {});
+}
+
+function sendReady() {
+	wire?.emit("ready", {});
 }
 
 function leaveRoom() {
@@ -397,6 +448,7 @@ function leaveRoom() {
 		_quickPlayNoPlayersTimer = null;
 	}
 	if (isQuickPlay) fetch("/api/duels/quickplay", { method: "DELETE" }).catch(() => {});
+	wire?.emit("leave", {});
 	const w = wire;
 	wire = null;
 	w?.disconnect();

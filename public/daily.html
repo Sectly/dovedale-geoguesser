@@ -7,12 +7,12 @@
     <meta name="description" content="One location per day. Compete for the top spot on the daily leaderboard." />
     <meta property="og:title" content="Daily Challenge | Dovedale GeoGuesser" />
     <meta property="og:description" content="One location per day. Compete for the top spot on the daily leaderboard." />
-    <meta property="og:image" content="/og.png?type=daily" />
+    <meta property="og:image" content="/og.png?type=daily&v=2" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="/og.png?type=daily" />
+    <meta name="twitter:image" content="/og.png?type=daily&v=2" />
     <script src="https://cdn.tailwindcss.com/3.4.16"></script>
     <link
       rel="stylesheet"
@@ -199,7 +199,7 @@
                 <div class="text-zinc-400 text-xs mt-1" id="result-distance-display"></div>
               </div>
               <div class="text-right">
-                <div class="text-zinc-300 text-sm" id="result-location-label"></div>
+                <div class="text-zinc-500 text-xs font-mono" id="result-location-label"></div>
                 <div id="result-streak-display" class="mt-1"></div>
               </div>
             </div>
@@ -226,7 +226,7 @@
     <script src="/guard.js?v=1"></script>
     <script src="/fp.js"></script>
     <script src="/map-upstream.js"></script>
-    <script src="/map-canvas.js"></script>
+    <script src="/map-canvas.js?v=3"></script>
     <script>
       (function () {
         const handle = document.getElementById("resize-handle");

@@ -27,6 +27,7 @@ import {
 	startDuel,
 	abandonDuel,
 	submitDuelGuess,
+	type DuelRoom,
 } from "./game";
 import type { User, Location } from "./db";
 import { randomBytes } from "crypto";
@@ -34,6 +35,13 @@ import { writeFile, unlink } from "fs/promises";
 import { mkdirSync, readFileSync } from "fs";
 import { generateTileVariants } from "./tile-images";
 import sharp from "sharp";
+
+process.on("uncaughtException", (err) => {
+	console.error("[server] Uncaught exception (server kept running):", err);
+});
+process.on("unhandledRejection", (reason) => {
+	console.error("[server] Unhandled promise rejection (server kept running):", reason);
+});
 
 generateTileVariants().catch((err) => console.error("Tile variant generation failed:", err));
 mkdirSync("./public/uploads", { recursive: true });
@@ -90,6 +98,9 @@ function checkRateLimit(key: string, max: number, windowMs: number): boolean {
 	hits.push(now);
 	_rateLimitMap.set(key, hits);
 	return true;
+}
+function checkRateLimitUser(user: User | null, key: string, max: number, windowMs: number): boolean {
+	return checkRateLimit(key, user?.role ? max * 5 : max, windowMs);
 }
 setInterval(
 	() => {
@@ -177,7 +188,7 @@ function _buildGenericOg(title: string, subtitle: string, accent = "#3b82f6"): s
   <rect x="0" y="0" width="8" height="630" fill="${accent}"/>
   <text x="80" y="220" font-family="Arial,sans-serif" font-size="26" fill="#52525b" letter-spacing="3">DOVEDALE RAILWAY</text>
   <text x="80" y="330" font-family="Arial,sans-serif" font-size="80" font-weight="700" fill="white">${_escXml(title)}</text>
-  <text x="80" y="410" font-family="Arial,sans-serif" font-size="32" fill="#71717a">${_escXml(subtitle)}</text>
+  <text x="80" y="410" font-family="Arial,sans-serif" font-size="28" fill="#71717a">${_escXml(subtitle)}</text>
   <rect x="80" y="510" width="60" height="4" fill="${accent}" rx="2"/>
   <text x="80" y="570" font-family="Arial,sans-serif" font-size="22" fill="#3f3f46">dovedalegeoguesser.com</text>
 </svg>`;
@@ -367,7 +378,7 @@ app.get("/og.png", async (c) => {
 	if (type === "profile" && username) {
 		const user = db.query<User, [string]>("SELECT * FROM users WHERE username = ?").get(username);
 		if (!user || user.is_banned || user.profile_private || (user.discord_id === "0" && !DEV_MODE)) {
-			svg = _buildGenericOg("Dovedale GeoGuesser", "Identify locations across the railway");
+			svg = _buildGenericOg("Dovedale GeoGuesser", "Identify locations across Dovedale Railway");
 		} else {
 			const solo = db
 				.query<{ total_games: number; best_score: number | null }, [number]>(
@@ -418,11 +429,11 @@ app.get("/og.png", async (c) => {
 		svg = _buildDuelOg(roomCode, hostName, rounds, playerCount, status, type === "spectate");
 	} else {
 		const pageCards: Record<string, [string, string]> = {
-			home: ["Dovedale GeoGuesser", "Identify locations across the railway from screenshots"],
-			game: ["Solo GeoGuesser", "5 rounds, 60 seconds each. How well do you know the line?"],
-			duels: ["Duels", "Challenge a friend to a real-time location duel"],
-			daily: ["Daily Challenge", "One location per day. Compete for the leaderboard."],
-			leaderboard: ["Leaderboard", "The best GeoGuessers on the Dovedale Railway"],
+			home: ["Dovedale GeoGuesser", "Identify locations across Dovedale Railway"],
+			game: ["Solo GeoGuesser", "5 rounds, 90 seconds each - how well do you know the line?"],
+			duels: ["Duels", "Challenge a friend to a location guessing duel"],
+			daily: ["Daily Challenge", "One location per day - compete for the leaderboard"],
+			leaderboard: ["Leaderboard", "The best GeoGuessers on Dovedale Railway"],
 		};
 		const [title, sub] = pageCards[type] ?? pageCards.home;
 		svg = _buildGenericOg(title, sub);
@@ -439,8 +450,10 @@ const _duelsHtml = readFileSync(new URL("./public/duels.html", import.meta.url),
 
 app.get("/", (c) => {
 	const siteUrl = (process.env.SITE_URL || "").replace(/\/$/, "");
-	const html = _indexHtml.replace(/__OG_IMAGE__/g, _escXml(siteUrl + "/og.png?type=home"));
-	return c.html(html);
+	const html = _indexHtml.replace(/__OG_IMAGE__/g, _escXml(siteUrl + `/og.png?type=home&v=${_ogVersion}`));
+	const r = c.html(html);
+	r.headers.set("Cache-Control", "public, max-age=900");
+	return r;
 });
 
 app.get("/duel/:code", (c) => {
@@ -468,7 +481,7 @@ app.get("/duel/:code", (c) => {
 		description = "Join a location guessing duel on the Dovedale Railway.";
 		ogType = "duel";
 	}
-	const ogImage = `${siteUrl}/og.png?type=${ogType}&code=${encodeURIComponent(code)}`;
+	const ogImage = `${siteUrl}/og.png?type=${ogType}&code=${encodeURIComponent(code)}&v=${_ogVersion}`;
 	const ogTags = `<meta property="og:title" content="${_escXml(title)}"/>
 <meta property="og:description" content="${_escXml(description)}"/>
 <meta property="og:image" content="${_escXml(ogImage)}"/>
@@ -484,7 +497,9 @@ app.get("/duel/:code", (c) => {
 		.replace(/<title>[^<]*<\/title>/, `<title>${_escXml(title)}</title>`)
 		.replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${_escXml(description)}"/>`)
 		.replace("</head>", ogTags + "</head>");
-	return c.html(html);
+	const r = c.html(html);
+	r.headers.set("Cache-Control", "public, max-age=900");
+	return r;
 });
 
 app.get("/u/:username", (c) => {
@@ -497,7 +512,7 @@ app.get("/u/:username", (c) => {
 	const description = visible
 		? `View ${displayName}'s GeoGuesser profile and stats.`
 		: "Identify locations across the Dovedale Railway from screenshots.";
-	const ogImage = `${siteUrl}/og.png?type=${visible ? `profile&u=${encodeURIComponent(username)}` : "home"}`;
+	const ogImage = `${siteUrl}/og.png?type=${visible ? `profile&u=${encodeURIComponent(username)}` : "home"}&v=${_ogVersion}`;
 	const ogTags = `<meta property="og:title" content="${_escXml(title)}"/>
 <meta property="og:description" content="${_escXml(description)}"/>
 <meta property="og:image" content="${_escXml(ogImage)}"/>
@@ -513,7 +528,9 @@ app.get("/u/:username", (c) => {
 		.replace(/<title>[^<]*<\/title>/, `<title>${_escXml(title)}</title>`)
 		.replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${_escXml(description)}"/>`)
 		.replace("</head>", ogTags + "</head>");
-	return c.html(html);
+	const r = c.html(html);
+	r.headers.set("Cache-Control", "public, max-age=900");
+	return r;
 });
 
 const wireServer = new WebWireServer({
@@ -535,10 +552,36 @@ const wireServer = new WebWireServer({
 	},
 });
 
+function buildRoomState(room: DuelRoom, extra: Record<string, unknown> = {}) {
+	return {
+		code: room.code,
+		status: room.status,
+		players: room.players.map((pl) => ({
+			user_id: pl.userId,
+			username: pl.username,
+			display_name: pl.displayName,
+			avatar_url: pl.avatarUrl,
+			is_host: pl.userId === room.players[0]?.userId,
+			is_ready: pl.userId === room.players[0]?.userId || room.readyPlayers.has(pl.userId),
+		})),
+		...extra,
+	};
+}
+
+function safeHandler<T>(name: string, fn: (data: T) => void): (data: T) => void {
+	return (data) => {
+		try {
+			fn(data);
+		} catch (err) {
+			console.error(`[ws] Error in "${name}" handler:`, err);
+		}
+	};
+}
+
 wireServer.on("connection", (conn) => {
 	const userId = (conn.auth as { userId: number }).userId;
 
-	conn.on("join", (data: { room: string }) => {
+	conn.on("join", safeHandler("join", (data: { room: string }) => {
 		const roomCode = (data?.room || "").toUpperCase();
 		const room = duelRooms.get(roomCode);
 
@@ -595,17 +638,7 @@ wireServer.on("connection", (conn) => {
 			});
 		}
 
-		const roomState = {
-			code: room.code,
-			status: room.status,
-			players: room.players.map((pl) => ({
-				user_id: pl.userId,
-				username: pl.username,
-				display_name: pl.displayName,
-				avatar_url: pl.avatarUrl,
-				is_host: pl.userId === room.players[0]?.userId,
-			})),
-		};
+		const roomState = buildRoomState(room);
 		for (const p of room.players) {
 			try {
 				p.conn.emit("room_state", roomState);
@@ -631,19 +664,73 @@ wireServer.on("connection", (conn) => {
 				});
 			} catch {}
 		}
-	});
+	}));
 
-	conn.on("start", () => {
+	conn.on("start", safeHandler("start", () => {
 		for (const room of duelRooms.values()) {
 			if (room.players[0]?.userId === userId && room.players[0]?.conn === conn) {
 				if (room.status !== "waiting" || room.players.length < 2) return;
+				if (!room.quickplay) {
+					const joiner = room.players[1];
+					if (joiner && !room.readyPlayers.has(joiner.userId)) {
+						conn.emit("error", { message: "Waiting for your opponent to ready up" });
+						return;
+					}
+				}
 				startDuel(room);
 				return;
 			}
 		}
-	});
+	}));
 
-	conn.on("guess", (data: { world_x?: number; world_y?: number }) => {
+	conn.on("ready", safeHandler("ready", () => {
+		for (const room of duelRooms.values()) {
+			if (room.players.some((p) => p.userId === userId && p.conn === conn)) {
+				if (room.status !== "waiting") return;
+				room.readyPlayers.add(userId);
+				const state = buildRoomState(room);
+				for (const p of room.players) {
+					try { p.conn.emit("room_state", state); } catch {}
+				}
+				for (const s of room.spectators) {
+					try { s.emit("room_state", state); } catch {}
+				}
+				return;
+			}
+		}
+	}));
+
+	conn.on("leave", safeHandler("leave", () => {
+		for (const room of duelRooms.values()) {
+			const idx = room.players.findIndex((p) => p.userId === userId && p.conn === conn);
+			if (idx === -1) continue;
+			if (room.status === "in_progress") {
+				abandonDuel(room, userId);
+			} else if (room.status === "waiting") {
+				if (room._countdownTimer) {
+					clearTimeout(room._countdownTimer);
+					room._countdownTimer = null;
+					room._countdownScheduled = false;
+					for (const p of room.players) {
+						try { p.conn.emit("countdown_cancelled", {}); } catch {}
+					}
+				}
+				room.readyPlayers.delete(userId);
+				room.players.splice(idx, 1);
+				if (room.players.length === 0) {
+					duelRooms.delete(room.code);
+				} else {
+					const state = buildRoomState(room);
+					for (const p of room.players) {
+						try { p.conn.emit("room_state", state); } catch {}
+					}
+				}
+			}
+			return;
+		}
+	}));
+
+	conn.on("guess", safeHandler("guess", (data: { world_x?: number; world_y?: number }) => {
 		for (const room of duelRooms.values()) {
 			if (room.players.some((p) => p.userId === userId && p.conn === conn)) {
 				if (room.status !== "in_progress") return;
@@ -656,9 +743,9 @@ wireServer.on("connection", (conn) => {
 				return;
 			}
 		}
-	});
+	}));
 
-	conn.on("spectate", (data: { room: string }) => {
+	conn.on("spectate", safeHandler("spectate", (data: { room: string }) => {
 		const roomCode = (data?.room || "").toUpperCase();
 		const room = duelRooms.get(roomCode);
 		if (!room || room.status === "finished") {
@@ -671,18 +758,7 @@ wireServer.on("connection", (conn) => {
 			return;
 		}
 		room.spectators.push(conn);
-		conn.emit("room_state", {
-			code: room.code,
-			status: room.status,
-			spectating: true,
-			players: room.players.map((pl) => ({
-				user_id: pl.userId,
-				username: pl.username,
-				display_name: pl.displayName,
-				avatar_url: pl.avatarUrl,
-				is_host: pl.userId === room.players[0]?.userId,
-			})),
-		});
+		conn.emit("room_state", buildRoomState(room, { spectating: true }));
 		if (room.status === "in_progress" && room.currentRound > 0) {
 			const loc = room.locations[room.currentRound - 1];
 			try {
@@ -697,9 +773,9 @@ wireServer.on("connection", (conn) => {
 		conn.on("disconnect", () => {
 			room.spectators = room.spectators.filter((s) => s !== conn);
 		});
-	});
+	}));
 
-	conn.on("disconnect", () => {
+	conn.on("disconnect", safeHandler("disconnect", () => {
 		for (const room of duelRooms.values()) {
 			const idx = room.players.findIndex((p) => p.userId === userId && p.conn === conn);
 			if (idx === -1) continue;
@@ -723,31 +799,20 @@ wireServer.on("connection", (conn) => {
 				if (!r) return;
 				const i = r.players.findIndex((p) => p.userId === userId && p.conn === conn);
 				if (i !== -1) {
+					r.readyPlayers.delete(userId);
 					r.players.splice(i, 1);
 					if (r.players.length === 0) duelRooms.delete(room.code);
 					else {
-						const roomState = {
-							code: r.code,
-							status: r.status,
-							players: r.players.map((pl) => ({
-								user_id: pl.userId,
-								username: pl.username,
-								display_name: pl.displayName,
-								avatar_url: pl.avatarUrl,
-								is_host: pl.userId === r.players[0]?.userId,
-							})),
-						};
+						const state = buildRoomState(r);
 						for (const p of r.players) {
-							try {
-								p.conn.emit("room_state", roomState);
-							} catch {}
+							try { p.conn.emit("room_state", state); } catch {}
 						}
 					}
 				}
 			}, 30_000);
 			break;
 		}
-	});
+	}));
 });
 
 app.get("/sitemap.xml", (c) => {
@@ -803,15 +868,20 @@ const _htmlPages: Record<string, string> = Object.fromEntries(
 );
 
 const _staticSiteUrl = (process.env.SITE_URL || "").replace(/\/$/, "");
+const _ogVersion = 2;
 const _htmlPagesFixed = Object.fromEntries(
 	Object.entries(_htmlPages).map(([route, html]) => [
 		route,
-		html.replace(/content="(\/og\.png[^"]*)"/g, (_, path) => `content="${_staticSiteUrl}${path}"`),
+		html.replace(/content="(\/og\.png[^"]*)"/g, (_, path) => `content="${_staticSiteUrl}${path}&v=${_ogVersion}"`),
 	])
 );
 
 for (const [route, html] of Object.entries(_htmlPagesFixed)) {
-	app.get(route, (c) => c.html(html));
+	app.get(route, (c) => {
+		const r = c.html(html);
+		r.headers.set("Cache-Control", "public, max-age=900");
+		return r;
+	});
 }
 
 const staticMiddleware = serveStatic({ root: "./public" });
@@ -949,6 +1019,12 @@ app.get("/api/auth/callback", async (c) => {
 				"/admin#users"
 			);
 			auditLog(null, "user_register", {
+				targetType: "user",
+				targetId: userId,
+				targetUsername: userInfo.username,
+			});
+		} else {
+			auditLog(null, "user_login", {
 				targetType: "user",
 				targetId: userId,
 				targetUsername: userInfo.username,
@@ -1137,7 +1213,7 @@ app.post("/api/submissions", async (c) => {
 	if (!user) return c.text("Login required", 401);
 	if (isBanned(user)) return c.text("You are banned", 403);
 	if (user.upload_limited) return c.text("Your upload ability has been temporarily limited", 403);
-	if (!checkRateLimit(`sub:${user.id}`, 5, 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `sub:${user.id}`, 5, 60 * 60 * 1000))
 		return c.text("Too many submissions. Try again later.", 429);
 
 	let formData: FormData;
@@ -1277,7 +1353,7 @@ app.post("/api/duels/quickplay", async (c) => {
 		}
 	}
 
-	if (!checkRateLimit(`room:${user.id}`, 10, 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `room:${user.id}`, 10, 60 * 60 * 1000))
 		return c.text("Too many rooms created. Try again later.", 429);
 	const room = createDuelRoom(user.id, rounds);
 	db.run("UPDATE duel_games SET quickplay = 1 WHERE id = ?", [room.dbId]);
@@ -1338,7 +1414,7 @@ app.post("/api/duels/rooms", async (c) => {
 	if (!user) return c.text("Login required", 401);
 	if (isBanned(user)) return c.text("You are banned", 403);
 	if (user.duel_limited) return c.text("Your duel ability has been temporarily limited", 403);
-	if (!checkRateLimit(`room:${user.id}`, 10, 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `room:${user.id}`, 10, 60 * 60 * 1000))
 		return c.text("Too many rooms created. Try again later.", 429);
 	const body = (await c.req.json().catch(() => ({}))) as { rounds?: number };
 	const rounds = Math.min(10, Math.max(1, body.rounds || 5));
@@ -1929,7 +2005,7 @@ app.post("/api/daily/score", async (c) => {
 		distance: distance !== null ? Math.round(distance) : null,
 		correct_x: loc.world_x,
 		correct_y: loc.world_y,
-		label: loc.label,
+		location_id: loc.id,
 		current_streak: streakRow?.current_streak ?? 0,
 		longest_streak: streakRow?.longest_streak ?? 0,
 	});
@@ -2079,7 +2155,7 @@ app.get("/api/me/moderation", (c) => {
 app.get("/api/gdpr/export", (c) => {
 	const user = getUserFromContext(c);
 	if (!user) return c.text("Login required", 401);
-	if (!checkRateLimit(`gdpr:${user.id}`, 3, 24 * 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `gdpr:${user.id}`, 3, 24 * 60 * 60 * 1000))
 		return c.text("Too many export requests today. Try again tomorrow.", 429);
 
 	const soloScores = db
@@ -2113,6 +2189,9 @@ app.get("/api/gdpr/export", (c) => {
 		)
 		.all(user.id);
 	const warnings = db.query("SELECT id, reason, created_at FROM user_warnings WHERE user_id = ?").all(user.id);
+	const fingerprints = db
+		.query("SELECT fp_hash, first_seen, last_seen FROM fingerprints WHERE user_id = ?")
+		.all(user.id);
 
 	return c.json({
 		account: {
@@ -2132,8 +2211,9 @@ app.get("/api/gdpr/export", (c) => {
 		support_tickets: tickets,
 		ticket_replies: ticketReplies,
 		warnings,
+		fingerprints,
 		exported_at: new Date().toISOString(),
-		export_version: 2,
+		export_version: 3,
 	});
 });
 
@@ -2142,23 +2222,25 @@ app.delete("/api/account", async (c) => {
 	if (!user) return c.text("Login required", 401);
 	const body = (await c.req.json().catch(() => ({}))) as { confirm?: unknown };
 	if (body.confirm !== true) return c.text("Confirmation required", 400);
-	db.run(
-		`UPDATE users SET
-		username = '[deleted]', display_name = NULL, avatar_url = NULL,
-		discord_id = '[deleted:' || user.id || ']', profile_private = 1
-		WHERE id = ?`,
-		[user.id]
-	);
-	db.run("DELETE FROM sessions WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM solo_scores WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM daily_scores WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM duel_round_scores WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM duel_participants WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM fingerprints WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM support_tickets WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM location_suggestions WHERE user_id = ?", [user.id]);
-	db.run("DELETE FROM user_warnings WHERE user_id = ?", [user.id]);
-	db.run("UPDATE submissions SET submitted_by = NULL WHERE submitted_by = ?", [user.id]);
+	db.transaction(() => {
+		db.run(
+			`UPDATE users SET
+			username = '[deleted]', display_name = NULL, avatar_url = NULL,
+			discord_id = '[deleted:' || ? || ']', profile_private = 1
+			WHERE id = ?`,
+			[user.id, user.id]
+		);
+		db.run("DELETE FROM sessions WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM solo_scores WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM daily_scores WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM duel_round_scores WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM duel_participants WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM fingerprints WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM support_tickets WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM location_suggestions WHERE user_id = ?", [user.id]);
+		db.run("DELETE FROM user_warnings WHERE user_id = ?", [user.id]);
+		db.run("UPDATE submissions SET submitted_by = NULL WHERE submitted_by = ?", [user.id]);
+	})();
 	auditLog(null, "user_delete", { targetType: "user", targetId: user.id, targetUsername: user.username });
 	clearSessionCookie(c);
 	return c.json({ success: true });
@@ -2215,6 +2297,9 @@ app.get("/api/admin/users/:id/gdpr-export", (c) => {
 	const warnings = db
 		.query("SELECT id, issued_by_username, reason, created_at FROM user_warnings WHERE user_id = ?")
 		.all(userId);
+	const fingerprints = db
+		.query("SELECT fp_hash, first_seen, last_seen FROM fingerprints WHERE user_id = ?")
+		.all(userId);
 	auditLog(actor, "gdpr_export_operator", { targetType: "user", targetId: userId, targetUsername: target.username });
 	return c.json({
 		account: {
@@ -2234,8 +2319,9 @@ app.get("/api/admin/users/:id/gdpr-export", (c) => {
 		support_tickets: tickets,
 		ticket_replies: ticketReplies,
 		warnings,
+		fingerprints,
 		exported_at: new Date().toISOString(),
-		export_version: 2,
+		export_version: 3,
 		exported_by_operator: actor.username,
 	});
 });
@@ -2246,17 +2332,22 @@ app.delete("/api/admin/users/:id/account", async (c) => {
 	const userId = parseInt(c.req.param("id"));
 	const target = db.query<{ username: string }, [number]>("SELECT username FROM users WHERE id = ?").get(userId);
 	if (!target) return c.text("User not found", 404);
-	db.run(
-		`UPDATE users SET username = '[deleted]', display_name = NULL, avatar_url = NULL, discord_id = '[deleted:' || id || ']', profile_private = 1 WHERE id = ?`,
-		[userId]
-	);
-	db.run("DELETE FROM sessions WHERE user_id = ?", [userId]);
-	db.run("DELETE FROM solo_scores WHERE user_id = ?", [userId]);
-	db.run("DELETE FROM daily_scores WHERE user_id = ?", [userId]);
-	db.run("DELETE FROM duel_participants WHERE user_id = ?", [userId]);
-	db.run("DELETE FROM fingerprints WHERE user_id = ?", [userId]);
-	db.run("DELETE FROM support_tickets WHERE user_id = ?", [userId]);
-	db.run("UPDATE submissions SET submitted_by = NULL WHERE submitted_by = ?", [userId]);
+	db.transaction(() => {
+		db.run(
+			`UPDATE users SET username = '[deleted]', display_name = NULL, avatar_url = NULL, discord_id = '[deleted:' || ? || ']', profile_private = 1 WHERE id = ?`,
+			[userId, userId]
+		);
+		db.run("DELETE FROM sessions WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM solo_scores WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM daily_scores WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM duel_round_scores WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM duel_participants WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM fingerprints WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM support_tickets WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM location_suggestions WHERE user_id = ?", [userId]);
+		db.run("DELETE FROM user_warnings WHERE user_id = ?", [userId]);
+		db.run("UPDATE submissions SET submitted_by = NULL WHERE submitted_by = ?", [userId]);
+	})();
 	auditLog(actor, "user_delete_operator", { targetType: "user", targetId: userId, targetUsername: target.username });
 	return c.json({ success: true });
 });
@@ -2274,7 +2365,7 @@ app.post("/api/support", async (c) => {
 	const user = getUserFromContext(c);
 	if (!user) return c.text("Login required", 401);
 	// Intentionally NOT blocking banned users - they need to be able to appeal
-	if (!checkRateLimit(`support:${user.id}`, 3, 24 * 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `support:${user.id}`, 3, 24 * 60 * 60 * 1000))
 		return c.text("Too many tickets today. Try again tomorrow.", 429);
 
 	const body = (await c.req.json().catch(() => ({}))) as { subject?: string; message?: string; category?: string };
@@ -2532,7 +2623,7 @@ app.post("/api/locations/:id/suggest", async (c) => {
 
 	if (!user.suggestions_agreed) return c.text("You must agree to the suggestions policy first", 403);
 
-	if (!checkRateLimit(`suggest:${user.id}`, 10, 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `suggest:${user.id}`, 10, 60 * 60 * 1000))
 		return c.text("Too many suggestions. Try again later.", 429);
 
 	const locId = parseInt(c.req.param("id"));
@@ -2829,17 +2920,47 @@ app.get("/api/admin/audit", (c) => {
 	const limit = Math.min(200, parseInt(c.req.query("limit") || "100"));
 	const offset = Math.max(0, parseInt(c.req.query("offset") || "0"));
 	const action = c.req.query("action") || "";
+	const actions = c.req.query("actions") || "";
 	const actorId = c.req.query("actor") || "";
+	const targetType = c.req.query("target_type") || "";
+	const targetId = c.req.query("target_id") || "";
+	const from = c.req.query("from") || "";
+	const to = c.req.query("to") || "";
 	const search = (c.req.query("q") || "").trim().replace(/#/g, "").slice(0, 100);
 	const params: (string | number)[] = [];
 	const clauses: string[] = [];
 	if (action) {
 		clauses.push("a.action = ?");
 		params.push(action);
+	} else if (actions) {
+		const list = actions.split(",").map((a) => a.trim()).filter(Boolean).slice(0, 20);
+		if (list.length === 1) {
+			clauses.push("a.action = ?");
+			params.push(list[0]);
+		} else if (list.length > 1) {
+			clauses.push(`a.action IN (${list.map(() => "?").join(",")})`);
+			params.push(...list);
+		}
 	}
 	if (actorId) {
 		clauses.push("a.actor_id = ?");
 		params.push(parseInt(actorId));
+	}
+	if (targetType) {
+		clauses.push("a.target_type = ?");
+		params.push(targetType);
+	}
+	if (targetId) {
+		clauses.push("a.target_id = ?");
+		params.push(parseInt(targetId));
+	}
+	if (from) {
+		const ts = Math.floor(new Date(from).getTime() / 1000);
+		if (!isNaN(ts)) { clauses.push("a.created_at >= ?"); params.push(ts); }
+	}
+	if (to) {
+		const ts = Math.floor(new Date(to).getTime() / 1000);
+		if (!isNaN(ts)) { clauses.push("a.created_at <= ?"); params.push(ts); }
 	}
 	if (search) {
 		const pattern = `%${search}%`;

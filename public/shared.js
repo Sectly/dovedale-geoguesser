@@ -65,15 +65,19 @@ function setupPhotoLens(imgEl) {
 		lastClientY = e.clientY;
 		updateLens(e.clientX, e.clientY);
 	});
-	imgEl.addEventListener("wheel", (e) => {
-		if (!lensVisible) return;
-		e.preventDefault();
-		const step = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-		lensSize = Math.min(MAX_SIZE, Math.max(MIN_SIZE, lensSize * step));
-		zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * step));
-		sizeDirty = true;
-		updateLens(lastClientX, lastClientY);
-	}, { passive: false });
+	imgEl.addEventListener(
+		"wheel",
+		(e) => {
+			if (!lensVisible) return;
+			e.preventDefault();
+			const step = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+			lensSize = Math.min(MAX_SIZE, Math.max(MIN_SIZE, lensSize * step));
+			zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * step));
+			sizeDirty = true;
+			updateLens(lastClientX, lastClientY);
+		},
+		{ passive: false }
+	);
 }
 const escHtml = (s) =>
 	String(s ?? "")

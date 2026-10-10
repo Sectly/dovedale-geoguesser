@@ -7,12 +7,12 @@
     <meta name="description" content="Challenge a friend to a real-time location guessing duel on the Dovedale Railway." />
     <meta property="og:title" content="Duels | Dovedale GeoGuesser" />
     <meta property="og:description" content="Challenge a friend to a real-time location guessing duel." />
-    <meta property="og:image" content="/og.png?type=duels" />
+    <meta property="og:image" content="/og.png?type=duels&v=2" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="/og.png?type=duels" />
+    <meta name="twitter:image" content="/og.png?type=duels&v=2" />
     <script src="https://cdn.tailwindcss.com/3.4.16"></script>
     <link
       rel="stylesheet"
@@ -217,8 +217,14 @@
         <button id="start-duel-btn" class="hidden bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3">
           Start Game
         </button>
+        <button id="ready-btn" class="hidden bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3">
+          Ready
+        </button>
         <p class="text-zinc-500 text-sm mb-4" id="waiting-hint">Share the code with your opponent</p>
-        <button id="leave-btn" class="text-zinc-600 hover:text-zinc-400 transition text-sm">Leave room</button>
+        <div class="flex items-center justify-center gap-5">
+          <button id="leave-btn" class="text-zinc-600 hover:text-zinc-400 transition text-sm">Leave room</button>
+          <button id="spectate-instead-btn" class="hidden text-zinc-600 hover:text-zinc-400 transition text-sm">Spectate instead</button>
+        </div>
       </div>
     </div>
 
@@ -232,10 +238,12 @@
 
     <div
       id="spectator-banner"
-      class="hidden absolute top-0 inset-x-0 z-30 bg-zinc-800/90 backdrop-blur-sm border-b border-zinc-700 flex items-center justify-center gap-2 py-2 text-xs text-zinc-400"
+      class="hidden absolute top-3 inset-x-0 z-30 flex items-center justify-center pointer-events-none"
     >
-      <span class="material-symbols-outlined text-sm leading-none">visibility</span>
-      Spectating
+      <div class="bg-black/70 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs text-zinc-400 flex items-center gap-1.5 border border-zinc-700/60">
+        <span class="material-symbols-outlined text-sm leading-none">visibility</span>
+        Spectating
+      </div>
     </div>
 
     <div id="round-screen" class="hidden absolute inset-0 flex flex-col md:flex-row">
@@ -351,7 +359,7 @@
     <script src="/guard.js?v=1"></script>
     <script src="/fp.js"></script>
     <script src="/map-upstream.js"></script>
-    <script src="/map-canvas.js"></script>
+    <script src="/map-canvas.js?v=3"></script>
 
     <script>
       document.querySelectorAll(".duel-rounds-pill").forEach((btn) => {
@@ -422,6 +430,6 @@
     </script>
 
     <script src="/shared.js"></script>
-    <script type="module" src="/duels.js?v=5"></script>
+    <script type="module" src="/duels.js?v=6"></script>
   </body>
 </html>

@@ -18,32 +18,77 @@ export function worldDistance(x1: number, y1: number, x2: number, y2: number): n
 }
 
 export function getRandomLocations(count: number): Location[] {
-	const pool = db.query<Location, []>(`SELECT * FROM locations WHERE is_active = 1 ORDER BY RANDOM()`).all();
+	const pool = db.query<Location, []>(`SELECT * FROM locations WHERE is_active = 1`).all();
 
-	if (pool.length <= count) return pool;
+	if (pool.length <= count) {
+		for (let i = pool.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[pool[i], pool[j]] = [pool[j], pool[i]];
+		}
+		return pool;
+	}
+
+	const recentDaily = new Set(
+		db
+			.query<{ location_id: number }, []>(
+				`SELECT location_id FROM daily_challenges WHERE date >= date('now', '-3 days')`
+			)
+			.all()
+			.map((r) => r.location_id)
+	);
+	const recentDuels = new Set(
+		db
+			.query<{ location_id: number }, []>(
+				`SELECT DISTINCT location_id FROM duel_round_scores WHERE created_at > unixepoch() - 7 * 86400`
+			)
+			.all()
+			.map((r) => r.location_id)
+	);
 
 	const picked: Location[] = [];
 	const remaining = [...pool];
 
-	const seedIdx = Math.floor(Math.random() * remaining.length);
-	picked.push(remaining.splice(seedIdx, 1)[0]);
-
 	while (picked.length < count && remaining.length > 0) {
-		let bestIdx = 0;
-		let bestMinDist = -1;
-		for (let i = 0; i < remaining.length; i++) {
-			const c = remaining[i];
-			let minDist = Infinity;
-			for (const p of picked) {
-				const d = Math.hypot(c.world_x - p.world_x, c.world_y - p.world_y);
-				if (d < minDist) minDist = d;
-			}
-			if (minDist > bestMinDist) {
-				bestMinDist = minDist;
-				bestIdx = i;
+		let weights: number[];
+
+		if (picked.length === 0) {
+			weights = remaining.map((c) => {
+				let w = 1.0;
+				if (recentDaily.has(c.id)) w *= 0.25;
+				if (recentDuels.has(c.id)) w *= 0.5;
+				return w;
+			});
+		} else {
+			weights = remaining.map((c) => {
+				let minDist = Infinity;
+				for (const p of picked) {
+					const d = Math.hypot(c.world_x - p.world_x, c.world_y - p.world_y);
+					if (d < minDist) minDist = d;
+				}
+				let w = minDist * minDist;
+				if (recentDaily.has(c.id)) w *= 0.25;
+				if (recentDuels.has(c.id)) w *= 0.5;
+				return w;
+			});
+		}
+
+		let total = weights.reduce((a, b) => a + b, 0);
+		if (total <= 0) {
+			weights = weights.map(() => 1);
+			total = weights.length;
+		}
+
+		let r = Math.random() * total;
+		let chosenIdx = weights.length - 1;
+		for (let i = 0; i < weights.length; i++) {
+			r -= weights[i];
+			if (r <= 0) {
+				chosenIdx = i;
+				break;
 			}
 		}
-		picked.push(remaining.splice(bestIdx, 1)[0]);
+
+		picked.push(remaining.splice(chosenIdx, 1)[0]);
 	}
 
 	for (let i = picked.length - 1; i > 0; i--) {
@@ -71,13 +116,14 @@ type RoundGuess = {
 	distance: number;
 };
 
-type DuelRoom = {
+export type DuelRoom = {
 	code: string;
 	dbId: number;
 	rounds: number;
 	status: "waiting" | "in_progress" | "finished";
 	players: DuelPlayer[];
 	spectators: WireConnection[];
+	readyPlayers: Set<number>;
 	currentRound: number;
 	locations: Location[];
 	guesses: Map<number, RoundGuess>;
@@ -117,6 +163,7 @@ export function createDuelRoom(creatorUserId: number, rounds: number): { code: s
 		status: "waiting",
 		players: [],
 		spectators: [],
+		readyPlayers: new Set(),
 		currentRound: 0,
 		locations: [],
 		guesses: new Map(),
