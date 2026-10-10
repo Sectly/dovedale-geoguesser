@@ -1,3 +1,10 @@
+function _defaultMapQuality() {
+	const ua = navigator.userAgent;
+	const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+	const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS/i.test(ua);
+	return isMobile || isSafari ? "medium" : "high";
+}
+
 class MapCanvas {
 	constructor(canvas, { onPinPlaced } = {}) {
 		this.canvas = canvas;
@@ -17,7 +24,7 @@ class MapCanvas {
 		this.correctPin = null;
 		this.replayPins = [];
 		this.namePins = new Map();
-		this.quality = localStorage.getItem("mapQuality") || "high";
+		this.quality = localStorage.getItem("mapQuality") || _defaultMapQuality();
 		this._mapAR = MAP_CONFIG.totalWidth / MAP_CONFIG.totalHeight;
 		this._sf = 0; this._sw = 0; this._sh = 0;
 		this._ox = 0; this._oy = 0; this._cw = 0; this._ch = 0;
