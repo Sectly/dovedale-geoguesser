@@ -299,6 +299,17 @@
               </div>
             </div>
 
+            <div id="suggest-cur-img-wrap" style="display:none" class="relative rounded-xl overflow-hidden bg-zinc-900 flex-shrink-0">
+              <img id="suggest-cur-img" class="w-full object-contain cursor-zoom-in" style="max-height:160px" alt="" />
+              <button
+                id="suggest-cur-img-zoom"
+                class="absolute bottom-2 right-2 bg-black/60 rounded-full p-1 hover:bg-black/80 transition"
+                title="View full size"
+              >
+                <span class="material-symbols-outlined text-sm text-white leading-none" style="font-size:18px">open_in_full</span>
+              </button>
+            </div>
+
             <div class="flex gap-1 bg-zinc-800 rounded-xl p-1 flex-wrap">
               <button class="sug-type-btn flex-1 py-1.5 rounded-lg text-xs font-semibold transition bg-zinc-700 text-white" data-type="hint">Hint</button>
               <button class="sug-type-btn flex-1 py-1.5 rounded-lg text-xs font-semibold transition text-zinc-400 hover:text-white" data-type="screenshot">
@@ -475,6 +486,27 @@
       </div>
     </div>
 
+    <!-- Lightbox for suggest current screenshot -->
+    <div
+      id="suggest-lightbox"
+      style="display:none"
+      class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+      onclick="el('suggest-lightbox').style.display='none'"
+    >
+      <img
+        id="suggest-lightbox-img"
+        class="max-w-full max-h-full object-contain"
+        style="max-width:95vw;max-height:95vh;touch-action:pinch-zoom"
+        alt=""
+      />
+      <button
+        class="absolute top-4 right-4 text-zinc-400 hover:text-white transition"
+        onclick="event.stopPropagation();el('suggest-lightbox').style.display='none'"
+      >
+        <span class="material-symbols-outlined text-3xl">close</span>
+      </button>
+    </div>
+
     <script src="/guard.js?v=1"></script>
     <script src="/fp.js"></script>
     <script src="/shared.js"></script>
@@ -597,6 +629,7 @@
         el("suggest-back").addEventListener("click", () => {
           el("suggest-form").style.display = "none";
           el("suggest-pick").style.display = "flex";
+          el("suggest-cur-img-wrap").style.display = "none";
           selectedLocId = null;
           suggestPinWorld = null;
           fePin = null;
@@ -610,6 +643,13 @@
         el("loc-grid").addEventListener("click", (e) => {
           const card = e.target.closest(".loc-card");
           if (card) selectLocation(Number(card.dataset.id), card.dataset.label || "");
+        });
+        el("suggest-cur-img").addEventListener("click", () => {
+          el("suggest-lightbox").style.display = "flex";
+        });
+        el("suggest-cur-img-zoom").addEventListener("click", (e) => {
+          e.stopPropagation();
+          el("suggest-lightbox").style.display = "flex";
         });
         document.querySelectorAll(".sug-type-btn").forEach((btn) => btn.addEventListener("click", () => switchSuggestType(btn.dataset.type)));
         el("sug-file-input").addEventListener("change", onSugFileChange);
@@ -922,6 +962,15 @@
         el("suggest-for-label").textContent = selectedLocLabel;
         el("suggest-pick").style.display = "none";
         el("suggest-form").style.display = "flex";
+        const locMeta = allLocations.find((l) => l.id === id);
+        if (locMeta) {
+          const src = "/uploads/" + escHtml(locMeta.image_path);
+          el("suggest-cur-img").src = src;
+          el("suggest-lightbox-img").src = src;
+          el("suggest-cur-img-wrap").style.display = "block";
+        } else {
+          el("suggest-cur-img-wrap").style.display = "none";
+        }
         switchSuggestType("hint");
         suggestPinWorld = null;
         showingPins = false;

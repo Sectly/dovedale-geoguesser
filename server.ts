@@ -91,6 +91,9 @@ function checkRateLimit(key: string, max: number, windowMs: number): boolean {
 	_rateLimitMap.set(key, hits);
 	return true;
 }
+function checkRateLimitUser(user: User | null, key: string, max: number, windowMs: number): boolean {
+	return checkRateLimit(key, user?.role ? max * 5 : max, windowMs);
+}
 setInterval(
 	() => {
 		const now = Date.now();
@@ -439,8 +442,10 @@ const _duelsHtml = readFileSync(new URL("./public/duels.html", import.meta.url),
 
 app.get("/", (c) => {
 	const siteUrl = (process.env.SITE_URL || "").replace(/\/$/, "");
-	const html = _indexHtml.replace(/__OG_IMAGE__/g, _escXml(siteUrl + "/og.png?type=home"));
-	return c.html(html);
+	const html = _indexHtml.replace(/__OG_IMAGE__/g, _escXml(siteUrl + `/og.png?type=home&v=${_ogVersion}`));
+	const r = c.html(html);
+	r.headers.set("Cache-Control", "public, max-age=900");
+	return r;
 });
 
 app.get("/duel/:code", (c) => {
@@ -468,7 +473,7 @@ app.get("/duel/:code", (c) => {
 		description = "Join a location guessing duel on the Dovedale Railway.";
 		ogType = "duel";
 	}
-	const ogImage = `${siteUrl}/og.png?type=${ogType}&code=${encodeURIComponent(code)}`;
+	const ogImage = `${siteUrl}/og.png?type=${ogType}&code=${encodeURIComponent(code)}&v=${_ogVersion}`;
 	const ogTags = `<meta property="og:title" content="${_escXml(title)}"/>
 <meta property="og:description" content="${_escXml(description)}"/>
 <meta property="og:image" content="${_escXml(ogImage)}"/>
@@ -484,7 +489,9 @@ app.get("/duel/:code", (c) => {
 		.replace(/<title>[^<]*<\/title>/, `<title>${_escXml(title)}</title>`)
 		.replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${_escXml(description)}"/>`)
 		.replace("</head>", ogTags + "</head>");
-	return c.html(html);
+	const r = c.html(html);
+	r.headers.set("Cache-Control", "public, max-age=900");
+	return r;
 });
 
 app.get("/u/:username", (c) => {
@@ -497,7 +504,7 @@ app.get("/u/:username", (c) => {
 	const description = visible
 		? `View ${displayName}'s GeoGuesser profile and stats.`
 		: "Identify locations across the Dovedale Railway from screenshots.";
-	const ogImage = `${siteUrl}/og.png?type=${visible ? `profile&u=${encodeURIComponent(username)}` : "home"}`;
+	const ogImage = `${siteUrl}/og.png?type=${visible ? `profile&u=${encodeURIComponent(username)}` : "home"}&v=${_ogVersion}`;
 	const ogTags = `<meta property="og:title" content="${_escXml(title)}"/>
 <meta property="og:description" content="${_escXml(description)}"/>
 <meta property="og:image" content="${_escXml(ogImage)}"/>
@@ -513,7 +520,9 @@ app.get("/u/:username", (c) => {
 		.replace(/<title>[^<]*<\/title>/, `<title>${_escXml(title)}</title>`)
 		.replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${_escXml(description)}"/>`)
 		.replace("</head>", ogTags + "</head>");
-	return c.html(html);
+	const r = c.html(html);
+	r.headers.set("Cache-Control", "public, max-age=900");
+	return r;
 });
 
 const wireServer = new WebWireServer({
@@ -803,15 +812,20 @@ const _htmlPages: Record<string, string> = Object.fromEntries(
 );
 
 const _staticSiteUrl = (process.env.SITE_URL || "").replace(/\/$/, "");
+const _ogVersion = Math.floor(Date.now() / 1000) % 10000;
 const _htmlPagesFixed = Object.fromEntries(
 	Object.entries(_htmlPages).map(([route, html]) => [
 		route,
-		html.replace(/content="(\/og\.png[^"]*)"/g, (_, path) => `content="${_staticSiteUrl}${path}"`),
+		html.replace(/content="(\/og\.png[^"]*)"/g, (_, path) => `content="${_staticSiteUrl}${path}&v=${_ogVersion}"`),
 	])
 );
 
 for (const [route, html] of Object.entries(_htmlPagesFixed)) {
-	app.get(route, (c) => c.html(html));
+	app.get(route, (c) => {
+		const r = c.html(html);
+		r.headers.set("Cache-Control", "public, max-age=900");
+		return r;
+	});
 }
 
 const staticMiddleware = serveStatic({ root: "./public" });
@@ -1137,7 +1151,7 @@ app.post("/api/submissions", async (c) => {
 	if (!user) return c.text("Login required", 401);
 	if (isBanned(user)) return c.text("You are banned", 403);
 	if (user.upload_limited) return c.text("Your upload ability has been temporarily limited", 403);
-	if (!checkRateLimit(`sub:${user.id}`, 5, 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `sub:${user.id}`, 5, 60 * 60 * 1000))
 		return c.text("Too many submissions. Try again later.", 429);
 
 	let formData: FormData;
@@ -1277,7 +1291,7 @@ app.post("/api/duels/quickplay", async (c) => {
 		}
 	}
 
-	if (!checkRateLimit(`room:${user.id}`, 10, 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `room:${user.id}`, 10, 60 * 60 * 1000))
 		return c.text("Too many rooms created. Try again later.", 429);
 	const room = createDuelRoom(user.id, rounds);
 	db.run("UPDATE duel_games SET quickplay = 1 WHERE id = ?", [room.dbId]);
@@ -1338,7 +1352,7 @@ app.post("/api/duels/rooms", async (c) => {
 	if (!user) return c.text("Login required", 401);
 	if (isBanned(user)) return c.text("You are banned", 403);
 	if (user.duel_limited) return c.text("Your duel ability has been temporarily limited", 403);
-	if (!checkRateLimit(`room:${user.id}`, 10, 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `room:${user.id}`, 10, 60 * 60 * 1000))
 		return c.text("Too many rooms created. Try again later.", 429);
 	const body = (await c.req.json().catch(() => ({}))) as { rounds?: number };
 	const rounds = Math.min(10, Math.max(1, body.rounds || 5));
@@ -1929,7 +1943,7 @@ app.post("/api/daily/score", async (c) => {
 		distance: distance !== null ? Math.round(distance) : null,
 		correct_x: loc.world_x,
 		correct_y: loc.world_y,
-		label: loc.label,
+		location_id: loc.id,
 		current_streak: streakRow?.current_streak ?? 0,
 		longest_streak: streakRow?.longest_streak ?? 0,
 	});
@@ -2079,7 +2093,7 @@ app.get("/api/me/moderation", (c) => {
 app.get("/api/gdpr/export", (c) => {
 	const user = getUserFromContext(c);
 	if (!user) return c.text("Login required", 401);
-	if (!checkRateLimit(`gdpr:${user.id}`, 3, 24 * 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `gdpr:${user.id}`, 3, 24 * 60 * 60 * 1000))
 		return c.text("Too many export requests today. Try again tomorrow.", 429);
 
 	const soloScores = db
@@ -2289,7 +2303,7 @@ app.post("/api/support", async (c) => {
 	const user = getUserFromContext(c);
 	if (!user) return c.text("Login required", 401);
 	// Intentionally NOT blocking banned users - they need to be able to appeal
-	if (!checkRateLimit(`support:${user.id}`, 3, 24 * 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `support:${user.id}`, 3, 24 * 60 * 60 * 1000))
 		return c.text("Too many tickets today. Try again tomorrow.", 429);
 
 	const body = (await c.req.json().catch(() => ({}))) as { subject?: string; message?: string; category?: string };
@@ -2547,7 +2561,7 @@ app.post("/api/locations/:id/suggest", async (c) => {
 
 	if (!user.suggestions_agreed) return c.text("You must agree to the suggestions policy first", 403);
 
-	if (!checkRateLimit(`suggest:${user.id}`, 10, 60 * 60 * 1000))
+	if (!checkRateLimitUser(user, `suggest:${user.id}`, 10, 60 * 60 * 1000))
 		return c.text("Too many suggestions. Try again later.", 429);
 
 	const locId = parseInt(c.req.param("id"));

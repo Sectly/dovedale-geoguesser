@@ -234,13 +234,33 @@ class MapCanvas {
 		const dpr = window.devicePixelRatio || 1;
 		const pw = Math.round(w * dpr);
 		const ph = Math.round(h * dpr);
-		this.viewWidth = pw / dpr;
-		this.viewHeight = ph / dpr;
+		const newVw = pw / dpr;
+		const newVh = ph / dpr;
+
+		// Save the world point at the viewport centre so we can restore it after
+		// the resize changes ox/oy/sf, which would otherwise shift stored pins.
+		let worldCenter = null;
+		const savedScale = this.currentScale;
+		if (this.mapInitialized) {
+			const center = this.ctx.transformedPoint(this.viewWidth / 2, this.viewHeight / 2);
+			worldCenter = this.canvasToWorld(center.x, center.y);
+		}
+
+		this.viewWidth = newVw;
+		this.viewHeight = newVh;
 		this.canvas.width = pw;
 		this.canvas.height = ph;
-		this.canvas.style.width = `${this.viewWidth}px`;
-		this.canvas.style.height = `${this.viewHeight}px`;
+		this.canvas.style.width = `${newVw}px`;
+		this.canvas.style.height = `${newVh}px`;
 		this.ctx.setDevicePixelRatio?.(dpr);
+
+		if (worldCenter !== null) {
+			this.ctx.resetTransform();
+			const cp = this.worldToCanvas(worldCenter.x, worldCenter.y);
+			this.ctx.translate(newVw / 2 - cp.x, newVh / 2 - cp.y);
+			if (savedScale !== 1) this._zoomAt(newVw / 2, newVh / 2, savedScale);
+		}
+
 		this.draw();
 	}
 

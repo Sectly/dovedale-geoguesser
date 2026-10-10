@@ -206,7 +206,7 @@ function showResult(data) {
 					: "text-red-400");
 	el("result-distance-display").textContent =
 		data.distance !== null ? `~${data.distance.toLocaleString()} units away` : "No guess submitted";
-	el("result-location-label").textContent = data.label ? `Near: ${data.label}` : "";
+	el("result-location-label").textContent = data.location_id ? "LOC-" + String(data.location_id).padStart(4, "0") : "";
 
 	const bar = el("result-score-bar");
 	setTimeout(() => {
