@@ -4,128 +4,361 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Privacy Policy | Dovedale GeoGuesser</title>
-    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&family=Inter:opsz,wght@14..32,200..700"
-    />
-    <link rel="stylesheet" href="/shared.css?v=2" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
-    <nav class="bg-zinc-900 border-b border-zinc-800 flex items-center gap-4 px-4 py-2">
-      <a href="/" class="text-zinc-400 hover:text-zinc-100 transition text-sm flex items-center gap-1">
-        <span class="material-symbols-outlined text-base leading-none">home</span> Home
-      </a>
-      <span class="text-zinc-700">/</span>
-      <span class="text-zinc-100 font-semibold text-sm">Privacy Policy</span>
-    </nav>
+    <nav id="site-nav"></nav>
     <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-10 prose">
       <h1 class="text-2xl font-bold mb-2 text-white">Privacy Policy</h1>
-      <p class="text-zinc-600 text-xs mb-6">Last updated: 9 October 2026</p>
+      <p class="text-zinc-600 text-xs mb-6">Last updated: 11 October 2026</p>
+      <div class="summary">
+        <div class="summary-title">In short</div>
+        <ul>
+          <li>
+            We store your Discord username, display name and avatar, your scores, and what you submit. We never receive your Discord password or email address.
+          </li>
+          <li>We do not sell your data, show adverts, or use tracking cookies.</li>
+          <li>Your scores and leaderboard entries are public. You can make your profile page private.</li>
+          <li>You can download everything we hold about you, or delete your account, from Settings at any time.</li>
+        </ul>
+      </div>
 
-      <p>This policy explains what data Dovedale GeoGuesser collects and how it is used.</p>
+      <p>
+        This policy explains what personal data Dovedale GeoGuesser ("the Service", "we") collects, why, how long we keep it and what your rights are. It is
+        written to meet the EU and UK General Data Protection Regulation (GDPR), and we apply the same rights to all users wherever they live.
+      </p>
 
-      <h2>What we collect</h2>
+      <h2 id="controller">1. Who is responsible for your data</h2>
+      <p>
+        The Service is run by an individual operator, who is the data controller. You can reach them through a
+        <a href="/settings?ticket=other#support" class="text-blue-400 hover:text-blue-300">support ticket</a>, or, if you cannot use the ticket system, at
+        <a href="https://www.sectly.online/#contact" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">sectly.online</a>.
+      </p>
+
+      <h2 id="collect">2. What we collect</h2>
+      <p><strong class="text-zinc-200">When you log in with Discord</strong></p>
       <ul>
-        <li><strong class="text-zinc-200">Discord account data:</strong> username, display name, and avatar URL obtained via Discord OAuth when you log in.</li>
-        <li><strong class="text-zinc-200">Game scores:</strong> solo scores, daily scores, and duel results linked to your account.</li>
-        <li><strong class="text-zinc-200">Uploaded screenshots:</strong> images you submit for new locations or suggestions.</li>
-        <li><strong class="text-zinc-200">Session cookie:</strong> a secure HTTP-only cookie used to keep you logged in (30-day expiry).</li>
+        <li>Your Discord user ID, username, display name and avatar. These are refreshed each time you log in.</li>
+        <li>We request only Discord's "identify" permission. We do not receive your email address, password, friends, servers or messages.</li>
+      </ul>
+      <p><strong class="text-zinc-200">When you play</strong></p>
+      <ul>
+        <li>Solo scores, daily challenge results (score, guess position, time taken, hints used), duel results and your play streak.</li>
+        <li>Solo games played without logging in are not saved.</li>
+      </ul>
+      <p><strong class="text-zinc-200">When you contribute or contact us</strong></p>
+      <ul>
+        <li>Screenshots, labels, hints and map positions you submit, and changes you suggest.</li>
+        <li>Support tickets and replies.</li>
+      </ul>
+      <p><strong class="text-zinc-200">Collected automatically</strong></p>
+      <ul>
+        <li>A session cookie that keeps you logged in.</li>
         <li>
-          <strong class="text-zinc-200">Browser fingerprint hash:</strong> a one-way hash used solely to detect ban evasion. It is never sold or used for
-          advertising.
+          A device cookie: a random identifier stored in your browser once you log in. We keep a one-way hash of it against your account. It tells us when two
+          accounts were used in the same browser, and is used only to detect ban evasion.
         </li>
-        <li><strong class="text-zinc-200">Support ticket content:</strong> messages you send to our moderation team.</li>
-      </ul>
-
-      <h2>How we use it</h2>
-      <ul>
-        <li>To display your username, avatar, and stats on leaderboards and your profile page.</li>
-        <li>To run the daily challenge, streak tracking, and duel matchmaking.</li>
-        <li>To enforce our moderation rules and prevent ban evasion.</li>
-      </ul>
-
-      <h2>Who can see your data</h2>
-      <ul>
         <li>
-          Your username, avatar, and scores are publicly visible by default. You can make your profile private in
+          A browser fingerprint: a one-way hash made from technical details of your browser (such as screen size, time zone, language and graphics hardware). It
+          is collected only when you are logged in and is used only to detect ban evasion.
+        </li>
+        <li>
+          Your IP address is used briefly in memory to limit abuse, such as repeated login attempts. We do not store it in our database. Our hosting and network
+          providers may keep standard access logs.
+        </li>
+        <li>A record of logins and of actions taken by staff (the audit log).</li>
+      </ul>
+      <p><strong class="text-zinc-200">Created about you</strong></p>
+      <ul>
+        <li>Moderation records: warnings, limits and bans, with the reason and who issued them.</li>
+        <li>
+          Notifications about your own submissions, suggestions, tickets and moderation actions, and the preferences you set in
           <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>.
         </li>
-        <li>Moderators and operators can see your account information and submitted content for moderation purposes.</li>
-        <li>We do not sell, share, or otherwise disclose your data to third parties.</li>
       </ul>
 
-      <h2>Data retention</h2>
+      <h2 id="why">3. Why we use it, and our legal basis</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Purpose</th>
+              <th>Data used</th>
+              <th>Legal basis</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Running your account and the game: logging in, saving scores, streaks, duels, notifications</td>
+              <td>Discord profile, scores, session cookie, preferences</td>
+              <td>Performing our agreement with you</td>
+            </tr>
+            <tr>
+              <td>Showing leaderboards and public profiles</td>
+              <td>Username, display name, avatar, scores</td>
+              <td>
+                Legitimate interest in running a competitive game. You can hide your profile page in Settings, and object to appearing on leaderboards (section
+                10).
+              </td>
+            </tr>
+            <tr>
+              <td>Reviewing and showing submitted locations</td>
+              <td>Screenshots, labels, hints, positions</td>
+              <td>Performing our agreement with you</td>
+            </tr>
+            <tr>
+              <td>Answering tickets and appeals</td>
+              <td>Ticket content</td>
+              <td>Performing our agreement with you; legitimate interest in supporting users</td>
+            </tr>
+            <tr>
+              <td>Keeping the game fair and safe: moderation, detecting cheating and ban evasion, limiting abuse</td>
+              <td>Moderation records, device cookie, browser fingerprint, ban-evasion flags, IP address (briefly), audit log</td>
+              <td>Legitimate interest in protecting the Service and its players</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <p>
-        Your data is stored as long as your account exists. You can delete your account and all personal data from your
-        <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a> page, which removes your username, avatar, and all scores. Moderation actions
-        (bans) are retained without personal identifiers for safety.
+        We do not use your data for advertising or profiling, and we do not sell or rent it. Desktop notifications are only shown if you switch them on and
+        allow them in your browser.
       </p>
 
-      <h2>Cookies</h2>
-      <p>We use a single session cookie (HttpOnly, Secure, SameSite=Lax) to authenticate you. No third-party tracking cookies are used.</p>
+      <h2 id="automated">4. Ban-evasion checks</h2>
+      <p>
+        When you are logged in we compare your device cookie and browser fingerprint with those of accounts that are currently banned. If they match, your
+        account is flagged for staff to look at. <strong class="text-zinc-200">Nothing happens to your account automatically:</strong> the Service never bans or
+        limits anyone without a person making that decision.
+      </p>
+      <p>
+        A match is not proof. Two people who share a computer have the same device cookie, and identical phones, tablets or school laptops can produce the same
+        fingerprint. Staff are told how strong each match is and can dismiss it. If you are banned for evasion and believe that is wrong, open a
+        <a href="/settings?ticket=ban_appeal#support" class="text-blue-400 hover:text-blue-300">Ban Appeal ticket</a>: banned accounts can still log in, open
+        tickets, read their moderation history and export their data.
+      </p>
+      <p>
+        If you delete your account while it has a moderation history, we keep a one-way hash of your Discord ID so that the history, including any active ban,
+        is attached to your account again if you sign up again. See <a href="#deletion" class="text-blue-400 hover:text-blue-300">section 8</a>.
+      </p>
 
-      <h2>Third parties</h2>
+      <h2 id="visible">5. Who can see your data</h2>
       <ul>
         <li>
-          <strong class="text-zinc-200">Discord:</strong> Login is handled via Discord OAuth. Avatar images are served from Discord's CDN. We do not control
-          Discord's own data practices.
+          <strong class="text-zinc-200">Everyone:</strong> your username, display name, avatar, scores, streak and profile page. Making your profile private in
+          <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a> hides your profile page; your name still appears on leaderboards and to
+          duel opponents.
+        </li>
+        <li><strong class="text-zinc-200">Other players in a duel:</strong> your name, avatar and guesses for that duel, including to spectators.</li>
+        <li>
+          <strong class="text-zinc-200">Staff:</strong> moderators, supervisors and operators can see your account details, submissions, tickets and moderation
+          history, and other accounts seen on the same browser. Only operators can export or delete another user's data, and doing so is logged.
+        </li>
+        <li><strong class="text-zinc-200">Nobody else.</strong> We do not sell or share your data with advertisers or data brokers.</li>
+      </ul>
+
+      <h2 id="third-parties">6. Other services involved</h2>
+      <ul>
+        <li>
+          <strong class="text-zinc-200">Discord</strong> handles login, and avatars are loaded from Discord's servers. Staff are alerted to new submissions,
+          tickets and moderation actions through a private Discord channel, so usernames, submission labels and short ticket excerpts are sent to Discord for
+          that purpose. See
+          <a href="https://discord.com/privacy" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">Discord's Privacy Policy</a>.
         </li>
         <li>
-          <strong class="text-zinc-200">Google Fonts:</strong> This site loads fonts (Inter, Material Symbols) from Google's CDN (<code class="text-zinc-300"
-            >fonts.googleapis.com</code
-          >). This means your browser sends a request to Google when you visit, which may include your IP address. See
-          <a href="https://policies.google.com/privacy" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">Google's privacy policy</a> for
-          details.
+          <strong class="text-zinc-200">Google Fonts</strong> delivers the icon font. Your browser contacts Google directly when a page loads, which shares your
+          IP address with them. They do not receive anything about your account.
+        </li>
+        <li><strong class="text-zinc-200">Hosting and network providers</strong> store and deliver the Service on our behalf.</li>
+      </ul>
+      <p>
+        Some of these providers are based outside the UK and EU, including in the United States. Where data is transferred, it is covered by the safeguards
+        those providers offer, such as the EU-US Data Privacy Framework or standard contractual clauses.
+      </p>
+
+      <h2 id="retention">7. How long we keep it</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Kept for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Account profile, daily and duel results</td>
+              <td>Until you delete your account</td>
+            </tr>
+            <tr>
+              <td>Solo scores</td>
+              <td>Your most recent 200 games</td>
+            </tr>
+            <tr>
+              <td>Login session</td>
+              <td>30 days, or until you log out</td>
+            </tr>
+            <tr>
+              <td>Device cookie hash and browser fingerprint</td>
+              <td>90 days after they were last seen (the cookie itself lasts up to a year in your browser)</td>
+            </tr>
+            <tr>
+              <td>Ban-evasion flags</td>
+              <td>Until the account is deleted</td>
+            </tr>
+            <tr>
+              <td>Hash of your Discord ID after deletion</td>
+              <td>Only if the account had a moderation history; kept until you sign up again or ask us to remove it</td>
+            </tr>
+            <tr>
+              <td>Notifications</td>
+              <td>90 days</td>
+            </tr>
+            <tr>
+              <td>Denied submissions</td>
+              <td>Screenshot deleted on denial; record removed after 30 days</td>
+            </tr>
+            <tr>
+              <td>Reviewed suggestions</td>
+              <td>30 days after review</td>
+            </tr>
+            <tr>
+              <td>Closed support tickets</td>
+              <td>180 days</td>
+            </tr>
+            <tr>
+              <td>Audit log (logins and staff actions)</td>
+              <td>180 days</td>
+            </tr>
+            <tr>
+              <td>Approved locations</td>
+              <td>For as long as they are in the game</td>
+            </tr>
+            <tr>
+              <td>Moderation records</td>
+              <td>Until removed by an operator; see below</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="deletion">8. Deleting your account</h2>
+      <p>
+        You can delete your account from <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>. This happens immediately and cannot be
+        undone. It:
+      </p>
+      <ul>
+        <li>removes your Discord ID, username, display name and avatar, and replaces your name with "[deleted]" everywhere it appeared;</li>
+        <li>
+          deletes your scores, streak, duel history, tickets, suggestions, notifications, preferences, sessions, device and fingerprint records and any
+          ban-evasion flags;
+        </li>
+        <li>deletes submissions that were pending or denied, and their screenshots.</li>
+      </ul>
+      <p>Two things are kept, no longer linked to your Discord identity:</p>
+      <ul>
+        <li>
+          <strong class="text-zinc-200">Approved locations</strong> you submitted stay in the game. Ask us through the operator contact above if you want one
+          removed.
+        </li>
+        <li>
+          <strong class="text-zinc-200">Moderation records</strong> stay against the anonymised account, so that the history of how the rules were applied
+          remains intact. With them we keep a one-way hash of your Discord ID, which cannot be turned back into the ID. Its only use is to recognise you if you
+          sign up again, so that deleting an account is not a way out of a ban; your history is then attached to the new account. If you had no moderation
+          history, no hash is kept. We rely on our legitimate interest in the safety of the Service for this. You can object, and we will remove them unless
+          there is a strong reason not to, such as an active ban.
+        </li>
+      </ul>
+      <p>Deleting your account does not delete your Discord account, and we cannot remove data held by Discord.</p>
+
+      <h2 id="cookies">9. Cookies and browser storage</h2>
+      <p>We use only what the Service needs to work. There are no advertising or analytics cookies, so there is no cookie banner.</p>
+      <ul>
+        <li><strong class="text-zinc-200">Session cookie:</strong> Keeps you logged in for up to 30 days. It cannot be read by scripts.</li>
+        <li>
+          <strong class="text-zinc-200">Device cookie:</strong> A random identifier set once you are logged in, kept for up to a year and not removed when you
+          log out. It is used only for the ban-evasion checks in <a href="#automated" class="text-blue-400 hover:text-blue-300">section 4</a> and cannot be read
+          by scripts.
+        </li>
+        <li><strong class="text-zinc-200">Login redirect cookie:</strong> Remembers which page to return you to after logging in; lasts 10 minutes.</li>
+        <li>
+          <strong class="text-zinc-200">Local storage:</strong> Remembers choices on your device: map quality, sound on or off, that you dismissed the beta
+          notice, that you accepted the suggestions policy, and which notification you last saw. It never leaves your browser.
         </li>
       </ul>
 
-      <h2>Your rights (GDPR)</h2>
-      <p>If you are in the EU or UK, you have the following rights regarding your personal data:</p>
+      <h2 id="rights">10. Your rights</h2>
+      <p>
+        You have these rights over your personal data. Most can be used straight from
+        <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a> without asking anyone.
+      </p>
       <ul>
         <li>
-          <strong class="text-zinc-200">Right of access:</strong> Export all data we hold about you via
+          <strong class="text-zinc-200">Access and portability:</strong> Download everything we hold about you as a JSON file, under Your Data in
           <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>.
         </li>
         <li>
-          <strong class="text-zinc-200">Right to erasure:</strong> Delete your account and personal data at any time via
-          <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>. Moderation records are retained without personal identifiers.
+          <strong class="text-zinc-200">Erasure:</strong> Delete your account in <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>.
         </li>
         <li>
-          <strong class="text-zinc-200">Right to rectification:</strong> Your display name and avatar are synced from Discord on each login. To change them,
-          update your Discord account.
+          <strong class="text-zinc-200">Rectification:</strong> Your name and avatar come from Discord; change them there and log in again. For anything else
+          that is wrong, open a ticket.
         </li>
         <li>
-          <strong class="text-zinc-200">Right to restrict processing:</strong> You can make your profile private in Settings so your scores are not publicly
-          visible.
+          <strong class="text-zinc-200">Restriction:</strong> Make your profile private in
+          <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>, or ask us to pause use of your data while a dispute is resolved.
         </li>
+        <li>
+          <strong class="text-zinc-200">Objection:</strong> You can object to anything we do on the basis of legitimate interest, including leaderboards,
+          fingerprinting and kept moderation records. We will stop unless we have a compelling reason, such as an active ban.
+        </li>
+        <li><strong class="text-zinc-200">No automated decisions:</strong> Bans and limits are always decided by a person, and you can appeal any of them.</li>
       </ul>
       <p>
-        To exercise any of these rights, use the tools in <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a> or submit a support ticket.
-        If your request cannot be handled through the ticket system (for example, if you are unable to log in), you may contact the site operator directly at
-        <a href="https://www.sectly.online/#contact" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">sectly.online</a>. General game
-        support sent there will not be answered.
+        To use a right that is not available in <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>, open a
+        <a href="/settings?ticket=other#support" class="text-blue-400 hover:text-blue-300">support ticket</a>, or contact the operator at
+        <a href="https://www.sectly.online/#contact" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">sectly.online</a> if you cannot
+        log in. We reply within one month. We may need to confirm you own the account first.
+      </p>
+      <p>
+        If you are unhappy with how we handle your data, please tell us first so we can put it right. You also have the right to complain to your data
+        protection authority: in the UK, the
+        <a href="https://ico.org.uk/make-a-complaint/" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener"
+          >Information Commissioner's Office</a
+        >; in the EU, the
+        <a href="https://www.edpb.europa.eu/about-edpb/about-edpb/members_en" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener"
+          >authority for your country</a
+        >.
       </p>
 
-      <h2>Lawful basis</h2>
+      <h2 id="children">11. Children</h2>
       <p>
-        We process your data under <strong class="text-zinc-200">legitimate interests</strong> to operate the game and prevent abuse, and under
-        <strong class="text-zinc-200">contract performance</strong> to provide the service you signed up for.
+        The Service is not aimed at children under 13, and you need a Discord account, which has its own minimum age. We do not knowingly collect data from
+        anyone below that age. If you believe a child has an account, contact us and we will delete it.
       </p>
 
-      <h2>Changes to this policy</h2>
+      <h2 id="security">12. Security</h2>
       <p>
-        We may update this Privacy Policy at any time and without prior notice. The "Last updated" date at the top of this page reflects the most recent
-        revision. Continued use of the Service after any change constitutes your acceptance.
+        Connections to the Service are encrypted, login is handled by Discord so we never see your password, and access to user data is limited to staff who
+        need it, with their actions logged. No system is perfectly secure; if a breach affected your data and put you at risk, we would tell you and the
+        relevant authority as the law requires.
       </p>
 
-      <h2>Contact</h2>
+      <h2 id="changes">13. Changes to this policy</h2>
       <p>
-        Questions or data requests? Submit a <a href="/settings" class="text-blue-400 hover:text-blue-300">support ticket</a>. The direct operator contact at
-        <a href="https://www.sectly.online/#contact" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">sectly.online</a> is only for
-        matters that cannot be handled through the ticket system. General support sent there will not be answered.
+        We will update this page when what we do changes, and the date at the top shows the latest revision. Where a change significantly affects how your data
+        is used, we will aim to announce it on the site before it takes effect.
       </p>
     </main>
+    <footer id="site-footer"></footer>
+    <script src="/js/sounds.js"></script>
+    <script src="/js/shared.js"></script>
     <footer class="text-center text-zinc-700 text-xs py-4">
       <a href="/tos" class="hover:text-zinc-500 transition mx-2">Terms of Service</a>
       <a href="/guidelines" class="hover:text-zinc-500 transition mx-2">Upload Guidelines</a>

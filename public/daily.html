@@ -7,50 +7,28 @@
     <meta name="description" content="One location per day. Compete for the top spot on the daily leaderboard." />
     <meta property="og:title" content="Daily Challenge | Dovedale GeoGuesser" />
     <meta property="og:description" content="One location per day. Compete for the top spot on the daily leaderboard." />
-    <meta property="og:image" content="/og.png?type=daily&v=2" />
+    <meta property="og:image" content="/og.png?type=daily" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="/og.png?type=daily&v=2" />
-    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&family=Inter:opsz,wght@14..32,200..700"
-    />
-    <link rel="stylesheet" href="/shared.css?v=2" />
-    <style>
-      #photo-panel {
-        background: #000;
-      }
-      #round-photo {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        display: block;
-      }
-      #map-canvas {
-        cursor: crosshair;
-        display: block;
-      }
-      @keyframes timer-pulse {
-        0%,
-        100% {
-          transform: scale(1);
-        }
-        50% {
-          transform: scale(1.18);
-        }
-      }
-      .timer-urgent {
-        animation: timer-pulse 0.6s ease-in-out infinite;
-      }
-    </style>
+    <meta name="twitter:image" content="/og.png?type=daily" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] overflow-hidden h-screen w-screen">
     <div id="loading-screen" class="absolute inset-0 z-30 flex items-center justify-center bg-zinc-950">
       <div class="text-center px-6">
-        <div class="text-zinc-500 text-sm" id="loading-msg">Loading today's challenge...</div>
+        <span class="material-symbols-outlined text-4xl text-orange-400 animate-spin mb-3" style="animation-duration: 1.4s" id="loading-spinner"
+          >autorenew</span
+        >
+        <div class="text-zinc-500 text-sm" id="loading-msg">Loading today's challenge…</div>
         <a
           id="loading-home-btn"
           href="/"
@@ -76,7 +54,7 @@
           <p class="text-zinc-500 text-base">Dovedale Railway</p>
         </div>
         <div class="bg-zinc-900 border border-zinc-800 rounded-3xl px-8 py-7 w-full max-w-sm text-center">
-          <p class="text-zinc-400 mb-6 text-sm">Log in with your Discord account to play and appear on the leaderboard.</p>
+          <p class="text-zinc-400 mb-6 text-sm">Log in with Discord to play today's challenge.</p>
           <a
             href="/api/auth/login?redirect=/daily"
             class="block w-full bg-blue-600 hover:bg-blue-500 transition rounded-2xl py-3.5 font-bold text-base shadow-md"
@@ -95,15 +73,23 @@
         <a href="/" class="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition text-sm">
           <span class="material-symbols-outlined text-base leading-none">arrow_back</span> Home
         </a>
-        <div id="auth-area-played"></div>
+        <div data-auth-area></div>
       </div>
-      <div class="flex-1 flex flex-col items-center justify-center px-6 pb-10">
-        <div class="mb-8 text-center">
-          <div class="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-green-900/40 border border-green-700/40 mb-5">
+      <div class="flex-1 flex flex-col items-center px-6 py-6 overflow-y-auto">
+        <div class="mb-6 text-center">
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-green-900/40 border border-green-700/40 mb-5">
             <span class="material-symbols-outlined text-5xl text-green-400" style="font-variation-settings: &quot;FILL&quot; 1">check_circle</span>
           </div>
-          <h1 class="text-4xl font-bold tracking-tight mb-2">Already played today!</h1>
-          <p class="text-zinc-500 text-base">Come back tomorrow for a new challenge.</p>
+          <h1 class="text-4xl font-bold tracking-tight mb-2">You've played today</h1>
+          <p class="text-zinc-500 text-base" id="played-reset">Come back tomorrow for a new challenge.</p>
+        </div>
+        <div class="bg-zinc-900 border border-zinc-800 rounded-3xl px-8 py-6 mb-8 text-center w-full max-w-sm">
+          <div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-2">Your score</div>
+          <div class="text-5xl font-bold font-mono" id="played-score"></div>
+          <div class="text-zinc-500 text-sm mt-2" id="played-details"></div>
+        </div>
+        <div class="relative w-full max-w-2xl h-64 sm:h-80 rounded-3xl overflow-hidden border border-zinc-800 bg-zinc-900 mb-8">
+          <canvas id="replay-canvas" class="absolute inset-0 w-full h-full"></canvas>
         </div>
         <div class="flex gap-3">
           <a href="/leaderboard" class="bg-blue-600 hover:bg-blue-500 transition px-6 py-2.5 rounded-full font-semibold text-sm shadow-sm">Leaderboard</a>
@@ -117,13 +103,10 @@
         <img id="round-photo" src="" alt="Daily challenge screenshot" />
 
         <div class="absolute top-3 left-3 flex items-center gap-2">
-          <a
-            href="/"
-            class="bg-black/55 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-black/70 transition"
-          >
+          <a href="/" class="bg-black/70 rounded-full w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-black/70 transition">
             <span class="material-symbols-outlined text-base leading-none">home</span>
           </a>
-          <div class="bg-black/55 backdrop-blur-sm rounded-full px-3 py-1.5 text-sm font-semibold flex items-center gap-1.5">
+          <div class="bg-black/70 rounded-full px-3 py-1.5 text-sm font-semibold flex items-center gap-1.5">
             <span class="material-symbols-outlined text-sm leading-none text-orange-400" style="font-variation-settings: &quot;FILL&quot; 1"
               >calendar_today</span
             >
@@ -133,14 +116,10 @@
 
         <div
           id="timer-display"
-          class="absolute top-3 right-3 bg-black/70 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2 font-mono font-bold text-xl min-w-[72px] justify-center transition-all duration-300"
+          class="absolute top-3 right-3 bg-black/70 rounded-full px-4 py-2 flex items-center gap-2 font-mono font-bold text-xl min-w-[72px] justify-center transition-all duration-300"
         >
           <span class="material-symbols-outlined text-sm leading-none" style="font-variation-settings: &quot;FILL&quot; 1">timer</span>
           <span id="timer-val">90</span>
-        </div>
-
-        <div class="absolute bottom-3 right-3">
-          <div id="auth-area" class="bg-black/55 backdrop-blur-sm rounded-full px-3 py-1.5"></div>
         </div>
       </div>
 
@@ -199,14 +178,15 @@
                 <div class="text-zinc-400 text-xs mt-1" id="result-distance-display"></div>
               </div>
               <div class="text-right">
-                <div class="text-zinc-500 text-xs font-mono" id="result-location-label"></div>
+                <div class="text-zinc-500 text-xs" id="result-location-label"></div>
                 <a id="result-report-link" href="#" class="hidden text-xs text-zinc-500 hover:text-zinc-300 transition underline mt-0.5">Report location</a>
                 <div id="result-streak-display" class="mt-1"></div>
               </div>
             </div>
             <div class="w-full bg-zinc-700 rounded-full h-2 mb-4 overflow-hidden">
-              <div class="h-2 rounded-full bg-orange-500 transition-all duration-700" id="result-score-bar" style="width: 0%"></div>
+              <div class="score-bar h-2 rounded-full bg-orange-500" id="result-score-bar" style="width: 0%"></div>
             </div>
+            <p class="text-zinc-500 text-xs text-center mb-3" id="result-reset"></p>
             <div class="flex gap-3">
               <a
                 href="/leaderboard"
@@ -224,66 +204,11 @@
       </div>
     </div>
 
-    <script src="/guard.js?v=1"></script>
-    <script src="/fp.js"></script>
-    <script src="/map-upstream.js"></script>
-    <script src="/map-canvas.js?v=4"></script>
-    <script>
-      (function () {
-        const handle = document.getElementById("resize-handle");
-        const photoPanel = document.getElementById("photo-panel");
-        const gameScreen = document.getElementById("game-screen");
-        let dragging = false;
-
-        function isDesktop() {
-          return window.innerWidth >= 768;
-        }
-
-        function startDrag(e) {
-          dragging = true;
-          handle.classList.add("dragging");
-          document.body.style.cursor = isDesktop() ? "col-resize" : "row-resize";
-          document.body.style.userSelect = "none";
-          e.preventDefault();
-        }
-
-        function onMove(clientX, clientY) {
-          if (!dragging) return;
-          const rect = gameScreen.getBoundingClientRect();
-          if (isDesktop()) {
-            const pct = Math.min(70, Math.max(20, ((clientX - rect.left) / rect.width) * 100));
-            photoPanel.style.width = pct + "%";
-          } else {
-            const pct = Math.min(65, Math.max(18, ((clientY - rect.top) / rect.height) * 100));
-            photoPanel.style.height = pct + "%";
-          }
-          window.dispatchEvent(new Event("resize"));
-        }
-
-        function endDrag() {
-          dragging = false;
-          handle.classList.remove("dragging");
-          document.body.style.cursor = "";
-          document.body.style.userSelect = "";
-        }
-
-        handle.addEventListener("mousedown", startDrag);
-        document.addEventListener("mousemove", (e) => onMove(e.clientX, e.clientY));
-        document.addEventListener("mouseup", endDrag);
-        handle.addEventListener("touchstart", startDrag, { passive: false });
-        document.addEventListener(
-          "touchmove",
-          (e) => {
-            if (!dragging) return;
-            e.preventDefault();
-            onMove(e.touches[0].clientX, e.touches[0].clientY);
-          },
-          { passive: false }
-        );
-        document.addEventListener("touchend", endDrag);
-      })();
-    </script>
-    <script src="/shared.js"></script>
-    <script src="/daily.js?v=3"></script>
+    <script src="/js/map-config.js"></script>
+    <script src="/js/map-canvas.js"></script>
+    <script src="/js/sounds.js"></script>
+    <script src="/js/shared.js"></script>
+    <script src="/js/round.js"></script>
+    <script src="/js/daily.js"></script>
   </body>
 </html>

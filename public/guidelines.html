@@ -4,12 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Upload Guidelines | Dovedale GeoGuesser</title>
-    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&family=Inter:opsz,wght@14..32,200..700"
-    />
-    <link rel="stylesheet" href="/shared.css?v=2" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
     <style>
       .do {
         color: #86efac;
@@ -20,21 +22,22 @@
     </style>
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
-    <nav class="bg-zinc-900 border-b border-zinc-800 flex items-center gap-4 px-4 py-2">
-      <a href="/" class="text-zinc-400 hover:text-zinc-100 transition text-sm flex items-center gap-1">
-        <span class="material-symbols-outlined text-base leading-none">home</span> Home
-      </a>
-      <span class="text-zinc-700">/</span>
-      <span class="text-zinc-100 font-semibold text-sm">Upload Guidelines</span>
-    </nav>
+    <nav id="site-nav"></nav>
     <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-10 prose">
       <h1 class="text-2xl font-bold mb-2 text-white">Upload Guidelines</h1>
-      <p class="text-zinc-600 text-xs mb-1">Rules for submitting location screenshots and suggestions.</p>
-      <p class="text-zinc-700 text-xs mb-6">Last updated: 10 October 2026 - These guidelines may be updated at any time without notice.</p>
+      <p class="text-zinc-600 text-xs mb-6">Last updated: 11 October 2026</p>
+      <div class="summary">
+        <div class="summary-title">In short</div>
+        <ul>
+          <li>Submit clear screenshots from inside Dovedale Railway, with the pin where the picture was taken.</li>
+          <li>No player names, chat or game UI in the picture.</li>
+          <li>If a submission is denied, the reason will quote one of the numbered rules below (U1 to U12).</li>
+        </ul>
+      </div>
 
       <p>
-        These guidelines exist to keep the game fair, varied, and enjoyable. Submissions that violate them will be denied. Repeated violations may result in
-        upload restrictions.
+        These guidelines cover new location submissions and suggested changes to existing ones. They keep the game fair, varied and enjoyable. Submissions that
+        break them are denied; repeated problems can lead to an upload limit.
       </p>
 
       <h2>
@@ -42,63 +45,113 @@
         makes a good submission
       </h2>
       <ul>
-        <li class="do">Screenshot taken within the Dovedale Railway Roblox game world.</li>
-        <li class="do">The location is identifiable from the screenshot - players should be able to reason about where it is.</li>
-        <li class="do">Good lighting - the scene is visible and not obscured by fog, night, or effects.</li>
-        <li class="do">Reasonable difficulty - not so obvious that every player scores 5000, not so cryptic that no one can guess.</li>
-        <li class="do">Accurate map pin - the red pin matches where the screenshot was actually taken.</li>
-        <li class="do">Image is clear, not blurry or heavily compressed.</li>
+        <li class="do">Taken inside the Dovedale Railway Roblox game world.</li>
+        <li class="do">Identifiable: landmarks, track features or structures give players something to reason from.</li>
+        <li class="do">Clear and well lit, not blurry, heavily compressed or hidden by fog and effects.</li>
+        <li class="do">Reasonably difficult: not instantly obvious, not impossible.</li>
+        <li class="do">An accurate pin, placed where the screenshot was actually taken.</li>
+        <li class="do">A short label naming the rough area, which helps staff verify the pin.</li>
       </ul>
 
       <h2>
-        <span class="material-symbols-outlined text-sm align-middle text-red-400" style="font-variation-settings: &quot;FILL&quot; 1">cancel</span> What will
-        get your submission denied
+        <span class="material-symbols-outlined text-sm align-middle text-red-400" style="font-variation-settings: &quot;FILL&quot; 1">cancel</span> The rules
       </h2>
-      <ul>
-        <li class="dont">Screenshots from outside the Dovedale Railway world.</li>
-        <li class="dont">Player usernames visible anywhere in the screenshot - this includes nametags, overhead labels, and chat. NPC names are permitted.</li>
-        <li class="dont">Chat messages, player UI overlays, or HUD elements visible in the screenshot.</li>
-        <li class="dont">Duplicate or near-duplicate of an existing location.</li>
-        <li class="dont">Incorrect or deliberately wrong map pin.</li>
-        <li class="dont">Extremely low quality or unrecognisable image.</li>
-        <li class="dont">Offensive, inappropriate, or unrelated content.</li>
-        <li class="dont">Screenshots taken inside vehicles or areas with no visible surroundings.</li>
+      <p>A submission or suggestion will be denied if it breaks any of these. Staff quote the number in the denial reason.</p>
+      <ul class="rules">
+        <li id="U1" class="rule">
+          <a href="#U1" class="rule-code">U1</a> <strong class="text-zinc-200">Wrong game.</strong> The screenshot is not from the Dovedale Railway game world.
+        </li>
+        <li id="U2" class="rule">
+          <a href="#U2" class="rule-code">U2</a> <strong class="text-zinc-200">Player names visible.</strong> A player's username appears anywhere in the
+          picture: nametags, overhead labels, leaderboards or chat. NPC names are fine.
+        </li>
+        <li id="U3" class="rule">
+          <a href="#U3" class="rule-code">U3</a> <strong class="text-zinc-200">Chat or interface visible.</strong> Chat messages, menus, HUD elements or other
+          overlays are in the picture.
+        </li>
+        <li id="U4" class="rule">
+          <a href="#U4" class="rule-code">U4</a> <strong class="text-zinc-200">Duplicate.</strong> The same view, or nearly the same view, is already in the
+          game.
+        </li>
+        <li id="U5" class="rule">
+          <a href="#U5" class="rule-code">U5</a> <strong class="text-zinc-200">Wrong pin.</strong> The pin is not where the screenshot was taken, whether by
+          mistake or on purpose.
+        </li>
+        <li id="U6" class="rule">
+          <a href="#U6" class="rule-code">U6</a> <strong class="text-zinc-200">Poor quality.</strong> The image is too small, blurry, dark or compressed to be
+          usable.
+        </li>
+        <li id="U7" class="rule">
+          <a href="#U7" class="rule-code">U7</a> <strong class="text-zinc-200">Not identifiable.</strong> Nothing distinctive is in frame, for example a
+          close-up of a wall, the inside of a vehicle, or open sky.
+        </li>
+        <li id="U8" class="rule">
+          <a href="#U8" class="rule-code">U8</a> <strong class="text-zinc-200">Filters or edits.</strong> Freecam filters, visual effects or edits that change
+          how the place looks. Cropping out the interface is allowed.
+        </li>
+        <li id="U9" class="rule">
+          <a href="#U9" class="rule-code">U9</a> <strong class="text-zinc-200">Inappropriate content.</strong> Offensive, sexual, hateful or unrelated content,
+          in the picture or in its label and hints.
+        </li>
+        <li id="U10" class="rule">
+          <a href="#U10" class="rule-code">U10</a> <strong class="text-zinc-200">Misleading label or hints.</strong> The label or hints are wrong, give the
+          answer away outright, or are not about the location.
+        </li>
+        <li id="U11" class="rule">
+          <a href="#U11" class="rule-code">U11</a> <strong class="text-zinc-200">Spam.</strong> Joke entries, or many low-effort submissions sent to flood the
+          review queue.
+        </li>
+        <li id="U12" class="rule">
+          <a href="#U12" class="rule-code">U12</a> <strong class="text-zinc-200">Not yours to share.</strong> A screenshot taken by someone else without their
+          permission, or one showing another person's personal information.
+        </li>
       </ul>
 
       <h2>Tips for a great screenshot</h2>
       <ul>
-        <li>Use a <strong>private server</strong> - it keeps the area clear of other players and gives you full control.</li>
+        <li><strong class="text-zinc-200">Use a private server:</strong> It keeps the area clear of other players.</li>
         <li>
-          Use <strong>freecam</strong> (Shift + P) to position your camera freely, or first-person view works too as long as the game UI is hidden and the image
-          isn't too small.
+          <strong class="text-zinc-200">Use freecam (Shift + P)</strong> to position the camera. First-person view also works as long as the interface is
+          hidden.
         </li>
-        <li>
-          <strong>Hide the game UI and player overheads</strong> - freecam has a built-in method to disable both, which is the recommended approach.
-          Alternatively, crop them out of the image as long as it doesn't make the image too small. Do not use any freecam filters or effects.
-        </li>
-        <li><strong>Players and trains</strong> are permitted in screenshots but not preferred - they can be distracting and date the image.</li>
-        <li><strong>Time of day:</strong> both day and night screenshots are accepted, but daytime is preferred for visibility.</li>
-        <li><strong>Weather:</strong> any condition is fine, but clear skies are preferred - fog or heavy rain can obscure key details.</li>
-        <li>
-          <strong>Identifiability is required</strong> - landmarks, track features, structures, or other visual cues must be clearly visible so the location can
-          actually be guessed. If nothing distinctive is in frame, the submission will be rejected.
-        </li>
-        <li>Include enough background to give context without making it too easy.</li>
-        <li>Label your submission with a rough area name to help moderators verify the pin.</li>
+        <li><strong class="text-zinc-200">Hide the interface and overhead names:</strong> Freecam can switch both off, which is the easiest way.</li>
+        <li>Players and trains may appear but are not preferred: they distract and date the image.</li>
+        <li>Day and night are both accepted; daytime and clear weather are preferred for visibility.</li>
+        <li>Include enough background to give context without making the answer obvious.</li>
       </ul>
 
-      <h2>Suggestions</h2>
+      <h2>Suggesting changes</h2>
       <p>
-        You can suggest changes to existing locations (new screenshots, corrected coordinates, or hints) from the
-        <a href="/submit" class="text-blue-400 hover:text-blue-300">Submit</a> page. The same quality standards apply.
+        From the <a href="/submit" class="text-blue-400 hover:text-blue-300">Submit page</a> you can suggest a new screenshot, a corrected pin, a hint, a full
+        edit, or the removal of an existing location. The same rules apply. Because this tool shows where locations are, it is only open to accounts at least 30
+        days old that have played at least five games, and using it to learn answers breaks Fair Play rule
+        <a href="/fairplay#F6" class="text-blue-400 hover:text-blue-300">F6</a>.
       </p>
+
+      <h2>What happens to your submission</h2>
+      <ul>
+        <li>
+          Staff review it and either approve or deny it. You get a notification either way, and can follow it under My Submissions in
+          <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>.
+        </li>
+        <li>Staff may adjust the label or hints when approving.</li>
+        <li>If it is denied, the screenshot is deleted straight away and the record is removed after 30 days.</li>
+        <li>
+          Approved screenshots become part of the game. See the <a href="/tos" class="text-blue-400 hover:text-blue-300">Terms of Service</a> for the permission
+          you give us and how to ask for removal.
+        </li>
+      </ul>
 
       <h2>Appeals</h2>
       <p>
-        If you believe your submission was incorrectly denied, you can submit a
-        <a href="/settings" class="text-blue-400 hover:text-blue-300">support ticket</a> referencing the submission.
+        If you think a submission was wrongly denied, open a
+        <a href="/settings?ticket=submission_appeal#support" class="text-blue-400 hover:text-blue-300">Submission Appeal ticket</a> and mention the submission
+        number.
       </p>
     </main>
+    <footer id="site-footer"></footer>
+    <script src="/js/sounds.js"></script>
+    <script src="/js/shared.js"></script>
     <footer class="text-center text-zinc-700 text-xs py-4">
       <a href="/tos" class="hover:text-zinc-500 transition mx-2">Terms of Service</a>
       <a href="/privacy" class="hover:text-zinc-500 transition mx-2">Privacy Policy</a>

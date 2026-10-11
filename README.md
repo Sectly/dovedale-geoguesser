@@ -1,59 +1,125 @@
 # Dovedale GeoGuesser
 
-A GeoGuesser-style game for the [Dovedale Railway](https://play.dovedale.uk) Roblox game. Players identify locations across the railway from in-game screenshots, compete on leaderboards, and challenge friends to real-time duels.
+A GeoGuesser-style game for the [Dovedale Railway](https://play.dovedale.uk) Roblox game. You are shown a screenshot from somewhere on the railway and have to pin where it was taken on the map.
 
-Hosted at [dovedalegeoguesser.com](https://dovedalegeoguesser.com).
+Play it at [dovedalegeoguesser.com](https://dovedalegeoguesser.com).
 
-Source: [github.com/Sectly/dovedale-geoguesser](https://github.com/Sectly/dovedale-geoguesser)
+## What's in it
 
-## Features
+- **Solo:** 3, 5 or 10 rounds at your own pace. No login needed.
+- **Daily challenge:** one location a day, with a streak to keep going.
+- **Duels:** real-time 1v1 by invite link or quick play. Anyone can watch.
+- **Specials:** side modes, mini-games and seasonal events, just for fun.
+- **Leaderboards and profiles:** for solo, duels and the daily.
+- **Submissions:** players add their own screenshots and suggest fixes; staff review them.
+- **Staff panel:** review queues, tickets, moderation with a full history, and site tools for operators.
 
-- **Solo play** - 5 rounds, 90 seconds each, no login required
-- **Daily challenge** - one location per day with streak tracking
-- **Duels** - real-time 1v1 location guessing via shareable room links
-- **Leaderboards** - solo, duels, and daily rankings
-- **Location submissions** - upload new screenshots with map pins; suggest hints, corrections, or new screenshots for existing locations
-- **Moderation** - admin panel with location approval, user bans, suggestion review, and support tickets
-- **Profiles** - public player profiles with stats; shareable via `/u/:username`
+## Run it locally
 
-## Stack
-
-- **Runtime:** [Bun](https://bun.sh)
-- **Framework:** [Hono](https://hono.dev)
-- **Realtime:** [WebWire](https://github.com/Sectly/webwire) (duel rooms)
-- **Database:** SQLite via `bun:sqlite`
-- **Auth:** Discord OAuth 2.0
-- **Images:** [sharp](https://sharp.pixelplumbing.com) - upload validation, WebP conversion, OG image generation
-
-## Setup
+You need [Bun](https://bun.sh).
 
 ```bash
 bun install
 cp .env.example .env
-# fill in .env values
+bun run seed
 bun run dev
 ```
 
-Visit `http://localhost:4000`.
+Then open `http://localhost:4000`.
 
-## Environment variables
+Set `AUTH_DEV=true` in `.env` to skip Discord and log in as a built-in operator account. `bun run seed` adds placeholder locations so there is something to play.
 
-See `.env.example` for all options. Required for production:
+| Command             | What it does                                    |
+| ------------------- | ----------------------------------------------- |
+| `bun run dev`       | Start the server and restart on changes         |
+| `bun test`          | Run the tests against a throwaway database      |
+| `bun run typecheck` | Type-check the server and tests                 |
+| `bun run build`     | Format the code and compile the stylesheet      |
+| `bun run vapid`     | Generate keys for push notifications (optional) |
+| `bun run sync-map`  | Refresh map settings from the Dovedale map      |
 
-| Variable                | Description                                             |
-| ----------------------- | ------------------------------------------------------- |
-| `DISCORD_CLIENT_ID`     | Discord OAuth app client ID                             |
-| `DISCORD_CLIENT_SECRET` | Discord OAuth app client secret                         |
-| `DISCORD_REDIRECT_URI`  | Must match what's registered in the Discord dev portal  |
-| `OPERATOR_IDS`          | Comma-separated Discord user IDs with full admin access |
-| `SITE_URL`              | Public-facing URL (used for OG image embeds)            |
+## Configuration
 
-## Map tiles
+Everything is set in `.env`; `.env.example` explains each option. For a real site you need:
 
-The interactive map uses 16 PNG tiles in `public/images/`. On startup, `tile-images.ts` generates medium and low quality WebP variants into `public/images/generated/` for adaptive loading.
+| Variable                | What it is                                             |
+| ----------------------- | ------------------------------------------------------ |
+| `DISCORD_CLIENT_ID`     | From your Discord OAuth app                            |
+| `DISCORD_CLIENT_SECRET` | From your Discord OAuth app                            |
+| `DISCORD_REDIRECT_URI`  | Must match the one registered with Discord             |
+| `OPERATOR_IDS`          | Discord user IDs with full access, separated by commas |
+| `SITE_URL`              | The public address, e.g. `https://example.com`         |
 
-## Deployment
+Never set `AUTH_DEV=true` on a live site.
+
+## Deploying
+
+First time:
 
 ```bash
+bun install
+bun run build:css
 pm2 start pm2.config.js
 ```
+
+After that, run `./deploy.sh`, or use the System tab in the staff panel.
+
+If you sit behind a proxy, it needs to pass WebSocket connections through (duels use them) and set `X-Forwarded-For`.
+
+> **Upgrading from a version before the restructure?** Do that one deploy by hand, because the old `deploy.sh` will stop partway:
+>
+> ```bash
+> git pull origin main
+> bun install
+> bun run build:css
+> pm2 restart dovedale-geoguesser
+> ```
+>
+> Your database is backed up and upgraded by itself on that first start.
+
+## Looking after it
+
+The server is built to be left running.
+
+- **Upgrades are automatic.** The database updates itself on start, after taking a backup.
+- **Backups are automatic.** One a day goes into `data/backups/`, and old ones are cleared out.
+- **Restarts are safe.** Stopping or killing the server only loses games in progress.
+- **A damaged database stops the server** rather than starting empty. To recover, stop the server, copy the newest backup over `data/geoguesser.sqlite`, delete any `-wal` and `-shm` files beside it, and start again.
+
+Operators also get a **System** tab in the staff panel to switch on maintenance mode, install updates and restart, manage backups, and read the server log.
+
+## Staff roles
+
+| Role       | Can do                                                                             |
+| ---------- | ---------------------------------------------------------------------------------- |
+| Moderator  | Review submissions, answer tickets, warn, limit and temporarily ban                |
+| Supervisor | Also ban permanently, overturn most actions, manage moderators, read the audit log |
+| Operator   | Everything, including player scores and the System tab                             |
+
+## Specials and seasons
+
+Specials are for fun and never count on the leaderboards. Night Shift (around Halloween) and Snowed In (December) come round every year by themselves, and the homepage dresses up for those and a few other dates.
+
+To preview a season on any day, add `?season=halloween` to the homepage address (also `christmas`, `newyear`, `valentines`, `easter`, `bonfire`).
+
+To add a special or change the dates, see `src/specials.ts`.
+
+## How it's built
+
+[Bun](https://bun.sh), [Hono](https://hono.dev), SQLite, [WebWire](https://github.com/Sectly/webwire) for duels, Discord login, and plain JavaScript with Tailwind in the browser.
+
+```
+server.ts     Entry point
+src/          The server: config, database, auth, game logic, routes
+public/       Pages, styles and one script per page
+tests/        Test suites
+scripts/      Build, seed and map tools
+```
+
+Solo, daily and duels all run on one round engine (`src/game/round.ts`), so a change to scoring, hints or timing there applies everywhere. Scores are always worked out on the server, and the answer is only sent once a guess is in.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Bugs and ideas are welcome on [GitHub Issues](https://github.com/Sectly/dovedale-geoguesser/issues).
+
+Map data and tiles come from the [Dovedale Live Map](https://github.com/dovedalerailway/dovedale-map). Licensed under the terms in [LICENSE](LICENSE).

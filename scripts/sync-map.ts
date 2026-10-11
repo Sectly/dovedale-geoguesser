@@ -1,5 +1,7 @@
+export {};
+
 const UPSTREAM = "https://raw.githubusercontent.com/dovedalerailway/dovedale-map/main/public/index.js";
-const OUT = "./public/map-upstream.js";
+const OUT = "./public/js/map-config.js";
 
 const src = await fetch(UPSTREAM).then((r) => {
 	if (!r.ok) throw new Error(`Fetch failed: ${r.status} ${r.statusText}`);

@@ -7,31 +7,23 @@
     <meta name="description" content="The best GeoGuessers on the Dovedale Railway. Solo, duels, and daily rankings." />
     <meta property="og:title" content="Leaderboard | Dovedale GeoGuesser" />
     <meta property="og:description" content="The best GeoGuessers on the Dovedale Railway. Solo, duels, and daily rankings." />
-    <meta property="og:image" content="/og.png?type=leaderboard&v=2" />
+    <meta property="og:image" content="/og.png?type=leaderboard" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="/og.png?type=leaderboard&v=2" />
-    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&family=Inter:opsz,wght@14..32,200..700"
-    />
-    <link rel="stylesheet" href="/shared.css?v=2" />
+    <meta name="twitter:image" content="/og.png?type=leaderboard" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
-    <nav class="bg-zinc-900 border-b border-zinc-800 flex items-center gap-4 px-4 py-2">
-      <a href="/" class="text-zinc-400 hover:text-zinc-100 transition flex items-center gap-1 text-sm">
-        <span class="material-symbols-outlined text-base leading-none">home</span> <span class="hidden sm:inline">Home</span>
-      </a>
-      <span class="text-zinc-700 hidden sm:inline">/</span>
-      <a href="/play" class="text-zinc-400 hover:text-zinc-100 transition text-sm hidden sm:inline">GeoGuesser</a>
-      <a href="/duels" class="text-zinc-400 hover:text-zinc-100 transition text-sm hidden sm:inline">Duels</a>
-      <span class="text-zinc-100 font-semibold text-sm">Leaderboard</span>
-      <a href="/submit" class="text-zinc-400 hover:text-zinc-100 transition text-sm hidden sm:inline">Submit Location</a>
-      <div class="ml-auto" id="auth-area"></div>
-    </nav>
+    <nav id="site-nav"></nav>
 
     <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-8">
       <h1 class="text-3xl font-bold mb-6">Leaderboard</h1>
@@ -42,263 +34,18 @@
         <button id="tab-daily" class="flex-1 py-2 rounded-lg text-sm font-semibold transition text-zinc-400 hover:text-white">Daily</button>
       </div>
 
-      <div id="leaderboard-content">
-        <div class="text-zinc-500 text-center py-12">Loading...</div>
+      <div id="leaderboard-content" class="stagger">
+        <div class="skeleton h-16 rounded-2xl mb-2"></div>
+        <div class="skeleton h-16 rounded-2xl mb-2"></div>
+        <div class="skeleton h-16 rounded-2xl mb-2"></div>
+        <div class="skeleton h-16 rounded-2xl mb-2"></div>
+        <div class="skeleton h-16 rounded-2xl mb-2"></div>
       </div>
     </main>
+    <footer id="site-footer"></footer>
 
-    <script src="/shared.js"></script>
-    <script>
-      let currentTab = "solo";
-      let currentUser = null;
-      let soloSort = "total";
-      let soloRounds = 0;
-      let soloTimeLimit = -1;
-      let duelsSort = "wins";
-      let duelsMode = "all";
-      let dailySort = "score";
-
-      async function init() {
-        try {
-          const r = await fetch("/api/auth/me");
-          if (r.ok) currentUser = await r.json();
-        } catch {}
-        renderAuthArea();
-        renderSortToggle();
-        loadLeaderboard("solo");
-        el("tab-solo").addEventListener("click", () => switchTab("solo"));
-        el("tab-duels").addEventListener("click", () => switchTab("duels"));
-        el("tab-daily").addEventListener("click", () => switchTab("daily"));
-      }
-
-      function renderAuthArea() {
-        const area = el("auth-area");
-        if (currentUser) {
-          area.innerHTML = `<div class="flex items-center gap-2">
-          ${currentUser.avatar_url ? `<img src="${escHtml(currentUser.avatar_url)}" class="w-7 h-7 rounded-full" />` : ""}
-          <a href="/u/${encodeURIComponent(currentUser.username)}" class="text-sm text-zinc-300 hover:text-white transition">${escHtml(currentUser.display_name || currentUser.username)}</a>
-          <a href="/api/auth/logout" class="text-xs text-zinc-500 hover:text-zinc-300 transition ml-1">Logout</a>
-        </div>`;
-        } else {
-          area.innerHTML = `<a href="/api/auth/login?redirect=/leaderboard" class="text-sm bg-zinc-700 hover:bg-zinc-600 transition px-3 py-1.5 rounded-lg">Login with Discord</a>`;
-        }
-      }
-
-      function renderSortToggle() {
-        const existing = document.getElementById("leaderboard-filters");
-        if (existing) existing.remove();
-        const wrap = document.createElement("div");
-        wrap.id = "leaderboard-filters";
-        wrap.className = "flex flex-wrap gap-2 mb-4";
-
-        if (currentTab === "solo") {
-          const tlLabels = [
-            [-1, "All"],
-            [30, "30s"],
-            [60, "60s"],
-            [90, "90s"],
-            [120, "120s"],
-            [0, '<span class="material-symbols-outlined text-sm leading-none align-middle">all_inclusive</span>'],
-          ];
-          wrap.innerHTML = `
-          <div class="flex items-center gap-1 overflow-x-auto pb-1">
-            <button id="sort-total" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${soloSort === "total" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Best total</button>
-            <button id="sort-avg" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${soloSort === "avg" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Avg/round</button>
-            <span class="text-zinc-700 text-xs px-0.5">|</span>
-            <button id="rounds-0" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${soloRounds === 0 ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">All R</button>
-            <button id="rounds-3" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${soloRounds === 3 ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">3R</button>
-            <button id="rounds-5" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${soloRounds === 5 ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">5R</button>
-            <button id="rounds-10" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${soloRounds === 10 ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">10R</button>
-            <span class="text-zinc-700 text-xs px-0.5">|</span>
-            ${tlLabels.map(([v, l]) => `<button id="tl-${v}" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${soloTimeLimit === v ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">${l}</button>`).join("")}
-          </div>`;
-          el("leaderboard-content").before(wrap);
-          document.getElementById("sort-total").addEventListener("click", () => {
-            soloSort = "total";
-            renderSortToggle();
-            loadLeaderboard("solo");
-          });
-          document.getElementById("sort-avg").addEventListener("click", () => {
-            soloSort = "avg";
-            renderSortToggle();
-            loadLeaderboard("solo");
-          });
-          [0, 3, 5, 10].forEach((r) => {
-            document.getElementById(`rounds-${r}`).addEventListener("click", () => {
-              soloRounds = r;
-              renderSortToggle();
-              loadLeaderboard("solo");
-            });
-          });
-          tlLabels.forEach(([v]) => {
-            document.getElementById(`tl-${v}`).addEventListener("click", () => {
-              soloTimeLimit = v;
-              renderSortToggle();
-              loadLeaderboard("solo");
-            });
-          });
-        } else if (currentTab === "duels") {
-          wrap.innerHTML = `
-          <div class="flex items-center gap-1 overflow-x-auto pb-1">
-            <button id="dsort-wins" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${duelsSort === "wins" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Wins</button>
-            <button id="dsort-score" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${duelsSort === "score" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Total score</button>
-            <button id="dsort-avg" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${duelsSort === "avg" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Avg/round</button>
-            <span class="text-zinc-700 text-xs px-0.5">|</span>
-            <button id="dmode-all" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${duelsMode === "all" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">All</button>
-            <button id="dmode-quickplay" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${duelsMode === "quickplay" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}"><span class="material-symbols-outlined text-xs leading-none align-middle" style="font-variation-settings:'FILL' 1">bolt</span> Quick Play</button>
-            <button id="dmode-room" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${duelsMode === "room" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}"><span class="material-symbols-outlined text-xs leading-none align-middle">meeting_room</span> Room</button>
-          </div>`;
-          el("leaderboard-content").before(wrap);
-          ["wins", "score", "avg"].forEach((s) => {
-            document.getElementById(`dsort-${s}`).addEventListener("click", () => {
-              duelsSort = s;
-              renderSortToggle();
-              loadLeaderboard("duels");
-            });
-          });
-          ["all", "quickplay", "room"].forEach((m) => {
-            document.getElementById(`dmode-${m}`).addEventListener("click", () => {
-              duelsMode = m;
-              renderSortToggle();
-              loadLeaderboard("duels");
-            });
-          });
-        } else if (currentTab === "daily") {
-          wrap.innerHTML = `
-          <div class="flex items-center gap-1 overflow-x-auto pb-1">
-            <button id="daysort-score" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${dailySort === "score" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Score</button>
-            <button id="daysort-distance" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${dailySort === "distance" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Distance</button>
-            <button id="daysort-time" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${dailySort === "time" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Time</button>
-            <button id="daysort-hints" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${dailySort === "hints" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Hints</button>
-          </div>`;
-          el("leaderboard-content").before(wrap);
-          ["score", "distance", "time", "hints"].forEach((s) => {
-            document.getElementById(`daysort-${s}`).addEventListener("click", () => {
-              dailySort = s;
-              renderSortToggle();
-              loadLeaderboard("daily");
-            });
-          });
-        }
-      }
-
-      function switchTab(tab) {
-        currentTab = tab;
-        ["solo", "duels", "daily"].forEach((t) => {
-          el(`tab-${t}`).className =
-            `flex-1 py-2 rounded-lg text-sm font-semibold transition ${tab === t ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}`;
-        });
-        renderSortToggle();
-        loadLeaderboard(tab);
-      }
-
-      async function loadLeaderboard(tab) {
-        el("leaderboard-content").innerHTML = '<div class="text-zinc-500 text-center py-12">Loading...</div>';
-        try {
-          let url;
-          if (tab === "solo") {
-            url = `/api/leaderboard/solo?limit=50&sort=${soloSort}`;
-            if (soloRounds) url += `&rounds=${soloRounds}`;
-            if (soloTimeLimit >= 0) url += `&time_limit=${soloTimeLimit}`;
-          } else if (tab === "duels") {
-            url = `/api/leaderboard/duels?limit=50&sort=${duelsSort}`;
-            if (duelsMode !== "all") url += `&mode=${duelsMode}`;
-          } else if (tab === "daily") {
-            url = `/api/leaderboard/daily?limit=50`;
-            if (dailySort !== "score") url += `&sort=${dailySort}`;
-          } else {
-            url = `/api/leaderboard/${tab}?limit=50`;
-          }
-          const r = await fetch(url);
-          if (!r.ok) throw new Error();
-          const data = await r.json();
-          renderLeaderboard(tab, data);
-        } catch {
-          el("leaderboard-content").innerHTML = '<div class="text-red-400 text-center py-12">Failed to load leaderboard.</div>';
-        }
-      }
-
-      function renderLeaderboard(tab, entries) {
-        if (!entries.length) {
-          el("leaderboard-content").innerHTML = '<div class="text-zinc-500 text-center py-12">No scores yet. Be the first!</div>';
-          return;
-        }
-        const medalIcons = ["emoji_events", "military_tech", "workspace_premium"];
-        const medalColors = ["text-yellow-400", "text-zinc-300", "text-amber-600"];
-        el("leaderboard-content").innerHTML = entries
-          .map((e, i) => {
-            const isMe = currentUser && e.user_id === currentUser.id;
-            const medal =
-              i < 3
-                ? `<span class="material-symbols-outlined ${medalColors[i]}" style="font-variation-settings:'FILL' 1">${medalIcons[i]}</span>`
-                : `<span class="text-zinc-500 font-mono text-sm w-7 text-center">#${i + 1}</span>`;
-            let score;
-            if (tab === "solo") {
-              const mainVal =
-                soloSort === "avg"
-                  ? `${Math.round(e.avg_per_round || 0).toLocaleString()} <span class="text-sm font-normal text-zinc-400">avg/round</span>`
-                  : (e.total_score || 0).toLocaleString();
-              const tlLabel =
-                e.time_limit > 0 ? `${e.time_limit}s` : '<span class="material-symbols-outlined text-xs align-middle leading-none">all_inclusive</span>';
-              score = `<div class="font-mono font-bold text-lg">${mainVal}</div><div class="text-xs text-zinc-500">${e.rounds}R · ${tlLabel} · ${Math.round(((e.total_score || 0) / (e.max_possible || 25000)) * 100)}%</div>`;
-            } else if (tab === "duels") {
-              const qp = e.quickplay_games || 0;
-              const rm = e.room_games || 0;
-              const breakdown =
-                qp || rm
-                  ? ` · <span class="material-symbols-outlined text-xs align-middle leading-none" style="font-variation-settings:'FILL' 1">bolt</span>${qp} <span class="material-symbols-outlined text-xs align-middle leading-none">meeting_room</span>${rm}`
-                  : "";
-              let mainVal, subVal;
-              if (duelsSort === "wins") {
-                mainVal = `${e.wins || 0} <span class="text-sm font-normal text-zinc-400">wins</span>`;
-                subVal = `${(e.total_score || 0).toLocaleString()} pts · ${e.games_played}G${breakdown}`;
-              } else if (duelsSort === "avg") {
-                mainVal = `${Math.round(e.avg_per_round || 0).toLocaleString()} <span class="text-sm font-normal text-zinc-400">avg/round</span>`;
-                subVal = `${e.wins}W / ${e.games_played}G${breakdown}`;
-              } else {
-                mainVal = (e.total_score || 0).toLocaleString();
-                subVal = `${e.wins}W / ${e.games_played}G${breakdown}`;
-              }
-              score = `<div class="font-mono font-bold text-lg">${mainVal}</div><div class="text-xs text-zinc-500">${subVal}</div>`;
-            } else {
-              const streak =
-                e.current_streak > 0
-                  ? ` <span class="material-symbols-outlined text-xs align-middle text-orange-400" style="font-variation-settings:'FILL' 1">local_fire_department</span>${e.current_streak}`
-                  : "";
-              let mainVal, subVal;
-              if (dailySort === "distance") {
-                mainVal = `${(e.distance || 0).toLocaleString()} <span class="text-sm font-normal text-zinc-400">dist</span>`;
-                subVal = `${(e.score || 0).toLocaleString()} pts${streak}`;
-              } else if (dailySort === "time") {
-                const secs = e.time_taken || 0;
-                const timeStr = secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`;
-                mainVal = `${timeStr} <span class="text-sm font-normal text-zinc-400">time</span>`;
-                subVal = `${(e.score || 0).toLocaleString()} pts${streak}`;
-              } else if (dailySort === "hints") {
-                mainVal = `${e.hints_used || 0} <span class="text-sm font-normal text-zinc-400">hints</span>`;
-                subVal = `${(e.score || 0).toLocaleString()} pts${streak}`;
-              } else {
-                mainVal = (e.score || 0).toLocaleString();
-                subVal = `${e.date || ""}${streak}`;
-              }
-              score = `<div class="font-mono font-bold text-lg">${mainVal}</div><div class="text-xs text-zinc-500">${subVal}</div>`;
-            }
-            return `<div class="flex items-center gap-4 bg-zinc-900 rounded-2xl px-5 py-4 mb-2 ${isMe ? "ring-2 ring-blue-500" : ""}">
-          ${medal}
-          ${e.avatar_url ? `<img src="${e.avatar_url}" class="w-9 h-9 rounded-full" />` : `<div class="w-9 h-9 rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined text-sm">person</span></div>`}
-          <div class="flex-1">
-            <div class="font-semibold">${escHtml(e.display_name || e.username)}${isMe ? ' <span class="text-xs text-blue-400">(you)</span>' : ""}</div>
-            <div class="text-xs text-zinc-500">${escHtml(e.username)}</div>
-          </div>
-          <div class="text-right">${score}</div>
-        </div>`;
-          })
-          .join("");
-      }
-
-      init();
-    </script>
-    <script src="/guard.js?v=1"></script>
-    <script src="/fp.js"></script>
+    <script src="/js/sounds.js"></script>
+    <script src="/js/shared.js"></script>
+    <script src="/js/leaderboard.js"></script>
   </body>
 </html>
