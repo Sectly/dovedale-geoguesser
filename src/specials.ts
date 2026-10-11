@@ -1,5 +1,5 @@
 import type { User } from "./db";
-import { isStaff } from "./auth/guards";
+import { hasRole } from "./auth/guards";
 import type { RoundRules } from "./game/round";
 
 /**
@@ -138,7 +138,7 @@ type Listed = Special & { status: "live" | "upcoming"; preview: boolean };
 export function specialsFor(user: User, now = Date.now()): Listed[] {
 	const listed: Listed[] = [];
 	for (const special of SPECIALS) {
-		if (special.staffOnly && !isStaff(user)) continue;
+		if (special.staffOnly && !hasRole(user, "moderator")) continue;
 		const { start, end } = windowOf(special, now);
 		if (end !== null && end <= now) continue;
 		const upcoming = start !== null && start > now;
@@ -147,7 +147,7 @@ export function specialsFor(user: User, now = Date.now()): Listed[] {
 			startsAt: start === null ? undefined : new Date(start).toISOString(),
 			endsAt: end === null ? undefined : new Date(end).toISOString(),
 			status: upcoming ? "upcoming" : "live",
-			preview: upcoming && isStaff(user),
+			preview: upcoming && hasRole(user, "moderator"),
 		});
 	}
 	return listed.sort((a, b) => Number(a.status === "upcoming") - Number(b.status === "upcoming"));

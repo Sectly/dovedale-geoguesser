@@ -83,6 +83,11 @@ function renderLocations(items) {
             <div id="panel-search-empty" class="hidden col-span-full text-zinc-500 text-center py-8">No locations match your search.</div>
         </div>`;
 	bindPanelSearch("#locations-list [data-search]");
+	// Helpers can look but not change: the server would refuse anyway, so the controls go.
+	if (isHelper()) {
+		for (const control of el("locations-list").querySelectorAll("button")) control.remove();
+		for (const field of el("locations-list").querySelectorAll("input")) field.readOnly = true;
+	}
 }
 
 /** Clears a location's difficulty record so it is graded afresh from the next guesses. */

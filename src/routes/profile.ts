@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db, type User } from "../db";
 import { DEV_DISCORD_ID, DEV_MODE } from "../config";
-import { isStaff } from "../auth/guards";
+import { hasRole } from "../auth/guards";
 import { currentUser } from "../auth/sessions";
 import { achievementsFor } from "../achievements";
 import { ratingOf } from "../game/duels/rating";
@@ -82,7 +82,7 @@ profileRoutes.get("/:username", (c) => {
 	const me = currentUser(c);
 	const subject = findProfile(c.req.param("username"));
 	if (!subject) fail(404, "Not found");
-	if (subject.profile_private && me?.id !== subject.id && !isStaff(me)) fail(403, "Profile is private");
+	if (subject.profile_private && me?.id !== subject.id && !hasRole(me, "moderator")) fail(403, "Profile is private");
 
 	return c.json({
 		id: subject.id,

@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { db, type Location } from "../src/db";
 import { utcDate } from "../src/lib/time";
-import { call, createLocation, createUser, post, resetReviewQueues } from "./helpers";
+import { setMaintenance } from "../src/system/maintenance";
+import { call, createLocation, createUser, post, resetReviewQueues, type TestUser } from "./helpers";
 
 const getLocation = (id: number) => db.query<Location, [number]>("SELECT * FROM locations WHERE id = ?").get(id);
 
@@ -479,5 +480,135 @@ describe("locking a member of staff out", () => {
 		expect((await post(`/api/admin/users/${supB.id}/staff-lock`, operator, { reason })).status).toBe(200);
 		// A locked supervisor cannot use the powers they would need to undo it.
 		expect((await post(`/api/admin/users/${modA.id}/staff-lock`, supB, { reason })).status).toBe(403);
+	});
+});
+
+describe("helpers", () => {
+	const pending = (author: TestUser) =>
+		Number(
+			db.run(
+				"INSERT INTO submissions (image_path, world_x, world_y, label, submitted_by) VALUES ('helper.webp', 1, 2, 'The coal stage', ?)",
+				[author.id]
+			).lastInsertRowid
+		);
+
+	test("review submissions and suggestions, see locations, and nothing else", async () => {
+		const helper = createUser({ role: "helper" });
+		const author = createUser();
+		expect((await call("/api/auth/me", { as: helper })).data.role).toBe("helper");
+
+		// Theirs to do.
+		expect((await call("/api/admin/submissions", { as: helper })).status).toBe(200);
+		expect((await call("/api/admin/suggestions", { as: helper })).status).toBe(200);
+		expect((await call("/api/admin/locations", { as: helper })).status).toBe(200);
+		expect((await post(`/api/admin/submissions/${pending(author)}/approve`, helper)).status).toBe(200);
+		expect(
+			(await post(`/api/admin/submissions/${pending(author)}/deny`, helper, { reason: "Not a railway location" }))
+				.status
+		).toBe(200);
+
+		// Not theirs.
+		const location = db.query<{ id: number }, []>("SELECT id FROM locations ORDER BY id DESC LIMIT 1").get()!.id;
+		for (const [path, body] of [
+			[`/api/admin/locations/${location}/toggle`, undefined],
+			[`/api/admin/locations/${location}/label`, { label: "Renamed by a helper" }],
+			[`/api/admin/users/${author.id}/warn`, { reason: "Helpers cannot warn" }],
+			[`/api/admin/users/${author.id}/staff-lock`, { reason: "Helpers cannot lock" }],
+		] as const)
+			expect((await post(path, helper, body)).status).toBe(403);
+		for (const path of ["/api/admin/users", "/api/admin/support", "/api/admin/stats", "/api/admin/audit"])
+			expect((await call(path, { as: helper })).status).toBe(403);
+		expect((await call(`/api/admin/locations/${location}`, { method: "DELETE", as: helper })).status).toBe(403);
+
+		// Their queue counts only what they review.
+		const queue = (await call("/api/attention", { as: helper })).data.staff;
+		expect(queue).toMatchObject({ tickets: 0, users: 0 });
+		expect(queue.total).toBe(queue.submissions + queue.suggestions);
+	});
+
+	test("get none of the wider staff privileges, and lose the panel when suspended", async () => {
+		const helper = createUser({ role: "helper" });
+		const moderator = createUser({ role: "moderator" });
+
+		// A suggestion they accept is applied, but a removal only takes the location out of play.
+		const location = createLocation();
+		const removal = createSuggestion(location, "removal", { reason: "duplicate" });
+		expect((await post(`/api/admin/suggestions/${removal}/approve`, helper)).status).toBe(200);
+		expect(getLocation(location)).toMatchObject({ id: location, is_active: 0 });
+		const hint = createSuggestion(location, "hint", { text: "Near the water tower" });
+		expect((await post(`/api/admin/suggestions/${hint}/deny`, helper, {})).status).toBe(400);
+		expect(
+			(await post(`/api/admin/suggestions/${hint}/deny`, helper, { reason: "Too vague to help" })).status
+		).toBe(200);
+
+		// A private profile stays private to them; a moderator may look.
+		const shy = createUser();
+		await post("/api/settings", shy, { profile_private: true });
+		expect((await call(`/api/profile/${shy.username}`, { as: helper })).status).toBe(403);
+		expect((await call(`/api/profile/${shy.username}`, { as: moderator })).status).toBe(200);
+
+		// Maintenance locks them out with the players.
+		setMaintenance(true, "Back soon", "test");
+		try {
+			expect((await call("/api/leaderboard/solo", { as: helper })).status).toBe(503);
+			expect((await call("/api/admin/submissions", { as: helper })).status).toBe(503);
+			expect((await call("/api/leaderboard/solo", { as: moderator })).status).toBe(200);
+			expect((await call("/api/auth/me", { as: helper })).data.maintenance).toBe(false);
+		} finally {
+			setMaintenance(false, "", "test");
+		}
+
+		// They cannot change roles, their own included, or reach the operator tools.
+		expect((await post(`/api/admin/users/${helper.id}/role`, helper, { role: "moderator" })).status).toBe(403);
+		expect((await post(`/api/admin/users/${shy.id}/role`, helper, { role: "helper" })).status).toBe(403);
+		for (const path of ["/api/admin/system/info", "/api/admin/announcements", `/api/admin/scores/${shy.id}`])
+			expect((await call(path, { as: helper })).status).toBe(403);
+
+		// Suspended: the role is kept on record, but they are an ordinary player everywhere.
+		expect(
+			(
+				await post(`/api/admin/users/${helper.id}/staff-lock`, moderator, {
+					reason: "Approving without checking",
+				})
+			).status
+		).toBe(200);
+		const me = (await call("/api/auth/me", { as: helper })).data;
+		expect(me).toMatchObject({ role: null, staff_locked: true });
+		expect((await call("/api/admin/locations", { as: helper })).status).toBe(403);
+		expect((await call("/api/attention", { as: helper })).data.staff).toBeNull();
+		expect(db.query<{ role: string }, [number]>("SELECT role FROM users WHERE id = ?").get(helper.id)!.role).toBe(
+			"helper"
+		);
+	});
+
+	test("supervisors appoint and remove them; moderators can only suspend them", async () => {
+		const [operator, supervisor, moderator] = (["operator", "supervisor", "moderator"] as const).map((role) =>
+			createUser({ role })
+		);
+		const recruit = createUser();
+		const roleOf = (user: TestUser) =>
+			db.query<{ role: string | null }, [number]>("SELECT role FROM users WHERE id = ?").get(user.id)!.role;
+		const setRole = (as: TestUser, target: TestUser, role: string | null) =>
+			post(`/api/admin/users/${target.id}/role`, as, { role });
+
+		expect((await setRole(moderator, recruit, "helper")).status).toBe(403);
+		expect((await setRole(supervisor, recruit, "helper")).status).toBe(200);
+		expect(roleOf(recruit)).toBe("helper");
+		expect((await setRole(supervisor, recruit, "supervisor")).status).toBe(403);
+		expect((await setRole(operator, recruit, "moderator")).status).toBe(200);
+		expect((await setRole(supervisor, recruit, "helper")).status).toBe(200);
+
+		// A moderator can suspend and restore a helper, but not a fellow moderator.
+		const lock = (as: TestUser, target: TestUser, action: "staff-lock" | "staff-unlock") =>
+			post(`/api/admin/users/${target.id}/${action}`, as, { reason: "Checking the helper lock" });
+		expect((await lock(moderator, recruit, "staff-lock")).status).toBe(200);
+		expect((await call("/api/admin/submissions", { as: recruit })).status).toBe(403);
+		expect((await lock(moderator, recruit, "staff-unlock")).status).toBe(200);
+		expect((await call("/api/admin/submissions", { as: recruit })).status).toBe(200);
+		expect((await lock(moderator, createUser({ role: "moderator" }), "staff-lock")).status).toBe(403);
+		expect((await lock(recruit, createUser({ role: "helper" }), "staff-lock")).status).toBe(403);
+
+		expect((await setRole(supervisor, recruit, null)).status).toBe(200);
+		expect(roleOf(recruit)).toBeNull();
 	});
 });

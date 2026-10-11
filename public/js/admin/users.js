@@ -1,10 +1,59 @@
 /* ---- Users: the list, each user's moderation history, and the actions staff can take ---- */
 
-const ROLE_RANK_JS = { operator: 3, supervisor: 2, moderator: 1 };
+const ROLE_RANK_JS = { operator: 4, supervisor: 3, moderator: 2, helper: 1 };
 const ROLE_BADGE = {
 	operator: "bg-yellow-900/70 text-yellow-300",
 	supervisor: "bg-purple-900/70 text-purple-300",
 	moderator: "bg-blue-900/70 text-blue-300",
+	helper: "bg-teal-900/70 text-teal-300",
+};
+/** The roles someone may hand out, highest first: operators any below their own, supervisors the lower two. */
+const assignableRoles = (role) =>
+	role === "operator" ? ["supervisor", "moderator", "helper"] : role === "supervisor" ? ["moderator", "helper"] : [];
+const ROLE_NAMES = { operator: "Operator", supervisor: "Supervisor", moderator: "Moderator", helper: "Helper" };
+/**
+ * What each role is for, lowest first: a one-line summary and what it adds to the role
+ * below it. Shown on the Staff tab so nobody has to guess what an appointment hands over.
+ */
+const ROLE_INFO = {
+	helper: {
+		summary: "Reviews what players send in. The place to start for someone new.",
+		can: [
+			"Approve or deny location submissions",
+			"Approve or deny suggested changes to locations (an approved one is applied)",
+			"Look through the location list, without editing it directly",
+		],
+	},
+	moderator: {
+		summary: "Keeps the community in order. Everything a helper can do, and:",
+		can: [
+			"Edit locations: labels, hints, and switching them on or off",
+			"Warn players, limit uploads or duels, and ban for a set time",
+			"Answer and close support tickets",
+			"Review ban-evasion flags",
+			"Suspend a helper's staff access",
+		],
+	},
+	supervisor: {
+		summary: "Oversees the moderators. Everything a moderator can do, and:",
+		can: [
+			"Ban permanently, and overturn limits, warnings and timed bans",
+			"Appoint, change or remove helpers and moderators",
+			"Suspend a moderator's staff access",
+			"See site stats and the audit log",
+		],
+	},
+	operator: {
+		summary: "Runs the site. Everything a supervisor can do, and:",
+		can: [
+			"Appoint supervisors, and overturn permanent bans",
+			"Correct or reset scores, ratings, streaks and achievements",
+			"Send announcements, delete locations and tickets",
+			"Export or delete a player's data",
+			"Maintenance mode, updates, restarts, backups and the server log",
+		],
+		note: "Operators are set in the server's configuration, not from this page.",
+	},
 };
 const REASON_MIN = 5;
 
@@ -264,8 +313,10 @@ function renderUsers(users) {
 				.map((u) => {
 					const restricted = u.is_banned || u.upload_limited || u.duel_limited;
 					const canManageRole =
-						myRank >= 2 && u.id !== currentUser.id && (ROLE_RANK_JS[u.role] ?? 0) < myRank;
-					const assignable = (isOp ? ["supervisor", "moderator"] : ["moderator"]).filter((r) => r !== u.role);
+						myRank >= ROLE_RANK_JS.supervisor &&
+						u.id !== currentUser.id &&
+						(ROLE_RANK_JS[u.role] ?? 0) < myRank;
+					const assignable = assignableRoles(currentUser.role).filter((r) => r !== u.role);
 					const searchText = [
 						u.id,
 						`User #${u.id}`,
@@ -560,9 +611,8 @@ async function loadStaff() {
 function renderStaff(staff) {
 	const myRole = currentUser?.role;
 	const myRank = ROLE_RANK_JS[myRole] ?? 0;
-	const isOp = myRole === "operator";
-
-	const grouped = { operator: [], supervisor: [], moderator: [] };
+	const grouped = { operator: [], supervisor: [], moderator: [], helper: [] };
+	const canAppoint = myRank >= ROLE_RANK_JS.supervisor;
 	for (const u of staff) if (grouped[u.role]) grouped[u.role].push(u);
 
 	const roleSection = (role, members) => {
@@ -575,21 +625,22 @@ function renderStaff(staff) {
                 <span class="text-zinc-500 text-xs">${members.length} member${members.length !== 1 ? "s" : ""}</span>
                 ${role === "operator" ? '<span class="text-xs text-zinc-600">· env-managed</span>' : ""}
             </div>
+            <p class="text-xs text-zinc-500 -mt-1.5 mb-3">${ROLE_INFO[role]?.summary.replace(/, and:$/, ".") ?? ""}</p>
             <div class="flex flex-col gap-2">
                 ${members
 					.map((u) => {
 						const targetRank = ROLE_RANK_JS[u.role] ?? 0;
+						// Anyone ranked below you can be locked out; changing roles takes a supervisor.
 						const canChange = u.id !== currentUser.id && targetRank < myRank;
-						const assignable = isOp ? ["supervisor", "moderator"] : ["moderator"];
 						const roleButtons = canChange
 							? [
-									...assignable
+									...(canAppoint ? assignableRoles(myRole) : [])
 										.filter((r) => r !== u.role)
 										.map(
 											(r) =>
 												`<button onclick="setUserRole(${u.id}, '${r}')" class="bg-purple-900/60 hover:bg-purple-800 transition px-2.5 py-1 rounded-lg text-xs">Set ${r}</button>`
 										),
-									u.role !== "operator"
+									canAppoint && u.role !== "operator"
 										? `<button onclick="setUserRole(${u.id}, 'none')" class="bg-zinc-700 hover:bg-zinc-600 transition px-2.5 py-1 rounded-lg text-xs">Remove role</button>`
 										: "",
 									u.staff_locked
@@ -631,8 +682,13 @@ function renderStaff(staff) {
             <input id="staff-search" type="text" placeholder="Username or user ID..."
                 class="flex-1 bg-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600" />
             <select id="staff-role-select" class="bg-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-zinc-300">
-                ${isOp ? '<option value="supervisor">Supervisor</option>' : ""}
-                <option value="moderator">Moderator</option>
+                ${assignableRoles(myRole)
+					.map(
+						(role, i, all) =>
+							// The lowest role is the one picked to begin with: the safe default for a new appointment.
+							`<option value="${role}" ${i === all.length - 1 ? "selected" : ""}>${ROLE_NAMES[role]}</option>`
+					)
+					.join("")}
             </select>
             <button onclick="addStaffMember()" class="bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-lg text-sm font-semibold">Add</button>
         </div>
@@ -640,13 +696,41 @@ function renderStaff(staff) {
     </div>`
 			: "";
 
+	const roleGuide = `<details class="bg-zinc-900 rounded-xl mb-6 group">
+        <summary class="flex items-center gap-2 px-4 py-3 cursor-pointer list-none">
+            <span class="material-symbols-outlined text-lg text-zinc-500">help</span>
+            <span class="font-semibold text-sm flex-1">What each role can do</span>
+            <span class="material-symbols-outlined text-zinc-500 transition group-open:rotate-180">expand_more</span>
+        </summary>
+        <div class="grid sm:grid-cols-2 gap-3 px-4 pb-4">
+            ${Object.entries(ROLE_INFO)
+				.map(
+					([role, info]) => `<div class="bg-zinc-800/50 rounded-xl p-3">
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded ${ROLE_BADGE[role]}">${ROLE_NAMES[role]}</span>
+                    <p class="text-xs text-zinc-400 mt-2 mb-1.5">${info.summary}</p>
+                    <ul class="text-xs text-zinc-300 flex flex-col gap-1">${info.can
+						.map(
+							(line) =>
+								`<li class="flex gap-1.5"><span class="material-symbols-outlined text-sm leading-4 text-zinc-600 flex-shrink-0">check</span>${line}</li>`
+						)
+						.join("")}</ul>
+                    ${info.note ? `<p class="text-[11px] text-zinc-600 mt-2">${info.note}</p>` : ""}
+                </div>`
+				)
+				.join("")}
+        </div>
+        <p class="text-[11px] text-zinc-600 px-4 pb-4 -mt-1">Nobody can change, suspend or moderate someone of their own rank or higher, or themselves.</p>
+    </details>`;
+
 	el("tab-content").innerHTML = `
         <h2 class="font-bold text-lg mb-4">Staff Management</h2>
         ${panelSearchInput("Search staff name, username, ID or role...")}
+        ${roleGuide}
         ${addSection}
         ${roleSection("operator", grouped.operator)}
         ${roleSection("supervisor", grouped.supervisor)}
         ${roleSection("moderator", grouped.moderator)}
+        ${roleSection("helper", grouped.helper)}
         ${!staff.length ? '<div class="text-zinc-500">No staff members found.</div>' : '<div id="panel-search-empty" class="hidden text-zinc-500 text-center py-8">No staff members match your search.</div>'}`;
 	bindPanelSearch("#tab-content [data-search]");
 }

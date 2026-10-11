@@ -18,7 +18,7 @@ import { clientIp, getCookie, safeRedirect } from "../lib/http";
 import { checkRateLimit } from "../lib/rate-limit";
 import { displayName, notify } from "../lib/webhook";
 import { activeBanReason } from "../moderation";
-import { isStaff } from "../auth/guards";
+import { hasRole, isStaff } from "../auth/guards";
 import { publicPreferences } from "../notifications";
 import { maintenance } from "../system/maintenance";
 import { errorPage } from "./pages";
@@ -124,7 +124,7 @@ authRoutes.get("/me", (c) => {
 		suggestions_agreed: !!user.suggestions_agreed,
 		prefs: publicPreferences(user),
 		// Only staff ever see the site during maintenance, so only they need telling.
-		maintenance: isStaff(user) && maintenance().enabled ? maintenance().message || true : false,
+		maintenance: hasRole(user, "moderator") && maintenance().enabled ? maintenance().message || true : false,
 	});
 });
 

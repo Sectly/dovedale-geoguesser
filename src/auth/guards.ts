@@ -3,7 +3,7 @@ import type { Role, User } from "../db";
 import { fail } from "../lib/http";
 import { currentUser } from "./sessions";
 
-const ROLE_RANK: Record<Role, number> = { moderator: 1, supervisor: 2, operator: 3 };
+const ROLE_RANK: Record<Role, number> = { helper: 1, moderator: 2, supervisor: 3, operator: 4 };
 
 export function roleRank(role: string | null | undefined): number {
 	return ROLE_RANK[role as Role] ?? 0;
@@ -33,6 +33,10 @@ export function requirePlayer(c: Context): User {
 	return user;
 }
 
+/**
+ * A member of staff of at least `min`. The default is moderator, so a route has to say
+ * "helper" in so many words before the lowest role can reach it.
+ */
 export function requireStaff(c: Context, min: Role = "moderator"): User {
 	const user = currentUser(c);
 	if (user?.staff_locked && roleRank(user.role) > 0) fail(403, "Your staff access has been suspended.");

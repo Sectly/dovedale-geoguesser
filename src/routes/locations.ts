@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { db, type User } from "../db";
 import { LIMITS } from "../config";
-import { isStaff, requirePlayer, requireUser } from "../auth/guards";
+import { hasRole, requirePlayer, requireUser } from "../auth/guards";
 import { cleanHints } from "../game/locations";
 import { parseGuess } from "../game/round";
 import { fail, idParam, readForm, readJson, text } from "../lib/http";
@@ -23,7 +23,7 @@ const NOTE_MAX = 200;
 
 /** Why this user may not suggest changes yet, or null when they may. Staff are always allowed. */
 function suggestionBlocker(user: User): string | null {
-	if (isStaff(user)) return null;
+	if (hasRole(user, "moderator")) return null;
 	if (user.created_at > nowSec() - MIN_ACCOUNT_AGE)
 		return "Your account must be at least 30 days old to suggest changes";
 	const played =

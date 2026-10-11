@@ -456,7 +456,11 @@ export function maintainDatabase() {
 	db.exec("PRAGMA optimize");
 }
 
-export type Role = "moderator" | "supervisor" | "operator";
+/**
+ * Staff roles, lowest first. A helper only reviews submissions and suggestions and can look
+ * at the location list; everything else in the staff panel starts at moderator.
+ */
+export type Role = "helper" | "moderator" | "supervisor" | "operator";
 
 export type User = {
 	id: number;

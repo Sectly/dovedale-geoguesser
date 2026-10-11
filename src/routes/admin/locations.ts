@@ -27,8 +27,9 @@ export async function deleteLocation(id: number) {
 	return location;
 }
 
+/** The list is open to helpers, who need it to judge suggestions; changing a location is not. */
 adminLocationRoutes.get("/", (c) => {
-	requireStaff(c);
+	requireStaff(c, "helper");
 	return c.json(
 		db
 			.query(

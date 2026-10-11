@@ -101,7 +101,7 @@ function applySuggestion(sug: PendingSuggestion): string | null {
 }
 
 adminSuggestionRoutes.get("/", (c) => {
-	requireStaff(c);
+	requireStaff(c, "helper");
 	return c.json(
 		db
 			.query(
@@ -119,7 +119,7 @@ adminSuggestionRoutes.get("/", (c) => {
 });
 
 adminSuggestionRoutes.post("/:id/approve", async (c) => {
-	const staff = requireStaff(c);
+	const staff = requireStaff(c, "helper");
 	const sug = pendingSuggestion(idParam(c));
 	const target = sug.location_label || `#${sug.location_id}`;
 
@@ -152,7 +152,7 @@ adminSuggestionRoutes.post("/:id/approve", async (c) => {
 });
 
 adminSuggestionRoutes.post("/:id/deny", async (c) => {
-	const staff = requireStaff(c);
+	const staff = requireStaff(c, "helper");
 	const sug = pendingSuggestion(idParam(c));
 	// The player is shown this, so a denial always says why.
 	const reason = requireReason((await readJson<{ reason: string }>(c)).reason, "A reason for denying");

@@ -4,6 +4,12 @@ let currentUser = null;
 let currentTab = "submissions";
 let denyTargetId = null;
 let denyCallback = null;
+const STAFF_ROLES = ["helper", "moderator", "supervisor", "operator"];
+/** A helper reviews what players send in and can look at the locations; nothing else is theirs. */
+const HELPER_TABS = ["submissions", "suggestions", "locations"];
+const isHelper = () => currentUser?.role === "helper";
+/** Whether the logged-in member of staff may open a tab. */
+const canOpenTab = (tab) => !isHelper() || HELPER_TABS.includes(tab);
 /** Shortest reason the server accepts for denying a submission or a suggestion. */
 const DENY_REASON_MIN = 5;
 
@@ -106,8 +112,8 @@ async function init() {
 			"Your staff access has been suspended by a senior member of staff. You can still play as normal. Open a ticket if you think this is a mistake.";
 		return;
 	}
-	if (!currentUser.role || !["moderator", "supervisor", "operator"].includes(currentUser.role)) {
-		el("access-msg").textContent = "Access denied. You need moderator or operator permissions.";
+	if (!STAFF_ROLES.includes(currentUser.role)) {
+		el("access-msg").textContent = "Access denied. This page is for staff.";
 		return;
 	}
 
@@ -119,6 +125,9 @@ async function init() {
 	}
 	if (currentUser.role === "operator" || currentUser.role === "supervisor") {
 		document.querySelectorAll(".senior-only").forEach((el) => el.classList.remove("hidden"));
+	}
+	for (const btn of document.querySelectorAll(".tab-btn")) {
+		if (!canOpenTab(btn.dataset.tab)) btn.classList.add("hidden");
 	}
 
 	document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -197,6 +206,8 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 		location.hash = tab;
 		return;
 	}
+	// A link or an old bookmark to a tab this role cannot open lands on the first one it can.
+	if (!canOpenTab(tab)) tab = HELPER_TABS[0];
 	currentTab = tab;
 	if (!fromHash) location.hash = tab;
 
@@ -207,6 +218,7 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 		btn.className = `tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition${isOpOnly ? " operator-only" : ""}${isSeniorOnly ? " senior-only" : ""} ${active ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}`;
 		if (isOpOnly && currentUser?.role !== "operator") btn.classList.add("hidden");
 		if (isSeniorOnly && !["operator", "supervisor"].includes(currentUser?.role)) btn.classList.add("hidden");
+		if (!canOpenTab(btn.dataset.tab)) btn.classList.add("hidden");
 	});
 
 	const content = el("tab-content");
