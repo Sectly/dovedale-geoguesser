@@ -220,7 +220,15 @@ function finishGame(game: SoloGame) {
 	const ranked = game.userId !== null && !game.special && !game.difficulty;
 
 	let streak: Streak | null = null;
+	/** Their best so far with these settings, to say when this game has beaten it. */
+	let previousBest: number | null = null;
 	if (game.userId !== null && ranked) {
+		previousBest =
+			db
+				.query<{ best: number | null }, [number, number, number]>(
+					"SELECT MAX(total_score) AS best FROM solo_scores WHERE user_id = ? AND rounds = ? AND time_limit = ?"
+				)
+				.get(game.userId, rounds, game.timeLimit)?.best ?? null;
 		db.run(
 			"INSERT INTO solo_scores (user_id, total_score, rounds, max_possible, time_limit) VALUES (?, ?, ?, ?, ?)",
 			[game.userId, totalScore, rounds, maxPossible, game.timeLimit]
@@ -237,6 +245,9 @@ function finishGame(game: SoloGame) {
 		rounds,
 		time_limit: game.timeLimit,
 		saved: ranked,
+		/** True when this beat an earlier game of the same length and time limit; never for a first one. */
+		personal_best: previousBest !== null && totalScore > previousBest,
+		previous_best: previousBest,
 		special: game.special,
 		difficulty: game.difficulty ?? null,
 		...streak,

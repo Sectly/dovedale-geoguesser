@@ -61,6 +61,77 @@ describe("announcements and reminders", () => {
 		});
 	});
 
+	test("an announcement can target an audience, carry a link, pin a banner and be tested first", async () => {
+		const op = createUser({ role: "operator" });
+		const mod = createUser({ role: "moderator" });
+		const player = createUser();
+		const draft = { title: "Ranked duels are here", body: "Quick Play now has ratings. Give it a go." };
+		const titles = async (user: typeof player) =>
+			(await call("/api/notifications", { as: user })).data.notifications.map((n: any) => n.title);
+
+		// A test goes to the sender alone and leaves no record.
+		const before = (await call("/api/admin/announcements", { as: op })).data.history.length;
+		expect((await post("/api/admin/announcements", op, { ...draft, test: true })).data).toMatchObject({
+			test: true,
+		});
+		expect(await titles(op)).toContain("[Test] Ranked duels are here");
+		expect(await titles(player)).not.toContain("[Test] Ranked duels are here");
+		expect((await call("/api/admin/announcements", { as: op })).data.history.length).toBe(before);
+
+		// Links stay on this site.
+		for (const link of ["https://example.com", "//example.com", "daily"])
+			expect((await post("/api/admin/announcements", op, { ...draft, link })).status).toBe(400);
+		expect((await post("/api/admin/announcements", op, { ...draft, audience: "nobody" })).status).toBe(400);
+		expect(
+			(await post("/api/admin/announcements", op, { ...draft, audience: "staff", banner_hours: 1 })).status
+		).toBe(400);
+
+		// Staff only: the player hears nothing, and no banner goes up.
+		await post("/api/admin/announcements", op, {
+			title: "Staff meeting",
+			body: "Friday at eight, in the usual place.",
+			audience: "staff",
+		});
+		expect(await titles(mod)).toContain("Staff meeting");
+		expect(await titles(player)).not.toContain("Staff meeting");
+		expect((await call("/api/announcement")).data).toBeNull();
+
+		// Everyone, with a link and a banner that logged-out visitors see too.
+		const sent = await post("/api/admin/announcements", op, { ...draft, link: "/duels", banner_hours: 1 });
+		expect(sent.status).toBe(200);
+		expect((await call("/api/notifications", { as: player })).data.notifications[0]).toMatchObject({
+			title: draft.title,
+			link: "/duels",
+		});
+		expect((await call("/api/announcement")).data).toMatchObject({
+			id: sent.data.id,
+			title: draft.title,
+			link: "/duels",
+		});
+		const history = (await call("/api/admin/announcements", { as: op })).data;
+		expect(history.history[0]).toMatchObject({ id: sent.data.id, audience: "everyone", banner_live: true });
+		expect(history.audiences.staff).toBeLessThan(history.audiences.everyone);
+		expect((await call("/api/admin/announcements", { as: mod })).status).toBe(403);
+
+		// Taken down early.
+		expect((await post(`/api/admin/announcements/${sent.data.id}/end-banner`, mod)).status).toBe(403);
+		expect((await post(`/api/admin/announcements/${sent.data.id}/end-banner`, op)).status).toBe(200);
+		expect((await post(`/api/admin/announcements/${sent.data.id}/end-banner`, op)).status).toBe(409);
+		expect((await call("/api/announcement")).data).toBeNull();
+	});
+
+	test("staff stats cover what is live, what is waiting and the last two weeks", async () => {
+		const stats = (await call("/api/admin/stats", { as: createUser({ role: "moderator" }) })).data;
+		expect(stats.live).toMatchObject({ duels: expect.any(Number), solo_games: expect.any(Number) });
+		expect(stats.queues).toMatchObject({ submissions: expect.any(Number), tickets: expect.any(Number) });
+		expect(stats.series).toHaveLength(14);
+		expect(stats.series.at(-1).date).toBe(new Date().toISOString().slice(0, 10));
+		expect(stats.series.at(-1).new_users).toBeGreaterThan(0);
+		expect(stats.users.total).toBeGreaterThan(0);
+		expect(stats.locations).toHaveProperty("ungraded");
+		expect((await call("/api/admin/stats", { as: createUser() })).status).toBe(403);
+	});
+
 	test("streak reminders go once, in the evening, to players who have not played today", () => {
 		const atRisk = createUser();
 		const playedToday = createUser();

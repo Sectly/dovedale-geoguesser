@@ -320,6 +320,18 @@ const SCHEMA_STATEMENTS = [
   seen_at INTEGER,
   PRIMARY KEY (user_id, key)
 )`,
+	`CREATE TABLE IF NOT EXISTS announcements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  link TEXT,
+  audience TEXT NOT NULL DEFAULT 'everyone',
+  sent_to INTEGER NOT NULL DEFAULT 0,
+  banner_until INTEGER,
+  created_by_id INTEGER,
+  created_by TEXT,
+  created_at INTEGER DEFAULT (unixepoch())
+)`,
 	`CREATE TABLE IF NOT EXISTS location_stats (
   location_id INTEGER PRIMARY KEY REFERENCES locations(id) ON DELETE CASCADE,
   plays INTEGER NOT NULL DEFAULT 0,

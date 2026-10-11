@@ -198,15 +198,6 @@ export function pruneNotifications() {
 	db.run("DELETE FROM notifications WHERE created_at < unixepoch() - ?", [RETENTION]);
 }
 
-/** Sends one message to every account: rule changes, downtime, new features. */
-export function announce(title: string, body: string, link = "/settings#notifications"): number {
-	const users = db
-		.query<{ id: number }, []>("SELECT id FROM users WHERE username != '[deleted]' AND is_banned = 0")
-		.all();
-	for (const user of users) notifyUser(user.id, "announcements", { title, body, link });
-	return users.length;
-}
-
 /**
  * In the evening (UTC), nudges players whose streak will end at midnight because
  * they have not played today. Each player gets at most one reminder a day.

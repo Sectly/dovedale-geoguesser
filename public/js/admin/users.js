@@ -255,7 +255,7 @@ function renderUsers(users) {
 	el("tab-content").innerHTML = `
 		${renderEvasionFlags()}
 		<h2 class="font-bold text-lg mb-4">Users (${users.length})</h2>
-		${panelSearchInput("Search username, display name, user ID, Discord ID or status…")}
+		${panelSearchInput("Search username, display name, user ID, Discord ID or status...")}
 		<div class="flex gap-1 mb-4 flex-wrap" id="user-filters">
 			${filters.map(([key, label]) => `<button data-filter="${key}" class="px-3 py-1 rounded-lg text-xs font-semibold transition ${key === "all" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">${label}</button>`).join("")}
 		</div>
@@ -628,7 +628,7 @@ function renderStaff(staff) {
     <div class="bg-zinc-900 rounded-xl p-4 mb-6">
         <div class="font-semibold text-sm mb-3">Add staff member</div>
         <div class="flex gap-2">
-            <input id="staff-search" type="text" placeholder="Username or user ID…"
+            <input id="staff-search" type="text" placeholder="Username or user ID..."
                 class="flex-1 bg-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600" />
             <select id="staff-role-select" class="bg-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-zinc-300">
                 ${isOp ? '<option value="supervisor">Supervisor</option>' : ""}
@@ -642,7 +642,7 @@ function renderStaff(staff) {
 
 	el("tab-content").innerHTML = `
         <h2 class="font-bold text-lg mb-4">Staff Management</h2>
-        ${panelSearchInput("Search staff name, username, ID or role…")}
+        ${panelSearchInput("Search staff name, username, ID or role...")}
         ${addSection}
         ${roleSection("operator", grouped.operator)}
         ${roleSection("supervisor", grouped.supervisor)}

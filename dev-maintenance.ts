@@ -137,15 +137,15 @@ app.get('*', (c) => c.html(`<!doctype html>
   <main>
     <section class="content" aria-labelledby="page-title">
       <h1 id="page-title">Under Maintenance...</h1>
-      <p class="message">We’re updating Dovedale GeoGuesser and its systems. The website will be open again soon.</p>
+      <p class="message">We're updating Dovedale GeoGuesser and its systems. The website will be open again soon.</p>
 
       <div class="info-card" role="status">
         <span class="info-icon" aria-hidden="true">
           <span class="material-symbols-outlined">build</span>
         </span>
         <div>
-          <p class="info-title">We’ll be back soon</p>
-          <p class="info-text">Your stats and progress aren’t going anywhere. Please check back in a little while.</p>
+          <p class="info-title">We'll be back soon</p>
+          <p class="info-text">Your stats and progress aren't going anywhere. Please check back in a little while.</p>
         </div>
       </div>
 

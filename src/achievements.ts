@@ -4,7 +4,7 @@ import { notifyUser } from "./notifications";
 
 /**
  * Achievements: one-off marks on a player's profile for things they have done. Each is
- * earned once and kept. The games call the `check…` functions at the moments something
+ * earned once and kept. The games call the `check...` functions at the moments something
  * could have been earned; nothing here is worked out from history after the fact.
  */
 

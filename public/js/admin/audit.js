@@ -22,6 +22,7 @@ const AUDIT_ACTION_LABELS = {
 	location_create: { label: "Added location", color: "text-green-400" },
 	location_hints_edit: { label: "Edited location hints", color: "text-blue-400" },
 	announcement: { label: "Sent announcement", color: "text-purple-400" },
+	announcement_banner_end: { label: "Took down a banner", color: "text-purple-400" },
 	maintenance_on: { label: "Maintenance mode on", color: "text-amber-300" },
 	maintenance_off: { label: "Maintenance mode off", color: "text-green-400" },
 	backup_create: { label: "Made a backup", color: "text-zinc-400" },
@@ -161,6 +162,7 @@ const AUDIT_CATEGORIES = [
 			"feature_toggle",
 			"achievements_backfill",
 			"announcement",
+			"announcement_banner_end",
 		],
 	},
 ];
@@ -240,7 +242,7 @@ function renderAudit({ rows, total, offset }, reset) {
                 ${AUDIT_CATEGORIES.map((c) => `<button onclick="setAuditCategory('${c.key}')" class="audit-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition ${auditCategory === c.key ? "bg-blue-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700"}" data-cat="${c.key}">${c.label}</button>`).join("")}
             </div>
             <div class="flex flex-wrap gap-2 mb-4">
-                <input id="audit-search" type="search" value="${escHtml(auditSearch)}" placeholder="Search by name, action, target, details…"
+                <input id="audit-search" type="search" value="${escHtml(auditSearch)}" placeholder="Search by name, action, target, details..."
                     class="flex-1 min-w-[200px] bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600" />
                 <select id="audit-action-filter" class="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-zinc-300">
                     <option value="">All actions</option>

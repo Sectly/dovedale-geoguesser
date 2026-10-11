@@ -205,7 +205,8 @@ async function nextRound() {
 
 function showSummary() {
 	switchScreen("summary-screen");
-	Sounds.play(summary.total_score / summary.max_possible >= 0.55 ? "win" : "good");
+	Sounds.play(summary.personal_best || summary.total_score / summary.max_possible >= 0.55 ? "win" : "good");
+	if (summary.personal_best) celebrate();
 	el("result-screen").classList.remove("shown");
 
 	const pct = summary.total_score / summary.max_possible;
@@ -239,7 +240,7 @@ function showSummary() {
 		: summary.difficulty
 			? `<p class="text-zinc-500 text-sm">Practice on ${escHtml(summary.difficulty)} locations: not saved to the leaderboard.</p>`
 			: summary.saved
-				? '<p class="text-green-400 text-sm">Score saved to the leaderboard.</p>'
+				? `${summary.personal_best ? `<p class="streak-pop text-yellow-400 text-sm font-semibold mb-1 flex items-center justify-center gap-1.5"><span class="material-symbols-outlined text-base leading-none" style="font-variation-settings:'FILL' 1">trending_up</span>New personal best! Up from ${summary.previous_best.toLocaleString()}</p>` : ""}<p class="text-green-400 text-sm">Score saved to the leaderboard.</p>`
 				: `<p class="text-zinc-500 text-sm"><a href="${escHtml(loginUrl("/play"))}" class="text-blue-400 hover:underline">Log in</a> before you play to save your scores to the leaderboard.</p>`;
 }
 

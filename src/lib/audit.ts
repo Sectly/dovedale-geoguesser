@@ -46,6 +46,7 @@ const ANNOUNCED: Record<string, [category: WebhookCategory, title: string, path:
 	ticket_delete: ["support", "Ticket deleted", "/admin#tickets"],
 	ticket_cleanup: ["support", "Old tickets cleaned up", "/admin#tickets"],
 	announcement: ["system", "Announcement sent", "/admin#audit"],
+	announcement_banner_end: ["system", "Announcement banner taken down", "/admin#audit"],
 	maintenance_on: ["system", "Maintenance mode switched on", "/admin#system"],
 	maintenance_off: ["system", "Maintenance mode switched off", "/admin#system"],
 	backup_create: ["system", "Backup made", "/admin#system"],

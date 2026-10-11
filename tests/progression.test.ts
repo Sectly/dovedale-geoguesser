@@ -152,6 +152,39 @@ describe("duel ratings", () => {
 	});
 });
 
+describe("small touches", () => {
+	test("a duel reports the running score between its two players", () => {
+		const [a, b] = [createUser(), createUser()];
+		const first = playDuel(a, b, false);
+		expect(first.end.series).toEqual({ wins: { [a.id]: 1 }, games: 1 });
+		// A rematch starts from the score so far (the socket handler copies it across).
+		const rematch = createRoom(a.id, 1);
+		rematch.series = { wins: { ...first.room.series.wins }, games: first.room.series.games };
+		duelRooms.delete(rematch.code);
+		expect(rematch.series.games).toBe(1);
+	});
+
+	test("a solo game says when it beat the player's previous best", async () => {
+		const player = createUser();
+		const play = async (x: number) => {
+			const start = await post("/api/solo/games", player, { rounds: 3, time_limit: 0 });
+			let last: any;
+			for (let i = 0; i < 3; i++) {
+				if (i > 0) await post(`/api/solo/games/${start.data.game_id}/next`, player);
+				last = await post(`/api/solo/games/${start.data.game_id}/guess`, player, { x, y: x });
+			}
+			return last.data.summary;
+		};
+		// A first game is not a "new best"; there was nothing to beat.
+		const far = await play(900000);
+		expect(far).toMatchObject({ personal_best: false, previous_best: null });
+		const near = await play(0);
+		expect(near.total_score).toBeGreaterThan(far.total_score);
+		expect(near).toMatchObject({ personal_best: true, previous_best: far.total_score });
+		expect(await play(900000)).toMatchObject({ personal_best: false, previous_best: near.total_score });
+	});
+});
+
 describe("achievements", () => {
 	test("are earned by playing, shown once, and listed on the profile", async () => {
 		const player = createUser();

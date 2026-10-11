@@ -22,7 +22,7 @@ export function escapeXml(s: string): string {
 }
 
 function clip(text: string, max: number): string {
-	return text.length > max ? text.slice(0, max - 1) + "…" : text;
+	return text.length > max ? text.slice(0, max - 3) + "..." : text;
 }
 
 /** The compass mark and site name that sit in the corner of every card. */

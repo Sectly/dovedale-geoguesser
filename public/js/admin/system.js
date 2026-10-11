@@ -285,7 +285,7 @@ async function loadUpdate(refresh) {
 async function installUpdate(count) {
 	const ok = await showConfirm(
 		`Install ${count} update${count === 1 ? "" : "s"}?`,
-		"The database is backed up first, then the update is downloaded. Players get a warning with a countdown (60 seconds if a duel or team game is open), those games are then closed, and the server restarts. Solo games carry on afterwards.",
+		"The database is backed up first, then the update is downloaded. Players get a warning with a countdown: up to 3 minutes while duels or team games are being played, so they can finish, and sooner once they have. Any still open are then closed, and the server restarts. Solo games carry on afterwards.",
 		{ confirmLabel: "Update", confirmClass: "bg-blue-600 hover:bg-blue-500" }
 	);
 	if (!ok) return;
@@ -302,7 +302,7 @@ async function restartServerNow() {
 	if (
 		!(await showConfirm(
 			"Restart the server?",
-			"Players get a warning with a countdown (60 seconds if a duel or team game is open), then those games are closed. Solo games carry on afterwards. The site is back within a few seconds.",
+			"Players get a warning with a countdown: up to 3 minutes while duels or team games are being played, so they can finish, and sooner once they have. Any still open are then closed. Solo games carry on afterwards. The site is back within a few seconds.",
 			{ confirmLabel: "Restart" }
 		))
 	)
@@ -310,7 +310,7 @@ async function restartServerNow() {
 	try {
 		await api("/api/admin/system/restart", { json: { confirm: true } });
 		el("system-update").dataset.restarting = "1";
-		showToast("Restarting…");
+		showToast("Restarting...");
 		systemUpdatePoll = setInterval(() => loadUpdate(false), 2000);
 	} catch (err) {
 		showToast(err.message, "error");

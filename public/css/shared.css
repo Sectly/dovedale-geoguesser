@@ -1644,3 +1644,129 @@ button.memory-card {
 		animation: none;
 	}
 }
+
+/*
+ * A pinned announcement (public/js/shared.js): a card in the bottom corner on the same
+ * surface as the site's other cards. It steps aside while a round is on screen, where the
+ * corner belongs to the game.
+ */
+.site-announcement {
+	position: fixed;
+	left: 1rem;
+	bottom: 1rem;
+	z-index: 95;
+	display: flex;
+	align-items: flex-start;
+	gap: 0.75rem;
+	width: min(24rem, calc(100vw - 2rem));
+	padding: 0.85rem 0.5rem 0.85rem 0.85rem;
+	border-radius: 1.5rem;
+	background: #1e1e22;
+	border: 1px solid #2c2c31;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+	color: var(--md-on-surface);
+	animation: rise-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+body:has(#round-screen:not(.hidden)) .site-announcement,
+body:has(#game-screen:not(.hidden)) .site-announcement {
+	display: none;
+}
+.site-announcement-icon {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.5rem;
+	height: 2.5rem;
+	border-radius: 9999px;
+	background: rgba(37, 99, 235, 0.22);
+	color: #93c5fd;
+}
+.site-announcement-icon .material-symbols-outlined {
+	font-size: 1.375rem;
+}
+.site-announcement-text {
+	flex: 1;
+	min-width: 0;
+}
+.site-announcement-title {
+	font-weight: 700;
+	font-size: 0.9375rem;
+	line-height: 1.3;
+	overflow-wrap: anywhere;
+}
+.site-announcement-body {
+	margin-top: 0.15rem;
+	font-size: 0.8125rem;
+	line-height: 1.2rem;
+	color: var(--md-on-surface-variant);
+	overflow-wrap: anywhere;
+}
+.site-announcement-link {
+	display: inline-block;
+	margin-top: 0.4rem;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: #93c5fd;
+}
+.site-announcement-link:hover {
+	text-decoration: underline;
+}
+@media (prefers-reduced-motion: reduce) {
+	.site-announcement {
+		animation: none;
+	}
+}
+
+/* ---- Staff panel: the activity chart on the Stats tab ---- */
+.stat-chart {
+	display: flex;
+	align-items: flex-end;
+	gap: 2px;
+	height: 9rem;
+	border-bottom: 1px solid #27272a;
+}
+/* The whole column is the hover target, so a short bar is as easy to hit as a tall one. */
+.stat-chart-col {
+	flex: 1;
+	min-width: 0;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	align-items: center;
+	border-radius: 4px 4px 0 0;
+}
+.stat-chart-col:hover,
+.stat-chart-col:focus-visible {
+	background: rgba(255, 255, 255, 0.05);
+	outline: none;
+}
+.stat-chart-bar {
+	width: 100%;
+	max-width: 2rem;
+	min-height: 2px;
+	border-radius: 4px 4px 0 0;
+	background: #3b82f6;
+	transition: height 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.stat-chart-col:hover .stat-chart-bar,
+.stat-chart-col:focus-visible .stat-chart-bar {
+	background: #60a5fa;
+}
+.stat-chart-bar.empty {
+	background: #3f3f46;
+}
+.stat-chart-axis {
+	display: flex;
+	gap: 2px;
+	margin-top: 0.35rem;
+	font-size: 0.6875rem;
+	color: #71717a;
+}
+.stat-chart-axis span {
+	flex: 1;
+	min-width: 0;
+	text-align: center;
+	white-space: nowrap;
+}

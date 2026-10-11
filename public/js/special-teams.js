@@ -277,7 +277,7 @@ function render() {
 	renderScorebar();
 	if (room.phase === "ready") {
 		if (changed) startRoundOnScreen();
-		el("click-hint").textContent = `Get ready… ${room.round.starts_in}`;
+		el("click-hint").textContent = `Get ready... ${room.round.starts_in}`;
 	} else if (room.phase === "guessing") {
 		// Joined or reloaded mid-round: put the round up first.
 		if (changed && (was.phase !== "ready" || was.round !== room.round_number)) startRoundOnScreen();
@@ -356,6 +356,9 @@ async function init() {
 	el("team-leave").addEventListener("click", async () => {
 		await teamApi("/leave", {}).catch(() => {});
 		leaveLocally();
+	});
+	el("room-code").addEventListener("click", async () => {
+		if (roomCode && (await copyText(roomCode))) showToast("Room code copied", "success");
 	});
 	el("copy-invite").addEventListener("click", async () => {
 		const copied = await copyText(`${location.origin}/specials/teams?room=${roomCode}`);

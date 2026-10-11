@@ -123,6 +123,8 @@ function render(p, me) {
 		${stat("Games", duelGames.toLocaleString())}
 		${stat("Win Rate", winRate !== null ? `${winRate}%` : "-")}
 		${stat("Rating", p.rating?.games ? p.rating.value.toLocaleString() : "Unranked")}
+		${stat("Ranked Duels", (p.rating?.games ?? 0).toLocaleString())}
+		${stat("Total Score", (p.duels?.total_score ?? 0).toLocaleString())}
 	</div>
 
 	${achievementsHtml(p.achievements)}

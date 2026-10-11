@@ -68,15 +68,15 @@ async function shareResult(result) {
 	});
 	const filled = Math.max(0, Math.min(5, Math.round((result.score / 5000) * 5)));
 	const details = [
-		result.distance !== null ? `📍 ~${result.distance.toLocaleString()} units away` : "📍 No guess",
-		result.time_taken !== null && result.time_taken !== undefined ? `⏱ ${Math.round(result.time_taken)}s` : "",
-		result.hints_used ? `💡 ${result.hints_used} hint${result.hints_used === 1 ? "" : "s"}` : "",
+		result.distance !== null ? `~${result.distance.toLocaleString()} units away` : "No guess",
+		result.time_taken !== null && result.time_taken !== undefined ? `${Math.round(result.time_taken)}s` : "",
+		result.hints_used ? `${result.hints_used} hint${result.hints_used === 1 ? "" : "s"}` : "",
 	].filter(Boolean);
 	const lines = [
 		`Dovedale GeoGuesser · Daily ${day}`,
 		`${"🟩".repeat(filled)}${"⬜".repeat(5 - filled)} ${result.score.toLocaleString()} pts`,
 		details.join(" · "),
-		result.current_streak > 1 ? `🔥 ${result.current_streak}-day streak` : "",
+		result.current_streak > 1 ? `${result.current_streak}-day streak` : "",
 		`${location.origin}/daily`,
 	].filter(Boolean);
 	if (await copyText(lines.join("\n"))) showToast("Result copied. Paste it anywhere.", "success");

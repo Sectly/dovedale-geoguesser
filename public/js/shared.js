@@ -825,6 +825,48 @@ function renderMaintenanceBanner(state) {
 }
 fetchUser().then((user) => renderMaintenanceBanner(user?.maintenance));
 
+/* ---- Announcements: a message from the operators pinned to every page for a while ---- */
+
+const ANNOUNCEMENT_DISMISSED_KEY = "announcement_dismissed";
+const ANNOUNCEMENT_POLL_MS = 5 * 60 * 1000;
+
+/** Shows the pinned announcement, unless there is none or this visitor has closed it. */
+async function checkAnnouncement() {
+	const announcement = await api("/api/announcement").catch(() => undefined);
+	// A failed request says nothing either way; leave whatever is on screen alone.
+	if (announcement === undefined) return;
+	const shown = document.getElementById("site-announcement");
+	let dismissed = "";
+	try {
+		dismissed = localStorage.getItem(ANNOUNCEMENT_DISMISSED_KEY) || "";
+	} catch {}
+	if (!announcement || dismissed === String(announcement.id)) return void shown?.remove();
+	if (shown?.dataset.id === String(announcement.id)) return;
+	shown?.remove();
+
+	const card = document.createElement("aside");
+	card.id = "site-announcement";
+	card.className = "site-announcement";
+	card.dataset.id = announcement.id;
+	card.setAttribute("aria-label", "Announcement");
+	card.innerHTML = `<span class="site-announcement-icon" aria-hidden="true"><span class="material-symbols-outlined">campaign</span></span>
+		<div class="site-announcement-text">
+			<div class="site-announcement-title">${escHtml(announcement.title)}</div>
+			<div class="site-announcement-body">${escHtml(announcement.body)}</div>
+			${announcement.link ? `<a href="${escHtml(announcement.link)}" class="site-announcement-link">Take a look</a>` : ""}
+		</div>
+		<button class="m-icon-btn" aria-label="Dismiss this announcement"><span class="material-symbols-outlined">close</span></button>`;
+	card.querySelector("button").addEventListener("click", () => {
+		try {
+			localStorage.setItem(ANNOUNCEMENT_DISMISSED_KEY, String(announcement.id));
+		} catch {}
+		card.remove();
+	});
+	document.body.appendChild(card);
+}
+whenIdle(checkAnnouncement);
+setInterval(() => document.hidden || checkAnnouncement(), ANNOUNCEMENT_POLL_MS);
+
 /* ---- Achievements: the unlock animation ---- */
 
 const ACHIEVEMENT_SHOWN_MS = 4500;
@@ -956,8 +998,8 @@ function tickRestartBanner() {
 	const left = Math.ceil((_restartAt - Date.now()) / 1000);
 	banner.lastElementChild.textContent =
 		left > 0
-			? `Server restarting in ${left}s. Duels and team games will be closed.`
-			: "Server restarting… back in a moment.";
+			? `Server restarting in ${left >= 60 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : `${left}s`}. Finish your game: duels and team games still open will be closed.`
+			: "Server restarting... back in a moment.";
 	// Past the deadline, keep knocking until the new server answers without mentioning a restart.
 	if (left <= 0 && left % 2 === 0) api("/api/status").catch(() => {});
 }
