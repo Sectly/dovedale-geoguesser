@@ -22,7 +22,11 @@ describe("notifications", () => {
 		expect((await inbox(author)).unread).toBe(0);
 
 		await post(`/api/admin/submissions/${pendingSubmission(author)}/approve`, mod);
-		await post(`/api/admin/submissions/${pendingSubmission(author, "A blurry field")}/deny`, mod, {
+		const blurry = pendingSubmission(author, "A blurry field");
+		// A denial has to say why.
+		expect((await post(`/api/admin/submissions/${blurry}/deny`, mod, {})).status).toBe(400);
+		expect((await post(`/api/admin/submissions/${blurry}/deny`, mod, { reason: "  no " })).status).toBe(400);
+		await post(`/api/admin/submissions/${blurry}/deny`, mod, {
 			reason: "Too blurry",
 		});
 

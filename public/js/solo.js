@@ -26,6 +26,14 @@ async function init() {
 			? "Practice: picking a difficulty keeps the game off the leaderboard."
 			: "Locations are graded by how players have done on them.";
 	});
+	for (const pill of document.querySelectorAll(".difficulty-pill")) {
+		// Runs before the pill's own handler, so a difficulty with no locations cannot be picked.
+		pill.addEventListener(
+			"click",
+			(e) => pill.getAttribute("aria-disabled") === "true" && e.stopImmediatePropagation(),
+			true
+		);
+	}
 	if (!special) loadDifficulties();
 	el("start-btn").addEventListener("click", startGame);
 	el("next-btn").addEventListener("click", nextRound);
@@ -61,7 +69,10 @@ async function loadDifficulties() {
 	for (const pill of document.querySelectorAll(".difficulty-pill")) {
 		const name = DIFFICULTY_NAMES[Number(pill.dataset.val)];
 		if (!name) continue;
-		pill.disabled = !counts[name];
+		// Marked unavailable rather than disabled, so hovering it can still say why.
+		pill.setAttribute("aria-disabled", String(!counts[name]));
+		pill.classList.toggle("opacity-40", !counts[name]);
+		pill.classList.toggle("cursor-not-allowed", !counts[name]);
 		pill.title = counts[name]
 			? `${counts[name]} ${name} location${counts[name] === 1 ? "" : "s"}`
 			: `No locations have been graded ${name} yet`;

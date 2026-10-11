@@ -1491,3 +1491,54 @@ button.memory-card {
 		display: none;
 	}
 }
+
+/*
+ * Tooltips (public/js/tooltips.js): one plain Material tooltip shared by every control.
+ * It sits above everything, including dialogs, and never takes the pointer.
+ */
+.m-tooltip {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 200;
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	max-width: min(16rem, calc(100vw - 1rem));
+	padding: 0.3rem 0.55rem;
+	border-radius: 0.5rem;
+	background: #3f3f46;
+	color: #f4f4f5;
+	font-size: 0.75rem;
+	line-height: 1.1rem;
+	font-weight: 500;
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+	pointer-events: none;
+	opacity: 0;
+	transform: scale(0.96);
+	transition:
+		opacity 0.12s cubic-bezier(0.2, 0.7, 0.2, 1),
+		transform 0.12s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.m-tooltip.shown {
+	opacity: 1;
+	transform: none;
+}
+.m-tooltip kbd {
+	flex-shrink: 0;
+	min-width: 1.15rem;
+	padding: 0 0.3rem;
+	border-radius: 0.3rem;
+	background: #27272a;
+	color: #d4d4d8;
+	font-family: ui-monospace, monospace;
+	font-size: 0.68rem;
+	line-height: 1.05rem;
+	text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+	.m-tooltip {
+		transition: none;
+		transform: none;
+	}
+}

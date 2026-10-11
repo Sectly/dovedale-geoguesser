@@ -277,7 +277,11 @@ describe("admin suggestions", () => {
 			db.query<{ status: string }, [number]>("SELECT status FROM location_suggestions WHERE id = ?").get(sug)!
 				.status
 		).toBe("pending");
-		expect((await post(`/api/admin/suggestions/${sug}/deny`, mod, { reason: "full" })).status).toBe(200);
+		expect((await post(`/api/admin/suggestions/${sug}/deny`, mod, {})).status).toBe(400);
+		expect(
+			(await post(`/api/admin/suggestions/${sug}/deny`, mod, { reason: "The location already has three hints" }))
+				.status
+		).toBe(200);
 		expect((await approve(sug)).status).toBe(404);
 	});
 });
