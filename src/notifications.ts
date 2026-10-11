@@ -10,7 +10,14 @@ import { sendPush } from "./push";
  * is computed live rather than stored.
  */
 
-export const NOTIFICATION_CATEGORIES = ["submissions", "suggestions", "tickets", "reminders", "moderation"] as const;
+export const NOTIFICATION_CATEGORIES = [
+	"submissions",
+	"suggestions",
+	"tickets",
+	"reminders",
+	"achievements",
+	"moderation",
+] as const;
 /** Sent to everyone regardless of preferences: things a user needs to know. */
 const ALWAYS_SENT = ["moderation", "announcements"];
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number] | "announcements";
@@ -36,7 +43,14 @@ export const DEFAULT_PREFERENCES: Preferences = {
 	desktop: false,
 	staff_badges: true,
 	staff_alerts: true,
-	notify: { submissions: true, suggestions: true, tickets: true, reminders: true, moderation: true },
+	notify: {
+		submissions: true,
+		suggestions: true,
+		tickets: true,
+		reminders: true,
+		achievements: true,
+		moderation: true,
+	},
 };
 
 const RETENTION = 90 * DAY;
@@ -165,8 +179,8 @@ export function staffQueue() {
  */
 export function attentionFor(user: User) {
 	const latest = db
-		.query<{ id: number; title: string; body: string | null; link: string | null }, [number]>(
-			"SELECT id, title, body, link FROM notifications WHERE user_id = ? AND read_at IS NULL ORDER BY id DESC LIMIT 1"
+		.query<{ id: number; category: string; title: string; body: string | null; link: string | null }, [number]>(
+			"SELECT id, category, title, body, link FROM notifications WHERE user_id = ? AND read_at IS NULL ORDER BY id DESC LIMIT 1"
 		)
 		.get(user.id);
 	/** The queue is only worked out for staff who have badges or alerts switched on. */

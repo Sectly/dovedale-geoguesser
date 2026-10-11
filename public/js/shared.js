@@ -33,6 +33,7 @@ async function api(path, { method, json, body } = {}) {
 	} catch {
 		throw Object.assign(new Error("Can't reach the server. Check your connection and try again."), { status: 0 });
 	}
+	noteRestart(res.headers.get("X-Restart-In"));
 	const raw = await res.text();
 	if (!res.ok) {
 		const message = raw && raw.length < 300 && !raw.startsWith("<") && !raw.startsWith("{") ? raw : "";
@@ -75,7 +76,7 @@ function renderAuthAreas(user) {
 		</a>`;
 	const html = user
 		? `<div class="flex items-center gap-1">
-			<a href="/u/${encodeURIComponent(user.username)}" data-badge="profile" class="relative flex items-center gap-2 hover:opacity-80 transition mr-1" title="Your profile">
+			<a href="/u/${encodeURIComponent(user.username)}" class="flex items-center gap-2 hover:opacity-80 transition mr-1" title="Your profile">
 				${avatarHtml(user.avatar_url)}
 				<span class="hidden sm:inline text-sm text-zinc-300 max-w-[9rem] truncate">${escHtml(user.display_name || user.username)}</span>
 			</a>
@@ -105,7 +106,7 @@ function countBadgeHtml(count, tone = "bg-red-500") {
 	return `<span class="attention-badge absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-1 rounded-full ${tone} text-white text-[10px] font-bold leading-4 text-center pointer-events-none">${count > 99 ? "99+" : count}</span>`;
 }
 
-/** Puts counts on the profile, settings and staff panel buttons when something needs a look. */
+/** Puts counts on the settings and staff panel buttons when something needs a look. */
 function renderAttentionBadges() {
 	for (const old of document.querySelectorAll("[data-auth-area] .attention-badge")) old.remove();
 	if (!_attention) return;
@@ -120,7 +121,6 @@ function renderAttentionBadges() {
 	};
 	const unread = _attention.unread;
 	const unreadText = `${unread} unread notification${unread === 1 ? "" : "s"}`;
-	mark("profile", unread, "bg-red-500", `Your profile · ${unreadText}`);
 	mark("settings", unread, "bg-red-500", `Settings · ${unreadText}`);
 	const staff = _attention.staff;
 	if (staff && _attentionUser?.prefs?.staff_badges) {
@@ -142,6 +142,8 @@ function announceNotification(latest, user) {
 		localStorage.setItem(LAST_ANNOUNCED_KEY, String(Math.max(lastSeen, latest.id)));
 	} catch {}
 	if (latest.id <= lastSeen) return;
+	// An achievement announces itself with its own animation, not a plain toast.
+	if (latest.category === "achievements") return void checkAchievements();
 
 	Sounds.play("notify");
 	if (user.prefs?.toasts !== false)
@@ -364,6 +366,7 @@ fetchUser().then((user) => {
 	if (typeof user.prefs?.sounds === "boolean") Sounds.setEnabled(user.prefs.sounds);
 	startAttentionPolling();
 	whenIdle(registerServiceWorker);
+	whenIdle(() => checkAchievements());
 });
 
 function showToast(message, type = "info", { href = "" } = {}) {
@@ -783,6 +786,117 @@ function renderMaintenanceBanner(state) {
 	document.body.appendChild(banner);
 }
 fetchUser().then((user) => renderMaintenanceBanner(user?.maintenance));
+
+/* ---- Achievements: the unlock animation ---- */
+
+const ACHIEVEMENT_SHOWN_MS = 4500;
+let _achievementQueue = [];
+let _achievementShowing = false;
+let _achievementCheck = null;
+
+/**
+ * Asks the server for achievements earned since it was last asked and plays the unlock
+ * animation for each. Pages call this after a result; `delay` lets the result land first.
+ */
+function checkAchievements(delay = 0) {
+	clearTimeout(_achievementCheck);
+	_achievementCheck = setTimeout(async () => {
+		if (!(await fetchUser())) return;
+		const unlocked = await api("/api/achievements/unseen").catch(() => []);
+		if (!Array.isArray(unlocked) || !unlocked.length) return;
+		_achievementQueue.push(...unlocked);
+		showNextAchievement();
+	}, delay);
+}
+
+async function showNextAchievement() {
+	if (_achievementShowing) return;
+	const achievement = _achievementQueue.shift();
+	if (!achievement) return;
+	_achievementShowing = true;
+	const user = await fetchUser();
+
+	const card = document.createElement("a");
+	card.className = "achievement-pop";
+	card.href = user ? `/u/${encodeURIComponent(user.username)}#achievements` : "#";
+	card.setAttribute("role", "status");
+	card.innerHTML = `<span class="achievement-icon" aria-hidden="true"><span class="material-symbols-outlined">${escHtml(achievement.icon)}</span></span>
+		<span class="achievement-text">
+			<span class="achievement-kicker">Achievement unlocked</span>
+			<span class="achievement-title">${escHtml(achievement.title)}</span>
+			<span class="achievement-desc">${escHtml(achievement.description)}</span>
+		</span>`;
+	document.body.appendChild(card);
+	Sounds.play("good");
+	// Same pacing as the welcome card, held a little longer because there is more to read.
+	setTimeout(() => card.classList.add("leaving"), ACHIEVEMENT_SHOWN_MS - 500);
+	setTimeout(() => {
+		card.remove();
+		_achievementShowing = false;
+		showNextAchievement();
+	}, ACHIEVEMENT_SHOWN_MS);
+}
+
+/* ---- Planned restarts: everyone is warned, then told when the server is back ---- */
+
+const RESTART_POLL_MS = 20_000;
+let _restartAt = 0;
+let _restartTimer = null;
+
+/**
+ * Called with what the server last said about a restart: the seconds left, or nothing at
+ * all. Hearing nothing while a restart is on screen means it was called off or is over.
+ */
+function noteRestart(seconds) {
+	if (seconds === null || seconds === undefined || seconds === "") return clearRestartBanner();
+	if (!Number.isFinite(Number(seconds))) return;
+	const at = Date.now() + Number(seconds) * 1000;
+	// Keep the earliest deadline heard, so the countdown never jumps backwards.
+	_restartAt = _restartAt ? Math.min(_restartAt, at) : at;
+	if (!_restartTimer) {
+		Sounds.play("notify");
+		_restartTimer = setInterval(tickRestartBanner, 1000);
+	}
+	tickRestartBanner();
+}
+
+function clearRestartBanner() {
+	if (!_restartTimer) return;
+	// With time still on the clock the server cannot have restarted yet, so it was called off.
+	const calledOff = Date.now() < _restartAt - 2000;
+	clearInterval(_restartTimer);
+	_restartTimer = null;
+	_restartAt = 0;
+	document.getElementById("restart-banner")?.remove();
+	showToast(
+		calledOff ? "The restart was called off." : "The server is back. Reload the page if anything looks off.",
+		"success"
+	);
+}
+
+function tickRestartBanner() {
+	let banner = document.getElementById("restart-banner");
+	if (!banner) {
+		banner = document.createElement("div");
+		banner.id = "restart-banner";
+		banner.setAttribute("role", "alert");
+		banner.className =
+			"fixed top-16 left-1/2 -translate-x-1/2 z-[90] max-w-[calc(100vw-1.5rem)] bg-amber-300 text-zinc-950 rounded-full pl-3.5 pr-4 py-2 text-sm font-semibold shadow-lg flex items-center gap-2 pointer-events-none";
+		banner.innerHTML = `<span class="material-symbols-outlined text-lg flex-shrink-0">restart_alt</span><span></span>`;
+		document.body.appendChild(banner);
+	}
+	const left = Math.ceil((_restartAt - Date.now()) / 1000);
+	banner.lastElementChild.textContent =
+		left > 0
+			? `Server restarting in ${left}s. Duels and team games will be closed.`
+			: "Server restarting… back in a moment.";
+	// Past the deadline, keep knocking until the new server answers without mentioning a restart.
+	if (left <= 0 && left % 2 === 0) api("/api/status").catch(() => {});
+}
+
+setInterval(() => {
+	if (!document.hidden) api("/api/status").catch(() => {});
+}, RESTART_POLL_MS);
 
 /** A script of ours failing should not leave the page silently half-working. Said once per page. */
 (function reportScriptErrors() {

@@ -1337,3 +1337,157 @@ button.memory-card {
 		transition: none;
 	}
 }
+
+/* A reaction sent in a duel: pops in beside the screenshot, lingers, then drifts off. */
+.emote-pop {
+	animation: emote-pop 2.6s ease-out forwards;
+}
+@keyframes emote-pop {
+	0% {
+		opacity: 0;
+		transform: translateY(8px) scale(0.8);
+	}
+	10% {
+		opacity: 1;
+		transform: translateY(0) scale(1.08);
+	}
+	18% {
+		transform: scale(1);
+	}
+	80% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	100% {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.emote-pop {
+		animation-duration: 2.6s;
+		animation-name: emote-fade;
+	}
+}
+@keyframes emote-fade {
+	0%,
+	80% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+/*
+ * Achievement unlocked. Built like the welcome card (same surface, outline, shadow and
+ * easing) so it reads as part of the site: it drops in from the top, the icon settles
+ * into its tonal container with one ripple, and the card lifts away again.
+ */
+.achievement-pop {
+	position: fixed;
+	top: 4rem;
+	left: 50%;
+	z-index: 120;
+	display: flex;
+	align-items: center;
+	gap: 0.85rem;
+	width: max-content;
+	max-width: min(24rem, calc(100vw - 2rem));
+	padding: 0.85rem 1.25rem 0.85rem 0.85rem;
+	border-radius: 1.75rem;
+	background: #1e1e22;
+	border: 1px solid #2c2c31;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+	color: var(--md-on-surface);
+	text-decoration: none;
+	transform: translate(-50%, 0);
+	animation: welcome-in 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+	transition:
+		opacity 0.4s,
+		transform 0.4s,
+		background-color 0.15s;
+}
+.achievement-pop:hover {
+	background: #26262d;
+}
+.achievement-pop.leaving {
+	opacity: 0;
+	transform: translate(-50%, -16px);
+}
+/* The icon sits in a tonal container, the same amber the site uses for streaks and warnings. */
+.achievement-icon {
+	position: relative;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 3rem;
+	height: 3rem;
+	border-radius: 9999px;
+	background: rgba(245, 158, 11, 0.16);
+	color: #fcd34d;
+	animation: achievement-icon 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) 0.2s both;
+}
+.achievement-icon .material-symbols-outlined {
+	font-size: 1.625rem;
+	font-variation-settings: "FILL" 1;
+}
+/* One ripple out of the container as the icon lands. */
+.achievement-icon::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: rgba(245, 158, 11, 0.3);
+	opacity: 0;
+	animation: achievement-ripple 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.45s both;
+}
+.achievement-text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+.achievement-kicker {
+	font-size: 0.75rem;
+	line-height: 1rem;
+	color: var(--md-on-surface-variant);
+}
+.achievement-title {
+	font-weight: 700;
+	line-height: 1.35;
+}
+.achievement-desc {
+	font-size: 0.75rem;
+	line-height: 1.1rem;
+	color: #71717a;
+}
+@keyframes achievement-icon {
+	from {
+		opacity: 0;
+		transform: scale(0.6);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes achievement-ripple {
+	from {
+		opacity: 1;
+		transform: scale(1);
+	}
+	to {
+		opacity: 0;
+		transform: scale(1.8);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.achievement-pop,
+	.achievement-icon {
+		animation: none;
+	}
+	.achievement-icon::after {
+		display: none;
+	}
+}

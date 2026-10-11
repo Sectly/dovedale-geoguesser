@@ -80,7 +80,8 @@
             <span class="material-symbols-outlined text-3xl" style="font-variation-settings: &quot;FILL&quot; 1">bolt</span>
             <div>
               <div class="font-bold text-lg leading-tight">Quick Play</div>
-              <div class="text-blue-200 text-sm">Get matched with another player · 5 rounds</div>
+              <div class="text-blue-200 text-sm">Ranked · matched with a player near your rating · 5 rounds</div>
+              <div class="text-blue-200/80 text-xs mt-0.5 hidden" id="lobby-rating"></div>
             </div>
           </button>
 
@@ -295,6 +296,9 @@
           id="spectator-count"
           class="hidden absolute top-14 right-3 z-10 bg-black/70 rounded-full px-3 py-1.5 text-xs text-zinc-300 flex items-center gap-1.5"
         ></div>
+
+        <div id="emote-feed" class="absolute bottom-24 left-3 z-10 flex flex-col-reverse items-start gap-1.5 pointer-events-none"></div>
+        <div id="emote-bar" class="hidden absolute bottom-12 left-3 z-10 flex items-center gap-0.5 bg-black/70 rounded-full p-1"></div>
 
         <div
           id="opponent-guessed-badge"

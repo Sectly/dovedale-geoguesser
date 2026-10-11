@@ -80,5 +80,41 @@ export const GAME = {
 		resumeCountdown: 3,
 		/** Disconnects a player may have in one duel before the next one forfeits it. */
 		maxDisconnects: 4,
+		/** Reactions a player may send, as Material Symbols names. The page shows them in this order. */
+		emotes: [
+			"waving_hand",
+			"thumb_up",
+			"handshake",
+			"celebration",
+			"local_fire_department",
+			"sentiment_very_satisfied",
+			"sentiment_dissatisfied",
+			"psychology_alt",
+		],
+		/** Shortest gap between two reactions from the same player, in milliseconds. */
+		emoteCooldownMs: 1500,
+	},
+	/** Elo ratings for Quick Play duels. */
+	rating: {
+		start: 1000,
+		floor: 100,
+		k: 24,
+		/** A new player's rating moves faster for their first few rated duels. */
+		kProvisional: 40,
+		provisionalGames: 10,
+	},
+	/** How a location is graded from the average distance score players get on it. */
+	difficulty: {
+		/** Guesses needed before a location is graded at all. */
+		minPlays: 8,
+		/** An average at or above this is easy; below `hardBelow` is hard; in between is medium. */
+		easyFrom: 3200,
+		hardBelow: 1600,
+	},
+	restart: {
+		/** Warning everyone gets before a planned restart while games are being played, in seconds. */
+		notice: 60,
+		/** The same when nobody is playing. */
+		quietNotice: 10,
 	},
 };

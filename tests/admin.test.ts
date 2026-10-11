@@ -1,7 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { db, type Location } from "../src/db";
 import { utcDate } from "../src/lib/time";
-import { call, createLocation, createUser, post } from "./helpers";
+import { call, createLocation, createUser, post, resetReviewQueues } from "./helpers";
 
 const getLocation = (id: number) => db.query<Location, [number]>("SELECT * FROM locations WHERE id = ?").get(id);
 
@@ -14,6 +14,8 @@ function createSuggestion(locationId: number, type: string, content: object, ima
 		).lastInsertRowid
 	);
 }
+
+beforeAll(resetReviewQueues);
 
 describe("admin access", () => {
 	test("players and guests are kept out", async () => {

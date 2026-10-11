@@ -6,7 +6,9 @@ let replayMap = null;
 let game = null;
 let rounds = [];
 let summary = null;
-let getRounds, getTimeLimit;
+let getRounds, getTimeLimit, getDifficulty;
+/** The pills carry numbers; these are the names the server knows them by. */
+const DIFFICULTY_NAMES = [null, "easy", "medium", "hard"];
 /** Set when the page was opened from Specials (/play?special=blitz): the server picks the rules. */
 const special = new URLSearchParams(location.search).get("special");
 /** How this special changes the screenshot ("torch", "snow"), if it does. */
@@ -19,6 +21,12 @@ async function init() {
 			? `${s}s`
 			: '<span class="material-symbols-outlined text-2xl leading-none">all_inclusive</span>';
 	});
+	getDifficulty = setupPills(".difficulty-pill", (level) => {
+		el("difficulty-note").textContent = level
+			? "Practice: picking a difficulty keeps the game off the leaderboard."
+			: "Locations are graded by how players have done on them.";
+	});
+	if (!special) loadDifficulties();
 	el("start-btn").addEventListener("click", startGame);
 	el("next-btn").addEventListener("click", nextRound);
 	el("replay-btn").addEventListener("click", showReplay);
@@ -44,6 +52,20 @@ async function init() {
 	user = await fetchUser();
 	show("login-save-hint", !user && !special);
 	if (special) setupSpecial();
+}
+
+/** Greys out a difficulty that has no locations yet, and says how many each one has. */
+async function loadDifficulties() {
+	const counts = await api("/api/solo/difficulties").catch(() => null);
+	if (!counts) return;
+	for (const pill of document.querySelectorAll(".difficulty-pill")) {
+		const name = DIFFICULTY_NAMES[Number(pill.dataset.val)];
+		if (!name) continue;
+		pill.disabled = !counts[name];
+		pill.title = counts[name]
+			? `${counts[name]} ${name} location${counts[name] === 1 ? "" : "s"}`
+			: `No locations have been graded ${name} yet`;
+	}
 }
 
 /** Swaps the usual options for the special's own description; its rules are fixed. */
@@ -87,7 +109,13 @@ async function startGame() {
 	startError("");
 	try {
 		game = await api("/api/solo/games", {
-			json: special ? { special } : { rounds: getRounds(), time_limit: getTimeLimit() },
+			json: special
+				? { special }
+				: {
+						rounds: getRounds(),
+						time_limit: getTimeLimit(),
+						difficulty: DIFFICULTY_NAMES[getDifficulty()] ?? undefined,
+					},
 		});
 		rounds = [];
 		summary = null;
@@ -139,10 +167,14 @@ async function submitGuess(pin) {
 	summary = result.summary;
 	view.showAnswer(result, pin);
 	renderRoundResult(result);
-	el("result-location-id").textContent = [locId(result.location_id), result.label].filter(Boolean).join(" · ");
+	el("result-location-id").textContent = [locId(result.location_id), result.label, difficultyText(result.difficulty)]
+		.filter(Boolean)
+		.join(" · ");
 	el("result-report-link").href = reportLocationUrl(result.location_id);
 	el("next-btn").textContent = result.finished ? "See Results" : "Next Round";
 	el("result-screen").classList.add("shown");
+	view.fitResult(result, [pin]);
+	if (user) checkAchievements(1200);
 }
 
 async function nextRound() {
@@ -193,9 +225,11 @@ function showSummary() {
 	});
 	el("summary-save-area").innerHTML = summary.special
 		? '<p class="text-zinc-500 text-sm">Specials scores are not saved to the leaderboard. <a href="/specials" class="text-blue-400 hover:underline">Back to Specials</a></p>'
-		: summary.saved
-			? '<p class="text-green-400 text-sm">Score saved to the leaderboard.</p>'
-			: `<p class="text-zinc-500 text-sm"><a href="${escHtml(loginUrl("/play"))}" class="text-blue-400 hover:underline">Log in</a> before you play to save your scores to the leaderboard.</p>`;
+		: summary.difficulty
+			? `<p class="text-zinc-500 text-sm">Practice on ${escHtml(summary.difficulty)} locations: not saved to the leaderboard.</p>`
+			: summary.saved
+				? '<p class="text-green-400 text-sm">Score saved to the leaderboard.</p>'
+				: `<p class="text-zinc-500 text-sm"><a href="${escHtml(loginUrl("/play"))}" class="text-blue-400 hover:underline">Log in</a> before you play to save your scores to the leaderboard.</p>`;
 }
 
 function showReplay() {

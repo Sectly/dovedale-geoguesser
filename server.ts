@@ -1,15 +1,18 @@
 import { DEV_DISCORD_ID, DEV_MODE, PORT } from "./src/config";
 import { db } from "./src/db";
 import { app } from "./src/app";
-import { SUPERVISED, shutdown } from "./src/lib/lifecycle";
+import { SUPERVISED } from "./src/lib/lifecycle";
 import { captureConsole, logInfo } from "./src/lib/logs";
 import { reportProblem } from "./src/lib/problems";
 import { notify } from "./src/lib/webhook";
+import { backfillAchievementsOnce } from "./src/achievements";
 import { resetDuelsOnStartup } from "./src/game/duels/rooms";
+import { restoreSoloGames } from "./src/game/solo";
 import { startCleanupJobs } from "./src/jobs/cleanup";
 import { migrateLegacyModeration } from "./src/moderation";
 import { websocket } from "./src/routes/duels";
 import { ensureStyles, watchStyles } from "./src/styles";
+import { scheduleRestart, stopCleanly } from "./src/system/restart";
 import { generateTileVariants } from "./src/tile-images";
 
 // Also keep warnings and errors where operators can read them in the staff panel.
@@ -36,6 +39,9 @@ await ensureStyles();
 if (DEV_MODE) watchStyles();
 
 resetDuelsOnStartup();
+backfillAchievementsOnce();
+const restoredGames = restoreSoloGames();
+if (restoredGames) console.log(`[server] Picked up ${restoredGames} solo game(s) from before the restart`);
 startCleanupJobs();
 generateTileVariants().catch((err) => console.error("Tile variant generation failed:", err));
 
@@ -47,9 +53,11 @@ notify(
 	"/admin#stats"
 );
 
-/** Finish what is being written and leave the database tidy when the host stops or restarts us. */
-process.on("SIGTERM", () => shutdown("SIGTERM received"));
-process.on("SIGINT", () => shutdown("SIGINT received"));
+/** Close the games, finish what is being written and leave the database tidy when the host stops or restarts us. */
+process.on("SIGTERM", () => stopCleanly("SIGTERM received"));
+process.on("SIGINT", () => stopCleanly("SIGINT received"));
+/** `pm2 sendSignal SIGUSR2` (see deploy.sh) asks for a restart with the usual warning to players. */
+if (process.platform !== "win32") process.on("SIGUSR2", () => void scheduleRestart("Restart requested by the host"));
 
 export default {
 	fetch: app.fetch,

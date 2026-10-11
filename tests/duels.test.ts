@@ -7,6 +7,7 @@ import {
 	playerLoaded,
 	playerReconnected,
 	abandonDuel,
+	closeAllDuels,
 	createRoom,
 	duelRooms,
 	joinRoom,
@@ -17,7 +18,7 @@ import {
 } from "../src/game/duels/rooms";
 import { DUEL_RULES, Round } from "../src/game/round";
 import { issueAction } from "../src/moderation";
-import { call, clearLocations, createLocation, createUser, post, type TestUser } from "./helpers";
+import { call, clearLocations, createLocation, createUser, post, resetReviewQueues, type TestUser } from "./helpers";
 
 type FakeConn = WireConnection & { events: [string, any][] };
 
@@ -64,6 +65,8 @@ beforeAll(() => {
 	clearLocations();
 	for (let i = 0; i < 4; i++) createLocation();
 });
+
+beforeAll(resetReviewQueues);
 
 describe("duel rooms over HTTP", () => {
 	test("create, join, and the errors a player can hit", async () => {
@@ -245,6 +248,29 @@ describe("duel game flow", () => {
 		} finally {
 			jest.useRealTimers();
 		}
+	});
+
+	test("a restart closes every room, tells the players and names no winner", () => {
+		const [a, b, c] = [createUser(), createUser(), createUser()];
+		const playing = createRoom(a.id, 1);
+		joinRoom(playing.code, b.id);
+		const connA = seat(playing, a);
+		seat(playing, b);
+		playing.locations = [createLocation()].map((id) =>
+			db.query<any, [number]>("SELECT * FROM locations WHERE id = ?").get(id)
+		);
+		beginRound(playing);
+		const waiting = createRoom(c.id, 1);
+		const connC = seat(waiting, c);
+
+		closeAllDuels("Restarting");
+		expect(duelRooms.size).toBe(0);
+		expect(connA.events.at(-1)).toEqual(["server_restart", { message: "Restarting" }]);
+		expect(connC.events.at(-1)![0]).toBe("server_restart");
+		const game = (id: number) =>
+			db.query<any, [number]>("SELECT status, winner_id FROM duel_games WHERE id = ?").get(id);
+		expect(game(playing.dbId)).toEqual({ status: "abandoned", winner_id: null });
+		expect(game(waiting.dbId)).toBeNull();
 	});
 
 	test("a duel cannot start with more rounds than there are locations", () => {

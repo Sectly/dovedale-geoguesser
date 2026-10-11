@@ -6,6 +6,7 @@ import { auditLog } from "../../lib/audit";
 import { fail, idParam, readJson, text } from "../../lib/http";
 import { deleteUpload } from "../../lib/uploads";
 import { displayName, notify } from "../../lib/webhook";
+import { award } from "../../achievements";
 import { notifyUser } from "../../notifications";
 
 export const adminSubmissionRoutes = new Hono();
@@ -62,9 +63,11 @@ adminSubmissionRoutes.post("/:id/approve", async (c) => {
 		`**Submission #${id} approved** by **${displayName(staff)}** - "${label}"${sub.username ? ` (originally by ${sub.username})` : ""}`,
 		"/admin#submissions"
 	);
+	// Said in the same message, so a first approval does not arrive as two notifications.
+	const earned = award(sub.submitted_by, "contributor", { quiet: true });
 	notifyUser(sub.submitted_by, "submissions", {
 		title: "Your location was approved",
-		body: `"${label}" is now in the game. Thanks for contributing.`,
+		body: `"${label}" is now in the game. Thanks for contributing.${earned ? " You earned the Cartographer achievement." : ""}`,
 		link: "/settings#submissions",
 	});
 	auditLog(staff, "submission_approve", {

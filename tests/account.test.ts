@@ -1,7 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { db } from "../src/db";
 import { safeRedirect } from "../src/lib/http";
-import { call, createLocation, createUser, post } from "./helpers";
+import { call, createLocation, createUser, post, resetReviewQueues } from "./helpers";
+
+beforeAll(resetReviewQueues);
 
 describe("auth", () => {
 	test("only same-site paths are accepted as login redirects", () => {

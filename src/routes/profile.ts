@@ -3,6 +3,8 @@ import { db, type User } from "../db";
 import { DEV_DISCORD_ID, DEV_MODE } from "../config";
 import { isStaff } from "../auth/guards";
 import { currentUser } from "../auth/sessions";
+import { achievementsFor } from "../achievements";
+import { ratingOf } from "../game/duels/rating";
 import { getStreak } from "../game/streaks";
 import { fail } from "../lib/http";
 import { DAY, nowSec } from "../lib/time";
@@ -92,6 +94,8 @@ profileRoutes.get("/:username", (c) => {
 		profile_private: !!subject.profile_private,
 		...getStreak(subject.id),
 		...profileStats(subject.id),
+		rating: { value: ratingOf(subject), games: subject.duel_rated_games ?? 0 },
+		achievements: achievementsFor(subject.id),
 		recent: recentGames(subject.id),
 	});
 });

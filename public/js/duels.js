@@ -157,6 +157,7 @@ async function init() {
 	}
 	el("gate-spectate-btn").addEventListener("click", () => spectate(el("gate-spectate-btn").dataset.code));
 	el("end-replay-again").addEventListener("click", playReplay);
+	bindEmoteBar((emote) => wire?.emit("emote", { emote }));
 	el("live-duels-btn").addEventListener("click", openLiveDuels);
 	el("live-duels-close").addEventListener("click", closeLiveDuels);
 	el("live-duels-refresh").addEventListener("click", loadLiveDuels);
@@ -212,6 +213,10 @@ async function init() {
 		return;
 	}
 	switchScreen("lobby-screen");
+	el("lobby-rating").textContent = user.duel_rated_games
+		? `Your rating: ${user.duel_rating.toLocaleString()}`
+		: "Your first ranked duel sets your rating";
+	show("lobby-rating");
 	loadLiveDuels();
 	if (code) {
 		el("join-code").value = code;
@@ -330,6 +335,8 @@ async function connect(joinEvent) {
 	closeWire();
 	roundHistory = [];
 	introShown = false;
+	pinColors.clear();
+	view?.map.restoreView();
 	clearTimeout(reconnectTimer);
 	const w = new WebWire("/api/duels/wire", { reconnect: { initialDelay: 500, maxDelay: 3000 } });
 	wire = w;
@@ -338,6 +345,9 @@ async function connect(joinEvent) {
 
 	on("room_state", (state) => {
 		if (state.players?.length) lastPlayers = state.players;
+		// Colours go by seat, so a player keeps theirs from round to round and into the replay.
+		for (const p of lastPlayers) pinColor(p.user_id);
+		renderEmoteBar(state.emotes, !isSpectator());
 		showSpectatorCount(state.spectators);
 		showWaitingRoom(state);
 	});
@@ -384,10 +394,22 @@ async function connect(joinEvent) {
 			);
 		}
 	});
+	on("emote", showEmote);
 	on("round_result", showRoundResult);
 	on("game_end", (data) => showGameEnd(data));
 	on("opponent_disconnected", (data) => showGameEnd(data, { forfeit: true }));
 	on("notice", (data) => showToast(data.message || "Something went wrong.", "error"));
+	on("server_restarting", (data) => noteRestart(data.seconds));
+	on("server_restart_cancelled", () => noteRestart(null));
+	on("server_restart", (data) => {
+		// On the end screen the result stands; there is just nobody left to rematch.
+		if (!el("end-screen").classList.contains("hidden")) {
+			closeWire();
+			return rematchUnavailable("Server restarting");
+		}
+		noteRestart(0);
+		backToLobby(data.message || "The server is restarting.");
+	});
 	on("rejected", (data) => {
 		if (!el("end-screen").classList.contains("hidden")) return closeWire();
 		backToLobby(data.message || "Something went wrong.");
@@ -427,6 +449,18 @@ async function connect(joinEvent) {
 		RECONNECT_WINDOW_MS
 	);
 	w.connect().catch(() => {});
+}
+
+/** Pops a player's reaction up beside the screenshot. Spectators see them too. */
+function showEmote(data) {
+	const player = lastPlayers.find((p) => p.user_id === data.user_id);
+	if (!player) return;
+	const mine = data.user_id === user?.id;
+	showEmoteBubble(data.emote, {
+		name: mine ? "You" : player.display_name || player.username,
+		avatarUrl: player.avatar_url,
+		color: mine ? MapCanvas.GUESS_COLOR : pinColor(data.user_id),
+	});
 }
 
 const pinColors = new Map();
@@ -546,14 +580,15 @@ let shownRound = 0;
 
 /** Puts a round on screen ahead of its clock, so both players can load it first. */
 function showRound(round) {
+	// The round can arrive a moment before the countdown's last tick, so take the countdown down with its timer.
 	clearInterval(countdownTimer);
+	show("start-countdown", false);
 	clearInterval(nextRoundTimer);
 	switchScreen("round-screen");
 	el("result-screen").classList.remove("shown");
 	setOpponentBadge(null);
 	el("round-num").textContent = round.round;
 	el("round-total").textContent = round.total_rounds;
-	pinColors.clear();
 	shownRound = round.round;
 	if (!isSpectator()) el("click-hint").textContent = "Get ready…";
 	return view.show(round, { canGuess: !isSpectator() });
@@ -629,7 +664,7 @@ function showRoundResult(result) {
 			})
 			.join("") +
 		`<div class="flex items-center justify-between mt-2 pt-2 border-t border-zinc-700">
-			<span class="text-xs font-mono text-zinc-500">${locId(result.location_id)}</span>
+			<span class="text-xs font-mono text-zinc-500">${[locId(result.location_id), difficultyText(result.difficulty)].filter(Boolean).join(" · ")}</span>
 			<a href="${reportLocationUrl(result.location_id)}" target="_blank" rel="noopener" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline">Report location</a>
 		</div>`;
 
@@ -637,9 +672,15 @@ function showRoundResult(result) {
 		countUp(node, Number(node.dataset.count), { from: Number(node.dataset.from || 0), duration: 900 });
 	}
 	lastRoundWasFinal = !!result.is_last;
+	if (!isSpectator()) checkAchievements(1500);
 	runNextRoundCountdown(result.next_in);
 	switchScreen("round-screen");
 	el("result-screen").classList.add("shown");
+	// The sheet covers the bottom of the map, so bring the answer and every guess into what is left.
+	view.fitResult(
+		result,
+		result.results.filter((r) => r.guessed_x !== null).map((r) => ({ x: r.guessed_x, y: r.guessed_y }))
+	);
 }
 
 let lastRoundWasFinal = false;
@@ -739,6 +780,8 @@ function rematchUnavailable(reason) {
 }
 
 function showGameEnd(result, { forfeit = false } = {}) {
+	// The server's record covers rounds played before we joined or reloaded.
+	if (result.rounds?.length) roundHistory = result.rounds;
 	clearInterval(nextRoundTimer);
 	hideOverlay();
 	view?.stop();
@@ -775,16 +818,21 @@ function showGameEnd(result, { forfeit = false } = {}) {
 		.map((p, i) => {
 			const mine = p.user_id === user?.id;
 			const leads = i === 0 && !result.is_tie && !!winnerId;
+			const rated = result.ratings?.find((r) => r.user_id === p.user_id);
+			const ratingHtml = rated
+				? `<div class="text-xs text-zinc-500 font-normal">Rating ${rated.rating.toLocaleString()} <span class="font-mono ${rated.change >= 0 ? "text-green-400" : "text-red-400"}">${rated.change >= 0 ? "+" : ""}${rated.change}</span></div>`
+				: "";
 			return `<div class="flex items-center gap-4 bg-zinc-900 rounded-2xl px-5 py-4 ${mine ? "ring-2 ring-blue-500" : leads ? "ring-2 ring-yellow-500/40" : ""}">
 				<span class="material-symbols-outlined text-2xl ${medals[result.is_tie ? 1 : i]?.[1] ?? "text-zinc-600"}" style="font-variation-settings:'FILL' 1">${medals[result.is_tie ? 1 : i]?.[0] ?? "person"}</span>
 				${avatarHtml(p.avatar_url, "w-10 h-10")}
-				<div class="flex-1 min-w-0 text-left font-semibold truncate">${escHtml(p.display_name || p.username)}${mine ? " (you)" : ""}</div>
+				<div class="flex-1 min-w-0 text-left font-semibold"><div class="truncate">${escHtml(p.display_name || p.username)}${mine ? " (you)" : ""}</div>${ratingHtml}</div>
 				<div class="text-2xl font-bold font-mono flex-shrink-0 ${leads ? "text-yellow-400" : ""}" data-count="${p.total_score}">0</div>
 			</div>`;
 		})
 		.join("");
 	for (const node of el("end-scores").querySelectorAll("[data-count]"))
 		countUp(node, Number(node.dataset.count), { duration: 1200 });
+	if (!isSpectator()) checkAchievements(1800);
 	playReplay();
 }
 

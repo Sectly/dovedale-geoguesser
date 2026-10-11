@@ -122,7 +122,10 @@ function render(p, me) {
 		${stat("Wins", duelWins.toLocaleString())}
 		${stat("Games", duelGames.toLocaleString())}
 		${stat("Win Rate", winRate !== null ? `${winRate}%` : "-")}
+		${stat("Rating", p.rating?.games ? p.rating.value.toLocaleString() : "Unranked")}
 	</div>
+
+	${achievementsHtml(p.achievements)}
 
 	${
 		(p.submissions?.total ?? 0) > 0
@@ -141,6 +144,28 @@ function render(p, me) {
 	${recentGamesHtml(p.recent)}
 `;
 	el("share-btn")?.addEventListener("click", () => shareProfile(p.username));
+}
+
+/** Every achievement as a tile: the earned ones lit, the rest greyed out with how to get them. */
+function achievementsHtml(achievements) {
+	if (!achievements?.length) return "";
+	const earned = achievements.filter((a) => a.earned_at).length;
+	const tile = (
+		a
+	) => `<div class="rounded-2xl px-3 py-3 flex items-center gap-3 ${a.earned_at ? "bg-zinc-900" : "bg-zinc-900/40"}" title="${escHtml(a.description)}">
+		<span class="material-symbols-outlined text-2xl flex-shrink-0 ${a.earned_at ? "text-yellow-400" : "text-zinc-700"}" ${a.earned_at ? "style=\"font-variation-settings:'FILL' 1\"" : ""}>${a.earned_at ? escHtml(a.icon) : "lock"}</span>
+		<div class="min-w-0">
+			<div class="text-sm font-semibold truncate ${a.earned_at ? "" : "text-zinc-500"}">${escHtml(a.title)}</div>
+			<div class="text-xs ${a.earned_at ? "text-zinc-500" : "text-zinc-600"}">${escHtml(a.description)}</div>
+		</div>
+	</div>`;
+	// Earned first, newest at the front; the ones still to get keep their usual order.
+	const sorted = [...achievements].sort((a, b) => (b.earned_at || 0) - (a.earned_at || 0));
+	return `<div class="flex items-center justify-between mb-3" id="achievements">
+		<h2 class="font-bold text-zinc-300">Achievements</h2>
+		<span class="text-xs text-zinc-500">${earned} of ${achievements.length}</span>
+	</div>
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">${sorted.map(tile).join("")}</div>`;
 }
 
 const shortDate = (seconds) =>

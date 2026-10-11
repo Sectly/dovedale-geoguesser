@@ -80,6 +80,7 @@ function renderSortToggle() {
 	} else if (currentTab === "duels") {
 		wrap.innerHTML = `
 		<div class="flex items-center gap-1 overflow-x-auto pb-1">
+			<button id="dsort-rating" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${duelsSort === "rating" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Rating</button>
 			<button id="dsort-wins" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${duelsSort === "wins" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Wins</button>
 			<button id="dsort-score" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${duelsSort === "score" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Total score</button>
 			<button id="dsort-avg" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${duelsSort === "avg" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}">Avg/round</button>
@@ -89,7 +90,7 @@ function renderSortToggle() {
 			<button id="dmode-room" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap ${duelsMode === "room" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}"><span class="material-symbols-outlined text-xs leading-none align-middle">meeting_room</span> Room</button>
 		</div>`;
 		el("leaderboard-content").before(wrap);
-		["wins", "score", "avg"].forEach((s) => {
+		["rating", "wins", "score", "avg"].forEach((s) => {
 			document.getElementById(`dsort-${s}`).addEventListener("click", () => {
 				duelsSort = s;
 				renderSortToggle();
@@ -178,7 +179,9 @@ function renderLeaderboard(tab, entries) {
 		el("leaderboard-content").innerHTML = `<div class="text-zinc-500 text-center py-12">${
 			tab === "daily" && dailyDaysAgo > 0
 				? "Nobody played the daily challenge that day."
-				: "No scores yet. Be the first."
+				: tab === "duels" && duelsSort === "rating"
+					? "Nobody has a rating yet. Play a Quick Play duel to be the first."
+					: "No scores yet. Be the first."
 		}</div>`;
 		return;
 	}
@@ -210,7 +213,10 @@ function renderLeaderboard(tab, entries) {
 						? ` · <span class="material-symbols-outlined text-xs align-middle leading-none" style="font-variation-settings:'FILL' 1">bolt</span>${qp} <span class="material-symbols-outlined text-xs align-middle leading-none">meeting_room</span>${rm}`
 						: "";
 				let mainVal, subVal;
-				if (duelsSort === "wins") {
+				if (duelsSort === "rating") {
+					mainVal = `${(e.rating || 0).toLocaleString()} <span class="text-sm font-normal text-zinc-400">rating</span>`;
+					subVal = `${e.rated_games} ranked · ${e.wins}W / ${e.games_played}G`;
+				} else if (duelsSort === "wins") {
 					mainVal = `${e.wins || 0} <span class="text-sm font-normal text-zinc-400">wins</span>`;
 					subVal = `${(e.total_score || 0).toLocaleString()} pts · ${e.games_played}G${breakdown}`;
 				} else if (duelsSort === "avg") {

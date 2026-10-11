@@ -5,6 +5,7 @@
 	"singleQuote": false,
 	"printWidth": 120,
 	"trailingComma": "es5",
+	"endOfLine": "auto",
 	"overrides": [
 		{
 			"files": ["*.html"],

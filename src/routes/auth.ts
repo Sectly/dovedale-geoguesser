@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { DEV_MODE } from "../config";
+import { DEV_MODE, GAME } from "../config";
 import { consumeState, createAuthUrl, exchangeCode, oauthConfigured } from "../auth/discord";
 import {
 	clearedSessionCookie,
@@ -119,6 +119,8 @@ authRoutes.get("/me", (c) => {
 		upload_limited: !!user.upload_limited,
 		duel_limited: !!user.duel_limited,
 		profile_private: !!user.profile_private,
+		duel_rating: user.duel_rating ?? GAME.rating.start,
+		duel_rated_games: user.duel_rated_games ?? 0,
 		suggestions_agreed: !!user.suggestions_agreed,
 		prefs: publicPreferences(user),
 		// Only staff ever see the site during maintenance, so only they need telling.

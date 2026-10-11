@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { db, type Location } from "../../db";
 import { LIMITS } from "../../config";
 import { requireStaff } from "../../auth/guards";
-import { cleanHints } from "../../game/locations";
+import { cleanHints, difficultyOf, resetLocationStats } from "../../game/locations";
 import { auditLog } from "../../lib/audit";
 import { fail, idParam, readJson, text } from "../../lib/http";
 import { deleteUpload } from "../../lib/uploads";
@@ -33,14 +33,31 @@ adminLocationRoutes.get("/", (c) => {
 		db
 			.query(
 				`SELECT l.*, u.username AS submitted_by_username, u.display_name AS submitted_by_display_name,
-					a.username AS approved_by_username, a.display_name AS approved_by_display_name
+					a.username AS approved_by_username, a.display_name AS approved_by_display_name,
+					COALESCE(s.plays, 0) AS plays,
+					CASE WHEN s.plays > 0 THEN ROUND(CAST(s.score_sum AS REAL) / s.plays) END AS avg_score
 				FROM locations l
 				LEFT JOIN users u ON u.id = l.submitted_by
 				LEFT JOIN users a ON a.id = l.approved_by
+				LEFT JOIN location_stats s ON s.location_id = l.id
 				ORDER BY l.created_at DESC`
 			)
 			.all()
+			.map((location: any) => ({ ...location, difficulty: difficultyOf(location.id) }))
 	);
+});
+
+/** Forgets how players have done on a location, e.g. after its screenshot or pin was corrected. */
+adminLocationRoutes.post("/:id/stats/reset", (c) => {
+	const staff = requireStaff(c);
+	const location = getLocation(idParam(c));
+	resetLocationStats(location.id);
+	auditLog(staff, "location_stats_reset", {
+		targetType: "location",
+		targetId: location.id,
+		details: location.label,
+	});
+	return c.json({ success: true });
 });
 
 adminLocationRoutes.post("/:id/toggle", (c) => {

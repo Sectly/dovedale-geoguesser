@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { takeUnseen } from "../achievements";
 import { hashIdentity } from "../evasion";
 import { db, type User } from "../db";
 import { requireUser } from "../auth/guards";
@@ -52,6 +53,8 @@ export function exportUserData(user: User) {
 			current_streak: user.current_streak,
 			longest_streak: user.longest_streak,
 			last_played_date: user.last_played_date,
+			duel_rating: user.duel_rating,
+			duel_rated_games: user.duel_rated_games ?? 0,
 			suggestions_agreed: !!user.suggestions_agreed,
 			suggestions_agreed_at: user.suggestions_agreed_at,
 		},
@@ -62,8 +65,9 @@ export function exportUserData(user: User) {
 			"SELECT id, score, date, guessed_x, guessed_y, distance, time_taken, hints_used, created_at FROM daily_scores WHERE user_id = ?"
 		),
 		duel_games: all(
-			"SELECT dp.game_id, dp.total_score, dg.room_code, dg.status, dg.winner_id, dg.created_at FROM duel_participants dp JOIN duel_games dg ON dg.id = dp.game_id WHERE dp.user_id = ?"
+			"SELECT dp.game_id, dp.total_score, dp.rating_change, dg.room_code, dg.quickplay, dg.status, dg.winner_id, dg.created_at FROM duel_participants dp JOIN duel_games dg ON dg.id = dp.game_id WHERE dp.user_id = ?"
 		),
+		achievements: all("SELECT key, earned_at, seen_at FROM user_achievements WHERE user_id = ? ORDER BY earned_at"),
 		duel_round_scores: all(
 			"SELECT game_id, round_number, guessed_x, guessed_y, distance, score, created_at FROM duel_round_scores WHERE user_id = ?"
 		),
@@ -98,9 +102,12 @@ export function exportUserData(user: User) {
 		notifications: all("SELECT category, title, body, read_at, created_at FROM notifications WHERE user_id = ?"),
 		preferences: parsePreferences(user.prefs),
 		exported_at: new Date().toISOString(),
-		export_version: 7,
+		export_version: 8,
 	};
 }
+
+/** Achievements earned since the page last asked, for the unlock animation. Asking marks them shown. */
+accountRoutes.get("/achievements/unseen", (c) => c.json(takeUnseen(requireUser(c).id)));
 
 accountRoutes.get("/gdpr/export", (c) => {
 	const user = requireUser(c);
@@ -136,6 +143,7 @@ export async function deleteUserAccount(userId: number) {
 			`UPDATE users SET username = '[deleted]', display_name = NULL, avatar_url = NULL,
 				discord_id = '[deleted:' || id || ']', role = NULL, profile_private = 1,
 				current_streak = 0, longest_streak = 0, last_played_date = NULL, prefs = NULL,
+				duel_rating = 1000, duel_rated_games = 0,
 				deleted_identity = ?
 			WHERE id = ?`,
 			[hasHistory && account ? hashIdentity(`discord:${account.discord_id}`) : null, userId]
@@ -153,6 +161,7 @@ export async function deleteUserAccount(userId: number) {
 			"location_suggestions",
 			"push_subscriptions",
 			"notifications",
+			"user_achievements",
 		]) {
 			db.run(`DELETE FROM ${table} WHERE user_id = ?`, [userId]);
 		}

@@ -1,10 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { handleError } from "../src/app";
 import { db } from "../src/db";
 import { upsertUser } from "../src/auth/sessions";
 import { fail } from "../src/lib/http";
-import { call, createUser, post, type TestUser } from "./helpers";
+import { call, createUser, post, resetReviewQueues, type TestUser } from "./helpers";
 
 const operator = () => createUser({ role: "operator" });
 const ban = (target: TestUser, reason = "A1: testing bans") =>
@@ -17,6 +17,8 @@ const seenOn = (user: TestUser, device: string, fingerprint: string) =>
 	call("/api/fp", { json: { h: fingerprint }, headers: { Cookie: `${user.cookie}; device=${device}` } });
 const hex = (seed: string) => seed.repeat(32).slice(0, 32);
 const flags = async () => (await call("/api/admin/users/evasion", { as: operator() })).data as any[];
+
+beforeAll(resetReviewQueues);
 
 describe("banned accounts", () => {
 	test("are shut out of play but can still appeal and reach their own data", async () => {

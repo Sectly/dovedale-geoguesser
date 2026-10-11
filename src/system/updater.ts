@@ -1,8 +1,9 @@
 import { ROOT_DIR } from "../config";
 import { createBackup } from "../backups";
 import { db } from "../db";
-import { SUPERVISED, shutdown } from "../lib/lifecycle";
+import { SUPERVISED } from "../lib/lifecycle";
 import { logInfo } from "../lib/logs";
+import { cancelRestart, restartIn, scheduleRestart } from "./restart";
 
 /**
  * Installing updates from the staff panel. The server only ever fast-forwards to what
@@ -87,6 +88,8 @@ export async function updateStatus(refresh = false) {
 		local_changes: dirty.out ? dirty.out.split("\n").length : 0,
 		fetch_error: fetchError,
 		checked_at: lastFetch ? Math.floor(lastFetch / 1000) : null,
+		/** Seconds until the announced restart, while one is counting down. */
+		restart_in: restartIn(),
 		job,
 	};
 }
@@ -100,6 +103,9 @@ type Job = {
 };
 
 const job: Job = { state: "idle", step: "", log: [], started_at: null, started_by: null };
+/** True once an update has been installed that the running server has not restarted into. */
+let installed = false;
+const INSTALLED_STEP = "Installed. Restart the server to finish.";
 
 function note(line: string) {
 	job.log.push(line);
@@ -108,8 +114,8 @@ function note(line: string) {
 
 /**
  * Backs up the database, fast-forwards to the remote branch, installs dependencies and
- * rebuilds the stylesheet, then restarts. Stops at the first step that fails, leaving
- * the running server as it was.
+ * rebuilds the stylesheet, then restarts once players have had their warning. Stops at
+ * the first step that fails, leaving the running server as it was.
  */
 export async function runUpdate(startedBy: string): Promise<string | null> {
 	if (!UPDATES_ENABLED) return "Updates from the panel are switched off on this server.";
@@ -152,14 +158,15 @@ export async function runUpdate(startedBy: string): Promise<string | null> {
 			}
 		}
 		logInfo(`[update] Installed ${status.pending.length} commit(s), started by ${startedBy}`, job.log.join("\n"));
+		installed = true;
 		if (!SUPERVISED) {
 			job.state = "needs_restart";
-			job.step = "Installed. Restart the server to finish.";
+			job.step = INSTALLED_STEP;
 			return;
 		}
 		job.state = "restarting";
-		job.step = "Restarting";
-		setTimeout(() => shutdown("Update installed"), 1500);
+		job.step = "Installed. Restarting once players have had their warning";
+		scheduleRestart("Update installed");
 	})();
 	return null;
 }
@@ -168,9 +175,19 @@ export async function runUpdate(startedBy: string): Promise<string | null> {
 export function restartServer(startedBy: string): string | null {
 	if (!SUPERVISED) return "The server is not running under a process manager, so nothing would start it again.";
 	if (job.state === "running") return "An update is running. It will restart the server when it finishes.";
+	if (job.state === "restarting") return "The server is already about to restart.";
 	logInfo(`[server] Restart requested from the staff panel by ${startedBy}`);
 	job.state = "restarting";
-	job.step = "Restarting";
-	setTimeout(() => shutdown("Restart requested from the staff panel"), 1000);
+	job.step = "Restarting once players have had their warning";
+	scheduleRestart("Restart requested from the staff panel");
+	return null;
+}
+
+/** Calls off a restart that is still counting down. An update already installed stays installed. */
+export function cancelPendingRestart(cancelledBy: string): string | null {
+	if (job.state !== "restarting" || !cancelRestart()) return "No restart is waiting to happen.";
+	logInfo(`[server] Restart called off from the staff panel by ${cancelledBy}`);
+	job.state = installed ? "needs_restart" : "idle";
+	job.step = installed ? INSTALLED_STEP : "";
 	return null;
 }

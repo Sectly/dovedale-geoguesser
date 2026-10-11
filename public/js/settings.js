@@ -179,6 +179,7 @@ const NOTIFY_OPTIONS = [
 	["suggestions", "Suggestions", "When a change you suggested is accepted or declined"],
 	["tickets", "Tickets", "When staff reply to or close one of your tickets"],
 	["reminders", "Streak reminders", "An evening nudge when your streak is about to end"],
+	["achievements", "Achievements", "When you unlock an achievement"],
 ];
 
 function preferencesHtml() {
@@ -278,6 +279,7 @@ const NOTIFICATION_ICONS = {
 	tickets: ["support_agent", "text-teal-400"],
 	moderation: ["gavel", "text-red-400"],
 	reminders: ["local_fire_department", "text-orange-400"],
+	achievements: ["emoji_events", "text-yellow-400"],
 	announcements: ["campaign", "text-purple-400"],
 };
 

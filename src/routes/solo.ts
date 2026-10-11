@@ -5,7 +5,7 @@ import { requirePlayer } from "../auth/guards";
 import { currentUser } from "../auth/sessions";
 import { beginSoloRound, nextSoloRound, revealSoloHint, startSoloGame, submitSoloGuess } from "../game/solo";
 import { parseGuess } from "../game/round";
-import { pickLocations } from "../game/locations";
+import { DIFFICULTIES, difficultyCounts, pickLocations, type Difficulty } from "../game/locations";
 import { clientIp, fail, intQuery, readJson } from "../lib/http";
 import { uploadUrl } from "../lib/uploads";
 import { checkRateLimit } from "../lib/rate-limit";
@@ -25,7 +25,7 @@ soloRoutes.post("/games", async (c) => {
 	if (!checkRateLimit(limiterKey, 30, 10 * 60 * 1000))
 		fail(429, "You're starting games too quickly. Try again shortly.");
 
-	const body = await readJson<{ rounds: number; time_limit: number; special: string }>(c);
+	const body = await readJson<{ rounds: number; time_limit: number; special: string; difficulty: string }>(c);
 	if (body.special !== undefined) {
 		// Specials are for logged-in players, and only while they are running.
 		const player = requirePlayer(c);
@@ -37,8 +37,12 @@ soloRoutes.post("/games", async (c) => {
 	}
 	const rounds = GAME.solo.rounds.includes(body.rounds!) ? body.rounds! : GAME.solo.defaultRounds;
 	const timeLimit = GAME.solo.timeLimits.includes(body.time_limit!) ? body.time_limit! : GAME.solo.defaultTimeLimit;
-	return c.json(startSoloGame(userId, rounds, timeLimit));
+	const difficulty = DIFFICULTIES.includes(body.difficulty as Difficulty) ? (body.difficulty as Difficulty) : null;
+	return c.json(startSoloGame(userId, rounds, timeLimit, null, difficulty));
 });
+
+/** How many locations of each difficulty can be played, so the page only offers what exists. */
+soloRoutes.get("/difficulties", (c) => c.json(difficultyCounts()));
 
 soloRoutes.post("/games/:id/begin", (c) => c.json(beginSoloRound(c.req.param("id"), playerId(c))));
 

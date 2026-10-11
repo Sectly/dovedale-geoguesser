@@ -1,9 +1,12 @@
 import { randomBytes } from "crypto";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { join } from "path";
 import { db, type Location } from "../db";
-import { GAME } from "../config";
+import { DATA_DIR, GAME } from "../config";
 import { fail } from "../lib/http";
-import { pickLocations } from "./locations";
-import { Round, SOLO_RULES, outcomeJson, type Guess, type RoundOutcome, type RoundRules } from "./round";
+import { checkRound, checkSoloGame, checkStreak } from "../achievements";
+import { pickLocations, type Difficulty } from "./locations";
+import { Round, SOLO_RULES, outcomeJson, recordOutcome, type Guess, type RoundOutcome, type RoundRules } from "./round";
 import { recordPlay, type Streak } from "./streaks";
 
 /**
@@ -19,6 +22,8 @@ type SoloGame = {
 	rules: RoundRules;
 	/** Set for a Specials mode: played for fun, never saved to the leaderboard. */
 	special: string | null;
+	/** Set when the player asked for only easy, medium or hard locations: practice, never ranked. */
+	difficulty?: Difficulty | null;
 	locations: Location[];
 	/** The round being guessed, or null between rounds. */
 	round: Round | null;
@@ -53,12 +58,15 @@ export function startSoloGame(
 	userId: number | null,
 	rounds: number,
 	timeLimit: number,
-	special: { id: string; rules: RoundRules } | null = null
+	special: { id: string; rules: RoundRules } | null = null,
+	difficulty: Difficulty | null = null
 ) {
 	if (games.size >= MAX_GAMES) pruneSoloGames();
 	if (games.size >= MAX_GAMES) fail(503, "The server is busy. Try again in a moment.");
 
-	const locations = pickLocations(rounds);
+	const locations = pickLocations(rounds, difficulty);
+	if (difficulty && locations.length < rounds)
+		fail(409, `There aren't enough ${difficulty} locations yet for ${rounds} rounds. Try fewer rounds, or Any.`);
 	if (locations.length === 0) fail(503, "No locations available yet. Check back later.");
 
 	const game: SoloGame = {
@@ -67,6 +75,7 @@ export function startSoloGame(
 		timeLimit,
 		rules: special?.rules ?? SOLO_RULES(timeLimit),
 		special: special?.id ?? null,
+		difficulty,
 		locations,
 		round: null,
 		outcomes: [],
@@ -79,6 +88,7 @@ export function startSoloGame(
 		rounds: locations.length,
 		time_limit: timeLimit,
 		special: game.special,
+		difficulty,
 		round: roundJson(game),
 	};
 }
@@ -115,6 +125,11 @@ export function submitSoloGuess(id: string, userId: number | null, guess: Guess 
 	const outcome = round.score(guess);
 	game.outcomes.push(outcome);
 	game.round = null;
+	// Specials change the picture or the clock, so they say nothing fair about a location or a player.
+	if (!game.special) {
+		recordOutcome(round.location, outcome);
+		checkRound(game.userId, outcome);
+	}
 
 	const finished = game.outcomes.length >= game.locations.length;
 	return {
@@ -135,12 +150,74 @@ export function nextSoloRound(id: string, userId: number | null) {
 	return { round: roundJson(game) };
 }
 
+/* ---- Carrying games across a restart ---- */
+
+const SNAPSHOT_FILE = join(DATA_DIR, "solo-games.json");
+
+type SavedGame = Omit<SoloGame, "locations" | "round"> & {
+	locationIds: number[];
+	/** The round being guessed: how long its clock had run (null if it had not started) and the hints shown. */
+	round: { elapsedMs: number | null; hintsRevealed: number } | null;
+};
+
+/**
+ * Writes every game in progress to disk and empties the list, so nothing changes after
+ * the snapshot. Called as the server stops; `restoreSoloGames` reads it back on the way up.
+ */
+export function saveSoloGames(): number {
+	const now = Date.now();
+	const saved: SavedGame[] = [...games.values()].map(({ locations, round, ...game }) => ({
+		...game,
+		locationIds: locations.map((l) => l.id),
+		round: round && {
+			elapsedMs: round.pending(now) ? null : round.elapsed(now) * 1000,
+			hintsRevealed: round.hintsRevealed,
+		},
+	}));
+	games.clear();
+	if (saved.length) writeFileSync(SNAPSHOT_FILE, JSON.stringify(saved));
+	return saved.length;
+}
+
+/** Brings back the games saved by the last clean stop. The time the server was down does not count. */
+export function restoreSoloGames(): number {
+	if (!existsSync(SNAPSHOT_FILE)) return 0;
+	let saved: SavedGame[] = [];
+	try {
+		saved = JSON.parse(readFileSync(SNAPSHOT_FILE, "utf8"));
+	} catch (err) {
+		console.error("[solo] Could not read the saved games:", err);
+	}
+	rmSync(SNAPSHOT_FILE, { force: true });
+
+	const now = Date.now();
+	const findLocation = db.query<Location, [number]>("SELECT * FROM locations WHERE id = ?");
+	let restored = 0;
+	for (const { locationIds, round, ...game } of saved) {
+		if (now - game.touchedAt > IDLE_TTL_MS) continue;
+		const locations = locationIds.map((id) => findLocation.get(id));
+		// A location removed in the meantime cannot be played; the game is dropped.
+		if (locations.some((l) => !l)) continue;
+		const restoredGame: SoloGame = { ...game, locations: locations as Location[], round: null, touchedAt: now };
+		if (round) {
+			const location = restoredGame.locations[restoredGame.outcomes.length];
+			restoredGame.round =
+				round.elapsedMs === null
+					? Round.loading(location, game.rules)
+					: new Round(location, game.rules, now - round.elapsedMs, round.hintsRevealed);
+		}
+		games.set(restoredGame.id, restoredGame);
+		restored++;
+	}
+	return restored;
+}
+
 function finishGame(game: SoloGame) {
 	games.delete(game.id);
 	const rounds = game.locations.length;
 	const totalScore = game.outcomes.reduce((sum, o) => sum + o.score, 0);
 	const maxPossible = rounds * (GAME.maxRoundScore + game.rules.maxTimeBonus);
-	const ranked = game.userId !== null && !game.special;
+	const ranked = game.userId !== null && !game.special && !game.difficulty;
 
 	let streak: Streak | null = null;
 	if (game.userId !== null && ranked) {
@@ -149,7 +226,11 @@ function finishGame(game: SoloGame) {
 			[game.userId, totalScore, rounds, maxPossible, game.timeLimit]
 		);
 	}
-	if (game.userId !== null) streak = recordPlay(game.userId);
+	if (game.userId !== null) {
+		streak = recordPlay(game.userId);
+		checkStreak(game.userId, streak);
+		if (!game.special) checkSoloGame(game.userId, totalScore, maxPossible, ranked);
+	}
 	return {
 		total_score: totalScore,
 		max_possible: maxPossible,
@@ -157,6 +238,7 @@ function finishGame(game: SoloGame) {
 		time_limit: game.timeLimit,
 		saved: ranked,
 		special: game.special,
+		difficulty: game.difficulty ?? null,
 		...streak,
 	};
 }

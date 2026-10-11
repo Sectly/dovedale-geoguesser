@@ -1,11 +1,13 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { PUBLIC_DIR } from "../src/config";
 import { db } from "../src/db";
-import { call, createUser, post } from "./helpers";
+import { call, createUser, post, resetReviewQueues } from "./helpers";
 
 const read = (file: string) => readFileSync(join(PUBLIC_DIR, file), "utf8");
+
+beforeAll(resetReviewQueues);
 
 describe("numbered rules", () => {
 	test("the list staff cite from matches the published rules exactly", () => {

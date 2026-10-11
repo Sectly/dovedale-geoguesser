@@ -1,5 +1,7 @@
-import { describe, expect, test } from "bun:test";
-import { call, createUser } from "./helpers";
+import { beforeAll, describe, expect, test } from "bun:test";
+import { call, createUser, resetReviewQueues } from "./helpers";
+
+beforeAll(resetReviewQueues);
 
 describe("pages and static files", () => {
 	test("every page is served with hashed asset URLs", async () => {

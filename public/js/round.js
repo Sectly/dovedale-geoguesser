@@ -74,6 +74,7 @@ class RoundView {
 		this.canGuess = canGuess;
 		this.pin = null;
 		this.map.clearPin();
+		this.map.restoreView();
 		this._setGuessEnabled(false);
 		el("guess-btn").classList.toggle("hidden", !canGuess);
 		el("click-hint").textContent = "Loading the screenshot…";
@@ -182,6 +183,17 @@ class RoundView {
 		else this.map.showResult(answer.correct_x, answer.correct_y);
 	}
 
+	/**
+	 * Brings the answer and the guesses into the part of the map the result sheet leaves
+	 * uncovered. Call it once the sheet has its content, so its height is known.
+	 */
+	fitResult(answer, guesses = [this.pin], sheet = el("result-screen")) {
+		this.map.fitTo(
+			[{ x: answer.correct_x, y: answer.correct_y }, ...guesses.filter(Boolean).map(({ x, y }) => ({ x, y }))],
+			{ insetBottom: sheet?.offsetHeight || 0 }
+		);
+	}
+
 	_visible() {
 		return el("map-canvas").offsetParent !== null;
 	}
@@ -286,6 +298,97 @@ function renderRoundResult(result, max = 5000) {
 	bar.style.width = "0%";
 	bar.className = `score-bar h-2 rounded-full ${tone.bar}`;
 	requestAnimationFrame(() => requestAnimationFrame(() => (bar.style.width = `${(result.score / max) * 100}%`)));
+}
+
+/** "Hard location" and the like for a result line, or nothing while a location is still ungraded. */
+function difficultyText(difficulty) {
+	return difficulty ? `${difficulty[0].toUpperCase()}${difficulty.slice(1)} location` : "";
+}
+
+/* ---- Reactions: a few preset icons players can send each other (duels and team games) ---- */
+
+const EMOTE_COOLDOWN_MS = 1500;
+const EMOTE_SHOWN_MS = 2600;
+let emoteList = [];
+
+/**
+ * Draws the reaction picker from the list the server offers. An empty list hides it, and
+ * so does `canSend: false` (spectators), though the reactions themselves still show.
+ * Expects #emote-bar and #emote-feed on the page.
+ */
+function renderEmoteBar(list, canSend = true) {
+	const offered = Array.isArray(list) ? list.filter((name) => /^[a-z0-9_]+$/.test(name)) : [];
+	const changed = offered.join() !== emoteList.join();
+	emoteList = offered;
+	show("emote-bar", emoteList.length > 0 && canSend);
+	if (!changed) return;
+	el("emote-bar").innerHTML =
+		`<button data-emote-toggle class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-300 hover:bg-white/10 transition" title="Send a reaction (E)" aria-label="Send a reaction" aria-expanded="false">
+			<span class="material-symbols-outlined text-xl leading-none">add_reaction</span>
+		</button>
+		<div data-emote-choices class="hidden flex items-center gap-0.5 pr-1">${emoteList
+			.map(
+				(name, i) =>
+					`<button data-emote="${name}" class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-200 hover:bg-white/10 transition disabled:opacity-40" title="Press ${i + 1}" aria-label="${name.replaceAll("_", " ")}"><span class="material-symbols-outlined text-xl leading-none">${name}</span></button>`
+			)
+			.join("")}</div>`;
+}
+
+/** Wires the picker up once per page. `send` is handed the name of the chosen reaction. */
+function bindEmoteBar(send) {
+	const bar = el("emote-bar");
+	bar.addEventListener("click", (e) => {
+		const choices = bar.querySelector("[data-emote-choices]");
+		const toggle = e.target.closest("[data-emote-toggle]");
+		if (toggle) {
+			toggle.setAttribute("aria-expanded", String(choices.classList.toggle("hidden") === false));
+			return;
+		}
+		const choice = e.target.closest("[data-emote]");
+		if (!choice || choice.disabled) return;
+		send(choice.dataset.emote);
+		choices.classList.add("hidden");
+		bar.querySelector("[data-emote-toggle]").setAttribute("aria-expanded", "false");
+		// The server allows one every so often; show that instead of letting clicks vanish.
+		const buttons = [...bar.querySelectorAll("[data-emote]")];
+		for (const button of buttons) button.disabled = true;
+		setTimeout(() => buttons.forEach((button) => (button.disabled = false)), EMOTE_COOLDOWN_MS);
+	});
+
+	// E opens the picker and a number sends that reaction, so nobody has to leave the map for the mouse.
+	const usable = () => !bar.classList.contains("hidden") && bar.offsetParent !== null;
+	const sendNumbered = (e) => {
+		const choices = bar.querySelector("[data-emote-choices]");
+		if (!usable() || !choices || choices.classList.contains("hidden")) return false;
+		const choice = choices.querySelectorAll("[data-emote]")[Number(e.key) - 1];
+		return choice ? choice.click() : false;
+	};
+	addKeybinds("Reactions", [
+		[
+			["E"],
+			"Open or close the reaction picker",
+			() => (usable() ? bar.querySelector("[data-emote-toggle]").click() : false),
+		],
+		// Listed as one row in the help; the digits themselves are bound just below.
+		[["1-8"], "Send that reaction (while the picker is open)", () => false],
+	]);
+	for (let n = 1; n <= 8; n++) _pageKeys.set(String(n), [sendNumbered, ...(_pageKeys.get(String(n)) || [])]);
+}
+
+/** Pops one reaction up beside the screenshot for a moment. */
+function showEmoteBubble(emote, { name, avatarUrl, color }) {
+	if (!emoteList.includes(emote)) return;
+	const bubble = document.createElement("div");
+	bubble.className = "emote-pop flex items-center gap-2 bg-black/75 rounded-full pl-1 pr-3 py-1";
+	bubble.setAttribute("role", "status");
+	bubble.innerHTML = `${avatarHtml(avatarUrl, "w-7 h-7")}
+		<span class="text-xs text-zinc-300 max-w-[7rem] truncate">${escHtml(name)}</span>
+		<span class="material-symbols-outlined text-2xl leading-none" style="color:${color};font-variation-settings:'FILL' 1">${emote}</span>`;
+	const feed = el("emote-feed");
+	feed.appendChild(bubble);
+	// Keep the stack short when players trade reactions quickly.
+	while (feed.children.length > 4) feed.firstElementChild.remove();
+	setTimeout(() => bubble.remove(), EMOTE_SHOWN_MS);
 }
 
 function reportLocationUrl(locationId) {

@@ -1,0 +1,78 @@
+import { GAME } from "../config";
+import { activeDuelRooms, broadcastToDuels, closeAllDuels, setDuelsClosing } from "../game/duels/rooms";
+import { saveSoloGames } from "../game/solo";
+import { closeTeamRooms, teamRoomCount } from "../game/teams";
+import { shutdown } from "../lib/lifecycle";
+import { logInfo } from "../lib/logs";
+
+/**
+ * Restarting without pulling the rug out. A planned restart (an update, the button in
+ * the staff panel, or a signal from the deploy script) is announced to everyone first;
+ * when the notice runs out every duel and team game is closed and its players told why,
+ * solo games are put away to be picked up afterwards, and only then does the process exit.
+ */
+
+const CLOSED_MESSAGE = "The server restarted for an update, so your game was ended. It won't count against you.";
+/** Long enough for the goodbye messages to leave before the sockets go down with the process. */
+const FLUSH_MS = 400;
+
+let dueAt: number | null = null;
+let timer: ReturnType<typeof setTimeout> | null = null;
+let stopping = false;
+
+/** Seconds until a planned restart, or null when none is coming. */
+export function restartIn(): number | null {
+	return dueAt === null ? null : Math.max(0, Math.ceil((dueAt - Date.now()) / 1000));
+}
+
+/** Routes that would begin a multiplayer game nobody could finish before the restart. */
+const GAME_STARTS = new Set(["/api/duels/rooms", "/api/duels/quickplay", "/api/teams/rooms"]);
+const TEAM_GAME_START = /^\/api\/teams\/rooms\/[^/]+\/(start|again)$/;
+
+export function blockedByRestart(method: string, path: string): boolean {
+	return dueAt !== null && method === "POST" && (GAME_STARTS.has(path) || TEAM_GAME_START.test(path));
+}
+
+/**
+ * Announces a restart and carries it out when the notice is up. Returns how many seconds
+ * of notice players get: the full warning while games are being played, a short one otherwise.
+ */
+export function scheduleRestart(reason: string): number {
+	const pending = restartIn();
+	if (pending !== null) return pending;
+	const busy = activeDuelRooms() + teamRoomCount() > 0;
+	const seconds = busy ? GAME.restart.notice : GAME.restart.quietNotice;
+	dueAt = Date.now() + seconds * 1000;
+	logInfo(`[server] Restarting in ${seconds}s: ${reason}`);
+	setDuelsClosing(true);
+	broadcastToDuels("server_restarting", { seconds });
+	timer = setTimeout(() => stopCleanly(reason), seconds * 1000);
+	return seconds;
+}
+
+/** Calls off a restart that has been announced but not begun. Returns false when there was none to stop. */
+export function cancelRestart(): boolean {
+	if (dueAt === null || stopping) return false;
+	if (timer) clearTimeout(timer);
+	timer = null;
+	dueAt = null;
+	setDuelsClosing(false);
+	broadcastToDuels("server_restart_cancelled", {});
+	logInfo("[server] The planned restart was called off");
+	return true;
+}
+
+/** Closes every game, tells the players, and exits. Also used when the host stops us without warning. */
+export function stopCleanly(reason: string) {
+	if (stopping) return;
+	stopping = true;
+	dueAt ??= Date.now();
+	try {
+		closeAllDuels(CLOSED_MESSAGE);
+		closeTeamRooms();
+		saveSoloGames();
+	} catch (err) {
+		console.error("[server] Could not put every game away before stopping:", err);
+	}
+	setTimeout(() => shutdown(reason), FLUSH_MS);
+}

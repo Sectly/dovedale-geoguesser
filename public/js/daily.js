@@ -19,7 +19,7 @@ async function init() {
 
 	try {
 		const status = await api("/api/daily");
-		if (status.already_played) return showAlreadyPlayed(status.result);
+		if (status.already_played) return showAlreadyPlayed({ ...status.result, date: status.date });
 
 		view = new RoundView({ onGuess: submitGuess, onHint: () => api("/api/daily/hint", { method: "POST" }) });
 		let round = await api("/api/daily/start", { method: "POST" });
@@ -46,12 +46,41 @@ function showAlreadyPlayed(result) {
 		.filter(Boolean)
 		.join(" · ");
 	startResetCountdown("played-reset");
+	el("played-share-btn").onclick = () => shareResult(result);
 	new MapCanvas(el("replay-canvas"), {}).showResult(
 		result.correct_x,
 		result.correct_y,
 		result.guessed_x,
 		result.guessed_y
 	);
+}
+
+/**
+ * Copies a result to paste into a chat: the score and how it was got, but nothing that
+ * gives the location away to someone who has yet to play.
+ */
+async function shareResult(result) {
+	const day = new Date(`${result.date}T00:00:00Z`).toLocaleDateString(undefined, {
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+		timeZone: "UTC",
+	});
+	const filled = Math.max(0, Math.min(5, Math.round((result.score / 5000) * 5)));
+	const details = [
+		result.distance !== null ? `📍 ~${result.distance.toLocaleString()} units away` : "📍 No guess",
+		result.time_taken !== null && result.time_taken !== undefined ? `⏱ ${Math.round(result.time_taken)}s` : "",
+		result.hints_used ? `💡 ${result.hints_used} hint${result.hints_used === 1 ? "" : "s"}` : "",
+	].filter(Boolean);
+	const lines = [
+		`Dovedale GeoGuesser · Daily ${day}`,
+		`${"🟩".repeat(filled)}${"⬜".repeat(5 - filled)} ${result.score.toLocaleString()} pts`,
+		details.join(" · "),
+		result.current_streak > 1 ? `🔥 ${result.current_streak}-day streak` : "",
+		`${location.origin}/daily`,
+	].filter(Boolean);
+	if (await copyText(lines.join("\n"))) showToast("Result copied. Paste it anywhere.", "success");
+	else showToast("Couldn't copy the result.", "error");
 }
 
 /** Counts down to the next challenge, which unlocks at midnight UTC. */
@@ -89,7 +118,14 @@ async function submitGuess(pin) {
 	view.showAnswer(result, pin);
 	renderRoundResult(result);
 	if (result.score >= 4500) celebrate();
-	el("result-location-label").textContent = [locId(result.location_id), result.label].filter(Boolean).join(" · ");
+	el("result-location-label").textContent = [
+		locId(result.location_id),
+		result.label,
+		difficultyText(result.difficulty),
+	]
+		.filter(Boolean)
+		.join(" · ");
+	el("result-share-btn").onclick = () => shareResult(result);
 	el("result-report-link").href = reportLocationUrl(result.location_id);
 	show("result-report-link");
 	el("result-streak-display").innerHTML = streakBadgeHtml(result.current_streak, {
@@ -97,6 +133,8 @@ async function submitGuess(pin) {
 	});
 	startResetCountdown("result-reset");
 	el("result-screen").classList.add("shown");
+	view.fitResult(result, [pin]);
+	checkAchievements(1200);
 }
 
 init();

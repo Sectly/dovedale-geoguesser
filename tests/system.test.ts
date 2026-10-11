@@ -1,12 +1,16 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { db } from "../src/db";
 import { BACKUP_LIMITS, createBackup, listBackups } from "../src/backups";
 import { tickTeamRooms } from "../src/game/teams";
 import { pruneLogs, writeLog } from "../src/lib/logs";
+import { createRoom, duelRooms, joinRoom, startDuel } from "../src/game/duels/rooms";
 import { setMaintenance } from "../src/system/maintenance";
-import { call, clearLocations, createLocation, createUser, post, type TestUser } from "./helpers";
+import { cancelRestart, restartIn, scheduleRestart } from "../src/system/restart";
+import { call, clearLocations, createLocation, createUser, post, resetReviewQueues, type TestUser } from "./helpers";
 
 const operator = () => createUser({ role: "operator" });
+
+beforeAll(resetReviewQueues);
 
 describe("system tools are for operators only", () => {
 	test("supervisors and players cannot reach them", async () => {
@@ -95,6 +99,32 @@ describe("updates", () => {
 		expect((await post("/api/admin/system/restart", op, {})).status).toBe(400);
 		// Tests never run under a process manager, so a restart has nothing to bring the server back.
 		expect((await post("/api/admin/system/restart", op, { confirm: true })).status).toBe(409);
+	});
+});
+
+describe("planned restarts", () => {
+	afterAll(() => void cancelRestart());
+
+	test("everyone is told, new duels are held back, and it can be called off", async () => {
+		const [host, guest] = [createUser(), createUser()];
+		const room = createRoom(host.id, 1);
+		joinRoom(room.code, guest.id);
+		expect((await call("/api/status")).headers.get("X-Restart-In")).toBeNull();
+
+		expect(scheduleRestart("test")).toBeGreaterThan(0);
+		expect(Number((await call("/api/status")).headers.get("X-Restart-In"))).toBe(restartIn()!);
+		expect((await post("/api/duels/rooms", host, { rounds: 1 })).status).toBe(503);
+		expect(startDuel(room)).toContain("restart");
+		// Solo games are carried across the restart, so they may still be started.
+		expect((await post("/api/solo/games", undefined, {})).status).not.toBe(503);
+
+		expect((await post("/api/admin/system/restart/cancel", operator())).status).toBe(409);
+		expect(cancelRestart()).toBe(true);
+		expect(cancelRestart()).toBe(false);
+		expect((await call("/api/status")).headers.get("X-Restart-In")).toBeNull();
+		expect((await post("/api/duels/rooms", host, { rounds: 1 })).status).toBe(200);
+		expect(startDuel(room)).not.toContain("restart");
+		duelRooms.delete(room.code);
 	});
 });
 

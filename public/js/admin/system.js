@@ -38,11 +38,13 @@ async function loadSystem() {
 	el("tab-content").innerHTML = `
 		<div id="system-info"></div>
 		<div id="system-maintenance"></div>
+		<div id="system-features"></div>
 		<div id="system-update"></div>
 		<div id="system-backups"></div>
 		<div id="system-logs"></div>`;
 	loadSystemInfo();
 	loadMaintenance();
+	loadFeatures();
 	loadUpdate(false);
 	loadBackups();
 	loadSystemLogs();
@@ -51,11 +53,13 @@ async function loadSystem() {
 /** Overview */
 
 async function loadSystemInfo() {
+	const box = el("system-info");
+	if (!box) return;
 	try {
 		const info = await api("/api/admin/system/info");
 		const stat = (label, value, sub = "") =>
 			`<div class="bg-zinc-800/60 rounded-xl px-3.5 py-2.5"><div class="text-xs text-zinc-500">${label}</div><div class="font-semibold mt-0.5">${value}</div>${sub ? `<div class="text-xs text-zinc-500 mt-0.5">${sub}</div>` : ""}</div>`;
-		el("system-info").innerHTML = systemCard(
+		box.innerHTML = systemCard(
 			"Server",
 			"dns",
 			`<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -71,20 +75,17 @@ async function loadSystemInfo() {
 			`<button onclick="loadSystemInfo()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>`
 		);
 	} catch (err) {
-		el("system-info").innerHTML = systemCard(
-			"Server",
-			"dns",
-			`<p class="text-red-300 text-sm">${escHtml(err.message)}</p>`
-		);
+		box.innerHTML = systemCard("Server", "dns", `<p class="text-red-300 text-sm">${escHtml(err.message)}</p>`);
 	}
 }
 
 /** Maintenance mode */
 
 async function loadMaintenance() {
+	const box = el("system-maintenance");
 	const state = await api("/api/admin/system/maintenance").catch(() => null);
-	if (!state) return;
-	el("system-maintenance").innerHTML = systemCard(
+	if (!state || !box) return;
+	box.innerHTML = systemCard(
 		"Maintenance mode",
 		"construction",
 		`<p class="text-sm text-zinc-400 mb-3">${
@@ -121,6 +122,68 @@ async function setMaintenanceMode(enabled) {
 		showToast(enabled ? "Maintenance mode is on" : "The site is open again", "success");
 		loadMaintenance();
 		renderMaintenanceBanner(enabled ? el("maintenance-message").value || true : false);
+	} catch (err) {
+		showToast(err.message, "error");
+	}
+}
+
+/** Feature switches */
+
+const FEATURE_INFO = {
+	duel_emotes: [
+		"Duel reactions",
+		"The preset icons players can send each other during a duel. Switch off if they are being used to annoy people.",
+	],
+};
+
+async function loadFeatures() {
+	const box = el("system-features");
+	const state = await api("/api/admin/system/features").catch(() => null);
+	if (!state || !box) return;
+	box.innerHTML = systemCard(
+		"Features",
+		"toggle_on",
+		Object.entries(FEATURE_INFO)
+			.map(
+				([key, [title, blurb]]) => `<div class="flex items-center gap-3">
+					<div class="flex-1 min-w-0">
+						<div class="text-sm font-semibold">${title} ${state[key] ? '<span class="m-tag success ml-1">On</span>' : '<span class="m-tag ml-1">Off</span>'}</div>
+						<div class="text-xs text-zinc-500">${blurb}</div>
+					</div>
+					<button onclick="setFeature('${key}', ${!state[key]})" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0">${state[key] ? "Switch off" : "Switch on"}</button>
+				</div>`
+			)
+			.join("") +
+			`<div class="flex items-center gap-3 mt-3 pt-3 border-t border-zinc-800">
+				<div class="flex-1 min-w-0">
+					<div class="text-sm font-semibold">Achievements from history</div>
+					<div class="text-xs text-zinc-500">Gives players any achievement their saved scores, streaks and duels show they earned. Done automatically once; run it again after restoring or correcting scores. Nothing is taken away.</div>
+				</div>
+				<button onclick="backfillAchievementsNow()" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0">Recalculate</button>
+			</div>`
+	);
+}
+
+async function backfillAchievementsNow() {
+	try {
+		const { given } = await api("/api/admin/system/achievements/backfill", { method: "POST" });
+		showToast(
+			given ? `${given} achievement${given === 1 ? "" : "s"} given` : "Everyone already has what they earned",
+			"success"
+		);
+	} catch (err) {
+		showToast(err.message, "error");
+	}
+}
+
+async function setFeature(feature, enabled) {
+	try {
+		await api("/api/admin/system/features", { json: { feature, enabled } });
+		showToast(
+			enabled ? "Switched on" : "Switched off. Duels already open keep it until their next update.",
+			"success"
+		);
+		loadFeatures();
 	} catch (err) {
 		showToast(err.message, "error");
 	}
@@ -193,7 +256,8 @@ async function loadUpdate(refresh) {
 				<div class="text-sm font-semibold mb-1 ${job.state === "failed" ? "text-red-300" : ""}">${
 					job.state === "failed"
 						? `Update failed at "${escHtml(job.step)}". The server was not restarted.`
-						: escHtml(job.step || "Starting")
+						: escHtml(job.step || "Starting") +
+							(job.state === "restarting" && status.restart_in !== null ? ` (${status.restart_in}s)` : "")
 				}</div>
 				<pre class="text-xs text-zinc-400 whitespace-pre-wrap max-h-48 overflow-y-auto">${escHtml(job.log.join("\n"))}</pre>
 			</div>`
@@ -207,6 +271,7 @@ async function loadUpdate(refresh) {
 		${jobLog}
 		${pending}
 		<div class="flex items-center justify-end gap-2 flex-wrap">
+			${job.state === "restarting" && status.restart_in ? '<button onclick="cancelRestartNow()" class="m-btn m-btn-tonal">Cancel restart</button>' : ""}
 			${status.supervised ? `<button onclick="restartServerNow()" class="m-btn m-btn-text" ${busy ? "disabled" : ""}>Restart server</button>` : '<span class="text-xs text-zinc-500 mr-auto">Not running under PM2, so the panel cannot restart the server.</span>'}
 			<button onclick="installUpdate(${status.pending.length})" class="m-btn m-btn-filled" ${busy || blockers.length || !status.pending.length ? "disabled" : ""}>
 				<span class="material-symbols-outlined">download</span>${status.supervised ? "Update and restart" : "Install update"}
@@ -220,7 +285,7 @@ async function loadUpdate(refresh) {
 async function installUpdate(count) {
 	const ok = await showConfirm(
 		`Install ${count} update${count === 1 ? "" : "s"}?`,
-		"The database is backed up first. The server then downloads the update and restarts, which ends every game in progress.",
+		"The database is backed up first, then the update is downloaded. Players get a warning with a countdown (60 seconds if a duel or team game is open), those games are then closed, and the server restarts. Solo games carry on afterwards.",
 		{ confirmLabel: "Update", confirmClass: "bg-blue-600 hover:bg-blue-500" }
 	);
 	if (!ok) return;
@@ -237,7 +302,7 @@ async function restartServerNow() {
 	if (
 		!(await showConfirm(
 			"Restart the server?",
-			"Every game in progress ends. The site is back within a few seconds.",
+			"Players get a warning with a countdown (60 seconds if a duel or team game is open), then those games are closed. Solo games carry on afterwards. The site is back within a few seconds.",
 			{ confirmLabel: "Restart" }
 		))
 	)
@@ -250,6 +315,17 @@ async function restartServerNow() {
 	} catch (err) {
 		showToast(err.message, "error");
 	}
+}
+
+async function cancelRestartNow() {
+	try {
+		await api("/api/admin/system/restart/cancel", { method: "POST" });
+		delete el("system-update")?.dataset.restarting;
+		showToast("Restart called off", "success");
+	} catch (err) {
+		showToast(err.message, "error");
+	}
+	loadUpdate(false);
 }
 
 /** Backups */
@@ -324,6 +400,7 @@ async function loadSystemLogs(before = 0) {
 	try {
 		data = await api(`/api/admin/system/logs?${query}`);
 	} catch (err) {
+		if (!box.isConnected) return;
 		box.innerHTML = systemCard(
 			"Server log",
 			"terminal",
@@ -343,6 +420,8 @@ async function loadSystemLogs(before = 0) {
 			</details>`
 		)
 		.join("");
+	// The tab was redrawn or left while the request was out; the newer load owns the page now.
+	if (!box.isConnected) return;
 	if (before) {
 		el("system-log-more")?.remove();
 		el("system-log-rows").insertAdjacentHTML("beforeend", rows);
