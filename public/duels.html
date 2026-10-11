@@ -7,48 +7,20 @@
     <meta name="description" content="Challenge a friend to a real-time location guessing duel on the Dovedale Railway." />
     <meta property="og:title" content="Duels | Dovedale GeoGuesser" />
     <meta property="og:description" content="Challenge a friend to a real-time location guessing duel." />
-    <meta property="og:image" content="/og.png?type=duels&v=2" />
+    <meta property="og:image" content="/og.png?type=duels" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="/og.png?type=duels&v=2" />
-    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&family=Inter:opsz,wght@14..32,200..700"
-    />
-    <link rel="stylesheet" href="/shared.css?v=2" />
-    <style>
-      #photo-panel {
-        background: #000;
-      }
-      #round-photo {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        display: block;
-      }
-      .score-bar {
-        transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      #map-canvas {
-        cursor: crosshair;
-        display: block;
-      }
-      @keyframes timer-pulse {
-        0%,
-        100% {
-          transform: scale(1);
-        }
-        50% {
-          transform: scale(1.18);
-        }
-      }
-      .timer-urgent {
-        animation: timer-pulse 0.6s ease-in-out infinite;
-      }
-    </style>
+    <meta name="twitter:image" content="/og.png?type=duels" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] overflow-hidden h-screen w-screen">
     <div id="login-gate" class="absolute inset-0 z-20 flex flex-col screen-fade">
@@ -56,7 +28,7 @@
         <a href="/" class="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition text-sm">
           <span class="material-symbols-outlined text-base leading-none">arrow_back</span> Home
         </a>
-        <div id="auth-area"></div>
+        <div data-auth-area></div>
       </div>
       <div class="flex-1 flex flex-col items-center justify-center px-6 pb-10">
         <div class="mb-8 text-center">
@@ -67,15 +39,21 @@
           <p class="text-zinc-500 text-base">Dovedale Railway</p>
         </div>
         <div class="bg-zinc-900 border border-zinc-800 rounded-3xl px-8 py-7 w-full max-w-sm text-center">
-          <p class="text-zinc-400 mb-6 text-sm">Log in with your Discord account to create or join duels.</p>
+          <p class="text-zinc-400 mb-6 text-sm">Log in with Discord to create or join a duel.</p>
           <a
             id="login-link"
             href="/api/auth/login?redirect=/duels"
             class="block w-full bg-blue-600 hover:bg-blue-500 transition rounded-2xl py-3.5 font-bold text-base shadow-md"
             >Login with Discord</a
           >
-          <p class="text-zinc-600 text-xs mt-4">By logging in you agree to our <a href="/tos" class="underline hover:text-zinc-400">Terms of Service</a></p>
+          <p class="text-zinc-600 text-xs mt-4">
+            By logging in you agree to our <a href="/tos" class="underline hover:text-zinc-400">Terms of Service</a> and
+            <a href="/privacy" class="underline hover:text-zinc-400">Privacy Policy</a>.
+          </p>
         </div>
+        <button id="gate-spectate-btn" class="hidden mt-4 text-sm text-zinc-500 hover:text-zinc-300 transition underline">
+          Watch this duel without logging in
+        </button>
       </div>
     </div>
 
@@ -84,7 +62,7 @@
         <a href="/" class="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition text-sm">
           <span class="material-symbols-outlined text-base leading-none">arrow_back</span> Home
         </a>
-        <div id="auth-area-lobby"></div>
+        <div data-auth-area></div>
       </div>
       <div class="flex-1 flex flex-col items-center justify-center px-6 pb-10 overflow-y-auto">
         <div class="mb-6 text-center">
@@ -102,7 +80,7 @@
             <span class="material-symbols-outlined text-3xl" style="font-variation-settings: &quot;FILL&quot; 1">bolt</span>
             <div>
               <div class="font-bold text-lg leading-tight">Quick Play</div>
-              <div class="text-blue-200 text-sm">Instant matchmaking · 5 rounds</div>
+              <div class="text-blue-200 text-sm">Get matched with another player · 5 rounds</div>
             </div>
           </button>
 
@@ -126,6 +104,7 @@
                 <button
                   class="duel-rounds-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-blue-500 bg-blue-600/15 text-blue-300"
                   data-val="5"
+                  data-default
                 >
                   5
                 </button>
@@ -142,13 +121,15 @@
                   10
                 </button>
               </div>
-              <select id="rounds-select" class="hidden">
-                <option value="3">3</option>
-                <option value="5" selected>5</option>
-                <option value="7">7</option>
-                <option value="10">10</option>
-              </select>
             </div>
+            <label class="md-check mb-4">
+              <input id="listed-check" type="checkbox" />
+              <span class="md-check-box" aria-hidden="true"></span>
+              <span>
+                <span class="block text-sm text-zinc-200">List under "Live now"</span>
+                <span class="block text-xs text-zinc-500">Anyone can find and watch this duel</span>
+              </span>
+            </label>
             <button id="create-btn" class="w-full bg-blue-600 hover:bg-blue-500 transition rounded-2xl py-3 font-bold text-sm shadow-sm">Create Room</button>
           </div>
 
@@ -170,21 +151,64 @@
           </div>
 
           <p id="lobby-error" class="text-red-400 text-sm text-center hidden"></p>
+
+          <button
+            id="live-duels-btn"
+            class="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition rounded-3xl px-6 py-4 text-left flex items-center gap-4"
+          >
+            <span class="material-symbols-outlined text-2xl text-zinc-400">visibility</span>
+            <div class="flex-1">
+              <div class="font-semibold text-sm">Watch live duels</div>
+              <div class="text-zinc-500 text-xs" id="live-duels-summary">See who is playing right now</div>
+            </div>
+            <span class="material-symbols-outlined text-xl text-zinc-600">chevron_right</span>
+          </button>
         </div>
       </div>
     </div>
 
-    <div id="waiting-screen" class="hidden absolute inset-0 flex items-center justify-center z-10 bg-zinc-950 screen-fade">
-      <div class="text-center max-w-md px-6 w-full">
+    <div id="live-duels-dialog" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4 modal-fade">
+      <div
+        class="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-lg max-h-[80vh] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="live-duels-title"
+      >
+        <div class="flex items-center gap-3 px-6 py-4 border-b border-zinc-800 flex-shrink-0">
+          <h2 id="live-duels-title" class="font-bold flex-1">Live duels</h2>
+          <button
+            id="live-duels-refresh"
+            aria-label="Refresh"
+            class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+          >
+            <span class="material-symbols-outlined text-xl leading-none">refresh</span>
+          </button>
+          <button
+            id="live-duels-close"
+            aria-label="Close"
+            class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+          >
+            <span class="material-symbols-outlined text-xl leading-none">close</span>
+          </button>
+        </div>
+        <div id="live-duels-list" class="stagger flex-1 overflow-y-auto p-4 flex flex-col gap-2"></div>
+        <p class="text-zinc-600 text-xs px-6 py-3 border-t border-zinc-800 flex-shrink-0">
+          Quick Play duels are always listed. Room duels are listed if the host allows it.
+        </p>
+      </div>
+    </div>
+
+    <div id="waiting-screen" class="hidden absolute inset-0 flex z-10 bg-zinc-950 screen-fade overflow-y-auto">
+      <div class="text-center max-w-md px-6 py-8 w-full m-auto">
         <div id="quickplay-searching" class="hidden mb-6">
           <div class="text-xs text-zinc-500 uppercase tracking-widest mb-4 font-medium">Quick Play</div>
           <div class="flex items-center justify-center gap-3 mb-2">
             <span class="material-symbols-outlined text-4xl text-blue-400 animate-spin" style="animation-duration: 1.4s">autorenew</span>
             <span class="text-xl font-bold">Searching for opponent…</span>
           </div>
-          <p class="text-zinc-500 text-sm mt-2">Matching you with another player</p>
+
           <p id="quickplay-no-players" class="hidden text-yellow-400 text-xs mt-3">
-            No players found yet. There might not be anyone available right now. Keep waiting or leave to try later.
+            Nobody else is looking for a match right now. Keep waiting, or try again later.
           </p>
         </div>
 
@@ -196,14 +220,14 @@
           </div>
           <div class="flex gap-2 justify-center mb-6">
             <button
-              onclick="copyInviteLink()"
+              id="copy-invite-btn"
               class="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 transition px-4 py-2 rounded-full text-sm font-semibold border border-zinc-700"
             >
               <span class="material-symbols-outlined text-base leading-none">link</span>
-              <span id="copy-invite-label">Copy invite link</span>
+              Copy invite link
             </button>
             <button
-              onclick="copySpectateLink()"
+              id="copy-spectate-btn"
               class="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 transition px-4 py-2 rounded-full text-sm font-semibold border border-zinc-700"
             >
               <span class="material-symbols-outlined text-base leading-none">visibility</span>
@@ -212,13 +236,14 @@
           </div>
         </div>
 
+        <p id="waiting-rounds" class="text-zinc-500 text-xs mb-5"></p>
         <div id="waiting-players" class="flex justify-center gap-8 mb-6"></div>
 
         <button id="start-duel-btn" class="hidden bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3">
           Start Game
         </button>
         <button id="ready-btn" class="hidden bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3">Ready</button>
-        <p class="text-zinc-500 text-sm mb-4" id="waiting-hint">Share the code with your opponent</p>
+        <p class="text-zinc-500 text-sm mb-4" id="waiting-hint">Share the code or invite link with your opponent</p>
         <div class="flex items-center justify-center gap-5">
           <button id="leave-btn" class="text-zinc-600 hover:text-zinc-400 transition text-sm">Leave room</button>
           <button id="spectate-instead-btn" class="hidden text-zinc-600 hover:text-zinc-400 transition text-sm">Spectate instead</button>
@@ -226,18 +251,20 @@
       </div>
     </div>
 
-    <div id="start-countdown" class="hidden absolute inset-0 z-40 bg-zinc-950/85 backdrop-blur-sm flex items-center justify-center text-center">
-      <div>
-        <p class="text-xs uppercase tracking-widest text-zinc-400 mb-2">Get ready</p>
+    <div id="start-countdown" class="hidden absolute inset-0 z-40 bg-zinc-950/90 flex items-center justify-center text-center px-6">
+      <div class="w-full max-w-xl">
+        <div id="versus" class="versus flex items-center justify-center gap-4 sm:gap-8 mb-8"></div>
+        <p id="start-countdown-label" class="text-xs uppercase tracking-widest text-zinc-400 mb-2">Get ready</p>
         <p id="start-countdown-value" class="text-8xl font-bold font-mono text-white">3</p>
-        <p class="text-sm text-zinc-400 mt-2">The duel is starting</p>
       </div>
     </div>
 
-    <div id="spectator-banner" class="hidden absolute top-3 inset-x-0 z-30 flex items-center justify-center pointer-events-none">
-      <div class="bg-black/70 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs text-zinc-400 flex items-center gap-1.5 border border-zinc-700/60">
-        <span class="material-symbols-outlined text-sm leading-none">visibility</span>
-        Spectating
+    <div id="game-overlay" class="hidden absolute inset-0 z-50 bg-zinc-950/85 flex items-center justify-center text-center px-6" role="status">
+      <div>
+        <span id="overlay-spinner" class="material-symbols-outlined text-5xl text-blue-400 animate-spin" style="animation-duration: 1.4s">autorenew</span>
+        <p id="overlay-count" class="hidden text-8xl font-bold font-mono text-white"></p>
+        <p id="overlay-title" class="text-2xl font-bold mt-3"></p>
+        <p id="overlay-detail" class="text-sm text-zinc-400 mt-2 max-w-sm"></p>
       </div>
     </div>
 
@@ -246,33 +273,32 @@
         <img id="round-photo" src="" alt="Location screenshot" />
 
         <div class="absolute top-3 left-3 flex items-center gap-2 z-10">
-          <a
-            href="/"
-            class="bg-black/55 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-black/70 transition"
-          >
+          <a href="/" class="bg-black/70 rounded-full w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-black/70 transition">
             <span class="material-symbols-outlined text-base leading-none">home</span>
           </a>
-          <div class="bg-black/55 backdrop-blur-sm rounded-full px-3 py-1.5 text-sm font-semibold">
+          <div class="bg-black/70 rounded-full px-3 py-1.5 text-sm font-semibold">
             <span id="round-num">1</span><span class="text-zinc-500"> / </span><span id="round-total">5</span>
           </div>
         </div>
 
         <div
           id="timer-display"
-          class="absolute top-3 right-3 z-10 bg-black/70 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2 font-mono font-bold text-xl min-w-[72px] justify-center transition-all duration-300"
+          class="absolute top-3 right-3 z-10 bg-black/70 rounded-full px-4 py-2 flex items-center gap-2 font-mono font-bold text-xl min-w-[72px] justify-center transition-all duration-300"
         >
           <span class="material-symbols-outlined text-base leading-none" style="font-variation-settings: &quot;FILL&quot; 1">timer</span>
           <span id="timer-val">60</span>
         </div>
 
+        <div id="location-id-badge" class="absolute bottom-2 right-2 text-xs font-mono text-white/20 select-none pointer-events-none z-10"></div>
+
         <div
-          id="location-id-badge"
-          class="absolute bottom-2 right-2 text-xs font-mono text-white/20 select-none pointer-events-none z-10"
+          id="spectator-count"
+          class="hidden absolute top-14 right-3 z-10 bg-black/70 rounded-full px-3 py-1.5 text-xs text-zinc-300 flex items-center gap-1.5"
         ></div>
 
         <div
           id="opponent-guessed-badge"
-          class="hidden absolute bottom-3 left-3 z-10 bg-black/55 backdrop-blur-sm rounded-full px-3 py-1.5 text-xs text-green-400 flex items-center gap-1.5"
+          class="hidden absolute bottom-3 left-3 z-10 bg-black/70 rounded-full px-3 py-1.5 text-xs text-green-400 flex items-center gap-1.5"
         >
           <span class="material-symbols-outlined text-xs leading-none" style="font-variation-settings: &quot;FILL&quot; 1">check_circle</span>
           Opponent guessed
@@ -327,7 +353,7 @@
               <div class="w-8 h-1 rounded-full bg-zinc-600"></div>
             </div>
             <div class="text-center text-2xl font-bold mb-3" id="round-score-display"></div>
-            <div id="result-rows" class="flex flex-col gap-2 mb-4"></div>
+            <div id="result-rows" class="stagger flex flex-col gap-2 mb-4"></div>
             <div id="next-round-btn" class="w-full bg-zinc-700 text-zinc-400 py-2.5 rounded-full font-semibold text-sm text-center select-none">
               Next round in <span id="next-round-countdown">7</span>s…
             </div>
@@ -336,12 +362,23 @@
       </div>
     </div>
 
-    <div id="end-screen" class="hidden absolute inset-0 flex items-center justify-center z-20 bg-zinc-950 screen-fade">
-      <div class="text-center max-w-md px-6 w-full">
+    <div id="end-screen" class="hidden absolute inset-0 flex z-20 bg-zinc-950 screen-fade overflow-y-auto">
+      <div class="text-center max-w-md px-6 py-8 w-full m-auto">
         <div class="text-xs text-zinc-500 uppercase tracking-widest mb-2 font-medium">Game Over</div>
-        <h2 class="text-4xl font-bold mb-6" id="end-headline">Game Over</h2>
+        <h2 class="text-4xl font-bold mb-1" id="end-headline">Game Over</h2>
+        <p class="text-zinc-500 text-sm mb-6 min-h-[1.25rem]" id="end-subline"></p>
 
-        <div id="end-scores" class="flex flex-col gap-3 mb-8 max-w-xs mx-auto"></div>
+        <div id="end-scores" class="stagger flex flex-col gap-3 mb-6 max-w-xs mx-auto"></div>
+
+        <div id="end-replay" class="hidden mb-8">
+          <div class="relative w-full h-56 sm:h-64 rounded-3xl overflow-hidden border border-zinc-800 bg-zinc-900">
+            <canvas id="replay-canvas" class="absolute inset-0 w-full h-full"></canvas>
+          </div>
+          <div class="flex items-center justify-center gap-4 mt-2 text-xs text-zinc-500 flex-wrap">
+            <span id="end-replay-legend" class="flex items-center gap-4 flex-wrap justify-center"></span>
+            <button id="end-replay-again" class="underline hover:text-zinc-300 transition">Play it again</button>
+          </div>
+        </div>
 
         <div id="end-actions" class="flex gap-3 justify-center">
           <a
@@ -359,7 +396,7 @@
           <button id="play-again-cancel-btn" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline">Cancel</button>
         </div>
         <div id="end-incoming" class="hidden flex-col items-center gap-3 mt-1">
-          <p class="text-sm text-zinc-300 font-semibold">Opponent wants to play again!</p>
+          <p class="text-sm text-zinc-300 font-semibold">Your opponent wants to play again</p>
           <div class="flex gap-3">
             <button id="play-again-accept-btn" class="bg-green-600 hover:bg-green-500 transition px-6 py-2.5 rounded-full font-bold text-sm">Accept</button>
             <button id="play-again-decline-btn" class="bg-zinc-700 hover:bg-zinc-600 transition px-6 py-2.5 rounded-full text-sm">Decline</button>
@@ -371,80 +408,12 @@
       </div>
     </div>
 
-    <script src="/guard.js?v=1"></script>
-    <script src="/fp.js"></script>
-    <script src="/map-upstream.js"></script>
-    <script src="/map-canvas.js?v=4"></script>
+    <script src="/js/map-config.js"></script>
+    <script src="/js/map-canvas.js"></script>
 
-    <script>
-      document.querySelectorAll(".duel-rounds-pill").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          document.querySelectorAll(".duel-rounds-pill").forEach((b) => {
-            b.classList.remove("border-blue-500", "bg-blue-600/15", "text-blue-300");
-            b.classList.add("border-zinc-700", "text-zinc-400");
-          });
-          btn.classList.add("border-blue-500", "bg-blue-600/15", "text-blue-300");
-          btn.classList.remove("border-zinc-700", "text-zinc-400");
-          document.getElementById("rounds-select").value = btn.dataset.val;
-        });
-      });
-
-      (function () {
-        const handle = document.getElementById("resize-handle");
-        const photoPanel = document.getElementById("photo-panel");
-        const roundScreen = document.getElementById("round-screen");
-        let dragging = false;
-
-        function isDesktop() {
-          return window.innerWidth >= 768;
-        }
-
-        function startDrag(e) {
-          dragging = true;
-          handle.classList.add("dragging");
-          document.body.style.cursor = isDesktop() ? "col-resize" : "row-resize";
-          document.body.style.userSelect = "none";
-          e.preventDefault();
-        }
-
-        function onMove(clientX, clientY) {
-          if (!dragging) return;
-          const rect = roundScreen.getBoundingClientRect();
-          if (isDesktop()) {
-            const pct = Math.min(70, Math.max(20, ((clientX - rect.left) / rect.width) * 100));
-            photoPanel.style.width = pct + "%";
-          } else {
-            const pct = Math.min(65, Math.max(18, ((clientY - rect.top) / rect.height) * 100));
-            photoPanel.style.height = pct + "%";
-          }
-          window.dispatchEvent(new Event("resize"));
-        }
-
-        function endDrag() {
-          dragging = false;
-          handle.classList.remove("dragging");
-          document.body.style.cursor = "";
-          document.body.style.userSelect = "";
-        }
-
-        handle.addEventListener("mousedown", startDrag);
-        document.addEventListener("mousemove", (e) => onMove(e.clientX, e.clientY));
-        document.addEventListener("mouseup", endDrag);
-        handle.addEventListener("touchstart", startDrag, { passive: false });
-        document.addEventListener(
-          "touchmove",
-          (e) => {
-            if (!dragging) return;
-            e.preventDefault();
-            onMove(e.touches[0].clientX, e.touches[0].clientY);
-          },
-          { passive: false }
-        );
-        document.addEventListener("touchend", endDrag);
-      })();
-    </script>
-
-    <script src="/shared.js"></script>
-    <script type="module" src="/duels.js?v=10"></script>
+    <script src="/js/sounds.js"></script>
+    <script src="/js/shared.js"></script>
+    <script src="/js/round.js"></script>
+    <script type="module" src="/js/duels.js"></script>
   </body>
 </html>

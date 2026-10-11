@@ -4,74 +4,174 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Terms of Service | Dovedale GeoGuesser</title>
-    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&family=Inter:opsz,wght@14..32,200..700"
-    />
-    <link rel="stylesheet" href="/shared.css?v=2" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
-    <nav class="bg-zinc-900 border-b border-zinc-800 flex items-center gap-4 px-4 py-2">
-      <a href="/" class="text-zinc-400 hover:text-zinc-100 transition text-sm flex items-center gap-1">
-        <span class="material-symbols-outlined text-base leading-none">home</span> Home
-      </a>
-      <span class="text-zinc-700">/</span>
-      <span class="text-zinc-100 font-semibold text-sm">Terms of Service</span>
-    </nav>
+    <nav id="site-nav"></nav>
     <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-10 prose">
       <h1 class="text-2xl font-bold mb-2 text-white">Terms of Service</h1>
-      <p class="text-zinc-600 text-xs mb-6">Last updated: 9 October 2026</p>
+      <p class="text-zinc-600 text-xs mb-6">Last updated: 11 October 2026</p>
+      <div class="summary">
+        <div class="summary-title">In short</div>
+        <ul>
+          <li>Dovedale GeoGuesser is a free fan project. It is not run by, or affiliated with, Dovedale Railway, Roblox or Discord.</li>
+          <li>You log in with Discord. Play fair, be decent to other players, and only upload your own Dovedale Railway screenshots.</li>
+          <li>Staff can warn, limit or ban accounts that break the rules. Every action comes with a reason and can be appealed.</li>
+          <li>You can delete your account at any time from Settings.</li>
+        </ul>
+      </div>
 
-      <p>By using Dovedale GeoGuesser ("the Service"), you agree to these terms. If you disagree, please do not use the Service.</p>
-
-      <h2>1. Who can use it</h2>
       <p>
-        The Service is intended for players of the Dovedale Railway Roblox game. You must comply with Discord's own Terms of Service as login is handled through
-        Discord OAuth.
+        These terms are the agreement between you and the operator of Dovedale GeoGuesser ("the Service", "we", "us"). By using the Service you agree to them.
+        If you do not agree, please do not use it. They should be read together with our
+        <a href="/privacy" class="text-blue-400 hover:text-blue-300">Privacy Policy</a>,
+        <a href="/fairplay" class="text-blue-400 hover:text-blue-300">Fair Play Policy</a> and
+        <a href="/guidelines" class="text-blue-400 hover:text-blue-300">Upload Guidelines</a>, which form part of these terms.
       </p>
 
-      <h2>2. Your account</h2>
-      <ul>
-        <li>You are responsible for activity under your Discord account.</li>
-        <li>Do not attempt to access other users' accounts or exploit authentication.</li>
-        <li>Accounts found ban-evading will be permanently blocked.</li>
-      </ul>
-
-      <h2>3. Uploaded content</h2>
-      <ul>
-        <li>Screenshots must be taken within the Dovedale Railway Roblox game world.</li>
-        <li>Do not upload content that is offensive, illegal, or unrelated to the game.</li>
-        <li>By submitting a screenshot, you grant us a non-exclusive licence to display it on the Service.</li>
-        <li>We reserve the right to remove any uploaded content at any time.</li>
-      </ul>
-
-      <h2>4. Prohibited conduct</h2>
-      <ul>
-        <li>Cheating, score manipulation, or exploiting bugs for unfair advantage.</li>
-        <li>Harassing other users.</li>
-        <li>Attempting to reverse-engineer or disrupt the Service.</li>
-        <li>Submitting false moderation reports.</li>
-      </ul>
-
-      <h2>5. Moderation & bans</h2>
+      <h2>1. About the Service</h2>
       <p>
-        Moderators and operators may restrict or ban accounts at their discretion for violations of these terms. To appeal a moderation action, submit a support
-        ticket from your <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a> page. If you are unable to submit a ticket, you may contact
-        the site operator directly at
-        <a href="https://www.sectly.online/#contact" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">sectly.online</a>. This is not a
-        game support channel and general requests sent there will not be answered.
+        Dovedale GeoGuesser is a free, community-run location guessing game based on the Dovedale Railway Roblox game. It is currently in beta: features may
+        change, break or be removed, and scores or leaderboards may occasionally be reset or corrected.
+      </p>
+      <p>
+        The Service is an unofficial fan project. It is not affiliated with, endorsed by or operated by Dovedale Railway, Roblox Corporation or Discord Inc.
+        Their names and game content belong to their respective owners.
       </p>
 
-      <h2>6. Disclaimer</h2>
-      <p>The Service is provided "as is" without warranties of any kind. We are not responsible for any data loss or unavailability.</p>
+      <h2>2. Who can use it</h2>
+      <ul>
+        <li>Solo games can be played without an account. Everything else needs you to log in with Discord.</li>
+        <li>
+          You must be old enough to use Discord in your country (13 in most places, higher in some) and must follow
+          <a href="https://discord.com/terms" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">Discord's Terms of Service</a> when you
+          log in with it.
+        </li>
+        <li>You may not use the Service if you are currently banned from it.</li>
+      </ul>
 
-      <h2>7. Changes</h2>
+      <h2>3. Your account</h2>
+      <p>You are responsible for what happens under your account. The following account rules apply, and staff may cite them by number:</p>
+      <ul class="rules">
+        <li id="A1" class="rule">
+          <a href="#A1" class="rule-code">A1</a> <strong class="text-zinc-200">Ban evasion.</strong> Do not use another account to get around a ban or limit.
+          This includes deleting your account and signing up again. Staff may ban accounts used this way.
+        </li>
+        <li id="A2" class="rule">
+          <a href="#A2" class="rule-code">A2</a> <strong class="text-zinc-200">Other people's accounts.</strong> Do not use, or try to get into, an account that
+          is not yours, and do not let others play on yours to affect scores.
+        </li>
+        <li id="A3" class="rule">
+          <a href="#A3" class="rule-code">A3</a> <strong class="text-zinc-200">Attacking the Service.</strong> Do not try to disrupt, overload, scrape or gain
+          unauthorised access to the Service, its data or other users' sessions.
+        </li>
+        <li id="A4" class="rule">
+          <a href="#A4" class="rule-code">A4</a> <strong class="text-zinc-200">Impersonation.</strong> Do not pretend to be staff, or another player, in order
+          to mislead people.
+        </li>
+      </ul>
+
+      <h2>4. Conduct</h2>
       <p>
-        We may update these terms, the Privacy Policy, or the Upload Guidelines at any time and without prior notice. The "Last updated" date at the top of each
-        document will reflect the most recent revision. Continued use of the Service after any change constitutes your acceptance of the updated terms.
+        You must follow the <a href="/fairplay" class="text-blue-400 hover:text-blue-300">Fair Play Policy</a> (rules F1 to F10) whenever you use the Service,
+        and the <a href="/guidelines" class="text-blue-400 hover:text-blue-300">Upload Guidelines</a> (rules U1 to U12) whenever you submit a location or
+        suggest a change.
+      </p>
+
+      <h2>5. Content you upload</h2>
+      <ul>
+        <li><strong class="text-zinc-200">It stays yours.</strong> You keep whatever rights you have in the screenshots and text you submit.</li>
+        <li>
+          <strong class="text-zinc-200">You give us permission to use it in the game.</strong> By submitting content you grant us a free, worldwide,
+          non-exclusive licence to store, resize, convert, display and distribute it as part of the Service, for as long as it is part of the game.
+        </li>
+        <li>
+          <strong class="text-zinc-200">You confirm you may share it.</strong> Only submit screenshots you took yourself, or have permission to submit, and that
+          do not show other people's personal information.
+        </li>
+        <li>
+          <strong class="text-zinc-200">Approved locations stay in the game</strong> if you later delete your account, with your name no longer attached. If you
+          want one of your approved screenshots removed, open a
+          <a href="/settings?ticket=other#support" class="text-blue-400 hover:text-blue-300">support ticket</a> or contact the operator.
+        </li>
+        <li>We may edit labels and hints, decline, or remove any submitted content at any time.</li>
+        <li>
+          <strong class="text-zinc-200">Specials</strong> (side modes, mini-games, experiments and events) are offered for fun, as they are. Anything in
+          Specials can be changed or removed at any time without notice, and scores or progress made there may be reset or lost.
+        </li>
+      </ul>
+
+      <h2>6. Moderation, bans and appeals</h2>
+      <ul>
+        <li>Staff may issue a warning, limit uploads or duels, or ban an account temporarily or permanently when these terms are broken.</li>
+        <li>
+          Every action is recorded with a written reason, usually citing the rule number, and is shown to you under Moderation History in
+          <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>.
+        </li>
+        <li>
+          To enforce bans we check whether an account is used on the same device as a banned one. A match is flagged for staff and is never acted on
+          automatically: a person decides. See the <a href="/privacy#automated" class="text-blue-400 hover:text-blue-300">Privacy Policy</a> for what is
+          collected.
+        </li>
+        <li>
+          A ban applies to you, not just to one account. Deleting your account does not end a ban or clear your moderation history: both return if you sign up
+          again.
+        </li>
+        <li>While banned you cannot play daily challenges or duels, submit or suggest content, or appear on leaderboards, and your profile is hidden.</li>
+        <li>
+          <strong class="text-zinc-200">You can appeal any action</strong> by opening a
+          <a href="/settings?ticket=ban_appeal#support" class="text-blue-400 hover:text-blue-300">support ticket</a> under "Ban Appeal". Banned accounts can
+          still log in to do this, and can still read these documents, see their moderation history and export or delete their data. Appeals are reviewed by a
+          more senior member of staff than the one who took the action where possible.
+        </li>
+        <li>
+          If you cannot open a ticket, you can reach the operator at
+          <a href="https://www.sectly.online/#contact" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">sectly.online</a>. That address
+          is for matters the ticket system cannot handle; general game questions sent there will not be answered.
+        </li>
+      </ul>
+
+      <h2>7. Ending your use</h2>
+      <p>
+        You can stop using the Service at any time and delete your account from <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>. We
+        may suspend or close accounts that break these terms, and may change or shut down the Service. If the Service is closed for good, personal data will be
+        deleted.
+      </p>
+
+      <h2>8. No warranty, and limits on liability</h2>
+      <p>
+        The Service is provided free of charge, "as is" and "as available". We do not promise it will always be online, error-free or that scores and data will
+        never be lost. To the extent the law allows, we are not liable for losses arising from your use of the Service.
+      </p>
+      <p>
+        Nothing in these terms limits any liability that cannot legally be limited, or takes away rights you have under the consumer protection laws of the
+        country you live in.
+      </p>
+
+      <h2>9. Changes to these terms</h2>
+      <p>
+        We may update these terms and the policies linked above. The date at the top of each page shows when it last changed. Where a change significantly
+        affects your rights or how your data is used, we will aim to announce it on the site before it takes effect. If you keep using the Service after a
+        change, the updated terms apply to you; if you do not accept them, you can delete your account.
+      </p>
+
+      <h2>10. Contact</h2>
+      <p>
+        For questions about these terms, open a <a href="/settings?ticket=other#support" class="text-blue-400 hover:text-blue-300">support ticket</a>. If that
+        is not possible, contact the operator at
+        <a href="https://www.sectly.online/#contact" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">sectly.online</a>.
       </p>
     </main>
+    <footer id="site-footer"></footer>
+    <script src="/js/sounds.js"></script>
+    <script src="/js/shared.js"></script>
     <footer class="text-center text-zinc-700 text-xs py-4">
       <a href="/privacy" class="hover:text-zinc-500 transition mx-2">Privacy Policy</a>
       <a href="/guidelines" class="hover:text-zinc-500 transition mx-2">Upload Guidelines</a>

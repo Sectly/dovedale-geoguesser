@@ -1,0 +1,1339 @@
+@font-face {
+	font-family: "Inter";
+	src:
+		local("Inter"),
+		url(/Inter.woff2) format("woff2");
+	font-weight: 200 700;
+	font-display: swap;
+}
+
+.material-symbols-outlined {
+	font-family: "Material Symbols Outlined";
+	font-weight: normal;
+	font-style: normal;
+	font-size: 24px;
+	line-height: 1;
+	letter-spacing: normal;
+	text-transform: none;
+	display: inline-block;
+	white-space: nowrap;
+	word-wrap: normal;
+	direction: ltr;
+	-webkit-font-smoothing: antialiased;
+}
+
+.custom-scroll::-webkit-scrollbar {
+	width: 6px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+	background: transparent;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+	background: #3f3f46;
+	border-radius: 9999px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+	background: #52525b;
+}
+.custom-scroll {
+	scrollbar-width: thin;
+	scrollbar-color: #3f3f46 transparent;
+}
+
+.prose h2 {
+	font-size: 1.1rem;
+	font-weight: 700;
+	margin-top: 1.5rem;
+	margin-bottom: 0.5rem;
+	color: #e4e4e7;
+}
+.prose p,
+.prose li {
+	color: #a1a1aa;
+	font-size: 0.9rem;
+	line-height: 1.7;
+}
+.prose ul {
+	list-style: disc;
+	padding-left: 1.25rem;
+}
+.prose li {
+	margin-bottom: 0.25rem;
+}
+
+#result-screen {
+	transform: translateY(100%);
+	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#result-screen.shown {
+	transform: translateY(0);
+}
+
+/* The last ten seconds: the timer is already red, so it just gets bolder. No flashing. */
+.timer-urgent {
+	font-weight: 800;
+}
+
+.screen-fade {
+	animation: fadeIn 0.2s ease-out;
+}
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+#resize-handle {
+	flex-shrink: 0;
+	background: #27272a;
+	transition: background 0.15s;
+	position: relative;
+	z-index: 10;
+}
+#resize-handle:hover,
+#resize-handle.dragging {
+	background: #3f3f46;
+}
+
+@media (min-width: 768px) {
+	#resize-handle {
+		width: 5px;
+		height: 100%;
+		cursor: col-resize;
+	}
+	#resize-handle::after {
+		content: "";
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 3px;
+		height: 32px;
+		border-radius: 2px;
+		background: #52525b;
+	}
+}
+@media (max-width: 767px) {
+	#resize-handle {
+		height: 5px;
+		width: 100%;
+		cursor: row-resize;
+	}
+	#resize-handle::after {
+		content: "";
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		height: 3px;
+		width: 32px;
+		border-radius: 2px;
+		background: #52525b;
+	}
+}
+
+:root {
+	--md-primary: #2563eb;
+	--md-on-primary: #ffffff;
+	--md-primary-bright: #8ab4f8;
+	--md-primary-container: #0f47a1;
+	--md-on-primary-container: #d8e6ff;
+	--md-surface: #0d0d10;
+	--md-surface-container: #1c1c22;
+	--md-surface-container-high: #26262d;
+	--md-surface-container-highest: #303038;
+	--md-on-surface: #e4e4e7;
+	--md-on-surface-variant: #a1a1aa;
+	--md-outline: #8b8b96;
+	--md-outline-variant: #38383f;
+	--md-error: #ffb4ab;
+
+	--md-shape-xs: 4px;
+	--md-shape-sm: 8px;
+	--md-shape-md: 12px;
+	--md-shape-lg: 16px;
+	--md-shape-xl: 28px;
+	--md-shape-full: 9999px;
+
+	--md-elev-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
+	--md-elev-2: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px 2px rgba(0, 0, 0, 0.15);
+}
+
+.md-card {
+	background: var(--md-surface-container);
+	border: 1px solid transparent;
+	border-radius: var(--md-shape-md);
+	box-shadow: var(--md-elev-1);
+	transition:
+		background-color 0.18s ease,
+		box-shadow 0.18s ease;
+}
+.md-card:hover {
+	background: var(--md-surface-container-high);
+	box-shadow: var(--md-elev-2);
+}
+.md-card-outlined {
+	background: var(--md-surface-container);
+	border: 1px solid var(--md-outline-variant);
+	box-shadow: none;
+}
+.md-card-filled {
+	background: var(--md-primary-container);
+	border-color: transparent;
+	color: var(--md-on-primary-container);
+}
+.md-card-filled:hover {
+	background: #145cc4;
+}
+
+.md-btn {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	border-radius: var(--md-shape-full);
+	font-weight: 600;
+	transition:
+		background-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+.md-btn::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: currentColor;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+}
+.md-btn:hover::after {
+	opacity: 0.08;
+}
+.md-btn:focus-visible::after {
+	opacity: 0.1;
+}
+.md-btn:active::after {
+	opacity: 0.12;
+}
+.md-btn:disabled::after {
+	opacity: 0;
+}
+
+.md-btn-filled {
+	background: var(--md-primary);
+	color: var(--md-on-primary);
+}
+.md-btn-filled:hover {
+	box-shadow: var(--md-elev-1);
+}
+.md-btn-tonal {
+	background: var(--md-surface-container-high);
+	color: var(--md-on-surface);
+}
+.md-btn-text {
+	background: transparent;
+	color: var(--md-primary-bright);
+	padding-inline: 12px;
+}
+.md-btn-outlined {
+	background: transparent;
+	color: var(--md-primary-bright);
+	border: 1px solid var(--md-outline-variant);
+}
+
+.md-field {
+	background: var(--md-surface-container-highest);
+	border: 1px solid transparent;
+	border-radius: var(--md-shape-sm);
+	color: var(--md-on-surface);
+	transition: border-color 0.15s ease;
+}
+.md-field:focus {
+	border-color: var(--md-primary);
+	outline: none;
+}
+
+.md-divider {
+	border: 0;
+	border-top: 1px solid var(--md-outline-variant);
+}
+
+body.bg-zinc-950,
+body .bg-zinc-950 {
+	background-color: var(--md-surface);
+}
+body .bg-zinc-900 {
+	background-color: var(--md-surface-container);
+}
+body .bg-zinc-800 {
+	background-color: var(--md-surface-container-high);
+}
+
+body .border-zinc-800 {
+	border-color: var(--md-outline-variant);
+}
+
+body div.rounded-xl,
+body a.rounded-xl {
+	border-radius: var(--md-shape-sm);
+}
+body div.rounded-2xl,
+body a.rounded-2xl {
+	border-radius: var(--md-shape-md);
+}
+body div.rounded-3xl {
+	border-radius: var(--md-shape-lg);
+}
+body .rounded-t-3xl {
+	border-top-left-radius: var(--md-shape-xl);
+	border-top-right-radius: var(--md-shape-xl);
+	box-shadow: var(--md-elev-2);
+}
+body input.rounded-lg,
+body input.rounded-xl,
+body input.rounded-2xl,
+body textarea.rounded-lg,
+body textarea.rounded-xl,
+body textarea.rounded-2xl,
+body select.rounded-lg,
+body select.rounded-xl,
+body select.rounded-2xl {
+	border-radius: var(--md-shape-sm);
+}
+body button.rounded,
+body button.rounded-lg,
+body button.rounded-xl,
+body button.rounded-2xl,
+body button.rounded-3xl,
+body button:not([class*="rounded"]) {
+	border-radius: var(--md-shape-full);
+}
+
+body .bg-zinc-900.rounded-2xl,
+body .bg-zinc-900.rounded-3xl,
+body .bg-zinc-800.rounded-2xl {
+	box-shadow: var(--md-elev-1);
+}
+body .border.rounded-2xl,
+body .border.rounded-3xl {
+	box-shadow: none;
+}
+
+body .fixed.inset-0 > div {
+	border-radius: var(--md-shape-lg);
+	box-shadow: var(--md-elev-2);
+}
+
+body button:not(:disabled):active {
+	filter: brightness(1.15);
+}
+
+body :focus-visible:not([class*="ring"]) {
+	outline: 2px solid var(--md-primary-bright);
+	outline-offset: 2px;
+}
+
+/* The round screen shared by solo, daily and duels. */
+#photo-panel {
+	background: #000;
+}
+#round-photo {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	display: block;
+}
+#map-canvas,
+#replay-canvas {
+	cursor: crosshair;
+	display: block;
+	touch-action: none;
+}
+.score-bar {
+	transition: width 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#hints-panel {
+	max-width: 220px;
+}
+
+/* While the screenshot loads, the panel shimmers and the image stays out of sight. */
+#round-photo {
+	transition: opacity 0.2s ease-out;
+}
+#photo-panel.photo-loading #round-photo {
+	opacity: 0;
+}
+#photo-panel.photo-loading::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+}
+#photo-panel.photo-loading::before,
+.skeleton {
+	background: linear-gradient(100deg, #18181b 30%, #27272a 50%, #18181b 70%);
+	background-size: 300% 100%;
+	animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.skeleton {
+	border-radius: 0.5rem;
+	color: transparent !important;
+	user-select: none;
+	pointer-events: none;
+}
+@keyframes skeleton-shimmer {
+	from {
+		background-position: 100% 0;
+	}
+	to {
+		background-position: -100% 0;
+	}
+}
+/* The account area keeps its width while we find out who is logged in. */
+[data-auth-area]:empty {
+	min-width: 9rem;
+	min-height: 2rem;
+}
+@media (prefers-reduced-motion: reduce) {
+	.skeleton,
+	#photo-panel.photo-loading::before,
+	.timer-urgent,
+	.screen-fade {
+		animation: none;
+	}
+}
+
+/* ---- Motion: small, quick, and the same everywhere ---- */
+@keyframes rise-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes pop-in {
+	from {
+		opacity: 0;
+		transform: scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes slide-in-right {
+	from {
+		transform: translateX(100%);
+	}
+	to {
+		transform: none;
+	}
+}
+main,
+.screen-fade > * {
+	animation: rise-in 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+/* Lists arrive one row after another instead of all at once. */
+.stagger > * {
+	animation: rise-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.stagger > *:nth-child(2) {
+	animation-delay: 30ms;
+}
+.stagger > *:nth-child(3) {
+	animation-delay: 60ms;
+}
+.stagger > *:nth-child(4) {
+	animation-delay: 90ms;
+}
+.stagger > *:nth-child(5) {
+	animation-delay: 120ms;
+}
+.stagger > *:nth-child(6) {
+	animation-delay: 150ms;
+}
+.stagger > *:nth-child(7) {
+	animation-delay: 180ms;
+}
+.stagger > *:nth-child(n + 8) {
+	animation-delay: 210ms;
+}
+
+.modal-fade {
+	animation: fadeIn 0.15s ease-out both;
+}
+.modal-fade > * {
+	animation: pop-in 0.2s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.modal-fade > .panel-slide {
+	animation: slide-in-right 0.25s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+#toast-container > * {
+	animation: rise-in 0.2s ease-out both;
+}
+#start-countdown-value,
+#overlay-count {
+	animation: pop-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+/* Interactive things answer the pointer the same way everywhere. */
+a,
+button {
+	-webkit-tap-highlight-color: transparent;
+}
+button:not(:disabled),
+a[class*="rounded"] {
+	transition-property: background-color, border-color, color, opacity, transform, box-shadow;
+	transition-duration: 0.15s;
+}
+:focus-visible {
+	outline: 2px solid #3b82f6;
+	outline-offset: 2px;
+}
+
+/* ---- Small screens ---- */
+/* Mobile browsers count their toolbars in 100vh; the dynamic unit is what is actually visible. */
+body.h-screen {
+	height: 100dvh;
+}
+@media (max-width: 639px) {
+	/* Comfortable tap targets for the small pill and icon buttons. */
+	button,
+	a[class*="rounded-lg"],
+	a[class*="rounded-full"] {
+		min-height: 2rem;
+	}
+	#result-screen > div {
+		padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+	}
+	#hints-panel {
+		max-width: 60vw;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-delay: 0ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
+/* A faint ripple from wherever a button was pressed, drawn in a layer above it. */
+.ripple-layer {
+	position: fixed;
+	overflow: hidden;
+	pointer-events: none;
+	z-index: 200;
+}
+.ripple {
+	position: absolute;
+	border-radius: 9999px;
+	background: #fff;
+	opacity: 0;
+	transform: scale(0.15);
+	animation: ripple-out 0.5s ease-out forwards;
+}
+/* Spread to cover the whole button first, then fade, so the edges are reached while still visible. */
+@keyframes ripple-out {
+	0% {
+		transform: scale(0.15);
+		opacity: 0.14;
+	}
+	55% {
+		transform: scale(1);
+		opacity: 0.11;
+	}
+	100% {
+		transform: scale(1);
+		opacity: 0;
+	}
+}
+
+/*
+ * Page-to-page transitions (cross-document view transitions). Browsers without
+ * support navigate as before. Kept to a short cross-fade; the header is
+ * named so it stays put instead of fading with the page.
+ */
+@view-transition {
+	navigation: auto;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 0.16s;
+	animation-timing-function: ease-out;
+}
+#site-nav {
+	view-transition-name: site-nav;
+}
+::view-transition-group(site-nav) {
+	animation-duration: 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+	@view-transition {
+		navigation: none;
+	}
+}
+
+/* ---- Documents: terms, privacy, rules ---- */
+.prose h2 {
+	scroll-margin-top: 4rem;
+}
+.prose .summary {
+	background: #18181b;
+	border: 1px solid #27272a;
+	border-left: 3px solid #3b82f6;
+	border-radius: 0.75rem;
+	padding: 0.9rem 1.1rem;
+	margin-bottom: 1.25rem;
+}
+.prose .summary-title {
+	font-size: 0.7rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #71717a;
+	margin-bottom: 0.35rem;
+}
+.prose .summary li {
+	color: #d4d4d8;
+}
+.prose p {
+	margin-bottom: 0.6rem;
+}
+/* Numbered rules: the code is what staff quote, and each one can be linked to directly. */
+.prose ul.rules {
+	list-style: none;
+	padding-left: 0;
+}
+.prose .rule {
+	padding: 0.45rem 0.6rem;
+	border-radius: 0.6rem;
+	scroll-margin-top: 4.5rem;
+	transition: background-color 0.3s;
+}
+.prose .rule:target {
+	background: rgba(59, 130, 246, 0.15);
+	outline: 1px solid rgba(59, 130, 246, 0.5);
+}
+.rule-code {
+	display: inline-block;
+	min-width: 2.4rem;
+	padding: 0 0.4rem;
+	margin-right: 0.25rem;
+	border-radius: 0.4rem;
+	background: #27272a;
+	color: #93c5fd;
+	font-family: ui-monospace, monospace;
+	font-size: 0.75rem;
+	font-weight: 700;
+	text-align: center;
+	text-decoration: none;
+}
+a.rule-code:hover {
+	background: #3f3f46;
+}
+.prose .table-wrap {
+	overflow-x: auto;
+	margin-bottom: 0.75rem;
+}
+.prose table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.82rem;
+}
+.prose th,
+.prose td {
+	text-align: left;
+	vertical-align: top;
+	padding: 0.5rem 0.6rem;
+	border-bottom: 1px solid #27272a;
+	color: #a1a1aa;
+	line-height: 1.5;
+}
+.prose th {
+	color: #e4e4e7;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+/*
+ * Checkbox in the site's Material style: the real input stays in place (invisible)
+ * so it keeps working with the keyboard and screen readers, and the box beside it
+ * is drawn to match.
+ */
+.md-check {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.5rem 0.25rem;
+	border-radius: 0.75rem;
+	cursor: pointer;
+	user-select: none;
+	position: relative;
+}
+.md-check input {
+	position: absolute;
+	opacity: 0;
+	width: 1px;
+	height: 1px;
+}
+.md-check-box {
+	position: relative;
+	flex-shrink: 0;
+	width: 1.125rem;
+	height: 1.125rem;
+	border: 2px solid #71717a;
+	border-radius: 0.3rem;
+	transition:
+		background-color 0.15s,
+		border-color 0.15s;
+}
+/* The soft halo Material puts behind a control on hover and focus. */
+.md-check-box::before {
+	content: "";
+	position: absolute;
+	inset: -0.6rem;
+	border-radius: 9999px;
+	background: #3b82f6;
+	opacity: 0;
+	transition: opacity 0.15s;
+}
+/* The tick, drawn in as the box fills. */
+.md-check-box::after {
+	content: "";
+	position: absolute;
+	left: 0.28rem;
+	top: 0.06rem;
+	width: 0.3rem;
+	height: 0.58rem;
+	border: solid #fff;
+	border-width: 0 2px 2px 0;
+	transform: rotate(45deg) scale(0);
+	transition: transform 0.15s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.md-check:hover .md-check-box {
+	border-color: #a1a1aa;
+}
+.md-check:hover .md-check-box::before {
+	opacity: 0.1;
+}
+.md-check input:focus-visible + .md-check-box::before {
+	opacity: 0.22;
+}
+.md-check input:checked + .md-check-box {
+	background: #2563eb;
+	border-color: #2563eb;
+}
+.md-check input:checked + .md-check-box::after {
+	transform: rotate(45deg) scale(1);
+}
+
+/* ---- Native controls, restyled so nothing falls back to the browser's default look ---- */
+
+/* Tells the browser this is a dark site: its own menus, date pickers and scrollbars follow. */
+:root {
+	color-scheme: dark;
+}
+
+/* Scrollbars: thin and quiet everywhere, not just where a class was remembered. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: #3f3f46 transparent;
+}
+*::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+	background: #3f3f46;
+	border-radius: 9999px;
+	border: 2px solid transparent;
+	background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+	background-color: #52525b;
+}
+
+/* Dropdowns: our own chevron instead of the system arrow. */
+select {
+	appearance: none;
+	-webkit-appearance: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 0.5rem center;
+	background-size: 0.9rem;
+	padding-right: 1.75rem !important;
+	cursor: pointer;
+	transition:
+		border-color 0.15s,
+		box-shadow 0.15s;
+}
+select:hover {
+	border-color: #52525b;
+}
+select option {
+	background: #18181b;
+	color: #e4e4e7;
+}
+
+/* Number fields: no spinner arrows. */
+input[type="number"] {
+	appearance: textfield;
+	-moz-appearance: textfield;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+/* Search fields: a clear button drawn to match, instead of the browser's blue cross. */
+input[type="search"]::-webkit-search-cancel-button {
+	-webkit-appearance: none;
+	width: 1rem;
+	height: 1rem;
+	cursor: pointer;
+	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E")
+		center / contain no-repeat;
+}
+
+/* Date fields: the calendar icon in the site's grey, with a pointer. */
+input[type="date"]::-webkit-calendar-picker-indicator {
+	cursor: pointer;
+	opacity: 0.6;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+	opacity: 1;
+}
+
+/* Text selection and the caret in the brand blue. */
+::selection {
+	background: rgba(59, 130, 246, 0.35);
+}
+input,
+textarea {
+	caret-color: #60a5fa;
+}
+
+/* ---- Duel intro and results ---- */
+@keyframes slide-from-left {
+	from {
+		opacity: 0;
+		transform: translateX(-60px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes slide-from-right {
+	from {
+		opacity: 0;
+		transform: translateX(60px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+.versus > :first-child {
+	animation: slide-from-left 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.versus > :last-child {
+	animation: slide-from-right 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.versus-mark {
+	animation: pop-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) 0.3s both;
+}
+#end-headline {
+	animation: pop-in 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+#result-screen.shown .score-pop {
+	animation: pop-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
+}
+
+/* The greeting shown just after logging in: drops in from the top, then lifts away. */
+@keyframes welcome-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, -24px) scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: translate(-50%, 0) scale(1);
+	}
+}
+.welcome-card {
+	position: fixed;
+	top: 4rem;
+	left: 50%;
+	z-index: 120;
+	display: flex;
+	align-items: center;
+	gap: 0.85rem;
+	max-width: min(22rem, calc(100vw - 2rem));
+	padding: 0.85rem 1.25rem 0.85rem 0.85rem;
+	border-radius: 9999px;
+	background: #1e1e22;
+	border: 1px solid #2c2c31;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+	transform: translate(-50%, 0);
+	animation: welcome-in 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+	transition:
+		opacity 0.4s,
+		transform 0.4s;
+}
+.welcome-card.leaving {
+	opacity: 0;
+	transform: translate(-50%, -16px);
+}
+
+/* Game feel: things arrive rather than appear. */
+.md-card {
+	transition:
+		transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1),
+		background-color 0.15s,
+		box-shadow 0.18s;
+}
+.md-card:hover {
+	transform: translateY(-3px);
+}
+.md-card:active {
+	transform: translateY(0) scale(0.99);
+}
+#result-screen.shown #result-score-display,
+.streak-pop {
+	animation: pop-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+#summary-total {
+	animation: pop-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* A key cap, for showing shortcuts. */
+.kbd {
+	display: inline-block;
+	min-width: 1.6rem;
+	padding: 0.1rem 0.4rem;
+	border-radius: 0.4rem;
+	border: 1px solid #3f3f46;
+	border-bottom-width: 2px;
+	background: #27272a;
+	color: #e4e4e7;
+	font-family: ui-monospace, monospace;
+	font-size: 0.72rem;
+	line-height: 1.3;
+	text-align: center;
+}
+
+/*
+ * ---- Material components ----
+ * A small shared set so the same thing looks the same wherever it appears:
+ * buttons, chips, status tags, a segmented control and text fields.
+ */
+.m-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	height: 2.5rem;
+	padding: 0 1.5rem;
+	border-radius: 9999px;
+	font-size: 0.875rem;
+	font-weight: 600;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.m-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+.m-btn .material-symbols-outlined {
+	font-size: 1.125rem;
+	margin-left: -0.25rem;
+}
+.m-btn-filled {
+	background: #2563eb;
+	color: #fff;
+}
+.m-btn-filled:hover:not(:disabled) {
+	background: #3b82f6;
+}
+.m-btn-tonal {
+	background: #27272a;
+	color: #e4e4e7;
+}
+.m-btn-tonal:hover:not(:disabled) {
+	background: #3f3f46;
+}
+.m-btn-text {
+	padding: 0 0.75rem;
+	color: #93c5fd;
+}
+.m-btn-text:hover:not(:disabled) {
+	background: rgba(147, 197, 253, 0.08);
+}
+.m-btn-text.danger {
+	color: #fca5a5;
+}
+.m-btn-text.danger:hover:not(:disabled) {
+	background: rgba(252, 165, 165, 0.08);
+}
+.m-btn-sm {
+	height: 2rem;
+	padding: 0 1rem;
+	font-size: 0.8125rem;
+}
+.m-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.5rem;
+	height: 2.5rem;
+	flex-shrink: 0;
+	border-radius: 9999px;
+	color: #a1a1aa;
+	cursor: pointer;
+}
+.m-icon-btn:hover {
+	background: rgba(255, 255, 255, 0.08);
+	color: #f4f4f5;
+}
+.m-icon-btn.filled {
+	background: #2563eb;
+	color: #fff;
+}
+.m-icon-btn.filled:hover:not(:disabled) {
+	background: #3b82f6;
+}
+.m-icon-btn .material-symbols-outlined {
+	font-size: 1.25rem;
+}
+
+/* Filter chips: outlined until chosen, then filled with a tick. */
+.m-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	height: 2rem;
+	padding: 0 0.75rem;
+	border: 1px solid #3f3f46;
+	border-radius: 0.5rem;
+	font-size: 0.8125rem;
+	font-weight: 500;
+	color: #d4d4d8;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.m-chip:hover {
+	background: rgba(255, 255, 255, 0.06);
+}
+.m-chip[aria-pressed="true"] {
+	border-color: transparent;
+	background: rgba(37, 99, 235, 0.28);
+	color: #dbeafe;
+}
+.m-chip[aria-pressed="true"]::before {
+	content: "check";
+	font-family: "Material Symbols Outlined";
+	font-size: 1rem;
+	margin-left: -0.2rem;
+}
+.m-chip .count {
+	color: #71717a;
+	font-size: 0.75rem;
+}
+.m-chip[aria-pressed="true"] .count {
+	color: #93c5fd;
+}
+
+/* Status tags: small, quiet, one shape, colour only for meaning. */
+.m-tag {
+	display: inline-flex;
+	align-items: center;
+	height: 1.375rem;
+	padding: 0 0.5rem;
+	border-radius: 0.375rem;
+	background: #27272a;
+	color: #a1a1aa;
+	font-size: 0.6875rem;
+	font-weight: 600;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+.m-tag.info {
+	background: rgba(37, 99, 235, 0.22);
+	color: #93c5fd;
+}
+.m-tag.success {
+	background: rgba(76, 175, 80, 0.18);
+	color: #86efac;
+}
+.m-tag.warn {
+	background: rgba(245, 158, 11, 0.16);
+	color: #fcd34d;
+}
+.m-tag.danger {
+	background: rgba(239, 83, 80, 0.18);
+	color: #fca5a5;
+}
+
+/* Two or three choices side by side. */
+.m-segmented {
+	display: inline-flex;
+	border: 1px solid #3f3f46;
+	border-radius: 9999px;
+	overflow: hidden;
+}
+.m-segmented > button {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	height: 2.25rem;
+	padding: 0 1rem;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: #d4d4d8;
+}
+.m-segmented > button + button {
+	border-left: 1px solid #3f3f46;
+}
+.m-segmented > button:hover {
+	background: rgba(255, 255, 255, 0.06);
+}
+.m-segmented > button[aria-pressed="true"] {
+	background: rgba(37, 99, 235, 0.28);
+	color: #dbeafe;
+}
+.m-segmented .count {
+	color: #71717a;
+	font-size: 0.75rem;
+}
+
+.m-field {
+	width: 100%;
+	background: #27272a;
+	border: 1px solid transparent;
+	border-radius: 0.75rem;
+	padding: 0.625rem 0.875rem;
+	font-size: 0.875rem;
+	color: #f4f4f5;
+	transition:
+		border-color 0.15s,
+		background-color 0.15s;
+}
+.m-field::placeholder {
+	color: #71717a;
+}
+.m-field:hover {
+	background: #2e2e33;
+}
+.m-field:focus {
+	outline: none;
+	border-color: #3b82f6;
+}
+textarea.m-field {
+	resize: none;
+}
+.m-search {
+	position: relative;
+}
+.m-search > .material-symbols-outlined {
+	position: absolute;
+	left: 0.75rem;
+	top: 50%;
+	transform: translateY(-50%);
+	font-size: 1.125rem;
+	color: #71717a;
+	pointer-events: none;
+}
+.m-search > input {
+	height: 2.5rem;
+	padding-left: 2.5rem;
+	border-radius: 9999px;
+}
+.m-label {
+	display: block;
+	margin-bottom: 0.375rem;
+	font-size: 0.75rem;
+	font-weight: 500;
+	color: #a1a1aa;
+}
+
+/* Dialogs share one frame. */
+.m-dialog {
+	background: #18181b;
+	border: 1px solid #27272a;
+	border-radius: 1.75rem;
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	max-height: 85vh;
+}
+.m-dialog-head {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 1.25rem 1rem 1rem 1.5rem;
+	flex-shrink: 0;
+}
+.m-dialog-head h2 {
+	flex: 1;
+	min-width: 0;
+	font-size: 1.125rem;
+	font-weight: 600;
+}
+.m-dialog-body {
+	flex: 1;
+	overflow-y: auto;
+	padding: 0 1.5rem 1rem;
+}
+.m-dialog-foot {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	padding: 1rem 1.5rem 1.25rem;
+	flex-shrink: 0;
+}
+/* A row in a list of things you can open. */
+.m-list-item {
+	display: flex;
+	align-items: center;
+	gap: 0.875rem;
+	width: 100%;
+	padding: 0.75rem 1rem;
+	border-radius: 1rem;
+	text-align: left;
+}
+.m-list-item:hover {
+	background: rgba(255, 255, 255, 0.05);
+}
+
+/* ---- Specials: Signal Reflex ---- */
+.reflex-signal {
+	display: inline-flex;
+	flex-direction: column;
+	gap: 1rem;
+	padding: 1.25rem;
+	border-radius: 2rem;
+	background: #18181b;
+	cursor: pointer;
+	touch-action: manipulation;
+	user-select: none;
+	transition: background-color 0.15s;
+}
+.reflex-signal:hover {
+	background: #1f1f23;
+}
+.reflex-lamp {
+	display: block;
+	width: 6rem;
+	height: 6rem;
+	border-radius: 9999px;
+	background: #27272a;
+	transition: background-color 0.08s;
+}
+.reflex-signal[data-state="waiting"] .reflex-lamp[data-lamp="red"] {
+	background: #ef5350;
+}
+.reflex-signal[data-state="go"] .reflex-lamp[data-lamp="green"] {
+	background: #4caf50;
+}
+
+/* ---- Specials: screenshot effects (Night Shift, Snowed In) ---- */
+.photo-effect {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	/* Above the magnifier, so it cannot be used to see through the effect. */
+	z-index: 25;
+	pointer-events: none;
+}
+.photo-effect-meter {
+	position: absolute;
+	left: 50%;
+	bottom: 0.75rem;
+	transform: translateX(-50%);
+	z-index: 26;
+	pointer-events: none;
+	background: rgba(0, 0, 0, 0.7);
+	color: #e4e4e7;
+	font-size: 0.75rem;
+	font-weight: 600;
+	padding: 0.3rem 0.75rem;
+	border-radius: 9999px;
+	white-space: nowrap;
+}
+
+/* ---- Specials: Memory Match ---- */
+.memory-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 0.5rem;
+}
+button.memory-card {
+	position: relative;
+	aspect-ratio: 4 / 3;
+	border-radius: 0.875rem !important;
+	background: #27272a;
+	overflow: hidden;
+	cursor: pointer;
+	transition:
+		background-color 0.15s,
+		transform 0.15s;
+}
+.memory-card:hover {
+	background: #303036;
+}
+.memory-card:active {
+	transform: scale(0.97);
+}
+.memory-card img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	opacity: 0;
+	transition: opacity 0.2s;
+}
+.memory-card[data-state="up"] img,
+.memory-card[data-state="matched"] img {
+	opacity: 1;
+}
+.memory-card[data-state="matched"] {
+	cursor: default;
+	outline: 2px solid #4caf50;
+	outline-offset: -2px;
+}
+.memory-card .material-symbols-outlined {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #52525b;
+	font-size: 1.75rem;
+}
+.memory-card[data-state="up"] .material-symbols-outlined,
+.memory-card[data-state="matched"] .material-symbols-outlined {
+	display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	.memory-card,
+	.memory-card img {
+		transition: none;
+	}
+}

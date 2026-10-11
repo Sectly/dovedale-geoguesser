@@ -1,0 +1,322 @@
+/*
+ * Seasonal decoration for the homepage only (home.js adds the elements while an event
+ * is running). The layer sits behind all page content and never takes a click or focus.
+ */
+.season-layer {
+	position: fixed;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+	/* Below everything: page content, buttons, dialogs and toasts all paint on top of it. */
+	z-index: -1;
+}
+
+/*
+ * The splash: a short tilted line pinned to the title, so a visitor can tell at a glance
+ * why the page looks different today.
+ */
+.season-splash {
+	position: absolute;
+	right: -0.25rem;
+	bottom: -1rem;
+	transform: rotate(-9deg);
+	transform-origin: center;
+	font-size: 0.8rem;
+	font-weight: 700;
+	white-space: nowrap;
+	color: var(--season-accent, #ffd54f);
+	pointer-events: none;
+	animation: season-splash 0.9s ease-in-out infinite alternate;
+}
+@keyframes season-splash {
+	from {
+		transform: rotate(-9deg) scale(1);
+	}
+	to {
+		transform: rotate(-9deg) scale(1.07);
+	}
+}
+/* On a phone the splash sits just under the title, so leave it room above the tagline. */
+@media (max-width: 639px) {
+	body[data-season] #home-title {
+		margin-bottom: 1.6rem;
+	}
+	.season-splash {
+		font-size: 0.72rem;
+	}
+}
+@media (min-width: 640px) {
+	.season-splash {
+		right: -3.5rem;
+		bottom: -0.6rem;
+		font-size: 1rem;
+	}
+}
+
+/* The title takes the season's colours. */
+body[data-season] #home-title {
+	background-image: linear-gradient(100deg, var(--season-from), var(--season-to));
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+body[data-season] .season-accent {
+	color: var(--season-accent);
+}
+body[data-season="halloween"] {
+	--season-from: #ffb74d;
+	--season-to: #f4511e;
+	--season-accent: #ffa726;
+}
+body[data-season="christmas"] {
+	--season-from: #ef5350;
+	--season-to: #66bb6a;
+	--season-accent: #90caf9;
+}
+body[data-season="newyear"] {
+	--season-from: #ffe082;
+	--season-to: #4fc3f7;
+	--season-accent: #ffd54f;
+}
+body[data-season="bonfire"] {
+	--season-from: #ffd54f;
+	--season-to: #ef5350;
+	--season-accent: #ffb74d;
+}
+body[data-season="valentines"] {
+	--season-from: #f8bbd0;
+	--season-to: #ec407a;
+	--season-accent: #f48fb1;
+}
+body[data-season="easter"] {
+	--season-from: #f48fb1;
+	--season-to: #81d4fa;
+	--season-accent: #fff59d;
+}
+
+/* ---- Halloween: a few bats crossing the sky and a pumpkin in each bottom corner ---- */
+body[data-season="halloween"] .season-tag {
+	background: rgba(255, 167, 38, 0.16);
+	color: #ffcc80;
+}
+.season-bat {
+	position: absolute;
+	left: -80px;
+	width: 46px;
+	color: #3f3f46;
+	animation: season-bat-cross 26s linear infinite;
+}
+.season-bat svg {
+	display: block;
+	fill: currentColor;
+	animation: season-bat-flap 0.5s ease-in-out infinite alternate;
+	transform-origin: center;
+}
+.season-bat-0 {
+	top: 14%;
+}
+.season-bat-1 {
+	top: 27%;
+	width: 30px;
+	animation-duration: 34s;
+	animation-delay: -12s;
+}
+.season-bat-2 {
+	top: 8%;
+	width: 36px;
+	animation-duration: 41s;
+	animation-delay: -27s;
+}
+@keyframes season-bat-cross {
+	from {
+		transform: translate(0, 0);
+	}
+	50% {
+		transform: translate(calc(50vw + 40px), 28px);
+	}
+	to {
+		transform: translate(calc(100vw + 160px), -6px);
+	}
+}
+@keyframes season-bat-flap {
+	from {
+		transform: scaleY(1);
+	}
+	to {
+		transform: scaleY(0.55);
+	}
+}
+.season-corner {
+	position: absolute;
+	bottom: -10px;
+	width: 92px;
+	opacity: 0.9;
+}
+.season-corner-left {
+	left: 3vw;
+	transform: rotate(-6deg);
+}
+.season-corner-right {
+	right: 4vw;
+	width: 68px;
+	transform: rotate(8deg);
+}
+.season-corner .skin {
+	fill: #ef6c00;
+}
+.season-corner .rib {
+	stroke: #d84315;
+	stroke-width: 1.6;
+}
+.season-corner .stem {
+	fill: #558b2f;
+}
+.season-corner .face {
+	fill: #1c1205;
+}
+
+/* ---- Christmas: light snowfall ---- */
+body[data-season="christmas"] .season-tag {
+	background: rgba(144, 202, 249, 0.16);
+	color: #bbdefb;
+}
+.season-flake {
+	position: absolute;
+	top: -12px;
+	border-radius: 9999px;
+	background: #e4e4e7;
+	opacity: 0.55;
+	animation: season-snow linear infinite;
+}
+@keyframes season-snow {
+	from {
+		transform: translate(0, 0);
+	}
+	to {
+		transform: translate(24px, calc(100vh + 24px));
+	}
+}
+
+/* ---- Easter: painted eggs in the bottom corners ---- */
+.season-egg {
+	width: 54px;
+	bottom: -8px;
+}
+.season-egg.season-corner-right {
+	width: 46px;
+}
+.season-egg-second {
+	left: calc(3vw + 50px);
+	width: 40px;
+	bottom: -12px;
+	transform: rotate(14deg);
+}
+
+/* ---- Valentine's: a few hearts drifting up ---- */
+.season-heart {
+	position: absolute;
+	bottom: -40px;
+	color: #ec407a;
+	opacity: 0.35;
+	animation: season-rise linear infinite;
+}
+.season-heart svg {
+	display: block;
+	width: 100%;
+	fill: currentColor;
+}
+@keyframes season-rise {
+	from {
+		transform: translate(0, 0) rotate(-8deg);
+	}
+	to {
+		transform: translate(-28px, calc(-100vh - 80px)) rotate(8deg);
+	}
+}
+
+/* ---- New Year and Bonfire Night: quiet fireworks in the top of the sky ---- */
+body[data-season="newyear"] .season-accent,
+.season-burst {
+	position: absolute;
+	width: 4px;
+	height: 4px;
+	border-radius: 9999px;
+	/* Twelve sparks in a ring, drawn as shadows of one dot. */
+	box-shadow:
+		0 -34px currentColor,
+		17px -29px currentColor,
+		29px -17px currentColor,
+		34px 0 currentColor,
+		29px 17px currentColor,
+		17px 29px currentColor,
+		0 34px currentColor,
+		-17px 29px currentColor,
+		-29px 17px currentColor,
+		-34px 0 currentColor,
+		-29px -17px currentColor,
+		-17px -29px currentColor;
+	opacity: 0;
+	animation: season-burst ease-out infinite;
+}
+@keyframes season-burst {
+	0% {
+		transform: scale(0.1);
+		opacity: 0;
+	}
+	8% {
+		opacity: 0.75;
+	}
+	45% {
+		transform: scale(1);
+		opacity: 0.45;
+	}
+	70%,
+	100% {
+		transform: scale(1.15) translateY(10px);
+		opacity: 0;
+	}
+}
+
+@media (max-width: 640px) {
+	.season-corner {
+		width: 60px;
+	}
+	.season-corner-right {
+		width: 46px;
+	}
+	.season-egg {
+		width: 40px;
+	}
+	.season-egg-second {
+		display: none;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.season-bat,
+	.season-bat svg,
+	.season-flake,
+	.season-heart,
+	.season-burst,
+	.season-splash {
+		animation: none;
+	}
+	.season-heart {
+		bottom: 12%;
+	}
+	.season-burst {
+		opacity: 0.4;
+	}
+	.season-bat {
+		left: auto;
+		right: 12%;
+	}
+	.season-bat-1 {
+		right: 30%;
+	}
+	.season-bat-2 {
+		right: 55%;
+	}
+	.season-flake {
+		top: auto;
+	}
+}
