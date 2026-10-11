@@ -4,12 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Staff Panel | Dovedale GeoGuesser</title>
-    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&family=Inter:opsz,wght@14..32,200..700"
-    />
-    <link rel="stylesheet" href="/shared.css?v=2" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
     <style>
       #map-canvas {
         cursor: crosshair;
@@ -24,16 +26,10 @@
     </style>
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] h-screen overflow-hidden flex flex-col">
-    <nav class="flex-shrink-0 bg-zinc-900 border-b border-zinc-800 flex items-center gap-4 px-4 py-2 z-30">
-      <button id="sidebar-toggle" class="md:hidden text-zinc-400 hover:text-zinc-100 transition flex items-center">
+    <nav id="site-nav">
+      <button id="sidebar-toggle" data-keep class="md:hidden text-zinc-400 hover:text-zinc-100 transition flex items-center">
         <span class="material-symbols-outlined text-xl leading-none">menu</span>
       </button>
-      <a href="/" class="text-zinc-400 hover:text-zinc-100 transition flex items-center gap-1 text-sm">
-        <span class="material-symbols-outlined text-base leading-none">home</span> Home
-      </a>
-      <span class="text-zinc-700">/</span>
-      <span class="text-zinc-100 font-semibold text-sm">Staff Panel</span>
-      <div class="ml-auto flex items-center gap-3" id="auth-area"></div>
     </nav>
     <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black/50 z-40 md:hidden"></div>
 
@@ -45,7 +41,10 @@
     </div>
 
     <div id="admin-panel" class="hidden flex-1 flex overflow-hidden">
-      <div id="admin-sidebar" class="w-52 flex-shrink-0 bg-zinc-900 border-r border-zinc-800 flex-col py-4 gap-1 px-2 hidden md:flex fixed md:static inset-y-0 left-0 z-50 overflow-y-auto">
+      <div
+        id="admin-sidebar"
+        class="w-52 flex-shrink-0 bg-zinc-900 border-r border-zinc-800 flex-col py-4 gap-1 px-2 hidden md:flex fixed md:static inset-y-0 left-0 z-50 overflow-y-auto"
+      >
         <button data-tab="submissions" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition bg-zinc-700 text-white">Submissions</button>
         <button data-tab="suggestions" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white">
           Suggestions
@@ -53,14 +52,15 @@
         <button data-tab="locations" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white">
           Locations
         </button>
-        <button
-          data-tab="upload"
-          class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white operator-only hidden flex items-center gap-1.5"
+        <a
+          href="/submit"
+          class="text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white flex items-center gap-1.5"
+          title="Opens the Submit page. Locations added there go through the normal review queue."
         >
-          Upload Location <span class="material-symbols-outlined text-sm leading-none opacity-50">open_in_new</span>
-        </button>
+          Submit a Location <span class="material-symbols-outlined text-sm leading-none opacity-50">open_in_new</span>
+        </a>
         <button data-tab="users" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white">Users</button>
-        <button data-tab="support" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white">Support</button>
+        <button data-tab="tickets" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white">Tickets</button>
         <button
           data-tab="staff"
           class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white senior-only hidden"
@@ -80,99 +80,21 @@
           Audit Log
         </button>
         <button
-          data-tab="games"
-          class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white senior-only hidden"
+          data-tab="system"
+          class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white operator-only hidden"
         >
-          Games
+          System
         </button>
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 md:p-6" id="tab-content">
-        <div class="text-zinc-500">Loading...</div>
-      </div>
-
-      <div id="upload-map-panel" class="hidden absolute inset-0 flex" style="top: 41px">
-        <div class="w-80 flex-shrink-0 bg-zinc-900 border-r border-zinc-800 flex flex-col p-4 gap-4 overflow-y-auto">
-          <div class="flex items-center gap-2">
-            <button id="upload-map-back" class="text-zinc-400 hover:text-zinc-100 transition">
-              <span class="material-symbols-outlined">arrow_back</span>
-            </button>
-            <h3 class="font-bold">Upload Location</h3>
-          </div>
-          <label
-            class="border-2 border-dashed border-zinc-700 rounded-xl flex flex-col items-center justify-center py-6 cursor-pointer hover:border-zinc-500 transition gap-2"
-          >
-            <span class="material-symbols-outlined text-3xl text-zinc-500">upload</span>
-            <span class="text-zinc-500 text-sm" id="upload-filename">Click to upload image</span>
-            <input id="upload-file" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" />
-          </label>
-          <div id="upload-preview-wrap" class="hidden bg-black rounded-xl overflow-hidden">
-            <img id="upload-preview" src="" alt="" class="submission-img" />
-          </div>
-          <input
-            id="upload-label"
-            type="text"
-            placeholder="Label (optional)"
-            maxlength="100"
-            class="bg-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600"
-          />
-          <div>
-            <div class="text-xs text-zinc-500 mb-1.5">Hints <span class="text-zinc-700">(optional, up to 3)</span></div>
-            <div class="flex flex-col gap-2">
-              <input
-                id="upload-hint-1"
-                type="text"
-                placeholder="Hint 1"
-                maxlength="200"
-                class="bg-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-600 placeholder:text-zinc-600"
-              />
-              <input
-                id="upload-hint-2"
-                type="text"
-                placeholder="Hint 2"
-                maxlength="200"
-                class="bg-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-600 placeholder:text-zinc-600"
-              />
-              <input
-                id="upload-hint-3"
-                type="text"
-                placeholder="Hint 3"
-                maxlength="200"
-                class="bg-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-600 placeholder:text-zinc-600"
-              />
-            </div>
-          </div>
-          <div id="upload-pin-status" class="text-zinc-600 text-sm">Click map to mark location</div>
-          <button id="upload-submit-btn" class="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-600 transition px-4 py-2.5 rounded-xl font-semibold" disabled>
-            Add Location
-          </button>
-          <p id="upload-error" class="text-red-400 text-sm hidden"></p>
-          <p id="upload-success" class="text-green-400 text-sm hidden">Location added!</p>
-        </div>
-        <div class="flex-1 relative">
-          <canvas id="map-canvas"></canvas>
-          <div class="absolute top-3 right-3 flex flex-col gap-2 z-10">
-            <select
-              id="map-quality"
-              title="Map quality"
-              class="bg-zinc-800/90 border border-zinc-700/60 rounded-lg text-xs text-zinc-300 px-1.5 py-1 focus:outline-none"
-            >
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
-            <button id="zoom-in" class="bg-zinc-800/90 w-9 h-9 rounded-full flex items-center justify-center hover:bg-zinc-700 transition">
-              <span class="material-symbols-outlined text-lg">add</span>
-            </button>
-            <button id="zoom-out" class="bg-zinc-800/90 w-9 h-9 rounded-full flex items-center justify-center hover:bg-zinc-700 transition">
-              <span class="material-symbols-outlined text-lg">remove</span>
-            </button>
-          </div>
-        </div>
+        <div class="skeleton h-24 rounded-2xl mb-2"></div>
+        <div class="skeleton h-24 rounded-2xl mb-2"></div>
+        <div class="skeleton h-24 rounded-2xl"></div>
       </div>
     </div>
 
-    <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[70] modal-fade">
       <div class="bg-zinc-900 rounded-2xl p-6 w-full max-w-sm mx-4">
         <h3 class="font-bold mb-2" id="confirm-title">Confirm</h3>
         <p class="text-zinc-400 text-sm mb-5" id="confirm-message"></p>
@@ -183,7 +105,7 @@
       </div>
     </div>
 
-    <div id="input-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div id="input-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[70] modal-fade">
       <div class="bg-zinc-900 rounded-2xl p-6 w-full max-w-sm mx-4">
         <h3 class="font-bold mb-1" id="input-title">Enter value</h3>
         <p class="text-zinc-500 text-xs mb-3" id="input-note"></p>
@@ -199,15 +121,74 @@
       </div>
     </div>
 
-    <div id="toast-container" class="fixed bottom-5 right-5 flex flex-col gap-2 z-[100] pointer-events-none"></div>
+    <div id="reason-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[60] px-4 modal-fade">
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-md" role="dialog" aria-modal="true" aria-labelledby="reason-title">
+        <h3 class="font-bold mb-1" id="reason-title">Reason</h3>
+        <p class="text-zinc-500 text-xs mb-3" id="reason-note"></p>
+        <div id="reason-duration" class="mb-3">
+          <label class="text-xs text-zinc-400 block mb-1" for="reason-hours">Duration (hours)</label>
+          <div class="flex gap-2 items-center flex-wrap">
+            <input
+              id="reason-hours"
+              type="number"
+              min="1"
+              step="1"
+              class="w-24 bg-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div id="reason-presets" class="flex gap-1.5 flex-wrap"></div>
+          </div>
+        </div>
+        <div id="reason-rules-wrap">
+          <div class="text-xs text-zinc-400 mb-1.5">Rules broken <span class="text-zinc-600">(click to cite)</span></div>
+          <div id="reason-rules" class="mb-2"></div>
+        </div>
+        <label class="text-xs text-zinc-400 block mb-1" for="reason-text">Reason <span class="text-red-400/80">(required, shown to the user)</span></label>
+        <textarea
+          id="reason-text"
+          rows="3"
+          maxlength="500"
+          placeholder="What happened, and why this action?"
+          class="w-full bg-zinc-800 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600"
+        ></textarea>
+        <p class="text-xs text-zinc-500 h-4 mt-1 mb-3" id="reason-count"></p>
+        <div class="flex gap-3 justify-end">
+          <button id="reason-cancel" class="px-5 py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 transition text-sm">Cancel</button>
+          <button id="reason-ok" class="px-5 py-2 rounded-xl transition text-sm font-semibold">Confirm</button>
+        </div>
+      </div>
+    </div>
 
-    <div id="deny-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div id="user-panel" class="hidden fixed inset-0 bg-black/60 z-50 flex justify-end modal-fade" onclick="if (event.target === this) closeUserPanel();">
+      <div
+        class="bg-zinc-900 border-l border-zinc-800 w-full max-w-xl h-full flex flex-col panel-slide"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="user-panel-title"
+      >
+        <div class="flex items-center gap-3 px-5 py-4 border-b border-zinc-800 flex-shrink-0">
+          <span class="material-symbols-outlined text-xl text-blue-400">gavel</span>
+          <h3 class="font-bold flex-1 truncate" id="user-panel-title">User</h3>
+          <button
+            onclick="closeUserPanel()"
+            aria-label="Close"
+            class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
+          >
+            <span class="material-symbols-outlined text-xl leading-none">close</span>
+          </button>
+        </div>
+        <div id="user-panel-body" class="flex-1 overflow-y-auto custom-scroll px-5 py-4"></div>
+      </div>
+    </div>
+
+    <div id="deny-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-[70] modal-fade">
       <div class="bg-zinc-900 rounded-2xl p-6 w-full max-w-md mx-4">
         <h3 class="font-bold mb-3" id="deny-modal-title">Deny</h3>
+        <div class="text-xs text-zinc-400 mb-1.5">Guidelines broken <span class="text-zinc-600">(click to cite)</span></div>
+        <div id="deny-rules" class="mb-2"></div>
         <textarea
           id="deny-reason"
           rows="3"
-          placeholder="Reason (optional)"
+          placeholder="Reason, shown to the user"
           class="w-full bg-zinc-800 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-zinc-600 mb-4"
         ></textarea>
         <div class="flex gap-3 justify-end">
@@ -217,10 +198,20 @@
       </div>
     </div>
 
-    <script src="/fp.js"></script>
-    <script src="/map-upstream.js"></script>
-    <script src="/map-canvas.js?v=4"></script>
-    <script src="/shared.js"></script>
-    <script src="/admin.js?v=6"></script>
+    <script src="/js/map-config.js"></script>
+    <script src="/js/map-canvas.js"></script>
+    <script src="/js/sounds.js"></script>
+    <script src="/js/shared.js"></script>
+    <script src="/js/rules.js"></script>
+    <script src="/js/tickets.js"></script>
+    <script src="/js/admin/core.js"></script>
+    <script src="/js/admin/submissions.js"></script>
+    <script src="/js/admin/suggestions.js"></script>
+    <script src="/js/admin/locations.js"></script>
+    <script src="/js/admin/tickets.js"></script>
+    <script src="/js/admin/users.js"></script>
+    <script src="/js/admin/audit.js"></script>
+    <script src="/js/admin/system.js"></script>
+    <script src="/js/admin/main.js"></script>
   </body>
 </html>

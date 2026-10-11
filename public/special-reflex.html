@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signal Reflex | Dovedale GeoGuesser</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
+  </head>
+  <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
+    <nav id="site-nav"></nav>
+    <main class="flex-1 w-full max-w-md mx-auto px-4 sm:px-6 py-10 text-center">
+      <a href="/specials" class="m-btn m-btn-text m-btn-sm mb-6"><span class="material-symbols-outlined">arrow_back</span>Specials</a>
+      <h1 class="text-3xl font-bold mb-2">Signal Reflex</h1>
+      <p class="text-zinc-400 text-sm mb-8">Wait for the signal to clear, then hit it as fast as you can. Five goes; your average is your score.</p>
+
+      <button id="signal" class="reflex-signal" data-state="idle" aria-live="polite">
+        <span class="reflex-lamp" data-lamp="red"></span>
+        <span class="reflex-lamp" data-lamp="green"></span>
+      </button>
+      <p id="reflex-status" class="text-lg font-semibold mt-6 min-h-[1.75rem]">Press the signal or Space to start</p>
+      <div id="reflex-times" class="flex justify-center gap-1.5 flex-wrap mt-4 min-h-[1.75rem]"></div>
+      <p id="reflex-best" class="text-zinc-500 text-sm mt-6"></p>
+    </main>
+    <footer id="site-footer"></footer>
+    <script src="/js/sounds.js"></script>
+    <script src="/js/shared.js"></script>
+    <script src="/js/special-reflex.js"></script>
+  </body>
+</html>

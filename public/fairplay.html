@@ -4,68 +4,116 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fair Play Policy | Dovedale GeoGuesser</title>
-    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&family=Inter:opsz,wght@14..32,200..700"
-    />
-    <link rel="stylesheet" href="/shared.css?v=2" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
-    <nav class="bg-zinc-900 border-b border-zinc-800 flex items-center gap-4 px-4 py-2">
-      <a href="/" class="text-zinc-400 hover:text-zinc-100 transition text-sm flex items-center gap-1">
-        <span class="material-symbols-outlined text-base leading-none">home</span> Home
-      </a>
-      <span class="text-zinc-700">/</span>
-      <span class="text-zinc-100 font-semibold text-sm">Fair Play Policy</span>
-    </nav>
+    <nav id="site-nav"></nav>
     <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-10 prose">
       <h1 class="text-2xl font-bold mb-2 text-white">Fair Play Policy</h1>
-      <p class="text-zinc-600 text-xs mb-6">Last updated: 9 October 2026</p>
+      <p class="text-zinc-600 text-xs mb-6">Last updated: 11 October 2026</p>
+      <div class="summary">
+        <div class="summary-title">In short</div>
+        <ul>
+          <li>Play with your own knowledge. No tools, no looking answers up, no exploiting bugs.</li>
+          <li>Don't spoil answers, rig duels, or be abusive to other players.</li>
+          <li>Each rule has a number (F1 to F10). Staff quote that number when they take action, so you always know which rule it was about.</li>
+        </ul>
+      </div>
 
       <p>
-        Dovedale GeoGuesser is a skill-based location guessing game. To keep it enjoyable for everyone, we ask that all players compete honestly and treat other
-        players with respect.
+        Dovedale GeoGuesser is a game of skill. These rules keep the leaderboards meaningful and the community pleasant. They apply everywhere on the Service:
+        solo, the daily challenge, duels, submissions, suggestions and support tickets.
       </p>
 
-      <h2>1. What fair play means</h2>
-      <p>
-        Fair play means competing with your own knowledge and skill, without outside assistance, tools, or information that give you an unfair edge over other
-        players.
-      </p>
-
-      <h2>2. Prohibited behaviour</h2>
-      <ul>
-        <li><strong>Cheating:</strong> using external tools, scripts, or automation to assist with guesses.</li>
-        <li><strong>Exploiting:</strong> taking advantage of bugs or unintended game behaviour to gain an advantage.</li>
-        <li><strong>Spoiling:</strong> deliberately revealing location answers to other players who have not yet played.</li>
-        <li><strong>Boosting:</strong> colluding with another player in duels to artificially inflate scores or win rates.</li>
-        <li>
-          <strong>Abusing the suggestions feature:</strong> using "Suggest Change" to preview locations for competitive advantage, or submitting false or
-          harmful corrections.
+      <h2>The rules</h2>
+      <ul class="rules">
+        <li id="F1" class="rule">
+          <a href="#F1" class="rule-code">F1</a> <strong class="text-zinc-200">Cheating.</strong> Do not use external tools, scripts, automation, saved answer
+          lists, or help from other people or sites to work out a location while playing.
         </li>
-        <li><strong>Harassment:</strong> targeting or harassing other players in any context related to the game.</li>
+        <li id="F2" class="rule">
+          <a href="#F2" class="rule-code">F2</a> <strong class="text-zinc-200">Exploiting bugs.</strong> Do not take advantage of bugs or unintended behaviour
+          to gain score, time or information. If you find one, report it instead.
+        </li>
+        <li id="F3" class="rule">
+          <a href="#F3" class="rule-code">F3</a> <strong class="text-zinc-200">Score manipulation.</strong> Do not tamper with requests, timers or game data, or
+          otherwise try to record a score you did not earn.
+        </li>
+        <li id="F4" class="rule">
+          <a href="#F4" class="rule-code">F4</a> <strong class="text-zinc-200">Boosting and collusion.</strong> Do not arrange duels, throw games or trade wins
+          to inflate anyone's score, win rate or streak.
+        </li>
+        <li id="F5" class="rule">
+          <a href="#F5" class="rule-code">F5</a> <strong class="text-zinc-200">Spoiling.</strong> Do not reveal answers to players who have not played yet, in
+          particular the daily challenge before it resets.
+        </li>
+        <li id="F6" class="rule">
+          <a href="#F6" class="rule-code">F6</a> <strong class="text-zinc-200">Misusing Suggest Change.</strong> The suggestion tools show where locations are.
+          Do not use them to learn answers for play, and do not submit false or harmful corrections.
+        </li>
+        <li id="F7" class="rule">
+          <a href="#F7" class="rule-code">F7</a> <strong class="text-zinc-200">Harassment and abuse.</strong> Do not harass, threaten, insult or target other
+          players or staff, on the Service or about it elsewhere.
+        </li>
+        <li id="F8" class="rule">
+          <a href="#F8" class="rule-code">F8</a> <strong class="text-zinc-200">Inappropriate content.</strong> Do not use offensive, hateful, sexual or
+          otherwise inappropriate names, labels, hints or messages.
+        </li>
+        <li id="F9" class="rule">
+          <a href="#F9" class="rule-code">F9</a> <strong class="text-zinc-200">Disrupting duels.</strong> Do not repeatedly abandon, stall or deliberately
+          disconnect from duels to waste an opponent's time or avoid a loss.
+        </li>
+        <li id="F10" class="rule">
+          <a href="#F10" class="rule-code">F10</a> <strong class="text-zinc-200">False reports and ticket misuse.</strong> Do not file reports or tickets you
+          know to be false, or spam the support system.
+        </li>
       </ul>
-
-      <h2>3. Consequences</h2>
       <p>
-        Violations of this policy may result in warnings, temporary bans, or permanent account removal depending on severity. Repeated or egregious violations
-        will result in permanent bans. Decisions are made by the moderation team and are final unless successfully appealed via a support ticket.
+        Account rules A1 to A4 (ban evasion, account sharing, attacking the Service, impersonation) are in the
+        <a href="/tos#A1" class="text-blue-400 hover:text-blue-300">Terms of Service</a>. Rules for screenshots, U1 to U12, are in the
+        <a href="/guidelines" class="text-blue-400 hover:text-blue-300">Upload Guidelines</a>.
       </p>
 
-      <h2>4. Reporting</h2>
+      <h2>What happens if a rule is broken</h2>
+      <p>Staff choose a response that fits how serious the problem is and whether it has happened before:</p>
+      <ul>
+        <li><strong class="text-zinc-200">Warning:</strong> A recorded notice, with no restriction.</li>
+        <li><strong class="text-zinc-200">Limit:</strong> Uploads or duels are switched off for up to 96 hours.</li>
+        <li><strong class="text-zinc-200">Temporary ban:</strong> No access to the game for a set time, up to one year.</li>
+        <li><strong class="text-zinc-200">Permanent ban:</strong> For serious or repeated violations.</li>
+      </ul>
       <p>
-        If you believe another player is violating this policy, please report them using the <strong>Player Report</strong> category when submitting a support
-        ticket in your <a href="/settings" class="text-blue-400 hover:underline">account settings</a>. Include as much detail as possible: usernames, dates, and
-        any evidence you have.
+        Scores gained by breaking a rule may be removed. Every action is recorded with a reason and the rule number, and you can see it under Moderation History
+        in <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>.
       </p>
 
-      <h2>5. Good sportsmanship</h2>
+      <h2>Appeals</h2>
       <p>
-        Beyond the rules, we encourage positive sportsmanship. Accept wins and losses gracefully, and help make the community a welcoming place for new and
-        experienced players alike.
+        If you think an action was a mistake, open a
+        <a href="/settings?ticket=ban_appeal#support" class="text-blue-400 hover:text-blue-300">Ban Appeal ticket</a>. You can do this even while banned. A
+        supervisor or operator will review it, and if the appeal succeeds the action is marked as overturned in your history.
       </p>
+
+      <h2>Reporting other players</h2>
+      <p>
+        If you believe someone is breaking these rules, open a
+        <a href="/settings?ticket=report_user#support" class="text-blue-400 hover:text-blue-300">Report a User ticket</a>. Include the username, when it
+        happened, the rule number if you know it, and any evidence. Please do not confront or name players publicly.
+      </p>
+
+      <h2>Good sportsmanship</h2>
+      <p>Beyond the rules: take wins and losses well, and help make this a welcoming place for new and experienced players alike.</p>
     </main>
+    <footer id="site-footer"></footer>
+    <script src="/js/sounds.js"></script>
+    <script src="/js/shared.js"></script>
     <footer class="border-t border-zinc-800 py-6 text-center text-xs text-zinc-600">
       <div class="flex flex-wrap gap-4 justify-center">
         <a href="/tos" class="hover:text-zinc-400 transition">Terms of Service</a>

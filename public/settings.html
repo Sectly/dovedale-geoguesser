@@ -4,909 +4,86 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Settings | Dovedale GeoGuesser</title>
-    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&family=Inter:opsz,wght@14..32,200..700"
-    />
-    <link rel="stylesheet" href="/shared.css?v=2" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
-    <nav class="bg-zinc-900 border-b border-zinc-800 flex items-center gap-4 px-4 py-2">
-      <a href="/" class="text-zinc-400 hover:text-zinc-100 transition flex items-center gap-1 text-sm">
-        <span class="material-symbols-outlined text-base leading-none">home</span> Home
-      </a>
-      <span class="text-zinc-700">/</span>
-      <span class="text-zinc-100 font-semibold text-sm">Settings</span>
-      <div class="ml-auto" id="auth-area"></div>
-    </nav>
+    <nav id="site-nav"></nav>
 
     <main class="flex-1 max-w-xl mx-auto w-full px-4 py-8" id="main">
-      <div class="text-zinc-500 text-center py-16">Loading…</div>
+      <div class="skeleton h-8 w-40 mb-6"></div>
+      <div class="skeleton h-28 rounded-2xl mb-4"></div>
+      <div class="skeleton h-40 rounded-2xl mb-4"></div>
+      <div class="skeleton h-28 rounded-2xl"></div>
     </main>
+    <footer id="site-footer"></footer>
 
-    <script src="/shared.js"></script>
-    <script>
-      let currentUser = null;
-
-      async function init() {
-        try {
-          const r = await fetch("/api/auth/me");
-          if (r.ok) currentUser = await r.json();
-        } catch {}
-        if (!currentUser) {
-          el("main").innerHTML = `<div class="text-center py-16">
-          <p class="text-zinc-400 mb-4">You need to be logged in to access settings.</p>
-          <a href="/api/auth/login?redirect=/settings" class="bg-blue-600 hover:bg-blue-500 transition px-6 py-2.5 rounded-xl font-semibold">Login with Discord</a>
-          <p class="text-zinc-600 text-xs mt-4">By logging in you agree to our <a href="/tos" class="underline hover:text-zinc-400">Terms of Service</a> and <a href="/privacy" class="underline hover:text-zinc-400">Privacy Policy</a>.</p>
-        </div>`;
-          return;
-        }
-
-        el("auth-area").innerHTML = `<div class="flex items-center gap-2">
-        ${currentUser.avatar_url ? `<img src="${escHtml(currentUser.avatar_url)}" class="w-7 h-7 rounded-full" />` : ""}
-        <a href="/u/${encodeURIComponent(currentUser.username)}" class="text-sm text-zinc-300 hover:text-white transition">${escHtml(currentUser.display_name || currentUser.username)}</a>
-        <a href="/api/auth/logout" class="text-xs text-zinc-500 hover:text-zinc-300 transition ml-1">Logout</a>
-      </div>`;
-
-        renderSettings();
-        loadModerationHistory();
-      }
-
-      async function loadMySubmissions() {
-        const area = el("submissions-area");
-        if (!area) return;
-        try {
-          const r = await fetch("/api/submissions/mine");
-          if (!r.ok) throw new Error();
-          const subs = await r.json();
-          if (!subs.length) {
-            area.innerHTML = '<div class="text-zinc-600 text-sm">No submissions yet.</div>';
-            return;
-          }
-          const statusBg = { pending: "bg-yellow-900/50 text-yellow-300", approved: "bg-green-900/50 text-green-300", denied: "bg-red-900/50 text-red-300" };
-          area.innerHTML = subs
-            .map(
-              (s) => `
-          <div class="flex items-center gap-3 py-2 border-b border-zinc-800 last:border-0">
-            <img src="/uploads/${s.image_path}" alt="" class="w-12 h-8 rounded-lg object-cover flex-shrink-0" />
-            <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium truncate">${escHtml(s.label || "No label")} <span class="text-zinc-600 font-mono text-xs">SUB-${String(s.id).padStart(4, "0")}</span></div>
-              <div class="text-xs text-zinc-600">${new Date(s.created_at * 1000).toLocaleDateString()}</div>
-              ${s.status === "denied" && s.deny_reason ? `<div class="text-xs text-red-400 mt-0.5">Denied: ${escHtml(s.deny_reason)}</div>` : ""}
-            </div>
-            <span class="text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${statusBg[s.status] || "bg-zinc-700 text-zinc-400"}">${s.status}</span>
-          </div>`
-            )
-            .join("");
-        } catch {
-          area.innerHTML = '<div class="text-red-400 text-sm">Failed to load submissions.</div>';
-        }
-      }
-
-      async function loadModerationHistory() {
-        try {
-          const r = await fetch("/api/me/moderation");
-          if (!r.ok) throw new Error();
-          const { warnings, bans } = await r.json();
-          const area = el("mod-history-area");
-          if (!area) return;
-          if (!warnings.length && !bans.length) {
-            area.innerHTML = '<p class="text-zinc-600 text-sm">No moderation actions on your account.</p>';
-            return;
-          }
-          const fmt = (ts) => new Date(ts * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-          const BAN_LABELS = { user_ban_perm: "Permanent ban", user_ban_temp: "Temporary ban", user_unban: "Unbanned" };
-          const BAN_COLORS = { user_ban_perm: "text-red-400", user_ban_temp: "text-orange-400", user_unban: "text-green-400" };
-          area.innerHTML = [
-            ...warnings.map(
-              (w) => `
-            <div class="flex items-start gap-3 py-2.5 border-b border-zinc-800 last:border-0">
-              <span class="material-symbols-outlined text-yellow-400 text-base flex-shrink-0 mt-0.5" style="font-variation-settings:'FILL' 1">warning</span>
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-yellow-300">Warning</div>
-                <div class="text-zinc-400 text-xs mt-0.5">${escHtml(w.reason)}</div>
-              </div>
-              <span class="text-zinc-600 text-xs flex-shrink-0">${fmt(w.created_at)}</span>
-            </div>`
-            ),
-            ...bans.map(
-              (b) => `
-            <div class="flex items-start gap-3 py-2.5 border-b border-zinc-800 last:border-0">
-              <span class="material-symbols-outlined ${BAN_COLORS[b.action] ?? "text-zinc-400"} text-base flex-shrink-0 mt-0.5" style="font-variation-settings:'FILL' 1">block</span>
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium ${BAN_COLORS[b.action] ?? "text-zinc-300"}">${BAN_LABELS[b.action] ?? escHtml(b.action)}</div>
-                ${b.details ? `<div class="text-zinc-500 text-xs mt-0.5">${escHtml(b.details)}</div>` : ""}
-              </div>
-              <span class="text-zinc-600 text-xs flex-shrink-0">${fmt(b.created_at)}</span>
-            </div>`
-            ),
-          ].join("");
-        } catch {
-          const area = el("mod-history-area");
-          if (area) area.innerHTML = '<p class="text-zinc-600 text-sm">Could not load moderation history.</p>';
-        }
-      }
-
-      function section(title, content) {
-        return `<div class="bg-zinc-900 rounded-2xl p-5 mb-4">
-        <h2 class="font-bold text-base mb-4 text-zinc-200">${title}</h2>
-        ${content}
-      </div>`;
-      }
-
-      function banNotice() {
-        if (!currentUser.is_banned) return "";
-        const expiry =
-          currentUser.ban_type === "temp" && currentUser.ban_expires_at
-            ? `Expires: ${new Date(currentUser.ban_expires_at * 1000).toLocaleString()}`
-            : "This ban is permanent.";
-        return `<div class="bg-red-950/60 border border-red-700/50 rounded-2xl p-5 mb-6">
-        <div class="flex items-center gap-3 mb-2">
-          <span class="material-symbols-outlined text-red-400 text-2xl" style="font-variation-settings:'FILL' 1">block</span>
-          <h2 class="font-bold text-red-300 text-lg">Your account is banned</h2>
+    <script src="/js/sounds.js"></script>
+    <script src="/js/shared.js"></script>
+    <script src="/js/rules.js"></script>
+    <script src="/js/tickets.js"></script>
+    <script src="/js/settings.js"></script>
+    <div id="list-dialog" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-40 px-4 modal-fade">
+      <div class="m-dialog max-w-lg" role="dialog" aria-modal="true" aria-labelledby="list-dialog-title">
+        <div class="m-dialog-head">
+          <h2 id="list-dialog-title"></h2>
+          <span id="list-dialog-actions" class="flex items-center gap-2"></span>
+          <button onclick="closeListDialog()" class="m-icon-btn" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
         </div>
-        <p class="text-red-200/70 text-sm mb-1">${expiry}</p>
-        <p class="text-zinc-400 text-sm mt-2">Submit a support ticket below to appeal.</p>
-      </div>`;
-      }
-
-      function renderSettings() {
-        el("main").innerHTML = `
-        <h1 class="text-2xl font-bold mb-6">Settings</h1>
-
-        ${banNotice()}
-
-        ${section(
-          "Privacy",
-          `
-          <div class="flex items-center justify-between py-2">
-            <div>
-              <div class="font-medium text-sm">Private profile</div>
-              <div class="text-zinc-500 text-xs mt-0.5">Only you can view your profile page and stats</div>
-            </div>
-            <button id="privacy-toggle" onclick="togglePrivacy()"
-              class="relative w-11 h-6 rounded-full transition-colors ${currentUser.profile_private ? "bg-blue-600" : "bg-zinc-600"}">
-              <span class="absolute top-0.5 transition-transform ${currentUser.profile_private ? "translate-x-5" : "translate-x-0.5"} left-0.5 w-5 h-5 bg-white rounded-full shadow"></span>
-            </button>
-          </div>
-        `
-        )}
-
-        ${section(
-          "Support",
-          `
-          <p class="text-zinc-400 text-sm mb-4">Have an issue, appeal a ban, or need to report something? Submit a support ticket and a moderator will respond.</p>
-          <div id="tickets-area" class="max-h-80 overflow-y-auto pr-1 custom-scroll">
-            <div class="text-zinc-500 text-sm">Loading your tickets…</div>
-          </div>
-          <div class="border-t border-zinc-800 mt-4 pt-4 flex items-center justify-between">
-            <span class="text-xs text-zinc-500 font-medium uppercase tracking-wide">New ticket</span>
-            <button onclick="openTicketInfoModal()" id="new-ticket-btn" class="bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-xl text-sm font-semibold">
-              + New Ticket
-            </button>
-          </div>
-          <div id="ticket-form" class="hidden mt-3 space-y-3">
-            <div>
-              <select id="ticket-category" onchange="onCategoryChange()"
-                class="w-full bg-zinc-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-zinc-500">
-                <option value="" disabled selected>Select a category…</option>
-                <option value="ban_appeal">Ban Appeal</option>
-                <option value="submission_appeal">Submission Denied Appeal</option>
-                <option value="report_user">Report a User</option>
-                <option value="report_location">Report a Location</option>
-                <option value="account">Account Issue</option>
-                <option value="other">Other</option>
-                <option value="bug_report">Bug / Technical Issue</option>
-                <option value="feature_request">Feature Request</option>
-              </select>
-            </div>
-            <div id="ticket-github-notice" class="hidden bg-zinc-800 rounded-xl p-4 text-sm text-zinc-300">
-              <div class="flex items-start gap-2">
-                <span class="material-symbols-outlined text-blue-400 flex-shrink-0 text-base mt-0.5">open_in_new</span>
-                <div>
-                  <div class="font-semibold text-zinc-100 mb-1">Use GitHub Issues instead</div>
-                  <p class="text-zinc-400 text-xs mb-3">Bugs, technical problems, and feature requests are tracked on GitHub where they can be discussed and prioritised properly. Support tickets are not monitored for this.</p>
-                  <a id="ticket-github-link" href="#" target="_blank" rel="noopener"
-                    class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-lg text-sm font-semibold text-white">
-                    Open GitHub Issues
-                    <span class="material-symbols-outlined text-sm">open_in_new</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-            <div id="ticket-fields" class="hidden space-y-3">
-              <div id="ticket-structured-fields"></div>
-              <div>
-                <input id="ticket-subject" type="text" minlength="5" maxlength="100" placeholder="Subject (5-100 characters)"
-                  class="w-full bg-zinc-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600" />
-              </div>
-              <div>
-                <textarea id="ticket-message" rows="5" minlength="20" maxlength="2000" placeholder="Describe your issue in detail. Be as specific as possible - include dates, IDs, and links where relevant."
-                  oninput="el('msg-counter').textContent=this.value.length+'/2000'"
-                  class="w-full bg-zinc-800 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600"></textarea>
-                <div class="flex justify-between mt-1">
-                  <p class="text-zinc-600 text-xs">Minimum 20 characters. Links are allowed.</p>
-                  <span id="msg-counter" class="text-zinc-600 text-xs">0/2000</span>
-                </div>
-              </div>
-              <div class="flex gap-2">
-                <button onclick="submitTicket()" class="bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-xl text-sm font-semibold">Submit</button>
-                <button onclick="hideTicketForm()" class="bg-zinc-700 hover:bg-zinc-600 transition px-4 py-2 rounded-xl text-sm">Cancel</button>
-              </div>
-              <p id="ticket-error" class="text-red-400 text-xs hidden"></p>
-            </div>
-            <div id="ticket-form-cancel-row" class="hidden">
-              <button onclick="hideTicketForm()" class="text-zinc-500 hover:text-zinc-300 transition text-sm">Cancel</button>
-            </div>
-          </div>
-        `
-        )}
-
-        ${section(
-          "My Submissions",
-          `
-          <p class="text-zinc-400 text-sm mb-4">Locations you've submitted for review. Submissions are kept for 30 days (approved submissions kept indefinitely).</p>
-          <div id="submissions-area" class="max-h-80 overflow-y-auto pr-1 custom-scroll"><div class="text-zinc-600 text-sm">Loading…</div></div>
-        `
-        )}
-
-        ${section(
-          "Moderation History",
-          `
-          <p class="text-zinc-400 text-sm mb-4">Your account's moderation history. Warnings and bans issued by staff are shown here.</p>
-          <div id="mod-history-area"><div class="text-zinc-600 text-sm">Loading…</div></div>
-        `
-        )}
-
-        ${section(
-          "Your Data (GDPR)",
-          `
-          <p class="text-zinc-400 text-sm mb-4">You have the right to access and export all data we hold about your account.</p>
-          <div class="flex items-start justify-between gap-4 py-2 border-b border-zinc-800 mb-2">
-            <div>
-              <div class="font-medium text-sm">Export your data</div>
-              <div class="text-zinc-500 text-xs mt-0.5">Download a JSON file containing all your account data, scores, and submissions.</div>
-            </div>
-            <button onclick="exportData()" class="flex-shrink-0 bg-zinc-700 hover:bg-zinc-600 transition px-3 py-1.5 rounded-lg text-sm font-semibold">
-              Export
-            </button>
-          </div>
-          <p class="text-zinc-600 text-xs mt-2">To request deletion of your data, use the Delete Account option below.</p>
-        `
-        )}
-
-        ${section(
-          "Account",
-          `
-          <div class="flex items-start justify-between gap-4 py-2">
-            <div>
-              <div class="font-medium text-sm">Delete account</div>
-              <div class="text-zinc-500 text-xs mt-0.5">Permanently removes your username, stats, and personal data. Moderation actions are kept for safety purposes.</div>
-            </div>
-            <button onclick="deleteAccount()" class="flex-shrink-0 bg-red-900 hover:bg-red-800 transition px-3 py-1.5 rounded-lg text-sm font-semibold text-red-200">
-              Delete
-            </button>
-          </div>
-          <div id="delete-confirm-row" class="hidden mt-3 bg-red-950/50 border border-red-700/40 rounded-xl p-4 space-y-3">
-            <p class="text-red-200 text-sm font-medium">This cannot be undone. Type <code class="bg-red-900/60 px-1 rounded text-red-300">DELETE</code> to confirm.</p>
-            <div class="flex gap-2">
-              <input id="delete-confirm-input" type="text" placeholder="Type DELETE" maxlength="10"
-                class="flex-1 bg-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-zinc-600" />
-              <button onclick="confirmDeleteAccount()" class="bg-red-700 hover:bg-red-600 transition px-4 py-2 rounded-lg text-sm font-semibold text-white">Confirm</button>
-              <button onclick="el('delete-confirm-row').classList.add('hidden')" class="bg-zinc-700 hover:bg-zinc-600 transition px-3 py-2 rounded-lg text-sm">Cancel</button>
-            </div>
-          </div>
-        `
-        )}
-
-        <div class="text-xs text-zinc-600 flex gap-4 flex-wrap mt-4">
-          <a href="/tos" class="hover:text-zinc-400 transition">Terms of Service</a>
-          <a href="/privacy" class="hover:text-zinc-400 transition">Privacy Policy</a>
-          <a href="/guidelines" class="hover:text-zinc-400 transition">Upload Guidelines</a>
-        </div>
-      `;
-        loadMyTickets();
-        loadMySubmissions();
-
-        // Pre-fill ticket form if arriving from a report link (e.g. ?ticket=report_location&loc=42)
-        const urlParams = new URLSearchParams(location.search);
-        const preTicket = urlParams.get("ticket");
-        if (preTicket) {
-          const catEl = el("ticket-category");
-          if (catEl && [...catEl.options].some((o) => o.value === preTicket)) {
-            openTicketInfoModal();
-            catEl._prefill = { category: preTicket, loc: urlParams.get("loc") };
-          }
-        }
-      }
-
-      async function togglePrivacy() {
-        const newVal = !currentUser.profile_private;
-        try {
-          const r = await fetch("/api/settings", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ profile_private: newVal }),
-          });
-          if (!r.ok) throw new Error();
-          currentUser.profile_private = newVal ? 1 : 0;
-          renderSettings();
-        } catch {
-          showToast("Failed to update setting.", "error");
-        }
-      }
-
-      const CAT_LABELS = {
-        ban_appeal: "Ban Appeal",
-        submission_appeal: "Submission Appeal",
-        bug_report: "Bug Report",
-        report_user: "Report User",
-        report_location: "Report Location",
-        account: "Account Issue",
-        other: "Other",
-      };
-      let _myTickets = [];
-      let _viewingTicketId = null;
-      // Expose ticket opener globally so inline onclick can reach it (let vars aren't on window)
-      window._openTicket = (id) => {
-        const t = _myTickets.find((x) => x.id === id);
-        if (t) openTicketView(t);
-      };
-
-      async function loadMyTickets() {
-        try {
-          const r = await fetch("/api/support/mine");
-          if (!r.ok) throw new Error();
-          _myTickets = await r.json();
-          renderTicketList();
-          if (_viewingTicketId !== null) {
-            const t = _myTickets.find((t) => t.id === _viewingTicketId);
-            if (t) openTicketView(t);
-          }
-        } catch {
-          el("tickets-area").innerHTML = '<div class="text-red-400 text-sm">Failed to load tickets.</div>';
-        }
-      }
-
-      function renderTicketList() {
-        const area = el("tickets-area");
-        if (!_myTickets.length) {
-          area.innerHTML = '<div class="text-zinc-500 text-sm">No tickets yet.</div>';
-          return;
-        }
-        const statusBg = { open: "bg-blue-900/40 text-blue-300", closed: "bg-zinc-700/60 text-zinc-400" };
-        area.innerHTML = _myTickets
-          .map((t) => {
-            const hasStaffReply = Array.isArray(t.replies) && t.replies.some((r) => r.type === "staff");
-            const badges = [
-              t.close_requested ? '<span class="text-xs bg-orange-900/60 text-orange-300 px-2 py-0.5 rounded-full">Close requested</span>' : "",
-              t.awaiting_staff && !t.close_requested ? '<span class="text-xs bg-blue-900/60 text-blue-300 px-2 py-0.5 rounded-full">You replied</span>' : "",
-              hasStaffReply && !t.awaiting_staff && t.status === "open"
-                ? '<span class="text-xs bg-green-900/50 text-green-300 px-2 py-0.5 rounded-full">Staff replied</span>'
-                : "",
-            ]
-              .filter(Boolean)
-              .join("");
-            return `
-        <div onclick="_openTicket(${t.id})"
-          class="bg-zinc-800 hover:bg-zinc-750 rounded-xl p-3 mb-2 cursor-pointer transition flex items-center justify-between gap-3">
-          <div class="flex-1 min-w-0">
-            <div class="font-medium text-sm truncate">${escHtml(t.subject)}</div>
-            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
-              ${t.category ? `<span class="text-xs text-zinc-500">${CAT_LABELS[t.category] || t.category}</span>` : ""}
-              <span class="text-zinc-700 text-xs">·</span>
-              <span class="text-xs text-zinc-600">${new Date(t.created_at * 1000).toLocaleDateString()}</span>
-              ${badges}
-            </div>
-          </div>
-          <span class="text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${statusBg[t.status] || "bg-zinc-700 text-zinc-400"}">${t.status}</span>
-        </div>`;
-          })
-          .join("");
-      }
-
-      function openTicketView(t) {
-        if (!t) return;
-        _viewingTicketId = t.id;
-        const replies = Array.isArray(t.replies) ? t.replies : [];
-        const hasStaffReply = replies.some((r) => r.type === "staff");
-        const canReply = t.status === "open" && hasStaffReply && !t.awaiting_staff;
-        const awaitingStaff = t.status === "open" && t.awaiting_staff;
-
-        el("tvm-subject").textContent = t.subject;
-        el("tvm-meta").innerHTML = [
-          t.category ? `<span class="text-xs text-zinc-500">${CAT_LABELS[t.category] || t.category}</span>` : "",
-          `<span class="text-zinc-700 text-xs">·</span>`,
-          `<span class="text-xs text-zinc-600">${new Date(t.created_at * 1000).toLocaleDateString()}</span>`,
-          t.status === "open"
-            ? '<span class="text-xs bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded-full">Open</span>'
-            : '<span class="text-xs bg-zinc-700/60 text-zinc-400 px-2 py-0.5 rounded-full">Closed</span>',
-          t.close_requested ? '<span class="text-xs bg-orange-900/40 text-orange-300 px-2 py-0.5 rounded-full">Close requested</span>' : "",
-        ]
-          .filter(Boolean)
-          .join("");
-
-        const repliesHtml = replies
-          .map((r) => {
-            const isStaff = r.type === "staff";
-            const ts = new Date(r.created_at * 1000).toLocaleString();
-            return `<div class="${isStaff ? "bg-zinc-700/40 border border-zinc-700" : "bg-zinc-800"} rounded-xl px-3 py-2.5">
-          <div class="text-xs text-zinc-500 mb-1 flex gap-2">
-            <span class="font-medium">${isStaff ? "Staff reply" : "Your reply"}</span>
-            <span class="text-zinc-600">${ts}</span>
-          </div>
-          <div class="text-sm text-zinc-300 whitespace-pre-wrap">${escHtml(r.body)}</div>
-        </div>`;
-          })
-          .join("");
-
-        el("tvm-body").innerHTML = `
-        <div class="flex flex-col gap-3">
-          <div>
-            <div class="text-xs text-zinc-500 font-medium mb-1.5">Your message · <span class="text-zinc-600">${new Date(t.created_at * 1000).toLocaleString()}</span></div>
-            <div class="bg-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-300 whitespace-pre-wrap">${escHtml(t.message || "")}</div>
-          </div>
-          ${repliesHtml}
-          ${!hasStaffReply && t.status === "open" ? '<div class="text-zinc-500 text-sm italic">Waiting for staff to respond.</div>' : ""}
-        </div>
-      `;
-
-        let actionsHtml = "";
-        if (t.status === "closed") {
-          actionsHtml = `<div class="text-zinc-500 text-sm italic">This ticket is closed.</div>`;
-        } else if (canReply) {
-          actionsHtml = `
-          <textarea id="tvm-reply-input" rows="3" maxlength="2000" placeholder="Your reply…"
-            class="w-full bg-zinc-800 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600 mb-2"></textarea>
-          <div class="flex gap-2 flex-wrap">
-            <button onclick="sendUserReply(${t.id})" class="flex-1 bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-xl text-sm font-semibold">Send reply</button>
-            <button onclick="requestTicketClose(${t.id})" class="bg-zinc-700 hover:bg-zinc-600 transition px-4 py-2 rounded-xl text-sm">Request close</button>
-          </div>
-          <p id="tvm-error" class="text-red-400 text-xs hidden mt-1"></p>`;
-        } else if (awaitingStaff) {
-          actionsHtml = t.close_requested
-            ? `<div class="flex items-center gap-2 text-orange-300 text-sm">
-              <span class="material-symbols-outlined text-base" style="font-variation-settings:'FILL' 1">schedule</span>
-              Close requested. Awaiting staff.
-            </div>`
-            : `<div class="flex items-center gap-2 text-zinc-400 text-sm">
-              <span class="material-symbols-outlined text-base" style="font-variation-settings:'FILL' 1">schedule</span>
-              Waiting for staff to reply.
-            </div>`;
-        } else if (!hasStaffReply && t.status === "open" && !t.awaiting_staff) {
-          actionsHtml = `
-          <div class="flex items-center justify-between gap-3">
-            <span class="text-zinc-500 text-sm italic">Waiting for staff to respond.</span>
-            <button onclick="requestTicketClose(${t.id})" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline flex-shrink-0">Withdraw ticket</button>
-          </div>`;
-        }
-        el("tvm-actions").innerHTML = actionsHtml;
-        el("tvm-actions").classList.toggle("hidden", !actionsHtml);
-
-        el("ticket-view-modal").classList.remove("hidden");
-      }
-
-      function closeTicketView() {
-        el("ticket-view-modal").classList.add("hidden");
-        _viewingTicketId = null;
-      }
-
-      async function sendUserReply(ticketId) {
-        const input = el("tvm-reply-input");
-        const errEl = el("tvm-error");
-        const msg = input?.value?.trim() ?? "";
-        errEl.classList.add("hidden");
-        if (msg.length < 5) {
-          errEl.textContent = "Reply must be at least 5 characters.";
-          errEl.classList.remove("hidden");
-          return;
-        }
-        try {
-          const r = await fetch(`/api/support/${ticketId}/reply`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: msg }),
-          });
-          if (!r.ok) throw new Error(await r.text());
-          showToast("Reply sent.", "success");
-          await loadMyTickets();
-          const updated = _myTickets.find((t) => t.id === ticketId);
-          if (updated) openTicketView(updated);
-        } catch (err) {
-          errEl.textContent = err.message || "Failed to send reply.";
-          errEl.classList.remove("hidden");
-        }
-      }
-
-      async function requestTicketClose(ticketId) {
-        try {
-          const r = await fetch(`/api/support/${ticketId}/request-close`, { method: "POST" });
-          if (!r.ok) throw new Error(await r.text());
-          showToast("Close request sent.", "success");
-          await loadMyTickets();
-          const updated = _myTickets.find((t) => t.id === ticketId);
-          if (updated) openTicketView(updated);
-        } catch (err) {
-          showToast(err.message || "Failed.", "error");
-        }
-      }
-
-      let _repoUrl = null;
-      fetch("/api/meta")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d?.repo) {
-            _repoUrl = d.repo;
-            const row = el("modal-github-row");
-            const link = el("modal-github-link");
-            if (row && link) {
-              link.href = _repoUrl + "/issues/new";
-              const repoName = _repoUrl.replace("https://github.com/", "").split("/").slice(1).join("/");
-              link.textContent = (repoName || _repoUrl) + "/issues →";
-              row.classList.remove("hidden");
-            }
-          }
-        });
-
-      const STRUCTURED_FIELDS = {
-        ban_appeal: [
-          { id: "sf_ban_date", label: "Approximately when were you banned?", type: "date", required: true },
-          {
-            id: "sf_ban_reason",
-            label: "What reason were you given (if any)?",
-            type: "text",
-            placeholder: 'e.g. "Ban evasion" or "No reason given"',
-            min: 0,
-            max: 200,
-          },
-          {
-            id: "sf_ban_acknowledge",
-            label: "Do you understand which rule was broken?",
-            type: "select",
-            options: ["-- Select --", "Yes", "No", "I disagree with the reason"],
-            required: true,
-          },
-        ],
-        submission_appeal: [
-          { id: "sf_sub_id", label: "Submission ID (if known)", type: "text", placeholder: "e.g. 42", min: 0, max: 20 },
-          {
-            id: "sf_sub_location",
-            label: "What location or area was the submission for?",
-            type: "text",
-            placeholder: "e.g. Dovedale Station area",
-            min: 2,
-            max: 100,
-            required: true,
-          },
-          { id: "sf_sub_reason", label: "Denial reason shown to you (if any)", type: "text", placeholder: "Leave blank if none was given", min: 0, max: 300 },
-        ],
-        report_user: [
-          {
-            id: "sf_report_username",
-            label: "Username of the user you are reporting",
-            type: "text",
-            placeholder: "Exact username",
-            min: 3,
-            max: 50,
-            required: true,
-          },
-          { id: "sf_report_when", label: "Approximately when did this occur?", type: "date", required: false },
-          {
-            id: "sf_report_evidence",
-            label: "Any links or evidence? (screenshots, URLs)",
-            type: "text",
-            placeholder: "Optional but helpful",
-            min: 0,
-            max: 500,
-          },
-        ],
-        report_location: [
-          { id: "sf_loc_id", label: "Location ID (e.g. LOC-0042)", type: "text", placeholder: "LOC-XXXX", min: 0, max: 20 },
-          {
-            id: "sf_loc_issue",
-            label: "What is the issue with this location?",
-            type: "select",
-            options: ["-- Select --", "Incorrect map pin", "Image is wrong or offensive", "Duplicate of another location", "Image quality too low", "Other"],
-            required: true,
-          },
-          { id: "sf_loc_evidence", label: "Any additional details or evidence?", type: "text", placeholder: "Optional", min: 0, max: 500 },
-        ],
-        account: [
-          {
-            id: "sf_account_type",
-            label: "What type of account issue?",
-            type: "select",
-            options: [
-              "-- Select --",
-              "Profile or avatar not syncing",
-              "Wrong username or display name",
-              "My data looks incorrect",
-              "I want to transfer my account",
-              "Other",
-            ],
-            required: true,
-          },
-        ],
-      };
-
-      function fieldInputClass() {
-        return "w-full bg-zinc-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600 text-zinc-200";
-      }
-
-      function renderStructuredFields(category) {
-        const fields = STRUCTURED_FIELDS[category];
-        const container = el("ticket-structured-fields");
-        if (!fields || !fields.length) {
-          container.innerHTML = "";
-          return;
-        }
-        container.innerHTML = fields
-          .map((f) => {
-            const reqMark = f.required ? '<span class="text-red-400 ml-0.5">*</span>' : "";
-            let input = "";
-            if (f.type === "select") {
-              input = `<select id="${f.id}" class="${fieldInputClass()} text-zinc-400"><option value="" disabled selected>${f.options[0]}</option>${f.options
-                .slice(1)
-                .map((o) => `<option value="${o}">${o}</option>`)
-                .join("")}</select>`;
-            } else {
-              input = `<input id="${f.id}" type="${f.type}" ${f.placeholder ? `placeholder="${f.placeholder}"` : ""} ${f.max ? `maxlength="${f.max}"` : ""} class="${fieldInputClass()}" />`;
-            }
-            return `<div class="space-y-1"><label class="text-xs text-zinc-400 font-medium">${f.label}${reqMark}</label>${input}</div>`;
-          })
-          .join("");
-      }
-
-      const CATEGORY_SUBJECTS = {
-        ban_appeal: "Ban Appeal",
-        submission_appeal: "Submission Denied Appeal",
-        report_user: "Reporting a User",
-        report_location: "Reporting a Location",
-        account: "Account Issue",
-      };
-
-      function onCategoryChange() {
-        const cat = el("ticket-category").value;
-        const isGithub = cat === "bug_report" || cat === "feature_request";
-        el("ticket-github-notice").classList.toggle("hidden", !isGithub);
-        el("ticket-fields").classList.toggle("hidden", isGithub || !cat);
-        el("ticket-form-cancel-row").classList.toggle("hidden", !isGithub);
-        if (isGithub && _repoUrl) el("ticket-github-link").href = _repoUrl + "/issues/new";
-        if (!isGithub && cat) {
-          renderStructuredFields(cat);
-          const subjectEl = el("ticket-subject");
-          if (subjectEl && !subjectEl.value && CATEGORY_SUBJECTS[cat]) subjectEl.value = CATEGORY_SUBJECTS[cat];
-        }
-      }
-
-      function openTicketInfoModal() {
-        el("ticket-info-modal").classList.remove("hidden");
-      }
-      function closeTicketInfoModal() {
-        el("ticket-info-modal").classList.add("hidden");
-        el("modal-category").value = "";
-      }
-      function proceedToTicketForm() {
-        const modalCat = el("modal-category").value;
-        closeTicketInfoModal();
-        showTicketForm();
-        const catEl = el("ticket-category");
-        if (modalCat) {
-          catEl.value = modalCat;
-          onCategoryChange();
-        }
-        if (catEl?._prefill) {
-          const { category, loc } = catEl._prefill;
-          catEl._prefill = null;
-          catEl.value = category;
-          onCategoryChange();
-          if (loc) {
-            setTimeout(() => {
-              const locField = el("sf_loc_id");
-              if (locField) locField.value = "LOC-" + String(parseInt(loc)).padStart(4, "0");
-            }, 50);
-          }
-        }
-      }
-      function showTicketForm() {
-        el("ticket-form").classList.remove("hidden");
-        el("new-ticket-btn").classList.add("hidden");
-      }
-      function hideTicketForm() {
-        el("ticket-form").classList.add("hidden");
-        el("ticket-github-notice").classList.add("hidden");
-        el("ticket-fields").classList.add("hidden");
-        el("ticket-form-cancel-row").classList.add("hidden");
-        el("ticket-category").value = "";
-        el("ticket-structured-fields").innerHTML = "";
-        if (el("ticket-subject")) el("ticket-subject").value = "";
-        if (el("ticket-message")) el("ticket-message").value = "";
-        el("new-ticket-btn").classList.remove("hidden");
-      }
-
-      function collectStructuredFields(category) {
-        const fields = STRUCTURED_FIELDS[category];
-        if (!fields) return "";
-        const lines = [];
-        for (const f of fields) {
-          const input = el(f.id);
-          if (!input) continue;
-          const val = input.value.trim();
-          if (f.required && (!val || val.startsWith("--"))) return null; // signals validation fail
-          if (val && !val.startsWith("--")) lines.push(`${f.label}\n${val}`);
-        }
-        return lines.join("\n\n");
-      }
-
-      async function submitTicket() {
-        const category = el("ticket-category").value;
-        const subject = el("ticket-subject")?.value.trim() ?? "";
-        const mainMessage = el("ticket-message")?.value.trim() ?? "";
-        const errEl = el("ticket-error");
-        errEl.classList.add("hidden");
-
-        if (!category || category === "bug_report" || category === "feature_request") {
-          errEl.textContent = "Select a category.";
-          errEl.classList.remove("hidden");
-          return;
-        }
-        if (subject.length < 5) {
-          errEl.textContent = "Subject must be at least 5 characters.";
-          errEl.classList.remove("hidden");
-          return;
-        }
-        if (subject.length > 100) {
-          errEl.textContent = "Subject must be 100 characters or fewer.";
-          errEl.classList.remove("hidden");
-          return;
-        }
-        if (mainMessage.length < 20) {
-          errEl.textContent = "Details must be at least 20 characters.";
-          errEl.classList.remove("hidden");
-          return;
-        }
-
-        const structuredPart = collectStructuredFields(category);
-        if (structuredPart === null) {
-          errEl.textContent = "Fill in all required fields.";
-          errEl.classList.remove("hidden");
-          return;
-        }
-
-        const message = structuredPart ? structuredPart + "\n\n---\n\n" + mainMessage : mainMessage;
-
-        try {
-          const r = await fetch("/api/support", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ subject, message, category }),
-          });
-          if (!r.ok) throw new Error(await r.text());
-          hideTicketForm();
-          await loadMyTickets();
-        } catch (err) {
-          errEl.textContent = err.message || "Failed to submit ticket.";
-          errEl.classList.remove("hidden");
-        }
-      }
-
-      async function exportData() {
-        try {
-          const r = await fetch("/api/gdpr/export");
-          if (!r.ok) throw new Error(await r.text());
-          const data = await r.json();
-          const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `dovedale-data-${new Date().toISOString().slice(0, 10)}.json`;
-          a.click();
-          URL.revokeObjectURL(url);
-          showToast("Data exported.", "success");
-        } catch (err) {
-          showToast(err.message || "Failed to export data.", "error");
-        }
-      }
-
-      async function deleteAccount() {
-        const confirmEl = el("delete-confirm-row");
-        if (!confirmEl) return;
-        confirmEl.classList.remove("hidden");
-        confirmEl.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-
-      async function confirmDeleteAccount() {
-        const input = el("delete-confirm-input");
-        if (!input || input.value.trim().toUpperCase() !== "DELETE") {
-          showToast("Type DELETE to confirm.", "error");
-          return;
-        }
-        try {
-          const r = await fetch("/api/account", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: true }) });
-          if (!r.ok) throw new Error(await r.text());
-          window.location.href = "/";
-        } catch (err) {
-          showToast(err.message || "Failed to delete account.", "error");
-        }
-      }
-
-      init();
-    </script>
-    <div id="ticket-view-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
-        <div class="flex items-start justify-between gap-3 p-5 border-b border-zinc-800 flex-shrink-0">
-          <div class="flex-1 min-w-0">
-            <h2 id="tvm-subject" class="font-bold text-base leading-tight"></h2>
-            <div class="flex items-center gap-2 mt-1 flex-wrap" id="tvm-meta"></div>
-          </div>
-          <button onclick="closeTicketView()" class="text-zinc-500 hover:text-zinc-300 transition flex-shrink-0">
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        <div class="flex-1 overflow-y-auto p-5 space-y-4 custom-scroll" id="tvm-body"></div>
-        <div id="tvm-actions" class="p-5 border-t border-zinc-800 flex-shrink-0 space-y-2"></div>
+        <div id="list-dialog-body" class="m-dialog-body" style="padding-left: 0.5rem; padding-right: 0.5rem"></div>
       </div>
     </div>
-
-    <div id="ticket-info-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg">
-        <div class="flex items-center gap-3 mb-4">
-          <span class="material-symbols-outlined text-blue-400 text-2xl" style="font-variation-settings: &quot;FILL&quot; 1">confirmation_number</span>
-          <h2 class="font-bold text-lg">Before you submit a ticket</h2>
-        </div>
-        <div class="space-y-3 text-sm text-zinc-400 mb-5">
-          <p>Support tickets are reviewed by volunteer moderators. Please read before submitting:</p>
-          <div class="bg-zinc-800 rounded-xl p-3 space-y-2">
-            <div class="flex gap-2">
-              <span class="material-symbols-outlined text-green-400 text-base flex-shrink-0" style="font-variation-settings: &quot;FILL&quot; 1"
-                >check_circle</span
-              ><span
-                ><strong class="text-zinc-200">What tickets are for:</strong> ban appeals, contested submission denials, reporting users or locations, and
-                account issues.</span
-              >
-            </div>
-            <div class="flex gap-2">
-              <span class="material-symbols-outlined text-red-400 text-base flex-shrink-0" style="font-variation-settings: &quot;FILL&quot; 1">cancel</span
-              ><span
-                ><strong class="text-zinc-200">Not for bugs or feature requests</strong> - use GitHub instead (link below). Misuse may result in
-                restrictions.</span
-              >
-            </div>
-            <div class="flex gap-2">
-              <span class="material-symbols-outlined text-yellow-400 text-base flex-shrink-0" style="font-variation-settings: &quot;FILL&quot; 1">schedule</span
-              ><span
-                ><strong class="text-zinc-200">Response time:</strong> this is a free, volunteer-run service - we check tickets when we can. Responses may take days to weeks. Thank you for your patience.</span
-              >
-            </div>
-            <div class="flex gap-2">
-              <span class="material-symbols-outlined text-zinc-400 text-base flex-shrink-0" style="font-variation-settings: &quot;FILL&quot; 1">info</span
-              ><span><strong class="text-zinc-200">Be specific:</strong> include relevant IDs, dates, and links. Vague tickets are harder to resolve.</span>
-            </div>
-            <div class="flex gap-2">
-              <span class="material-symbols-outlined text-zinc-400 text-base flex-shrink-0" style="font-variation-settings: &quot;FILL&quot; 1">policy</span
-              ><span><strong class="text-zinc-200">Limit:</strong> 3 tickets per day. Do not submit duplicates.</span>
-            </div>
+    <div id="ticket-view-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4 modal-fade">
+      <div class="m-dialog max-w-lg" style="height: 85vh" role="dialog" aria-modal="true" aria-labelledby="tvm-subject">
+        <div class="m-dialog-head border-b border-zinc-800">
+          <button onclick="closeTicketView()" class="m-icon-btn -ml-2" aria-label="Back to my tickets">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <div class="flex-1 min-w-0">
+            <h2 id="tvm-subject" class="truncate"></h2>
+            <div class="flex items-center gap-2 mt-0.5 flex-wrap" id="tvm-meta"></div>
           </div>
-          <div id="modal-github-row" class="hidden bg-zinc-800/60 border border-zinc-700 rounded-xl p-3 flex flex-col gap-1.5">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-zinc-400 text-base flex-shrink-0">open_in_new</span>
+        </div>
+        <div class="flex-1 overflow-y-auto p-5 flex flex-col gap-3" id="tvm-body"></div>
+        <div id="tvm-actions" class="px-5 py-4 border-t border-zinc-800 flex-shrink-0 flex flex-col gap-2"></div>
+      </div>
+    </div>
+    <div id="ticket-info-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4 modal-fade">
+      <div class="m-dialog max-w-md" role="dialog" aria-modal="true" aria-labelledby="ticket-info-title">
+        <div class="m-dialog-head">
+          <h2 id="ticket-info-title">New ticket</h2>
+          <button onclick="closeTicketInfoModal()" class="m-icon-btn" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div class="m-dialog-body">
+          <p class="text-sm text-zinc-400 mb-4">
+            Tickets go to our volunteer staff: ban appeals, denied submissions, reports, and account problems. Replies can take a few days.
+          </p>
+          <ul class="text-sm text-zinc-400 flex flex-col gap-2 mb-5">
+            <li class="flex gap-2.5">
+              <span class="material-symbols-outlined text-lg text-zinc-500 flex-shrink-0">edit_note</span>Include IDs, dates and links so staff can find what
+              you mean.
+            </li>
+            <li class="flex gap-2.5">
+              <span class="material-symbols-outlined text-lg text-zinc-500 flex-shrink-0">filter_3</span>You can open up to three tickets a day. Please don't
+              send duplicates.
+            </li>
+            <li id="modal-github-row" class="hidden gap-2.5">
+              <span class="material-symbols-outlined text-lg text-zinc-500 flex-shrink-0">bug_report</span>
               <span
-                >For <strong class="text-zinc-200">bugs</strong> and <strong class="text-zinc-200">feature requests</strong>, please open a GitHub issue
-                instead:</span
+                >Bugs and feature requests go on
+                <a id="modal-github-link" href="#" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">GitHub Issues</a>
+                instead.</span
               >
-            </div>
-            <a id="modal-github-link" href="#" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline text-xs font-mono ml-7"
-              >GitHub Issues →</a
-            >
-          </div>
-        </div>
-        <div class="mb-5">
-          <label class="text-xs text-zinc-400 font-medium block mb-1.5">Category</label>
-          <select
-            id="modal-category"
-            class="w-full bg-zinc-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-zinc-300"
-          >
+            </li>
+          </ul>
+          <label class="m-label" for="modal-category">What is it about?</label>
+          <select id="modal-category" class="m-field">
             <option value="">Select a category…</option>
             <option value="ban_appeal">Ban Appeal</option>
             <option value="submission_appeal">Submission Denied Appeal</option>
@@ -918,13 +95,20 @@
             <option value="feature_request">Feature Request</option>
           </select>
         </div>
-        <div class="flex gap-3 justify-end">
-          <button onclick="closeTicketInfoModal()" class="px-4 py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 transition text-sm">Cancel</button>
-          <button onclick="proceedToTicketForm()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 transition text-sm font-semibold">Continue</button>
+        <div class="m-dialog-foot">
+          <button onclick="closeTicketInfoModal()" class="m-btn m-btn-text">Cancel</button>
+          <button onclick="proceedToTicketForm()" class="m-btn m-btn-filled">Continue</button>
         </div>
       </div>
     </div>
-
-    <script src="/fp.js"></script>
+    <div id="ticket-form-dialog" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4 modal-fade">
+      <div class="m-dialog max-w-lg" role="dialog" aria-modal="true" aria-labelledby="ticket-form-title">
+        <div class="m-dialog-head">
+          <h2 id="ticket-form-title">New ticket</h2>
+          <button onclick="hideTicketForm()" class="m-icon-btn" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div class="m-dialog-body" id="ticket-form-slot"></div>
+      </div>
+    </div>
   </body>
 </html>

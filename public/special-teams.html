@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Team Duels | Dovedale GeoGuesser</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
+  </head>
+  <body class="bg-zinc-950 text-zinc-100 font-[Inter] overflow-hidden h-screen w-screen">
+    <div id="lobby-screen" class="absolute inset-0 z-20 flex flex-col overflow-y-auto screen-fade">
+      <div class="flex items-center justify-between px-5 py-4 flex-shrink-0">
+        <a href="/specials" class="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition text-sm">
+          <span class="material-symbols-outlined text-base leading-none">arrow_back</span> Specials
+        </a>
+        <div data-auth-area></div>
+      </div>
+      <div class="flex-1 flex flex-col items-center justify-center px-5 pb-10">
+        <div class="text-center mb-7">
+          <div class="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-zinc-900 mb-5">
+            <span class="material-symbols-outlined text-5xl text-blue-400" style="font-variation-settings: &quot;FILL&quot; 1">groups</span>
+          </div>
+          <h1 class="text-4xl font-bold tracking-tight mb-2">Team Duels</h1>
+          <p class="text-zinc-500 text-sm max-w-xs mx-auto">Two against two. Each round your team scores its best guess.</p>
+        </div>
+
+        <div id="teams-entry" class="bg-zinc-900 rounded-3xl p-6 w-full max-w-sm flex flex-col gap-4">
+          <div>
+            <label class="m-label" for="team-rounds">Rounds</label>
+            <select id="team-rounds" class="m-field">
+              <option value="3">3 rounds</option>
+              <option value="5" selected>5 rounds</option>
+              <option value="10">10 rounds</option>
+            </select>
+          </div>
+          <button id="team-create" class="m-btn m-btn-filled w-full">Create a room</button>
+          <div class="flex items-center gap-3 text-xs text-zinc-600">
+            <span class="flex-1 h-px bg-zinc-800"></span>or<span class="flex-1 h-px bg-zinc-800"></span>
+          </div>
+          <div class="flex gap-2">
+            <input
+              id="team-code"
+              class="m-field flex-1 uppercase tracking-widest font-mono text-center"
+              maxlength="6"
+              placeholder="ROOM CODE"
+              autocomplete="off"
+            />
+            <button id="team-join" class="m-btn m-btn-tonal">Join</button>
+          </div>
+          <p id="team-error" class="text-red-300 text-sm text-center hidden"></p>
+        </div>
+
+        <div id="teams-room" class="hidden w-full max-w-xl">
+          <div class="bg-zinc-900 rounded-3xl p-6">
+            <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
+              <div>
+                <div class="m-label">Room code</div>
+                <div id="room-code" class="font-mono text-3xl font-bold tracking-widest"></div>
+              </div>
+              <button id="copy-invite" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">link</span>Copy invite link</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="team-columns"></div>
+            <p id="room-hint" class="text-zinc-500 text-sm text-center mt-5"></p>
+            <div class="flex items-center justify-between gap-3 mt-5">
+              <button id="team-leave" class="m-btn m-btn-text">Leave</button>
+              <button id="team-start" class="m-btn m-btn-filled hidden">Start game</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="round-screen" class="hidden absolute inset-0 flex flex-col md:flex-row">
+      <div id="photo-panel" class="flex-shrink-0 md:w-[40%] h-[38%] md:h-full relative overflow-hidden">
+        <img id="round-photo" src="" alt="Location screenshot" />
+
+        <div class="absolute top-3 left-3 flex items-center gap-2">
+          <a
+            href="/specials"
+            class="bg-black/70 rounded-full w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-black/70 transition"
+          >
+            <span class="material-symbols-outlined text-base leading-none">home</span>
+          </a>
+          <div class="bg-black/70 rounded-full px-3 py-1.5 text-sm font-semibold">
+            <span id="round-num">1</span><span class="text-zinc-500"> / </span><span id="round-total">5</span>
+          </div>
+        </div>
+
+        <div
+          id="timer-display"
+          class="absolute top-3 right-3 bg-black/70 rounded-full px-4 py-2 flex items-center gap-2 font-mono font-bold text-xl min-w-[72px] justify-center transition-all duration-300"
+        >
+          <span class="material-symbols-outlined text-sm leading-none" style="font-variation-settings: &quot;FILL&quot; 1">timer</span>
+          <span id="timer-val">90</span>
+        </div>
+
+        <div class="absolute bottom-2 right-2 text-xs font-mono text-white/20 select-none pointer-events-none" id="location-id-badge"></div>
+      </div>
+
+      <div id="resize-handle"></div>
+
+      <div class="flex-1 relative bg-zinc-900 overflow-hidden">
+        <canvas id="map-canvas" class="absolute inset-0 w-full h-full"></canvas>
+
+        <div class="absolute top-3 right-3 flex flex-col gap-1.5 z-10">
+          <select
+            id="map-quality"
+            title="Map quality"
+            class="bg-zinc-800 border border-zinc-700/60 rounded-lg text-xs text-zinc-300 px-1.5 py-1 shadow-sm focus:outline-none"
+          >
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <button
+            id="zoom-in"
+            class="bg-zinc-800 w-10 h-10 rounded-full flex items-center justify-center hover:bg-zinc-700 transition shadow-sm border border-zinc-700/60"
+          >
+            <span class="material-symbols-outlined text-lg">add</span>
+          </button>
+          <button
+            id="zoom-out"
+            class="bg-zinc-800 w-10 h-10 rounded-full flex items-center justify-center hover:bg-zinc-700 transition shadow-sm border border-zinc-700/60"
+          >
+            <span class="material-symbols-outlined text-lg">remove</span>
+          </button>
+        </div>
+
+        <div class="absolute top-3 left-3 z-10 flex flex-col gap-1.5" id="team-scorebar"></div>
+
+        <div
+          class="absolute bottom-0 inset-x-0 z-10 flex items-center justify-between gap-3 px-4 pb-3 pt-8 bg-gradient-to-t from-zinc-950/70 to-transparent pointer-events-none"
+        >
+          <p id="click-hint" class="text-zinc-400 text-sm pointer-events-auto select-none">Click the map to place your pin</p>
+          <button
+            id="guess-btn"
+            class="pointer-events-auto bg-zinc-700 text-zinc-500 pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm whitespace-nowrap cursor-not-allowed transition flex items-center gap-2"
+            disabled
+          >
+            <span class="material-symbols-outlined text-base leading-none">place</span> Submit Guess
+          </button>
+        </div>
+
+        <div id="team-reveal" class="hidden absolute inset-x-0 bottom-0 z-20">
+          <div class="bg-zinc-800 rounded-t-3xl shadow-xl px-5 pt-4 pb-5">
+            <div class="flex items-center justify-between gap-3 mb-3">
+              <div class="font-semibold" id="reveal-title"></div>
+              <div class="text-zinc-400 text-xs" id="reveal-next"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3" id="reveal-teams"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="final-screen" class="hidden absolute inset-0 overflow-y-auto z-20 bg-zinc-950 flex flex-col items-center justify-center px-5 py-10 screen-fade">
+      <div class="text-center mb-6">
+        <span id="final-icon" class="material-symbols-outlined text-6xl text-amber-300" style="font-variation-settings: &quot;FILL&quot; 1">emoji_events</span>
+        <h2 id="final-title" class="text-3xl font-bold mt-2"></h2>
+        <p id="final-sub" class="text-zinc-500 text-sm mt-1">Team duels are not counted on the leaderboards.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-3 w-full max-w-md" id="final-teams"></div>
+      <div class="flex items-center gap-3 mt-7">
+        <a href="/specials" class="m-btn m-btn-text">Back to Specials</a>
+        <button id="team-again" class="m-btn m-btn-filled hidden">Play again</button>
+      </div>
+      <p id="final-wait" class="text-zinc-500 text-sm mt-3 hidden">Waiting for the host to start another game.</p>
+    </div>
+
+    <script src="/js/map-config.js"></script>
+    <script src="/js/map-canvas.js"></script>
+    <script src="/js/sounds.js"></script>
+    <script src="/js/shared.js"></script>
+    <script src="/js/round.js"></script>
+    <script src="/js/special-teams.js"></script>
+  </body>
+</html>
