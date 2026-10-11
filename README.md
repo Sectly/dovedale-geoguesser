@@ -20,7 +20,7 @@ Source: [github.com/Sectly/dovedale-geoguesser](https://github.com/Sectly/doveda
 
 - **Runtime:** [Bun](https://bun.sh)
 - **Framework:** [Hono](https://hono.dev)
-- **Realtime:** [WebWire](https://github.com/webwirejs/webwire) (duel rooms)
+- **Realtime:** [WebWire](https://github.com/Sectly/webwire) (duel rooms)
 - **Database:** SQLite via `bun:sqlite`
 - **Auth:** Discord OAuth 2.0
 - **Images:** [sharp](https://sharp.pixelplumbing.com) - upload validation, WebP conversion, OG image generation
