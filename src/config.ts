@@ -116,9 +116,12 @@ export const GAME = {
 		hardBelow: 1600,
 	},
 	restart: {
-		/** Warning everyone gets before a planned restart while games are being played, in seconds. */
-		notice: 60,
-		/** The same when nobody is playing. */
+		/**
+		 * Longest warning before a planned restart while duels or team games are being played, in
+		 * seconds: time to finish the match. The restart goes ahead sooner if they all end first.
+		 */
+		notice: 180,
+		/** The warning when nobody is playing, and the last call once every game has finished. */
 		quietNotice: 10,
 	},
 };

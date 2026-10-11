@@ -1,4 +1,5 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, jest, test } from "bun:test";
+import { GAME } from "../src/config";
 import { db } from "../src/db";
 import { BACKUP_LIMITS, createBackup, listBackups } from "../src/backups";
 import { tickTeamRooms } from "../src/game/teams";
@@ -128,6 +129,30 @@ describe("planned restarts", () => {
 		expect((await post("/api/duels/rooms", host, { rounds: 1 })).status).toBe(200);
 		expect(startDuel(room)).not.toContain("restart");
 		duelRooms.delete(room.code);
+	});
+});
+
+describe("restart notice", () => {
+	test("gives a duel time to finish, and stops waiting once it has", () => {
+		const [host, guest] = [createUser(), createUser()];
+		const room = createRoom(host.id, 1);
+		joinRoom(room.code, guest.id);
+		jest.useFakeTimers();
+		try {
+			room.status = "in_progress";
+			expect(scheduleRestart("test")).toBe(GAME.restart.notice);
+			jest.advanceTimersByTime(10_000);
+			// Still being played: the long notice stands.
+			expect(restartIn()!).toBeGreaterThan(GAME.restart.quietNotice);
+
+			room.status = "finished";
+			jest.advanceTimersByTime(2500);
+			expect(restartIn()!).toBeLessThanOrEqual(GAME.restart.quietNotice);
+		} finally {
+			cancelRestart();
+			jest.useRealTimers();
+			duelRooms.delete(room.code);
+		}
 	});
 });
 

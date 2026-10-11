@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { join } from "path";
 import { PUSH, ROOT_DIR } from "../config";
+import { currentBanner } from "../announcements";
 import { currentUser } from "../auth/sessions";
 import { getCookie, readJson } from "../lib/http";
 import { checkRateLimit } from "../lib/rate-limit";
@@ -13,6 +14,8 @@ export const miscRoutes = new Hono();
 const pkg = await Bun.file(join(ROOT_DIR, "package.json")).json();
 
 miscRoutes.get("/status", (c) => c.text("200 OK"));
+/** The announcement pinned to every page right now, or null. */
+miscRoutes.get("/announcement", (c) => c.json(currentBanner()));
 miscRoutes.get("/meta", (c) =>
 	c.json({
 		repo: pkg.repository ?? null,

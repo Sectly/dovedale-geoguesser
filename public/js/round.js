@@ -77,7 +77,7 @@ class RoundView {
 		this.map.restoreView();
 		this._setGuessEnabled(false);
 		el("guess-btn").classList.toggle("hidden", !canGuess);
-		el("click-hint").textContent = "Loading the screenshot…";
+		el("click-hint").textContent = "Loading the screenshot...";
 		const badge = el("location-id-badge");
 		if (badge) badge.textContent = round.location_id ? locId(round.location_id) : "";
 

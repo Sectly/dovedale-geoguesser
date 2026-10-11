@@ -21,7 +21,7 @@ function renderSubmissions(items) {
 	}
 	el("tab-content").innerHTML = `
         <h2 class="font-bold text-lg mb-4">Pending Submissions (${items.length})</h2>
-        ${panelSearchInput("Search submission ID, label, username or coordinates…")}
+        ${panelSearchInput("Search submission ID, label, username or coordinates...")}
         <div class="flex flex-col gap-3" id="submissions-list">
             ${items.map(renderSubmissionRow).join("")}
             <div id="panel-search-empty" class="hidden text-zinc-500 text-center py-8">No submissions match your search.</div>

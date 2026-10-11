@@ -264,7 +264,7 @@ adminUserRoutes.post("/:id/role", async (c) => {
 
 	const body = await readJson<{ role: string | null }>(c);
 	const newRole = body.role && body.role !== "none" ? body.role : null;
-	const assignable = hasRole(actor, "operator") ? ["supervisor", "moderator"] : ["moderator"];
+	const assignable = hasRole(actor, "operator") ? ["supervisor", "moderator", "helper"] : ["moderator", "helper"];
 	if (newRole !== null && !assignable.includes(newRole)) fail(403, "Insufficient permissions to assign that role");
 	if (OPERATOR_IDS.includes(target.discord_id)) fail(403, "Cannot change env-protected operator");
 	if (roleRank(target.role) >= roleRank(actor.role)) fail(403, "Cannot change a user with equal or higher rank");
@@ -286,7 +286,8 @@ adminUserRoutes.post("/:id/role", async (c) => {
  * restoring access is one step; they can still play as an ordinary user meanwhile.
  */
 adminUserRoutes.post("/:id/staff-lock", async (c) => {
-	const actor = requireStaff(c, "supervisor");
+	// Anyone from moderator up may do this to staff ranked below them: a moderator to helpers only.
+	const actor = requireStaff(c, "moderator");
 	const target = moderationTarget(c, actor);
 	if (!target.role) fail(400, "This user is not a member of staff");
 	if (target.staff_locked) fail(400, "Their staff access is already suspended");
@@ -308,7 +309,7 @@ adminUserRoutes.post("/:id/staff-lock", async (c) => {
 });
 
 adminUserRoutes.post("/:id/staff-unlock", async (c) => {
-	const actor = requireStaff(c, "supervisor");
+	const actor = requireStaff(c, "moderator");
 	const target = moderationTarget(c, actor);
 	if (!target.staff_locked) fail(400, "Their staff access is not suspended");
 	const reason = requireReason((await readJson<{ reason: string }>(c)).reason);

@@ -205,7 +205,7 @@
           <div class="text-xs text-zinc-500 uppercase tracking-widest mb-4 font-medium">Quick Play</div>
           <div class="flex items-center justify-center gap-3 mb-2">
             <span class="material-symbols-outlined text-4xl text-blue-400 animate-spin" style="animation-duration: 1.4s">autorenew</span>
-            <span class="text-xl font-bold">Searching for opponent…</span>
+            <span class="text-xl font-bold">Searching for opponent...</span>
           </div>
 
           <p id="quickplay-no-players" class="hidden text-yellow-400 text-xs mt-3">
@@ -217,7 +217,12 @@
           <div class="text-xs text-zinc-500 uppercase tracking-widest mb-2 font-medium">Waiting for players</div>
           <div class="bg-zinc-900 border border-zinc-800 rounded-3xl px-8 py-5 mb-5 inline-block">
             <div class="text-zinc-500 text-xs mb-1">Room code</div>
-            <div class="text-4xl font-bold font-mono tracking-widest" id="room-code-display"></div>
+            <button
+              class="text-4xl font-bold font-mono tracking-widest rounded-xl px-2 -mx-2 hover:bg-zinc-800 transition"
+              id="room-code-display"
+              title="Copy the room code"
+              aria-label="Copy the room code"
+            ></button>
           </div>
           <div class="flex gap-2 justify-center mb-6">
             <button
@@ -359,7 +364,7 @@
             <div class="text-center text-2xl font-bold mb-3" id="round-score-display"></div>
             <div id="result-rows" class="stagger flex flex-col gap-2 mb-4"></div>
             <div id="next-round-btn" class="w-full bg-zinc-700 text-zinc-400 py-2.5 rounded-full font-semibold text-sm text-center select-none">
-              Next round in <span id="next-round-countdown">7</span>s…
+              Next round in <span id="next-round-countdown">7</span>s...
             </div>
           </div>
         </div>
@@ -370,7 +375,9 @@
       <div class="text-center max-w-md px-6 py-8 w-full m-auto">
         <div class="text-xs text-zinc-500 uppercase tracking-widest mb-2 font-medium">Game Over</div>
         <h2 class="text-4xl font-bold mb-1" id="end-headline">Game Over</h2>
-        <p class="text-zinc-500 text-sm mb-6 min-h-[1.25rem]" id="end-subline"></p>
+        <p class="text-zinc-500 text-sm min-h-[1.25rem]" id="end-subline"></p>
+        <p class="hidden text-zinc-300 text-sm font-semibold mt-1" id="end-series"></p>
+        <div class="mb-6"></div>
 
         <div id="end-scores" class="stagger flex flex-col gap-3 mb-6 max-w-xs mx-auto"></div>
 
@@ -396,7 +403,7 @@
           </button>
         </div>
         <div id="end-waiting" class="hidden flex-col items-center gap-3 mt-1">
-          <p class="text-sm text-zinc-400">Waiting for opponent…</p>
+          <p class="text-sm text-zinc-400">Waiting for opponent...</p>
           <button id="play-again-cancel-btn" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline">Cancel</button>
         </div>
         <div id="end-incoming" class="hidden flex-col items-center gap-3 mt-1">

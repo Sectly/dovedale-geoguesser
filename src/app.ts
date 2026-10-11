@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import type { ErrorHandler } from "hono";
 import { join } from "path";
 import { ROOT_DIR, SECURE_COOKIES } from "./config";
-import { isStaff } from "./auth/guards";
+import { hasRole } from "./auth/guards";
 import { currentUser } from "./auth/sessions";
 import { HttpError } from "./lib/http";
 import { reportProblem } from "./lib/problems";
@@ -98,7 +98,7 @@ app.use("*", async (c, next) => {
 	const path = c.req.path;
 	const open = path.startsWith("/api/auth/") || path === "/api/status" || path === "/api/meta";
 	const asset = !path.startsWith("/api/") && /\.[a-z0-9]+$/i.test(path) && !path.endsWith(".html");
-	if (open || asset || isStaff(currentUser(c))) return next();
+	if (open || asset || hasRole(currentUser(c), "moderator")) return next();
 
 	const message = state.message || DEFAULT_MAINTENANCE_MESSAGE;
 	c.header("Retry-After", "600");

@@ -88,6 +88,11 @@ export function teamRoomCount(): number {
 	return rooms.size;
 }
 
+/** Team games being played right now. */
+export function teamGamesInProgress(): number {
+	return [...rooms.values()].filter((room) => room.status === "playing").length;
+}
+
 function newCode(): string {
 	for (;;) {
 		let code = "";

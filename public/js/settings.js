@@ -876,7 +876,7 @@ const TICKET_FORM_HTML = `
 				<label class="m-label" for="ticket-category">Category</label>
 				<select id="ticket-category" onchange="onCategoryChange()"
 					class="m-field">
-					<option value="" disabled selected>Select a category…</option>
+					<option value="" disabled selected>Select a category...</option>
 					<option value="ban_appeal">Ban Appeal</option>
 					<option value="submission_appeal">Submission Denied Appeal</option>
 					<option value="report_user">Report a User</option>

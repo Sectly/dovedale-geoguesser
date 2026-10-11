@@ -68,6 +68,11 @@ export type DuelRoom = {
 	history: Record<string, unknown>[];
 	rematchRequests: Set<number>;
 	rematchTimer: ReturnType<typeof setTimeout> | null;
+	/**
+	 * The running score across rematches between the same two players: wins by user id and
+	 * how many duels have been played. Carried into each rematch; gone once either leaves.
+	 */
+	series: { wins: Record<number, number>; games: number };
 	createdAt: number;
 };
 
@@ -250,6 +255,7 @@ export function createRoom(creatorId: number, rounds: number, quickplay = false,
 		history: [],
 		rematchRequests: new Set(),
 		rematchTimer: null,
+		series: { wins: {}, games: 0 },
 		createdAt: Date.now(),
 	};
 	db.run("INSERT INTO duel_participants (game_id, user_id) VALUES (?, ?)", [room.dbId, creatorId]);
@@ -443,6 +449,8 @@ function finish(room: DuelRoom, winnerId: number | null) {
 	clearPause(room);
 	room.status = "finished";
 	room.round = null;
+	room.series.games++;
+	if (winnerId !== null) room.series.wins[winnerId] = (room.series.wins[winnerId] ?? 0) + 1;
 	db.transaction(() => {
 		db.run("UPDATE duel_games SET status = 'finished', winner_id = ?, finished_at = unixepoch() WHERE id = ?", [
 			winnerId,
@@ -543,6 +551,7 @@ function endGame(room: DuelRoom) {
 		is_tie: isTie,
 		rounds: room.history,
 		ratings,
+		series: room.series,
 	});
 }
 
@@ -635,6 +644,7 @@ export function abandonDuel(room: DuelRoom, leaverId: number) {
 		scores: scoreboard(room),
 		rounds: room.history,
 		ratings,
+		series: room.series,
 	});
 }
 
@@ -655,6 +665,11 @@ export function removeFromDuels(userId: number) {
 /** Rooms that are waiting to start or being played, not ones kept around for a rematch. */
 export function activeDuelRooms(): number {
 	return [...duelRooms.values()].filter((room) => room.status !== "finished").length;
+}
+
+/** Duels being played right now. */
+export function duelsInProgress(): number {
+	return [...duelRooms.values()].filter((room) => room.status === "in_progress").length;
 }
 
 /** Sends one message to everybody in any duel room, spectators included. */

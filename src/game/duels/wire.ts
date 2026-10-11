@@ -240,6 +240,8 @@ wireServer.on("connection", (conn: WireConnection) => {
 			clearRematch(room);
 			const [host, guest] = room.players;
 			const rematch = createRoom(host.userId, room.rounds, room.quickplay, room.listed);
+			// The same two players again, so the running score between them carries on.
+			rematch.series = { wins: { ...room.series.wins }, games: room.series.games };
 			joinRoom(rematch.code, guest.userId);
 			send(host.conn, "play_again_match", { code: rematch.code, is_host: true });
 			send(guest.conn, "play_again_match", { code: rematch.code, is_host: false });

@@ -539,7 +539,7 @@ class MapCanvas {
 		ctx.lineWidth = 1.5;
 		ctx.stroke();
 
-		const label = name.length > 12 ? name.slice(0, 11) + "\u2026" : name;
+		const label = name.length > 12 ? name.slice(0, 9) + "..." : name;
 		ctx.font = `bold 11px Inter, sans-serif`;
 		const tw = ctx.measureText(label).width;
 		const pad = 5;

@@ -24,7 +24,7 @@ function renderSuggestions(items) {
 	};
 	el("tab-content").innerHTML = `
         <h2 class="font-bold text-lg mb-4">Pending Suggestions (${items.length})</h2>
-        ${panelSearchInput("Search suggestion ID, location, user, type or details…")}
+        ${panelSearchInput("Search suggestion ID, location, user, type or details...")}
         <div class="flex flex-col gap-4" id="suggestions-list">
             ${items
 				.map((s) => {

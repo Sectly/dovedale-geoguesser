@@ -61,7 +61,7 @@ supportRoutes.post("/", async (c) => {
 	const id = Number(result.lastInsertRowid);
 	notify(
 		"support",
-		`**Support ticket #${id}** [${body.category}] from **${displayName(user)}**\n> **${subject}**\n> ${message.slice(0, 200)}${message.length > 200 ? "…" : ""}`,
+		`**Support ticket #${id}** [${body.category}] from **${displayName(user)}**\n> **${subject}**\n> ${message.slice(0, 200)}${message.length > 200 ? "..." : ""}`,
 		"/admin#tickets"
 	);
 	return c.json({ success: true, id });
@@ -125,7 +125,7 @@ supportRoutes.post("/:id/reply", async (c) => {
 	})();
 	notify(
 		"support",
-		`**Ticket #${ticketId}: new reply** from **${md(displayName(user))}**\n> ${md(message.slice(0, 300))}${message.length > 300 ? "…" : ""}`,
+		`**Ticket #${ticketId}: new reply** from **${md(displayName(user))}**\n> ${md(message.slice(0, 300))}${message.length > 300 ? "..." : ""}`,
 		`/admin#tickets:${ticketId}`
 	);
 	return c.json({ success: true });

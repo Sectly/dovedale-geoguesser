@@ -1,6 +1,6 @@
 import { db, type User } from "./db";
 import { countEvasionFlags } from "./evasion";
-import { isStaff } from "./auth/guards";
+import { hasRole, isStaff } from "./auth/guards";
 import { DAY, utcDate } from "./lib/time";
 import { sendPush } from "./push";
 
@@ -186,7 +186,9 @@ export function attentionFor(user: User) {
 	/** The queue is only worked out for staff who have badges or alerts switched on. */
 	const prefs = parsePreferences(user.prefs);
 	const wantsQueue = prefs.staff_badges || prefs.staff_alerts;
-	const queue = isStaff(user) && !user.is_banned && wantsQueue ? staffQueue() : null;
+	const all = isStaff(user) && !user.is_banned && wantsQueue ? staffQueue() : null;
+	// Helpers review submissions and suggestions only; tickets and flags are not theirs to see.
+	const queue = all && !hasRole(user, "moderator") ? { ...all, tickets: 0, users: 0 } : all;
 	return {
 		unread: count("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND read_at IS NULL", user.id),
 		latest: latest ?? null,
@@ -196,15 +198,6 @@ export function attentionFor(user: User) {
 
 export function pruneNotifications() {
 	db.run("DELETE FROM notifications WHERE created_at < unixepoch() - ?", [RETENTION]);
-}
-
-/** Sends one message to every account: rule changes, downtime, new features. */
-export function announce(title: string, body: string, link = "/settings#notifications"): number {
-	const users = db
-		.query<{ id: number }, []>("SELECT id FROM users WHERE username != '[deleted]' AND is_banned = 0")
-		.all();
-	for (const user of users) notifyUser(user.id, "announcements", { title, body, link });
-	return users.length;
 }
 
 /**

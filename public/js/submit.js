@@ -390,7 +390,7 @@ async function submitLocation() {
 		return;
 	}
 	el("submit-btn").disabled = true;
-	el("submit-btn").textContent = "Submitting…";
+	el("submit-btn").textContent = "Submitting...";
 	hideError();
 	const fd = new FormData();
 	fd.append("image", selectedFile);
@@ -585,7 +585,7 @@ function checkSuggestReady() {
 async function submitSuggestion() {
 	if (!selectedLocId) return;
 	el("suggest-submit-btn").disabled = true;
-	el("suggest-submit-btn").textContent = "Submitting…";
+	el("suggest-submit-btn").textContent = "Submitting...";
 	el("suggest-error").classList.add("hidden");
 	try {
 		const url = "/api/locations/" + selectedLocId + "/suggest";

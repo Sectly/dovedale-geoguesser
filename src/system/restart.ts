@@ -1,8 +1,14 @@
 import { GAME } from "../config";
 import { db } from "../db";
-import { activeDuelRooms, broadcastToDuels, closeAllDuels, setDuelsClosing } from "../game/duels/rooms";
+import {
+	activeDuelRooms,
+	broadcastToDuels,
+	closeAllDuels,
+	duelsInProgress,
+	setDuelsClosing,
+} from "../game/duels/rooms";
 import { saveSoloGames } from "../game/solo";
-import { closeTeamRooms, teamRoomCount } from "../game/teams";
+import { closeTeamRooms, teamGamesInProgress, teamRoomCount } from "../game/teams";
 import { shutdown } from "../lib/lifecycle";
 import { logInfo } from "../lib/logs";
 
@@ -48,6 +54,9 @@ export function justRestarted(): number | null {
 
 let dueAt: number | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
+/** Watches for the last game to finish during a long notice, so the restart need not wait it out. */
+let watcher: ReturnType<typeof setInterval> | null = null;
+const WATCH_MS = 2000;
 let stopping = false;
 
 /** Seconds until a planned restart, or null when none is coming. */
@@ -72,12 +81,34 @@ export function scheduleRestart(reason: string): number {
 	if (pending !== null) return pending;
 	const busy = activeDuelRooms() + teamRoomCount() > 0;
 	const seconds = busy ? GAME.restart.notice : GAME.restart.quietNotice;
-	dueAt = Date.now() + seconds * 1000;
 	logInfo(`[server] Restarting in ${seconds}s: ${reason}`);
 	setDuelsClosing(true);
+	setDeadline(seconds, reason);
+	// No new game can start now, so once the ones being played are over there is nothing left to wait for.
+	if (busy) {
+		watcher = setInterval(() => {
+			if (duelsInProgress() + teamGamesInProgress() > 0) return;
+			stopWatching();
+			if ((restartIn() ?? 0) > GAME.restart.quietNotice) {
+				logInfo("[server] Every game has finished; restarting early");
+				setDeadline(GAME.restart.quietNotice, reason);
+			}
+		}, WATCH_MS);
+	}
+	return seconds;
+}
+
+/** Sets (or brings forward) the moment of the restart and tells everyone in a duel room. */
+function setDeadline(seconds: number, reason: string) {
+	if (timer) clearTimeout(timer);
+	dueAt = Date.now() + seconds * 1000;
 	broadcastToDuels("server_restarting", { seconds });
 	timer = setTimeout(() => stopCleanly(reason), seconds * 1000);
-	return seconds;
+}
+
+function stopWatching() {
+	if (watcher) clearInterval(watcher);
+	watcher = null;
 }
 
 /** Calls off a restart that has been announced but not begun. Returns false when there was none to stop. */
@@ -85,6 +116,7 @@ export function cancelRestart(): boolean {
 	if (dueAt === null || stopping) return false;
 	if (timer) clearTimeout(timer);
 	timer = null;
+	stopWatching();
 	dueAt = null;
 	setDuelsClosing(false);
 	broadcastToDuels("server_restart_cancelled", {});
@@ -96,6 +128,7 @@ export function cancelRestart(): boolean {
 export function stopCleanly(reason: string) {
 	if (stopping) return;
 	stopping = true;
+	stopWatching();
 	dueAt ??= Date.now();
 	try {
 		closeAllDuels(CLOSED_MESSAGE);

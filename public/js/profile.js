@@ -67,7 +67,7 @@ function render(p, me) {
 		<div class="min-w-0 flex-1">
 			<div class="flex items-center gap-2 flex-wrap">
 				<h1 class="text-2xl sm:text-3xl font-bold break-words">${escHtml(p.display_name || p.username)}</h1>
-				${p.role ? `<span class="text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${p.role === "operator" ? "bg-yellow-900/60 text-yellow-300" : p.role === "supervisor" ? "bg-purple-900/60 text-purple-300" : "bg-blue-900/60 text-blue-300"}"><span class="material-symbols-outlined" style="font-size:12px;font-variation-settings:'FILL' 1">shield</span>${escHtml(p.role.charAt(0).toUpperCase() + p.role.slice(1))}</span>` : ""}
+				${p.role ? `<span class="text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${p.role === "operator" ? "bg-yellow-900/60 text-yellow-300" : p.role === "supervisor" ? "bg-purple-900/60 text-purple-300" : p.role === "helper" ? "bg-teal-900/60 text-teal-300" : "bg-blue-900/60 text-blue-300"}"><span class="material-symbols-outlined" style="font-size:12px;font-variation-settings:'FILL' 1">shield</span>${escHtml(p.role.charAt(0).toUpperCase() + p.role.slice(1))}</span>` : ""}
 			</div>
 			<div class="text-zinc-500 text-sm">@${escHtml(p.username)}</div>
 			<div class="text-zinc-600 text-xs mt-1">Member since ${joined}</div>
@@ -123,6 +123,8 @@ function render(p, me) {
 		${stat("Games", duelGames.toLocaleString())}
 		${stat("Win Rate", winRate !== null ? `${winRate}%` : "-")}
 		${stat("Rating", p.rating?.games ? p.rating.value.toLocaleString() : "Unranked")}
+		${stat("Ranked Duels", (p.rating?.games ?? 0).toLocaleString())}
+		${stat("Total Score", (p.duels?.total_score ?? 0).toLocaleString())}
 	</div>
 
 	${achievementsHtml(p.achievements)}

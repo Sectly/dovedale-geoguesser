@@ -140,6 +140,9 @@ async function init() {
 	el("leave-btn").addEventListener("click", leaveRoom);
 	el("spectate-instead-btn").addEventListener("click", () => spectate(roomCode, { leaveSeat: true }));
 	el("copy-invite-btn").addEventListener("click", () => copyLink(`/duel/${roomCode}`, "Invite link copied"));
+	el("room-code-display").addEventListener("click", async () => {
+		if (roomCode && (await copyText(roomCode))) showToast("Room code copied", "success");
+	});
 	el("copy-spectate-btn").addEventListener("click", () =>
 		copyLink(`/duel/${roomCode}?spectate`, "Spectate link copied")
 	);
@@ -367,11 +370,11 @@ async function connect(joinEvent) {
 		showOverlay(
 			"Duel paused",
 			mine || !names.length
-				? "Reconnecting you to the duel…"
-				: `${names.join(" and ")} lost connection. Waiting up to ${data.timeout}s for them to come back…`
+				? "Reconnecting you to the duel..."
+				: `${names.join(" and ")} lost connection. Waiting up to ${data.timeout}s for them to come back...`
 		);
 	});
-	on("resuming", (data) => showOverlay("Everyone's back", "Resuming in…", data.seconds));
+	on("resuming", (data) => showOverlay("Everyone's back", "Resuming in...", data.seconds));
 	on("resumed", (data) => {
 		hideOverlay();
 		if (data.round) view?.resume(data.round.time_remaining, { guessed: data.guessed });
@@ -436,14 +439,14 @@ async function connect(joinEvent) {
 	on("disconnect", () => {
 		if (!el("end-screen").classList.contains("hidden")) return rematchUnavailable("Disconnected");
 		view?.pause();
-		showOverlay("Connection lost", "Trying to reconnect…");
+		showOverlay("Connection lost", "Trying to reconnect...");
 		reconnectTimer ??= setTimeout(
 			() => backToLobby("Couldn't reconnect to the duel. Check your connection and try again."),
 			RECONNECT_WINDOW_MS
 		);
 	});
 
-	showOverlay("Connecting…");
+	showOverlay("Connecting...");
 	reconnectTimer = setTimeout(
 		() => backToLobby("Couldn't connect to the duel server. Please try again."),
 		RECONNECT_WINDOW_MS
@@ -532,19 +535,19 @@ function showWaitingRoom(state) {
 	show("spectate-instead-btn", canReady);
 	el("leave-btn").textContent = isSpectator() ? "Stop spectating" : isQuickPlay ? "Cancel" : "Leave room";
 	el("waiting-hint").textContent = isSpectator()
-		? "Waiting for the duel to start…"
+		? "Waiting for the duel to start..."
 		: isQuickPlay
 			? full
-				? "Match found! Starting…"
+				? "Match found! Starting..."
 				: ""
 			: !full
 				? "Share the code or invite link with your opponent"
 				: isHost
 					? opponentReady
 						? "Your opponent is ready. Start when you are."
-						: "Waiting for your opponent to ready up…"
+						: "Waiting for your opponent to ready up..."
 					: me?.is_ready
-						? "Waiting for the host to start…"
+						? "Waiting for the host to start..."
 						: "Press Ready when you're set to play";
 }
 
@@ -590,7 +593,7 @@ function showRound(round) {
 	el("round-num").textContent = round.round;
 	el("round-total").textContent = round.total_rounds;
 	shownRound = round.round;
-	if (!isSpectator()) el("click-hint").textContent = "Get ready…";
+	if (!isSpectator()) el("click-hint").textContent = "Get ready...";
 	return view.show(round, { canGuess: !isSpectator() });
 }
 
@@ -604,7 +607,7 @@ function startRound(round) {
 	if (round.guessed) {
 		view.lock();
 		el("click-hint").textContent = "Guess locked in";
-		setOpponentBadge("hourglass_top", "Waiting for your opponent…");
+		setOpponentBadge("hourglass_top", "Waiting for your opponent...");
 	} else if (!isSpectator() && round.guessed_ids?.length) {
 		setOpponentBadge("check_circle", "Opponent guessed");
 	}
@@ -613,7 +616,7 @@ function startRound(round) {
 function sendGuess(pin) {
 	// The clock keeps running: the round only ends when both players are in or time is up.
 	el("click-hint").textContent = pin ? "Guess locked in" : "Time's up. No pin placed";
-	setOpponentBadge("hourglass_top", "Waiting for your opponent…");
+	setOpponentBadge("hourglass_top", "Waiting for your opponent...");
 	wire?.emit("guess", { world_x: pin?.x ?? null, world_y: pin?.y ?? null });
 }
 
@@ -750,7 +753,7 @@ function runNextRoundCountdown(seconds) {
 	let left = seconds;
 	const label = () =>
 		(el("next-round-btn").textContent =
-			`${lastRoundWasFinal ? "Final results" : "Next round"} in ${Math.max(0, left)}s…`);
+			`${lastRoundWasFinal ? "Final results" : "Next round"} in ${Math.max(0, left)}s...`);
 	label();
 	clearInterval(nextRoundTimer);
 	nextRoundTimer = setInterval(() => {
@@ -777,6 +780,21 @@ function rematchUnavailable(reason) {
 		"bg-blue-600 hover:bg-blue-500",
 		"bg-zinc-700 text-zinc-400 cursor-not-allowed"
 	);
+}
+
+/** The running score across rematches, once the same two players have met more than once. */
+function showSeries(result) {
+	const series = result.series;
+	const players = result.scores || [];
+	show("end-series", !!series && series.games > 1 && players.length === 2);
+	if (!series || series.games <= 1 || players.length !== 2) return;
+	// Your own score first; a spectator sees the two in the order they sit.
+	const [first, second] = [...players].sort((a, b) => (b.user_id === user?.id) - (a.user_id === user?.id));
+	const name = (p) => (p.user_id === user?.id && !isSpectator() ? "You" : p.display_name || p.username);
+	const wins = (p) => series.wins[p.user_id] ?? 0;
+	const ties = series.games - wins(first) - wins(second);
+	el("end-series").textContent =
+		`Series: ${name(first)} ${wins(first)} - ${wins(second)} ${name(second)}` + (ties ? ` · ${ties} tied` : "");
 }
 
 function showGameEnd(result, { forfeit = false } = {}) {
@@ -806,6 +824,7 @@ function showGameEnd(result, { forfeit = false } = {}) {
 	Sounds.play(iWon || result.is_tie || isSpectator() ? "win" : "lose");
 	if (iWon) celebrate();
 	el("end-subline").textContent = forfeit ? (iWon ? "Your opponent left the duel." : "A player left the duel.") : "";
+	showSeries(result);
 
 	const medals = [
 		["emoji_events", "text-yellow-400"],

@@ -25,7 +25,7 @@ function pendingSubmission(id: number): PendingSubmission {
 }
 
 adminSubmissionRoutes.get("/", (c) => {
-	requireStaff(c);
+	requireStaff(c, "helper");
 	return c.json(
 		db
 			.query(
@@ -39,7 +39,7 @@ adminSubmissionRoutes.get("/", (c) => {
 });
 
 adminSubmissionRoutes.post("/:id/approve", async (c) => {
-	const staff = requireStaff(c);
+	const staff = requireStaff(c, "helper");
 	const id = idParam(c);
 	const body = await readJson<{ label: string }>(c);
 	const sub = pendingSubmission(id);
@@ -81,7 +81,7 @@ adminSubmissionRoutes.post("/:id/approve", async (c) => {
 });
 
 adminSubmissionRoutes.post("/:id/deny", async (c) => {
-	const staff = requireStaff(c);
+	const staff = requireStaff(c, "helper");
 	const id = idParam(c);
 	const body = await readJson<{ reason: string }>(c);
 	const sub = pendingSubmission(id);

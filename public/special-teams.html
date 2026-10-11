@@ -63,7 +63,12 @@
             <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
               <div>
                 <div class="m-label">Room code</div>
-                <div id="room-code" class="font-mono text-3xl font-bold tracking-widest"></div>
+                <button
+                  id="room-code"
+                  class="font-mono text-3xl font-bold tracking-widest rounded-xl px-2 -mx-2 hover:bg-zinc-800 transition"
+                  title="Copy the room code"
+                  aria-label="Copy the room code"
+                ></button>
               </div>
               <button id="copy-invite" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">link</span>Copy invite link</button>
             </div>
