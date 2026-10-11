@@ -4,6 +4,7 @@ let uploadPinWorld = null;
 let uploadFile = null;
 let currentTab = "submissions";
 let denyTargetId = null;
+let denyCallback = null;
 
 const LABEL_MIN_LENGTH = 5;
 const LABEL_MAX_LENGTH = 128;
@@ -85,9 +86,11 @@ function showPrompt(title, placeholder = "", { note = "", type = "text", okLabel
 	});
 }
 
+let _sidebar, _sidebarOverlay;
+
 function closeSidebar() {
-	el("admin-sidebar")?.classList.add("hidden");
-	el("sidebar-overlay")?.classList.add("hidden");
+	_sidebar?.classList.add("hidden");
+	_sidebarOverlay?.classList.add("hidden");
 }
 
 async function init() {
@@ -124,13 +127,13 @@ async function init() {
 		});
 	});
 
+	_sidebar = el("admin-sidebar");
+	_sidebarOverlay = el("sidebar-overlay");
 	el("sidebar-toggle")?.addEventListener("click", () => {
-		const sidebar = el("admin-sidebar");
-		const overlay = el("sidebar-overlay");
-		sidebar.classList.toggle("hidden");
-		overlay.classList.toggle("hidden");
+		_sidebar.classList.toggle("hidden");
+		_sidebarOverlay.classList.toggle("hidden");
 	});
-	el("sidebar-overlay")?.addEventListener("click", closeSidebar);
+	_sidebarOverlay?.addEventListener("click", closeSidebar);
 
 	el("upload-map-back").addEventListener("click", () => {
 		el("upload-map-panel").classList.add("hidden");
@@ -151,7 +154,11 @@ async function init() {
 
 	el("deny-cancel").addEventListener("click", () => el("deny-modal").classList.add("hidden"));
 	el("deny-confirm").addEventListener("click", () => {
-		if (denyTargetId !== null) denySubmission(denyTargetId, el("deny-reason").value.trim());
+		const reason = el("deny-reason").value.trim();
+		el("deny-modal").classList.add("hidden");
+		if (denyTargetId !== null) denySubmission(denyTargetId, reason);
+		else if (denyCallback) denyCallback(reason);
+		denyCallback = null;
 	});
 
 	window.addEventListener("hashchange", handleHashNav);
@@ -373,12 +380,13 @@ async function approveSubmission(id) {
 
 function openDenyModal(id) {
 	denyTargetId = id;
+	denyCallback = null;
+	el("deny-modal-title").textContent = "Deny Submission";
 	el("deny-reason").value = "";
 	el("deny-modal").classList.remove("hidden");
 }
 
 async function denySubmission(id, reason) {
-	el("deny-modal").classList.add("hidden");
 	try {
 		const r = await fetch(`/api/admin/submissions/${id}/deny`, {
 			method: "POST",
@@ -836,21 +844,25 @@ async function approveSuggestion(id) {
 	}
 }
 
-async function denySuggestion(id) {
-	const reason = await showPrompt("Deny suggestion", "Reason (optional)");
-	if (reason === null) return;
-	try {
-		const r = await fetch(`/api/admin/suggestions/${id}/deny`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ reason }),
-		});
-		if (!r.ok) throw new Error(await r.text());
-		el(`sug-${id}`)?.remove();
-		if (!el("tab-content").querySelector('[id^="sug-"]')) loadSuggestions();
-	} catch (err) {
-		showToast(err.message || "Failed to deny.", "error");
-	}
+function denySuggestion(id) {
+	denyTargetId = null;
+	denyCallback = async (reason) => {
+		try {
+			const r = await fetch(`/api/admin/suggestions/${id}/deny`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ reason }),
+			});
+			if (!r.ok) throw new Error(await r.text());
+			el(`sug-${id}`)?.remove();
+			if (!el("tab-content").querySelector('[id^="sug-"]')) loadSuggestions();
+		} catch (err) {
+			showToast(err.message || "Failed to deny.", "error");
+		}
+	};
+	el("deny-modal-title").textContent = "Deny Suggestion";
+	el("deny-reason").value = "";
+	el("deny-modal").classList.remove("hidden");
 }
 
 async function loadLocations() {
@@ -899,6 +911,8 @@ function renderLocations(items) {
 						loc.world_x,
 						loc.world_y,
 						loc.is_active ? "active" : "inactive",
+						loc.submitted_by_username,
+						loc.submitted_by_display_name,
 					].join(" ");
 					return `
                 <div class="bg-zinc-900 rounded-2xl overflow-hidden" id="loc-${loc.id}" data-search="${escHtml(searchText)}">
@@ -911,7 +925,7 @@ function renderLocations(items) {
                             </div>
                             <span class="text-xs font-mono text-zinc-600 flex-shrink-0">LOC-${String(loc.id).padStart(4, "0")}</span>
                         </div>
-                        <div class="text-xs text-zinc-600 mb-2">${new Date(loc.created_at * 1000).toLocaleDateString()} · ${loc.is_active ? '<span class="text-green-400">Active</span>' : '<span class="text-zinc-500">Inactive</span>'}</div>
+                        <div class="text-xs text-zinc-600 mb-2">${new Date(loc.created_at * 1000).toLocaleDateString()} · ${loc.is_active ? '<span class="text-green-400">Active</span>' : '<span class="text-zinc-500">Inactive</span>'}${loc.submitted_by ? ` · <span class="text-zinc-500">By: <span class="text-zinc-400">${escHtml(loc.submitted_by_display_name || loc.submitted_by_username || `#${loc.submitted_by}`)}</span></span>` : ""}</div>
                         <div class="mb-2">
                             <div class="text-xs text-zinc-500 mb-1">Hints</div>
                             <div id="hints-${loc.id}">${hintsHtml}</div>
@@ -1688,7 +1702,6 @@ function renderAudit({ rows, total, offset }, reset) {
 		if (totalEl) totalEl.textContent = `${total.toLocaleString()} entries`;
 	}
 
-	// Separate routine from significant, and group tickets
 	const routineRows = [];
 	const ticketGroups = new Map();
 	const significantRows = [];

@@ -100,6 +100,19 @@ export async function exchangeCode(code: string): Promise<{
 	};
 }
 
+function sanitizeDisplayName(name: string): string {
+	return (
+		name
+			.replace(
+				/[\u0000-\u001F\u007F-\u009F\u00AD\u200B-\u200F\u2028-\u2029\u2060-\u2064\u2066-\u2069\uFEFF\uFFF9-\uFFFC]/g,
+				""
+			)
+			.replace(/\s+/g, " ")
+			.trim()
+			.slice(0, 32)
+	);
+}
+
 export function upsertUser(data: {
 	discord_id: string;
 	username: string;
@@ -107,6 +120,7 @@ export function upsertUser(data: {
 	avatar_url: string;
 	role?: string;
 }): { id: number; isNew: boolean } {
+	data = { ...data, display_name: sanitizeDisplayName(data.display_name) || data.username };
 	const existing = db
 		.query<{ id: number; role: string | null }, [string]>("SELECT id, role FROM users WHERE discord_id = ?")
 		.get(data.discord_id);

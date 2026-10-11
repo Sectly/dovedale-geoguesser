@@ -93,7 +93,7 @@
         <div class="text-center max-w-sm px-6">
           <span class="material-symbols-outlined text-5xl text-zinc-600 mb-4 block" style="font-variation-settings: &quot;FILL&quot; 1">lock</span>
           <h2 class="text-2xl font-bold mb-2">Login Required</h2>
-          <p class="text-zinc-400 mb-6">Log in with your Discord account to submit or suggest improvements to locations.</p>
+          <p class="text-zinc-400 mb-6">Log in with your Discord account to submit or suggest changes to locations.</p>
           <a href="/api/auth/login?redirect=/submit" class="bg-blue-600 hover:bg-blue-500 transition px-8 py-3 rounded-xl font-semibold inline-block"
             >Login with Discord</a
           >
@@ -116,7 +116,7 @@
         <div class="flex border-b border-zinc-800 flex-shrink-0">
           <button id="mode-new" class="flex-1 py-2.5 text-sm font-semibold transition bg-zinc-800 text-white border-b-2 border-blue-500">New Location</button>
           <button id="mode-suggest" class="flex-1 py-2.5 text-sm font-semibold transition text-zinc-400 hover:text-white border-b-2 border-transparent">
-            Suggest Improvement
+            Suggest Change
           </button>
         </div>
 
@@ -264,9 +264,8 @@
             </div>
           </div>
 
-          <!-- Location picker -->
           <div id="suggest-pick" style="display: none" class="flex-1 min-h-0 flex flex-col gap-3">
-            <p class="text-zinc-500 text-xs">Pick a location to suggest an improvement for.</p>
+            <p class="text-zinc-500 text-xs">Pick a location to suggest a change or improvement for.</p>
             <div class="flex items-center gap-2">
               <input
                 id="suggest-search"
@@ -287,7 +286,6 @@
             </div>
           </div>
 
-          <!-- Suggestion form -->
           <div id="suggest-form" style="display: none" class="flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto scrollbar-thin">
             <div class="flex items-center gap-2">
               <button id="suggest-back" class="text-zinc-400 hover:text-zinc-100 transition">
@@ -486,7 +484,6 @@
       </div>
     </div>
 
-    <!-- Lightbox for suggest current screenshot -->
     <div
       id="suggest-lightbox"
       style="display: none"
@@ -594,7 +591,7 @@
           ctx.save();
           ctx.resetTransform();
 
-          // All circles — fill pass
+          // All circles - fill pass
           ctx.fillStyle = "#f97316";
           ctx.beginPath();
           for (const { sx, sy } of visible) {
@@ -603,7 +600,7 @@
           }
           ctx.fill();
 
-          // All circles — stroke pass
+          // All circles - stroke pass
           ctx.strokeStyle = "#fff";
           ctx.lineWidth = 1.5;
           ctx.beginPath();
@@ -613,7 +610,7 @@
           }
           ctx.stroke();
 
-          // ID labels — only when zoomed in enough that they're readable
+          // ID labels - only when zoomed in enough
           if (t.a >= 1.5) {
             ctx.fillStyle = "#fff";
             ctx.font = "bold 10px Inter, sans-serif";

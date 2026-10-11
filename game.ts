@@ -2,18 +2,16 @@ import { db, type Location } from "./db";
 import { randomBytes } from "crypto";
 import type { WireConnection } from "@webwirejs/server";
 
-const WORLD_DIAGONAL = Math.hypot(38729, 24119); // ~45709 units
-
-export function calcDistanceScore(distance: number): number {
+function calcDistanceScore(distance: number): number {
 	return Math.max(0, Math.round(5000 * Math.exp(-distance / 9322)));
 }
 
-export function calcTimeBonus(timeTaken: number, timeLimit = 60): number {
+function calcTimeBonus(timeTaken: number, timeLimit = 60): number {
 	if (timeTaken >= timeLimit) return 0;
 	return Math.max(0, Math.round(1000 * (1 - timeTaken / timeLimit)));
 }
 
-export function worldDistance(x1: number, y1: number, x2: number, y2: number): number {
+function worldDistance(x1: number, y1: number, x2: number, y2: number): number {
 	return Math.hypot(x2 - x1, y2 - y1);
 }
 
@@ -146,7 +144,7 @@ export function setDuelAuditCallback(fn: DuelAuditFn) {
 	_duelAudit = fn;
 }
 
-export function generateRoomCode(): string {
+function generateRoomCode(): string {
 	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 	let code: string;
 	do {
