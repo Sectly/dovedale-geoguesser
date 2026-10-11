@@ -4,6 +4,8 @@ let currentUser = null;
 let currentTab = "submissions";
 let denyTargetId = null;
 let denyCallback = null;
+/** Shortest reason the server accepts for denying a submission or a suggestion. */
+const DENY_REASON_MIN = 5;
 
 const LABEL_MIN_LENGTH = 5;
 const LABEL_MAX_LENGTH = 128;
@@ -136,9 +138,17 @@ async function init() {
 
 	el("deny-rules").innerHTML = ruleChipsHtml("U");
 	bindRuleChips(el("deny-rules"), el("deny-reason"));
+	// A denial has to say why: the button stays off until there is a reason to send.
+	el("deny-reason").addEventListener("input", () => {
+		const left = DENY_REASON_MIN - el("deny-reason").value.trim().length;
+		el("deny-confirm").disabled = left > 0;
+		el("deny-count").textContent =
+			left > 0 ? `A reason is required: ${left} more character${left === 1 ? "" : "s"}` : "";
+	});
 	el("deny-cancel").addEventListener("click", () => el("deny-modal").classList.add("hidden"));
 	el("deny-confirm").addEventListener("click", () => {
 		const reason = el("deny-reason").value.trim();
+		if (reason.length < DENY_REASON_MIN) return;
 		el("deny-modal").classList.add("hidden");
 		if (denyTargetId !== null) denySubmission(denyTargetId, reason);
 		else if (denyCallback) denyCallback(reason);

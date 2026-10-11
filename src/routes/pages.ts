@@ -199,8 +199,10 @@ function sendFile(c: Context, root: string, relativePath: string, cacheControl: 
 		return null;
 	}
 	if (decoded.includes("\0") || decoded.split("/").some((part) => part.startsWith("."))) return null;
-	const path = normalize(join(root, decoded));
-	if (!path.startsWith(root + sep)) return null;
+	// The root comes from configuration and may use either kind of slash.
+	const base = normalize(root).replace(/[\\/]+$/, "");
+	const path = normalize(join(base, decoded));
+	if (!path.startsWith(base + sep)) return null;
 
 	let stat;
 	try {

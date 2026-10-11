@@ -1,13 +1,15 @@
 import { auditLog } from "../../lib/audit";
-import type { User } from "../../db";
+import { db, type User } from "../../db";
+import { ratingOf } from "./rating";
 import { createRoom, duelRooms, joinRoom, leaveWaitingRoom, type DuelRoom } from "./rooms";
 
 /**
- * Quick Play: the first player to ask gets a room and waits in it; the next
- * player asking for the same number of rounds is dropped into that room.
+ * Quick Play: the first player to ask gets a room and waits in it; the next player
+ * asking for the same number of rounds joins whoever is waiting with the rating
+ * closest to their own. Nobody is kept waiting for a better match than that.
  */
 
-type QueueEntry = { code: string; rounds: number };
+type QueueEntry = { code: string; rounds: number; rating: number };
 
 /** Players waiting alone in a quickplay room, keyed by user id. */
 const queue = new Map<number, QueueEntry>();
@@ -37,8 +39,11 @@ export function quickplay(user: User, rounds: number, canCreateRoom: () => boole
 	const pending = matched.get(user.id);
 	if (pending) return { status: "matched" as const, code: pending };
 
-	for (const [hostId, entry] of queue) {
-		if (entry.rounds !== rounds) continue;
+	const rating = ratingOf(user);
+	const closestFirst = [...queue]
+		.filter(([, entry]) => entry.rounds === rounds)
+		.sort(([, a], [, b]) => Math.abs(a.rating - rating) - Math.abs(b.rating - rating));
+	for (const [hostId, entry] of closestFirst) {
 		const room = waitingRoom(entry.code);
 		// Only match into rooms whose host is actually sitting there.
 		if (!room || room.players.length !== 1 || !room.players[0].connected) continue;
@@ -56,7 +61,7 @@ export function quickplay(user: User, rounds: number, canCreateRoom: () => boole
 
 	if (!canCreateRoom()) return null;
 	const room = createRoom(user.id, rounds, true);
-	queue.set(user.id, { code: room.code, rounds });
+	queue.set(user.id, { code: room.code, rounds, rating });
 	auditLog(user, "quickplay_queue", { targetType: "duel", targetId: room.dbId, details: `queued, ${rounds} rounds` });
 	return { status: "waiting" as const, code: room.code };
 }
@@ -90,6 +95,9 @@ export function leaveQuickplayRoom(room: DuelRoom, userId: number) {
 	queue.delete(userId);
 	const remaining = room.players[0];
 	if (remaining && duelRooms.get(room.code) === room) {
-		queue.set(remaining.userId, { code: room.code, rounds: room.rounds });
+		const user = db
+			.query<{ duel_rating: number | null }, [number]>("SELECT duel_rating FROM users WHERE id = ?")
+			.get(remaining.userId);
+		queue.set(remaining.userId, { code: room.code, rounds: room.rounds, rating: ratingOf(user ?? {}) });
 	}
 }

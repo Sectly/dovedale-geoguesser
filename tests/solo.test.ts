@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { db } from "../src/db";
-import { clearLocations, createLocation, createUser, post } from "./helpers";
+import { activeSoloGames, restoreSoloGames, saveSoloGames } from "../src/game/solo";
+import { clearLocations, createLocation, createUser, post, resetReviewQueues } from "./helpers";
 
 beforeAll(() => {
 	clearLocations();
@@ -18,6 +19,8 @@ async function playThrough(as: ReturnType<typeof createUser> | undefined, rounds
 	}
 	return { start: start.data, end: last.data };
 }
+
+beforeAll(resetReviewQueues);
 
 describe("solo", () => {
 	test("guests can play a full game and nothing is saved", async () => {
@@ -78,6 +81,28 @@ describe("solo", () => {
 		expect(start.data.round).toMatchObject({ loading: true, time_remaining: 30 });
 		const begun = await post(`/api/solo/games/${start.data.game_id}/begin`);
 		expect(begun.data.round).toMatchObject({ loading: false, number: 1 });
+	});
+
+	test("a game in progress is carried across a restart", async () => {
+		const player = createUser();
+		const start = await post("/api/solo/games", player, { rounds: 3, time_limit: 60 });
+		const id = start.data.game_id;
+		await post(`/api/solo/games/${id}/begin`, player);
+		await post(`/api/solo/games/${id}/hint`, player);
+		const first = await post(`/api/solo/games/${id}/guess`, player, { x: 0, y: 0 });
+		await post(`/api/solo/games/${id}/next`, player);
+		await post(`/api/solo/games/${id}/begin`, player);
+
+		expect(saveSoloGames()).toBeGreaterThan(0);
+		expect(activeSoloGames()).toBe(0);
+		expect((await post(`/api/solo/games/${id}/guess`, player, { x: 0, y: 0 })).status).toBe(404);
+		expect(restoreSoloGames()).toBeGreaterThan(0);
+		expect(restoreSoloGames()).toBe(0);
+
+		const second = await post(`/api/solo/games/${id}/guess`, player, { x: 0, y: 0 });
+		expect(second.status).toBe(200);
+		expect(second.data.round).toBe(2);
+		expect(second.data.total_score).toBe(first.data.score + second.data.score);
 	});
 
 	test("unsupported settings fall back to the defaults", async () => {

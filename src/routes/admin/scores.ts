@@ -5,6 +5,8 @@ import { GAME } from "../../config";
 import { requireStaff } from "../../auth/guards";
 import { auditLog } from "../../lib/audit";
 import { fail, idParam, readJson } from "../../lib/http";
+import { achievementsFor, award, clearAchievements, isAchievement, revoke } from "../../achievements";
+import { ratingOf, resetRating, unrateDuel } from "../../game/duels/rating";
 import { requireReason } from "../../moderation";
 import { notifyUser } from "../../notifications";
 
@@ -56,6 +58,8 @@ adminScoreRoutes.get("/:userId", (c) => {
 			longest: user.longest_streak ?? 0,
 			last_played_date: user.last_played_date,
 		},
+		rating: { value: ratingOf(user), games: user.duel_rated_games ?? 0 },
+		achievements: achievementsFor(user.id),
 		solo: all(
 			"SELECT id, total_score, max_possible, rounds, time_limit, created_at FROM solo_scores WHERE user_id = ? ORDER BY id DESC LIMIT 200"
 		),
@@ -185,7 +189,11 @@ adminScoreRoutes.delete("/:userId/duels/:id", async (c) => {
 				WHERE dg.id = ? AND dp.user_id = ? AND dg.status IN ('finished', 'abandoned')`
 			)
 			.get(idParam(c), user.id) ?? fail(404, "Duel not found, or it is still being played");
-	db.run("DELETE FROM duel_games WHERE id = ?", [game.id]);
+	db.transaction(() => {
+		// Both players get back whatever rating the duel moved.
+		unrateDuel(game.id);
+		db.run("DELETE FROM duel_games WHERE id = ?", [game.id]);
+	})();
 	record(
 		actor,
 		user,
@@ -217,9 +225,49 @@ adminScoreRoutes.post("/:userId/streak", async (c) => {
 	return c.json({ success: true });
 });
 
+adminScoreRoutes.post("/:userId/rating", async (c) => {
+	const actor = requireStaff(c, "operator");
+	const user = target(c);
+	const body = await readJson<{ rating: number; reason: string }>(c);
+	const reason = requireReason(body.reason);
+	const rating = wholeNumber(body.rating, "The rating", GAME.rating.floor, 4000);
+	db.run("UPDATE users SET duel_rating = ? WHERE id = ?", [rating, user.id]);
+	record(
+		actor,
+		user,
+		"score_edit",
+		`Duel rating: ${ratingOf(user)} to ${rating}`,
+		reason,
+		"Your duel rating was changed by staff"
+	);
+	return c.json({ success: true });
+});
+
+/** Gives or takes away one achievement. */
+adminScoreRoutes.post("/:userId/achievements/:key", async (c) => {
+	const actor = requireStaff(c, "operator");
+	const user = target(c);
+	const key = c.req.param("key");
+	if (!isAchievement(key)) fail(404, "No such achievement");
+	const body = await readJson<{ earned: boolean; reason: string }>(c);
+	const reason = requireReason(body.reason);
+	if (typeof body.earned !== "boolean") fail(400, "Say whether the achievement should be given or removed");
+	const changed = body.earned ? award(user.id, key, { quiet: true }) : revoke(user.id, key);
+	if (!changed) fail(409, body.earned ? "They already have that achievement" : "They do not have that achievement");
+	record(
+		actor,
+		user,
+		"score_edit",
+		`Achievement "${key}" ${body.earned ? "given" : "removed"}`,
+		reason,
+		body.earned ? "Staff gave you an achievement" : "An achievement was removed by staff"
+	);
+	return c.json({ success: true });
+});
+
 /* ---- Resets ---- */
 
-const SCOPES = ["solo", "daily", "duels", "streak", "all"] as const;
+const SCOPES = ["solo", "daily", "duels", "streak", "achievements", "all"] as const;
 type Scope = (typeof SCOPES)[number];
 
 const RESET_NOTICE: Record<Scope, string> = {
@@ -227,6 +275,7 @@ const RESET_NOTICE: Record<Scope, string> = {
 	daily: "Your daily scores were reset by staff",
 	duels: "Your duels were voided by staff",
 	streak: "Your streak was reset by staff",
+	achievements: "Your achievements were reset by staff",
 	all: "Your scores and history were reset by staff",
 };
 
@@ -254,7 +303,11 @@ adminScoreRoutes.post("/:userId/reset", async (c) => {
 				[user.id]
 			).changes;
 			removed.push(`${voided} duels voided`);
+			// With no duels left there is nothing for a rating to rest on.
+			resetRating(user.id);
+			removed.push("duel rating reset");
 		}
+		if (wants("achievements")) removed.push(`${clearAchievements(user.id)} achievements removed`);
 		if (wants("streak")) {
 			db.run("UPDATE users SET current_streak = 0, longest_streak = 0, last_played_date = NULL WHERE id = ?", [
 				user.id,

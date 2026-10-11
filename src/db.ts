@@ -313,6 +313,19 @@ const SCHEMA_STATEMENTS = [
   created_at INTEGER DEFAULT (unixepoch())
 )`,
 	`CREATE INDEX IF NOT EXISTS idx_server_logs_level ON server_logs(level, id DESC)`,
+	`CREATE TABLE IF NOT EXISTS user_achievements (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  earned_at INTEGER DEFAULT (unixepoch()),
+  seen_at INTEGER,
+  PRIMARY KEY (user_id, key)
+)`,
+	`CREATE TABLE IF NOT EXISTS location_stats (
+  location_id INTEGER PRIMARY KEY REFERENCES locations(id) ON DELETE CASCADE,
+  plays INTEGER NOT NULL DEFAULT 0,
+  score_sum INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER DEFAULT (unixepoch())
+)`,
 ];
 
 for (const sql of SCHEMA_STATEMENTS) {
@@ -350,6 +363,9 @@ const MIGRATIONS: string[] = [
 	"ALTER TABLE audit_log ADD COLUMN target_username TEXT",
 	"ALTER TABLE audit_log ADD COLUMN details TEXT",
 	"CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_log(target_type, target_id)",
+	"ALTER TABLE users ADD COLUMN duel_rating INTEGER DEFAULT 1000",
+	"ALTER TABLE users ADD COLUMN duel_rated_games INTEGER DEFAULT 0",
+	"ALTER TABLE duel_participants ADD COLUMN rating_change INTEGER",
 ];
 
 for (const sql of MIGRATIONS) {
@@ -448,6 +464,9 @@ export type User = {
 	longest_streak: number;
 	last_played_date: string | null;
 	profile_private: number;
+	/** Elo rating from Quick Play duels, and how many duels have counted towards it. */
+	duel_rating: number | null;
+	duel_rated_games: number | null;
 	suggestions_agreed: number;
 	suggestions_agreed_at: number | null;
 	/** Set when a senior member of staff has suspended this one's staff access. The role itself is kept. */

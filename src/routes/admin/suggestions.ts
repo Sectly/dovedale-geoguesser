@@ -8,6 +8,7 @@ import { auditLog } from "../../lib/audit";
 import { fail, idParam, readJson, text } from "../../lib/http";
 import { deleteUpload } from "../../lib/uploads";
 import { displayName, notify } from "../../lib/webhook";
+import { requireReason } from "../../moderation";
 import { notifyUser } from "../../notifications";
 
 export const adminSuggestionRoutes = new Hono();
@@ -153,7 +154,8 @@ adminSuggestionRoutes.post("/:id/approve", async (c) => {
 adminSuggestionRoutes.post("/:id/deny", async (c) => {
 	const staff = requireStaff(c);
 	const sug = pendingSuggestion(idParam(c));
-	const reason = text((await readJson<{ reason: string }>(c)).reason, 500) || null;
+	// The player is shown this, so a denial always says why.
+	const reason = requireReason((await readJson<{ reason: string }>(c)).reason, "A reason for denying");
 
 	db.run(
 		"UPDATE location_suggestions SET status = 'denied', reviewed_by = ?, reviewed_at = unixepoch(), deny_reason = ? WHERE id = ?",

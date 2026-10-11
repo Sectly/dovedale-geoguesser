@@ -2,7 +2,8 @@ import { db, type Location, type User } from "../db";
 import { GAME } from "../config";
 import { fail } from "../lib/http";
 import { nowSec, utcDate } from "../lib/time";
-import { DAILY_RULES, Round, outcomeJson, type Guess } from "./round";
+import { checkDaily, checkRound, checkStreak } from "../achievements";
+import { DAILY_RULES, Round, outcomeJson, recordOutcome, type Guess } from "./round";
 import { recordPlay } from "./streaks";
 
 /**
@@ -161,5 +162,10 @@ export function submitDailyGuess(user: User, guess: Guess | null) {
 	);
 	if (inserted.changes === 0) fail(409, "Already played today");
 
-	return { date, ...outcomeJson(outcome), ...roundFor(location, attempt).answer(), ...recordPlay(user.id) };
+	recordOutcome(location, outcome);
+	const streak = recordPlay(user.id);
+	checkRound(user.id, outcome);
+	checkDaily(user.id, outcome.score);
+	checkStreak(user.id, streak);
+	return { date, ...outcomeJson(outcome), ...roundFor(location, attempt).answer(), ...streak };
 }

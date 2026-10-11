@@ -57,15 +57,19 @@ leaderboardRoutes.get("/duels", (c) => {
 	const mode = c.req.query("mode");
 	const modeFilter = mode === "quickplay" ? "AND dg.quickplay = 1" : mode === "room" ? "AND dg.quickplay = 0" : "";
 	const orderBy =
-		sort === "score"
-			? "total_score DESC, wins DESC"
-			: sort === "avg"
-				? "avg_per_round DESC, wins DESC"
-				: "wins DESC, total_score DESC";
+		sort === "rating"
+			? "rating DESC, wins DESC"
+			: sort === "score"
+				? "total_score DESC, wins DESC"
+				: sort === "avg"
+					? "avg_per_round DESC, wins DESC"
+					: "wins DESC, total_score DESC";
 
 	const rows = db
 		.query(
 			`SELECT ${PLAYER_COLUMNS},
+				COALESCE(u.duel_rating, ${GAME.rating.start}) AS rating,
+				COALESCE(u.duel_rated_games, 0) AS rated_games,
 				SUM(dp.total_score) AS total_score,
 				COUNT(*) AS games_played,
 				SUM(CASE WHEN dg.winner_id = u.id THEN 1 ELSE 0 END) AS wins,
@@ -77,6 +81,7 @@ leaderboardRoutes.get("/duels", (c) => {
 			JOIN duel_games dg ON dg.id = dp.game_id
 			WHERE dg.status = 'finished' AND u.is_banned = 0 ${modeFilter}
 			GROUP BY dp.user_id
+			${sort === "rating" ? "HAVING rated_games > 0" : ""}
 			ORDER BY ${orderBy}
 			LIMIT ?`
 		)

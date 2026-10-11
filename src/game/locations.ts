@@ -1,5 +1,5 @@
 import { db, type Location } from "../db";
-import { LIMITS } from "../config";
+import { GAME, LIMITS } from "../config";
 
 /** Hints are stored as a JSON array of strings; tolerate anything else. */
 export function parseHints(raw: string | null | undefined): string[] {
@@ -45,13 +45,77 @@ function recentIds(sql: string): Set<number> {
 	);
 }
 
+/* ---- Difficulty: graded from how players actually do on each location ---- */
+
+export const DIFFICULTIES = ["easy", "medium", "hard"] as const;
+export type Difficulty = (typeof DIFFICULTIES)[number];
+
+function grade(plays: number, scoreSum: number): Difficulty | null {
+	if (plays < GAME.difficulty.minPlays) return null;
+	const average = scoreSum / plays;
+	return average >= GAME.difficulty.easyFrom ? "easy" : average < GAME.difficulty.hardBelow ? "hard" : "medium";
+}
+
+/** Adds one real guess to a location's record. `score` is the distance score alone, with no bonus or penalty. */
+export function recordLocationPlay(locationId: number, score: number) {
+	try {
+		db.run(
+			`INSERT INTO location_stats (location_id, plays, score_sum) VALUES (?, 1, ?)
+			ON CONFLICT(location_id) DO UPDATE SET plays = plays + 1, score_sum = score_sum + excluded.score_sum, updated_at = unixepoch()`,
+			[locationId, score]
+		);
+	} catch (err) {
+		console.error("[locations] Could not record a play:", err);
+	}
+}
+
+/** How hard a location has proved to be, or null until enough people have guessed it. */
+export function difficultyOf(locationId: number): Difficulty | null {
+	const row = db
+		.query<{ plays: number; score_sum: number }, [number]>(
+			"SELECT plays, score_sum FROM location_stats WHERE location_id = ?"
+		)
+		.get(locationId);
+	return row ? grade(row.plays, row.score_sum) : null;
+}
+
+/** The grade of every location that has one. */
+function gradedLocations(): Map<number, Difficulty> {
+	const graded = new Map<number, Difficulty>();
+	for (const row of db
+		.query<{ location_id: number; plays: number; score_sum: number }, []>(
+			"SELECT s.location_id, s.plays, s.score_sum FROM location_stats s JOIN locations l ON l.id = s.location_id WHERE l.is_active = 1"
+		)
+		.all()) {
+		const difficulty = grade(row.plays, row.score_sum);
+		if (difficulty) graded.set(row.location_id, difficulty);
+	}
+	return graded;
+}
+
+/** How many active locations there are of each grade, for the page to offer only what can be played. */
+export function difficultyCounts(): Record<Difficulty, number> {
+	const counts = { easy: 0, medium: 0, hard: 0 };
+	for (const difficulty of gradedLocations().values()) counts[difficulty]++;
+	return counts;
+}
+
+export function resetLocationStats(locationId: number) {
+	db.run("DELETE FROM location_stats WHERE location_id = ?", [locationId]);
+}
+
 /**
  * Picks up to `count` active locations for a game. Picks are spread out across the map
  * (each new pick favours spots far from the ones already chosen) and locations seen
- * recently in dailies or duels are less likely to come up.
+ * recently in dailies or duels are less likely to come up. With a `difficulty`, only
+ * locations of that grade are considered, so fewer than `count` may come back.
  */
-export function pickLocations(count: number): Location[] {
-	const pool = db.query<Location, []>("SELECT * FROM locations WHERE is_active = 1").all();
+export function pickLocations(count: number, difficulty: Difficulty | null = null): Location[] {
+	let pool = db.query<Location, []>("SELECT * FROM locations WHERE is_active = 1").all();
+	if (difficulty) {
+		const graded = gradedLocations();
+		pool = pool.filter((location) => graded.get(location.id) === difficulty);
+	}
 	if (pool.length <= count) return shuffle(pool);
 
 	const recentDaily = recentIds("SELECT location_id FROM daily_challenges WHERE date >= date('now', '-3 days')");

@@ -20,7 +20,9 @@ import {
 	maintenance,
 	setMaintenance,
 } from "../../system/maintenance";
-import { restartServer, runUpdate, updateStatus } from "../../system/updater";
+import { backfillAchievements } from "../../achievements";
+import { features, isFeature, setFeature } from "../../system/features";
+import { cancelPendingRestart, restartServer, runUpdate, updateStatus } from "../../system/updater";
 
 /** Routes mounted at /api/admin/system: backups, logs, updates and restarts. Operators only. */
 export const adminSystemRoutes = new Hono();
@@ -167,4 +169,38 @@ adminSystemRoutes.post("/restart", async (c) => {
 	if (problem) fail(409, problem);
 	auditLog(actor, "server_restart", { details: "Restart requested from the staff panel" });
 	return c.json({ success: true });
+});
+
+adminSystemRoutes.post("/restart/cancel", (c) => {
+	const actor = requireStaff(c, "operator");
+	const problem = cancelPendingRestart(displayName(actor));
+	if (problem) fail(409, problem);
+	auditLog(actor, "server_restart_cancel", { details: "Restart called off from the staff panel" });
+	return c.json({ success: true });
+});
+
+/* ---- Feature switches ---- */
+
+adminSystemRoutes.get("/features", (c) => {
+	requireStaff(c, "operator");
+	return c.json(features());
+});
+
+adminSystemRoutes.post("/features", async (c) => {
+	const actor = requireStaff(c, "operator");
+	const body = await readJson<{ feature: string; enabled: boolean }>(c);
+	if (!isFeature(body.feature) || typeof body.enabled !== "boolean") fail(400, "Unknown feature");
+	const state = setFeature(body.feature, body.enabled);
+	auditLog(actor, "feature_toggle", { details: `${body.feature} switched ${body.enabled ? "on" : "off"}` });
+	return c.json(state);
+});
+
+/** Works out achievements from every player's history again, e.g. after scores were restored from a backup. */
+adminSystemRoutes.post("/achievements/backfill", (c) => {
+	const actor = requireStaff(c, "operator");
+	if (!checkUserRateLimit(actor, "achievement-backfill", 3, 10 * 60 * 1000))
+		fail(429, "That was run moments ago. Try again shortly.");
+	const given = backfillAchievements();
+	auditLog(actor, "achievements_backfill", { details: `${given} achievements given from history` });
+	return c.json({ success: true, given });
 });

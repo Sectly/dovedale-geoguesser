@@ -17,6 +17,7 @@ import {
 	playerLoaded,
 	playerReconnected,
 	send,
+	sendEmote,
 	sendSnapshot,
 	sendToSpectators,
 	startDuel,
@@ -188,6 +189,17 @@ wireServer.on("connection", (conn: WireConnection) => {
 			if (!s) return;
 			const body = data as { world_x?: unknown; world_y?: unknown } | null;
 			submitGuess(s.room, s.player.userId, parseGuess(body?.world_x, body?.world_y));
+		})
+	);
+
+	// Named differently from the "emote" event sent back out: this library also fires an event's
+	// handlers on a connection the server sends that event to, so one shared name would make every
+	// player who receives a reaction appear to send it as well.
+	conn.on(
+		"send_emote",
+		handler("send_emote", (data) => {
+			const s = seat();
+			if (s) sendEmote(s.room, s.player.userId, (data as { emote?: unknown } | null)?.emote);
 		})
 	);
 

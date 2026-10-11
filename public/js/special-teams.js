@@ -9,6 +9,8 @@ const TEAM_INFO = {
 	b: { name: "Amber team", color: "#FFB300", text: "text-amber-300", bar: "bg-amber-500" },
 };
 const POLL_MS = 1000;
+/** The newest reaction already shown, so each one pops up once however often the room is polled. */
+let lastEmoteId = 0;
 
 let me = null;
 let room = null;
@@ -62,6 +64,7 @@ function leaveLocally(message = "") {
 	clearInterval(pollTimer);
 	roomCode = null;
 	room = null;
+	lastEmoteId = 0;
 	shown = { status: null, phase: null, round: 0 };
 	view?.stop();
 	history.replaceState(null, "", "/specials/teams");
@@ -202,6 +205,11 @@ function renderReveal() {
 		})
 		.join("");
 	show("team-reveal");
+	view.fitResult(
+		reveal,
+		reveal.guesses.filter((g) => g.x !== null),
+		el("team-reveal")
+	);
 	el("click-hint").textContent = reveal.label || "";
 	const mine = reveal.team_scores[room.you.team] ?? 0;
 	const theirs = reveal.team_scores[room.you.team === "a" ? "b" : "a"] ?? 0;
@@ -234,8 +242,25 @@ function renderFinal() {
 	if (won) celebrate();
 }
 
+/** Shows any reactions that have arrived since the last poll, in each sender's team colour. */
+function renderEmotes() {
+	renderEmoteBar(room.emote_list, !!room.you.team);
+	for (const sent of room.emotes || []) {
+		if (sent.id <= lastEmoteId) continue;
+		lastEmoteId = sent.id;
+		const who = memberById(sent.user_id);
+		if (!who) continue;
+		showEmoteBubble(sent.emote, {
+			name: who.id === me.id ? "You" : nameOf(who),
+			avatarUrl: who.avatar_url,
+			color: TEAM_INFO[who.team]?.color ?? "#a1a1aa",
+		});
+	}
+}
+
 /** Draws the room as the server last described it, acting once on each change. */
 function render() {
+	renderEmotes();
 	const changed = shown.status !== room.status || shown.phase !== room.phase || shown.round !== room.round_number;
 	const was = shown;
 	shown = { status: room.status, phase: room.phase, round: room.round_number };
@@ -287,6 +312,7 @@ async function init() {
 	if (!me) return location.replace("/specials");
 
 	view = new RoundView({ onGuess: submitGuess });
+	bindEmoteBar((emote) => roomCode && teamApi("/emote", { emote }).catch(() => {}));
 	/** Tell the server where the pin is as it moves, so a teammate can see it. */
 	const placed = view.map.onPinPlaced;
 	view.map.onPinPlaced = (x, y) => {

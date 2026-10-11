@@ -172,6 +172,46 @@ class MapCanvas {
 		this._scheduleDraw();
 	}
 
+	/**
+	 * Moves and zooms the map so every given world position is in view, clear of whatever
+	 * covers the bottom `insetBottom` pixels (a result sheet). The view it replaces is kept
+	 * for `restoreView`.
+	 */
+	fitTo(points, { insetBottom = 0, padding = 56 } = {}) {
+		this._handleResize();
+		if (!points.length || this.viewWidth <= 0 || this.viewHeight <= 0) return;
+		const t = this.ctx.getTransform();
+		this._viewBeforeFit ??= { x: t.e, y: t.f, scale: t.a };
+
+		const spots = points.map((p) => this.worldToCanvas(p.x, p.y));
+		const xs = spots.map((s) => s.x);
+		const ys = spots.map((s) => s.y);
+		const [left, right, top, bottom] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+		const roomX = Math.max(40, this.viewWidth - padding * 2);
+		const roomY = Math.max(40, this.viewHeight - insetBottom - padding * 2);
+		// Never closer than 4x, so two guesses side by side do not fill the screen with a few tiles.
+		const scale = Math.min(4, Math.max(0.5, Math.min(roomX / (right - left || 1), roomY / (bottom - top || 1))));
+
+		this.ctx.resetTransform();
+		this.ctx.translate(
+			this.viewWidth / 2 - ((left + right) / 2) * scale,
+			Math.max(padding, (this.viewHeight - insetBottom) / 2) - ((top + bottom) / 2) * scale
+		);
+		this.ctx.scale(scale, scale);
+		this._scheduleDraw();
+	}
+
+	/** Puts the map back where it was before `fitTo` moved it. */
+	restoreView() {
+		const before = this._viewBeforeFit;
+		this._viewBeforeFit = null;
+		if (!before) return;
+		this.ctx.resetTransform();
+		this.ctx.translate(before.x, before.y);
+		this.ctx.scale(before.scale, before.scale);
+		this._scheduleDraw();
+	}
+
 	setQuality(q) {
 		this.quality = q;
 		localStorage.setItem("mapQuality", q);

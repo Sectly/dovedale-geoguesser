@@ -140,6 +140,38 @@
             </div>
           </div>
 
+          <div class="mb-6">
+            <div class="text-xs text-zinc-500 font-medium mb-2 uppercase tracking-wider">Locations</div>
+            <div class="flex gap-1.5 flex-wrap">
+              <button
+                class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-blue-500 bg-blue-600/15 text-blue-300"
+                data-val="0"
+                data-default
+              >
+                Any
+              </button>
+              <button
+                class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                data-val="1"
+              >
+                Easy
+              </button>
+              <button
+                class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                data-val="2"
+              >
+                Medium
+              </button>
+              <button
+                class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                data-val="3"
+              >
+                Hard
+              </button>
+            </div>
+            <p id="difficulty-note" class="text-xs text-zinc-600 mt-2"></p>
+          </div>
+
           <button
             id="start-btn"
             class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 transition rounded-2xl py-3.5 font-bold text-lg tracking-wide shadow-md"
@@ -150,7 +182,9 @@
         </div>
 
         <p id="login-save-hint" class="hidden text-zinc-600 text-xs mt-5">
-          <a href="/api/auth/login?redirect=/play" class="hover:text-zinc-400 underline transition">Login</a> to save scores
+          <a href="/api/auth/login?redirect=/play" class="hover:text-zinc-400 underline transition">Login</a> to save scores. By logging in you agree to our
+          <a href="/tos" class="underline hover:text-zinc-400">Terms of Service</a> and
+          <a href="/privacy" class="underline hover:text-zinc-400">Privacy Policy</a>.
         </p>
       </div>
     </div>
@@ -311,6 +345,7 @@
     <script src="/js/map-canvas.js"></script>
     <script src="/js/sounds.js"></script>
     <script src="/js/shared.js"></script>
+    <script src="/js/tooltips.js"></script>
     <script src="/js/round.js"></script>
     <script src="/js/photo-effects.js"></script>
     <script src="/js/solo.js"></script>

@@ -11,6 +11,7 @@ import {
 	leaveTeamRoom,
 	moveTeamPin,
 	resetTeamRoom,
+	sendTeamEmote,
 	startTeamGame,
 	submitTeamGuess,
 	teamRoomState,
@@ -75,6 +76,12 @@ teamRoutes.post("/rooms/:code/guess", async (c) => {
 	const user = requireTeamPlayer(c);
 	const body = await readJson<{ x: number; y: number }>(c);
 	submitTeamGuess(code(c), user, parseGuess(body.x, body.y));
+	return done(c);
+});
+
+teamRoutes.post("/rooms/:code/emote", async (c) => {
+	const user = requireTeamPlayer(c);
+	sendTeamEmote(code(c), user, (await readJson<{ emote: string }>(c)).emote);
 	return done(c);
 });
 

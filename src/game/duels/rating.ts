@@ -1,0 +1,83 @@
+import { db } from "../../db";
+import { GAME } from "../../config";
+
+/**
+ * Duel ratings: an Elo rating per player, moved only by Quick Play duels. Private rooms
+ * are for playing with friends and never touch it. The change each player got is kept
+ * with the game, so voiding a duel can hand the points back.
+ */
+
+export type RatingChange = { user_id: number; rating: number; change: number };
+
+type Rated = { id: number; duel_rating: number | null; duel_rated_games: number | null };
+
+export const ratingOf = (user: { duel_rating?: number | null }) => user.duel_rating ?? GAME.rating.start;
+
+/** The share of the points a player rated `own` is expected to take from one rated `other`. */
+export function expectedScore(own: number, other: number): number {
+	return 1 / (1 + 10 ** ((other - own) / 400));
+}
+
+function getRated(userId: number): Rated | null {
+	return db.query<Rated, [number]>("SELECT id, duel_rating, duel_rated_games FROM users WHERE id = ?").get(userId);
+}
+
+/**
+ * Applies the result of one duel between two players. `winnerId` is null for a tie.
+ * Returns each player's new rating and how far it moved, or null when the game cannot be rated.
+ */
+export function rateDuel(gameId: number, playerIds: number[], winnerId: number | null): RatingChange[] | null {
+	if (playerIds.length !== 2) return null;
+	const players = playerIds.map(getRated);
+	if (players.some((p) => !p)) return null;
+	const [a, b] = players as Rated[];
+
+	const changes = [a, b].map((player, i) => {
+		const other = i === 0 ? b : a;
+		const result = winnerId === null ? 0.5 : winnerId === player.id ? 1 : 0;
+		// New players move quickly towards where they belong, then settle.
+		const k =
+			(player.duel_rated_games ?? 0) < GAME.rating.provisionalGames ? GAME.rating.kProvisional : GAME.rating.k;
+		const before = ratingOf(player);
+		const after = Math.max(
+			GAME.rating.floor,
+			Math.round(before + k * (result - expectedScore(before, ratingOf(other))))
+		);
+		return { user_id: player.id, rating: after, change: after - before };
+	});
+
+	db.transaction(() => {
+		for (const c of changes) {
+			db.run(
+				"UPDATE users SET duel_rating = ?, duel_rated_games = COALESCE(duel_rated_games, 0) + 1 WHERE id = ?",
+				[c.rating, c.user_id]
+			);
+			db.run("UPDATE duel_participants SET rating_change = ? WHERE game_id = ? AND user_id = ?", [
+				c.change,
+				gameId,
+				c.user_id,
+			]);
+		}
+	})();
+	return changes;
+}
+
+/** Hands back what a duel did to its players' ratings. Call it before the game is deleted. */
+export function unrateDuel(gameId: number) {
+	const rows = db
+		.query<{ user_id: number; rating_change: number }, [number]>(
+			"SELECT user_id, rating_change FROM duel_participants WHERE game_id = ? AND rating_change IS NOT NULL"
+		)
+		.all(gameId);
+	for (const row of rows) {
+		db.run(
+			`UPDATE users SET duel_rating = MAX(?, COALESCE(duel_rating, ?) - ?),
+				duel_rated_games = MAX(0, COALESCE(duel_rated_games, 0) - 1) WHERE id = ?`,
+			[GAME.rating.floor, GAME.rating.start, row.rating_change, row.user_id]
+		);
+	}
+}
+
+export function resetRating(userId: number) {
+	db.run("UPDATE users SET duel_rating = ?, duel_rated_games = 0 WHERE id = ?", [GAME.rating.start, userId]);
+}

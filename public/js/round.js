@@ -74,6 +74,7 @@ class RoundView {
 		this.canGuess = canGuess;
 		this.pin = null;
 		this.map.clearPin();
+		this.map.restoreView();
 		this._setGuessEnabled(false);
 		el("guess-btn").classList.toggle("hidden", !canGuess);
 		el("click-hint").textContent = "Loading the screenshot…";
@@ -182,6 +183,17 @@ class RoundView {
 		else this.map.showResult(answer.correct_x, answer.correct_y);
 	}
 
+	/**
+	 * Brings the answer and the guesses into the part of the map the result sheet leaves
+	 * uncovered. Call it once the sheet has its content, so its height is known.
+	 */
+	fitResult(answer, guesses = [this.pin], sheet = el("result-screen")) {
+		this.map.fitTo(
+			[{ x: answer.correct_x, y: answer.correct_y }, ...guesses.filter(Boolean).map(({ x, y }) => ({ x, y }))],
+			{ insetBottom: sheet?.offsetHeight || 0 }
+		);
+	}
+
 	_visible() {
 		return el("map-canvas").offsetParent !== null;
 	}
@@ -286,6 +298,105 @@ function renderRoundResult(result, max = 5000) {
 	bar.style.width = "0%";
 	bar.className = `score-bar h-2 rounded-full ${tone.bar}`;
 	requestAnimationFrame(() => requestAnimationFrame(() => (bar.style.width = `${(result.score / max) * 100}%`)));
+}
+
+/** "Hard location" and the like for a result line, or nothing while a location is still ungraded. */
+function difficultyText(difficulty) {
+	return difficulty ? `${difficulty[0].toUpperCase()}${difficulty.slice(1)} location` : "";
+}
+
+/* ---- Reactions: preset icons players can send each other (duels and team games) ---- */
+
+const EMOTE_COOLDOWN_MS = 1500;
+const EMOTE_SHOWN_MS = 3000;
+/**
+ * The key that sends each reaction while the picker is open, following the number row:
+ * 1 to 9, 0 for the tenth, then - and + for the eleventh and twelfth.
+ */
+const EMOTE_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "+"];
+/** + is Shift and = on most keyboards; either one counts. */
+const EMOTE_KEY_ALIASES = { "=": "+" };
+let emoteList = [];
+
+/**
+ * Draws the reaction picker from the list the server offers. An empty list hides it, and
+ * so does `canSend: false` (spectators), though the reactions themselves still show.
+ * Expects #emote-bar and #emote-feed on the page.
+ */
+function renderEmoteBar(list, canSend = true) {
+	const offered = Array.isArray(list) ? list.filter((name) => /^[a-z0-9_]+$/.test(name)) : [];
+	const changed = offered.join() !== emoteList.join();
+	emoteList = offered;
+	show("emote-bar", emoteList.length > 0 && canSend);
+	if (!changed) return;
+	el("emote-bar").innerHTML =
+		`<button data-emote-toggle class="emote-btn" title="Send a reaction" data-tip-key="E" aria-label="Send a reaction" aria-expanded="false">
+			<span class="material-symbols-outlined">add_reaction</span>
+		</button>
+		<div data-emote-choices class="emote-picker" hidden>${emoteList
+			.map(
+				(name, i) =>
+					`<button data-emote="${name}" class="emote-btn" title="${name.replaceAll("_", " ")}" ${EMOTE_KEYS[i] ? `data-tip-key="${EMOTE_KEYS[i]}"` : ""} aria-label="${name.replaceAll("_", " ")}"><span class="material-symbols-outlined">${name}</span></button>`
+			)
+			.join("")}</div>`;
+}
+
+/** Wires the picker up once per page. `send` is handed the name of the chosen reaction. */
+function bindEmoteBar(send) {
+	const bar = el("emote-bar");
+	const choices = () => bar.querySelector("[data-emote-choices]");
+	const setOpen = (open) => {
+		if (!choices()) return;
+		choices().hidden = !open;
+		bar.querySelector("[data-emote-toggle]").setAttribute("aria-expanded", String(open));
+	};
+	bar.addEventListener("click", (e) => {
+		if (e.target.closest("[data-emote-toggle]")) return setOpen(choices().hidden);
+		const choice = e.target.closest("[data-emote]");
+		if (!choice || choice.disabled) return;
+		send(choice.dataset.emote);
+		setOpen(false);
+		// The server allows one every so often; show that instead of letting clicks vanish.
+		const buttons = [...bar.querySelectorAll("[data-emote]")];
+		for (const button of buttons) button.disabled = true;
+		setTimeout(() => buttons.forEach((button) => (button.disabled = false)), EMOTE_COOLDOWN_MS);
+	});
+	// Clicking anywhere else puts the picker away.
+	document.addEventListener("click", (e) => bar.contains(e.target) || setOpen(false));
+
+	// E opens the picker and a number sends that reaction, so nobody has to leave the map for the mouse.
+	const usable = () => !bar.classList.contains("hidden") && bar.offsetParent !== null;
+	const sendNumbered = (e) => {
+		if (!usable() || !choices() || choices().hidden) return false;
+		const key = EMOTE_KEY_ALIASES[e.key] ?? e.key;
+		const choice = choices().querySelectorAll("[data-emote]")[EMOTE_KEYS.indexOf(key)];
+		return choice ? choice.click() : false;
+	};
+	addKeybinds("Reactions", [
+		[["E"], "Open or close the reaction picker", () => (usable() ? setOpen(choices().hidden) : false)],
+		// Listed as one row in the help; the digits themselves are bound just below.
+		[["1-9", "0", "-", "+"], "Send that reaction (while the picker is open)", () => false],
+	]);
+	// Ahead of anything else on these keys (- and + zoom the map), and only while the picker is open.
+	for (const key of [...EMOTE_KEYS, ...Object.keys(EMOTE_KEY_ALIASES)])
+		_pageKeys.set(key, [sendNumbered, ...(_pageKeys.get(key) || []).filter((handler) => handler !== sendNumbered)]);
+}
+
+/** Pops one reaction up beside the screenshot for a moment, with its sound. */
+function showEmoteBubble(emote, { name, avatarUrl, color }) {
+	if (!emoteList.includes(emote)) return;
+	Sounds.play(Sounds.has(`emote_${emote}`) ? `emote_${emote}` : "emote");
+	const bubble = document.createElement("div");
+	bubble.className = "emote-pop emote-bubble";
+	bubble.setAttribute("role", "status");
+	bubble.innerHTML = `${avatarHtml(avatarUrl, "w-9 h-9")}
+		<span class="emote-bubble-name">${escHtml(name)}</span>
+		<span class="material-symbols-outlined" style="color:${color}">${emote}</span>`;
+	const feed = el("emote-feed");
+	feed.appendChild(bubble);
+	// Keep the stack short when players trade reactions quickly.
+	while (feed.children.length > 4) feed.firstElementChild.remove();
+	setTimeout(() => bubble.remove(), EMOTE_SHOWN_MS);
 }
 
 function reportLocationUrl(locationId) {

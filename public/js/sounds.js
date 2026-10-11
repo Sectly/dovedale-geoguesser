@@ -92,6 +92,65 @@ const Sounds = (() => {
 			[988, 0, 0.1],
 			[1319, 0.09, 0.24],
 		],
+		/* Reactions: one short phrase each, named after its icon. `emote` covers any without its own. */
+		emote: [[784, 0, 0.1, "sine", 0.05]],
+		emote_waving_hand: [
+			[659, 0, 0.09, "sine", 0.05],
+			[880, 0.08, 0.14, "sine", 0.05],
+		],
+		emote_thumb_up: [
+			[784, 0, 0.07, "triangle", 0.06],
+			[1047, 0.06, 0.14, "triangle", 0.06],
+		],
+		emote_handshake: [
+			[523, 0, 0.1, "triangle", 0.06],
+			[523, 0.13, 0.16, "triangle", 0.06],
+		],
+		emote_celebration: [
+			[523, 0, 0.08, "sine", 0.05],
+			[659, 0.07, 0.08, "sine", 0.05],
+			[784, 0.14, 0.08, "sine", 0.05],
+			[1047, 0.21, 0.24, "sine", 0.06],
+		],
+		emote_local_fire_department: [
+			[330, 0, 0.09, "sawtooth", 0.03],
+			[494, 0.07, 0.09, "sawtooth", 0.03],
+			[740, 0.14, 0.2, "sawtooth", 0.035],
+		],
+		emote_favorite: [
+			[698, 0, 0.16, "sine", 0.05],
+			[880, 0.13, 0.3, "sine", 0.05],
+		],
+		emote_sentiment_very_satisfied: [
+			[659, 0, 0.07, "triangle", 0.05],
+			[523, 0.07, 0.07, "triangle", 0.05],
+			[784, 0.14, 0.18, "triangle", 0.06],
+		],
+		emote_sentiment_dissatisfied: [
+			[392, 0, 0.14, "triangle", 0.06],
+			[294, 0.13, 0.28, "triangle", 0.06],
+		],
+		emote_psychology_alt: [
+			[330, 0, 0.16, "sine", 0.06],
+			[311, 0.15, 0.1, "sine", 0.06],
+			[370, 0.26, 0.2, "sine", 0.05],
+		],
+		emote_bolt: [
+			[1400, 0, 0.04, "square", 0.025],
+			[1000, 0.04, 0.05, "square", 0.025],
+			[1700, 0.09, 0.09, "square", 0.025],
+		],
+		emote_rocket_launch: [
+			[262, 0, 0.08, "sawtooth", 0.03],
+			[392, 0.07, 0.08, "sawtooth", 0.03],
+			[587, 0.14, 0.08, "sawtooth", 0.03],
+			[880, 0.21, 0.26, "triangle", 0.05],
+		],
+		emote_skull: [
+			[220, 0, 0.14, "sawtooth", 0.035],
+			[185, 0.13, 0.14, "sawtooth", 0.035],
+			[139, 0.26, 0.34, "sawtooth", 0.04],
+		],
 	};
 
 	return {
@@ -104,6 +163,8 @@ const Sounds = (() => {
 				localStorage.setItem(STORAGE_KEY, enabled ? "1" : "0");
 			} catch {}
 		},
+		/** Whether there is a sound by this name, for callers that want to fall back to another. */
+		has: (name) => !!LIBRARY[name],
 		play(name) {
 			if (!enabled || !LIBRARY[name]) return;
 			const audio = context();

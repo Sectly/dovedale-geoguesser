@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { db } from "../src/db";
-import { call, createUser, post, type TestUser } from "./helpers";
+import { call, createUser, post, resetReviewQueues, type TestUser } from "./helpers";
 
 function pendingSubmission(author: TestUser, label = "The goods shed"): number {
 	return Number(
@@ -13,6 +13,8 @@ function pendingSubmission(author: TestUser, label = "The goods shed"): number {
 
 const inbox = (user: TestUser) => call("/api/notifications", { as: user }).then((r) => r.data);
 
+beforeAll(resetReviewQueues);
+
 describe("notifications", () => {
 	test("a reviewed submission lands in its author's inbox and can be marked read", async () => {
 		const author = createUser();
@@ -20,7 +22,11 @@ describe("notifications", () => {
 		expect((await inbox(author)).unread).toBe(0);
 
 		await post(`/api/admin/submissions/${pendingSubmission(author)}/approve`, mod);
-		await post(`/api/admin/submissions/${pendingSubmission(author, "A blurry field")}/deny`, mod, {
+		const blurry = pendingSubmission(author, "A blurry field");
+		// A denial has to say why.
+		expect((await post(`/api/admin/submissions/${blurry}/deny`, mod, {})).status).toBe(400);
+		expect((await post(`/api/admin/submissions/${blurry}/deny`, mod, { reason: "  no " })).status).toBe(400);
+		await post(`/api/admin/submissions/${blurry}/deny`, mod, {
 			reason: "Too blurry",
 		});
 
@@ -87,7 +93,7 @@ describe("notifications", () => {
 		const during = (await call("/api/attention", { as: mod })).data.staff;
 		expect(during.tickets).toBe(before.tickets + 1);
 		expect(during.submissions).toBe(before.submissions + 1);
-		expect(during.total).toBe(during.submissions + during.suggestions + during.tickets);
+		expect(during.total).toBe(during.submissions + during.suggestions + during.tickets + during.users);
 		expect((await call("/api/attention", { as: player })).data.staff).toBeNull();
 
 		await post(`/api/admin/support/${ticket.data.id}/reply`, mod, { reply: "Fixed, thank you." });

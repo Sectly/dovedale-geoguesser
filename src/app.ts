@@ -18,6 +18,7 @@ import { miscRoutes } from "./routes/misc";
 import { notificationRoutes } from "./routes/notifications";
 import { ogRoutes } from "./routes/og";
 import { DEFAULT_MAINTENANCE_MESSAGE, maintenance } from "./system/maintenance";
+import { blockedByRestart, justRestarted, restartIn } from "./system/restart";
 import { errorPage, notFound, pageRoutes, wantsPage } from "./routes/pages";
 import { profileRoutes } from "./routes/profile";
 import { soloRoutes, specialRoutes } from "./routes/solo";
@@ -46,6 +47,8 @@ export const app = new Hono();
 
 app.use("*", async (c, next) => {
 	await next();
+	// Says the answer came from the game itself, not from a proxy standing in while it is down.
+	c.header("X-App", "dovedale");
 	c.header("X-Content-Type-Options", "nosniff");
 	c.header("X-Frame-Options", "DENY");
 	c.header("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -58,6 +61,30 @@ app.use("*", async (c, next) => {
 			"connect-src 'self' ws: wss:; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 	);
 	if (SECURE_COOKIES) c.header("Strict-Transport-Security", "max-age=31536000");
+});
+
+/**
+ * A planned restart rides along on every API response, so each open page learns of it from
+ * whatever it asks next (and, when the header stops coming, that it is over or was called
+ * off). New multiplayer games are turned away: there would be no time to finish them.
+ */
+app.use("/api/*", async (c, next) => {
+	if (restartIn() === null) {
+		await next();
+		// Just back from a restart: say so, for anyone who reloaded while it was happening.
+		const restarted = justRestarted();
+		if (restarted !== null) c.header("X-Restarted", String(restarted));
+		return;
+	}
+	if (blockedByRestart(c.req.method, c.req.path)) {
+		c.header("X-Restart-In", String(restartIn()));
+		c.header("Retry-After", String(restartIn()! + 10));
+		return c.text("The server is about to restart for an update. Try again in a minute.", 503);
+	}
+	await next();
+	// Asked again here: the request may be the very one that called the restart off.
+	const seconds = restartIn();
+	if (seconds !== null) c.header("X-Restart-In", String(seconds));
 });
 
 /**

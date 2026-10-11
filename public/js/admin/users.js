@@ -789,11 +789,38 @@ async function loadScoreManager(userId) {
 			<div class="flex-1 min-w-0 text-sm">Streak <span class="font-mono font-bold">${data.streak.current}</span> <span class="text-zinc-500">· best ${data.streak.longest}${data.streak.last_played_date ? ` · last played ${escHtml(data.streak.last_played_date)}` : ""}</span></div>
 			${icon("edit", `editStreak(${userId}, ${data.streak.current}, ${data.streak.longest})`, "Change the streak")}
 		</div>
+		<div class="bg-zinc-800/50 rounded-xl px-3 py-2.5 mb-3 flex items-center gap-3 flex-wrap">
+			<span class="material-symbols-outlined text-lg text-blue-300">swords</span>
+			<div class="flex-1 min-w-0 text-sm">Duel rating <span class="font-mono font-bold">${data.rating.value.toLocaleString()}</span> <span class="text-zinc-500">· ${data.rating.games} ranked duel${data.rating.games === 1 ? "" : "s"}</span></div>
+			${icon("edit", `editRating(${userId}, ${data.rating.value})`, "Change the rating")}
+		</div>
+		<details class="bg-zinc-800/50 rounded-xl px-3 py-2.5 mb-3">
+			<summary class="flex items-center gap-3 cursor-pointer list-none">
+				<span class="material-symbols-outlined text-lg text-yellow-400">emoji_events</span>
+				<span class="flex-1 text-sm">Achievements <span class="text-zinc-500">· ${data.achievements.filter((a) => a.earned_at).length} of ${data.achievements.length}</span></span>
+				<span class="material-symbols-outlined text-zinc-500">expand_more</span>
+			</summary>
+			<div class="divide-y divide-zinc-800 mt-2">${data.achievements
+				.map((a) =>
+					row(
+						`<span class="font-sans ${a.earned_at ? "" : "text-zinc-500"}">${escHtml(a.title)}</span>`,
+						a.earned_at ? `Earned ${formatWhen(a.earned_at)}` : escHtml(a.description),
+						a.earned_at
+							? icon(
+									"remove_circle",
+									`setAchievement(${userId}, '${a.id}', false)`,
+									"Take this achievement away"
+								)
+							: icon("add_circle", `setAchievement(${userId}, '${a.id}', true)`, "Give this achievement")
+					)
+				)
+				.join("")}</div>
+		</details>
 		<div class="m-segmented mb-2">${tab("solo", "Solo")}${tab("daily", "Daily")}${tab("duels", "Duels")}</div>
 		<div class="divide-y divide-zinc-800 max-h-72 overflow-y-auto pr-1">${lists[_scoreTab] || empty}</div>
 		<p class="text-[11px] text-zinc-500 mt-2">The newest 200 of each are listed. Voiding a duel removes it for both players. Every change needs a reason, is logged, and the player is told.</p>
 		<div class="flex gap-1 flex-wrap mt-2 -ml-2">
-			${resetBtn("solo", "Reset solo")}${resetBtn("daily", "Reset daily")}${resetBtn("duels", "Void all duels")}${resetBtn("streak", "Reset streak")}${resetBtn("all", "Reset everything")}
+			${resetBtn("solo", "Reset solo")}${resetBtn("daily", "Reset daily")}${resetBtn("duels", "Void all duels")}${resetBtn("streak", "Reset streak")}${resetBtn("achievements", "Reset achievements")}${resetBtn("all", "Reset everything")}
 		</div>`;
 }
 
@@ -865,12 +892,39 @@ async function editStreak(userId, current, longest) {
 	);
 }
 
+async function editRating(userId, current) {
+	const value = await showPrompt("Duel rating", String(current), {
+		note: "A whole number from 100 to 4,000. New players start on 1,000.",
+		type: "number",
+		okLabel: "Next",
+	});
+	if (value === null || value === "") return;
+	const answer = await askReason({ title: "Why is this rating being changed?", button: "Save rating", rules: "F" });
+	if (!answer) return;
+	changeScores(userId, "/rating", { json: { rating: Number(value), reason: answer.reason } }, "Rating changed");
+}
+
+async function setAchievement(userId, key, earned) {
+	const answer = await askReason({
+		title: earned ? "Give this achievement?" : "Take this achievement away?",
+		note: "The player is told, with your reason.",
+		button: earned ? "Give" : "Take away",
+	});
+	if (!answer) return;
+	changeScores(
+		userId,
+		`/achievements/${key}`,
+		{ json: { earned, reason: answer.reason } },
+		earned ? "Achievement given" : "Achievement removed"
+	);
+}
+
 async function resetScores(userId, scope, label) {
 	const answer = await askReason({
 		title: `${label}?`,
 		note:
 			scope === "all"
-				? "Every solo and daily score, every finished duel and the streak are wiped. This cannot be undone."
+				? "Every solo and daily score, every finished duel, the duel rating, the streak and every achievement are wiped. This cannot be undone."
 				: "This cannot be undone. A backup can be made first from the System tab.",
 		button: label,
 		tone: "bg-red-700 hover:bg-red-600",

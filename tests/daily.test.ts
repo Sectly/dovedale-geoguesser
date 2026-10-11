@@ -3,12 +3,14 @@ import { db } from "../src/db";
 import { getStreak } from "../src/game/streaks";
 import { utcDate } from "../src/lib/time";
 import { issueAction } from "../src/moderation";
-import { call, clearLocations, createLocation, createUser, post } from "./helpers";
+import { call, clearLocations, createLocation, createUser, post, resetReviewQueues } from "./helpers";
 
 beforeAll(() => {
 	clearLocations();
 	createLocation({ x: 500, y: 500, hints: ["one", "two"] });
 });
+
+beforeAll(resetReviewQueues);
 
 describe("daily", () => {
 	test("visitors see that a challenge exists but nothing about it", async () => {

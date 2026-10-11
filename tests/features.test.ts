@@ -1,11 +1,13 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { db } from "../src/db";
 import { createRoom, duelRooms, joinRoom, liveDuels } from "../src/game/duels/rooms";
 import { utcDate } from "../src/lib/time";
 import type { User } from "../src/db";
 import { sendStreakReminders } from "../src/notifications";
 import { SPECIALS, currentSeason, easterSunday, specialsFor } from "../src/specials";
-import { call, clearLocations, createLocation, createUser, post } from "./helpers";
+import { call, clearLocations, createLocation, createUser, post, resetReviewQueues } from "./helpers";
+
+beforeAll(resetReviewQueues);
 
 describe("staff stay anonymous to players", () => {
 	test("ticket replies, moderation history and notifications never name the member of staff", async () => {

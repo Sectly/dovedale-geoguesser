@@ -91,7 +91,13 @@
         <div class="relative w-full max-w-2xl h-64 sm:h-80 rounded-3xl overflow-hidden border border-zinc-800 bg-zinc-900 mb-8">
           <canvas id="replay-canvas" class="absolute inset-0 w-full h-full"></canvas>
         </div>
-        <div class="flex gap-3">
+        <div class="flex gap-3 flex-wrap justify-center">
+          <button
+            id="played-share-btn"
+            class="bg-green-700 hover:bg-green-600 transition px-6 py-2.5 rounded-full font-semibold text-sm shadow-sm flex items-center gap-1.5"
+          >
+            <span class="material-symbols-outlined text-base leading-none">share</span>Share result
+          </button>
           <a href="/leaderboard" class="bg-blue-600 hover:bg-blue-500 transition px-6 py-2.5 rounded-full font-semibold text-sm shadow-sm">Leaderboard</a>
           <a href="/play" class="bg-zinc-800 hover:bg-zinc-700 transition px-6 py-2.5 rounded-full font-semibold text-sm border border-zinc-700">Play Solo</a>
         </div>
@@ -187,6 +193,12 @@
               <div class="score-bar h-2 rounded-full bg-orange-500" id="result-score-bar" style="width: 0%"></div>
             </div>
             <p class="text-zinc-500 text-xs text-center mb-3" id="result-reset"></p>
+            <button
+              id="result-share-btn"
+              class="w-full bg-green-700 hover:bg-green-600 active:scale-95 transition py-2.5 rounded-full font-semibold text-sm text-center shadow-sm mb-3 flex items-center justify-center gap-1.5"
+            >
+              <span class="material-symbols-outlined text-base leading-none">share</span>Share result
+            </button>
             <div class="flex gap-3">
               <a
                 href="/leaderboard"
@@ -208,6 +220,7 @@
     <script src="/js/map-canvas.js"></script>
     <script src="/js/sounds.js"></script>
     <script src="/js/shared.js"></script>
+    <script src="/js/tooltips.js"></script>
     <script src="/js/round.js"></script>
     <script src="/js/daily.js"></script>
   </body>

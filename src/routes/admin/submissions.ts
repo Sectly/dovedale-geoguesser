@@ -3,9 +3,11 @@ import { db, type Submission } from "../../db";
 import { LIMITS } from "../../config";
 import { requireStaff } from "../../auth/guards";
 import { auditLog } from "../../lib/audit";
-import { fail, idParam, readJson, text } from "../../lib/http";
+import { fail, idParam, readJson } from "../../lib/http";
 import { deleteUpload } from "../../lib/uploads";
 import { displayName, notify } from "../../lib/webhook";
+import { award } from "../../achievements";
+import { requireReason } from "../../moderation";
 import { notifyUser } from "../../notifications";
 
 export const adminSubmissionRoutes = new Hono();
@@ -62,9 +64,11 @@ adminSubmissionRoutes.post("/:id/approve", async (c) => {
 		`**Submission #${id} approved** by **${displayName(staff)}** - "${label}"${sub.username ? ` (originally by ${sub.username})` : ""}`,
 		"/admin#submissions"
 	);
+	// Said in the same message, so a first approval does not arrive as two notifications.
+	const earned = award(sub.submitted_by, "contributor", { quiet: true });
 	notifyUser(sub.submitted_by, "submissions", {
 		title: "Your location was approved",
-		body: `"${label}" is now in the game. Thanks for contributing.`,
+		body: `"${label}" is now in the game. Thanks for contributing.${earned ? " You earned the Cartographer achievement." : ""}`,
 		link: "/settings#submissions",
 	});
 	auditLog(staff, "submission_approve", {
@@ -79,8 +83,10 @@ adminSubmissionRoutes.post("/:id/approve", async (c) => {
 adminSubmissionRoutes.post("/:id/deny", async (c) => {
 	const staff = requireStaff(c);
 	const id = idParam(c);
-	const reason = text((await readJson<{ reason: string }>(c)).reason, 500) || null;
+	const body = await readJson<{ reason: string }>(c);
 	const sub = pendingSubmission(id);
+	// The player is shown this, so a denial always says why.
+	const reason = requireReason(body.reason, "A reason for denying");
 
 	db.run(
 		"UPDATE submissions SET status = 'denied', reviewed_by = ?, reviewed_at = unixepoch(), deny_reason = ? WHERE id = ?",

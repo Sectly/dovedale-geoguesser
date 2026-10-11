@@ -18,6 +18,28 @@ function show(id, visible = true) {
 }
 
 /**
+ * Restart news rides on the game's own responses, so it is read from every request this
+ * page makes, whichever part of it sent it: the staff panel hears of a restart from its
+ * own calls just as a game does. A proxy's error page while the server is down carries
+ * no "X-App" mark, and must not be mistaken for "the restart is over".
+ */
+(function watchResponsesForRestart() {
+	const original = window.fetch.bind(window);
+	window.fetch = async (...args) => {
+		const res = await original(...args);
+		try {
+			if (res.headers.get("X-App")) {
+				noteRestarted(res.headers.get("X-Restarted"));
+				// Only API answers carry the countdown; a page or a script having none says nothing.
+				if (new URL(res.url, location.href).pathname.startsWith("/api/"))
+					noteRestart(res.headers.get("X-Restart-In"));
+			}
+		} catch {}
+		return res;
+	};
+})();
+
+/**
  * Calls the API and returns the parsed JSON body. On any failure it throws an
  * Error whose message is safe to show the player and whose `status` is the HTTP
  * status (0 when the server could not be reached).
@@ -49,8 +71,24 @@ let _userPromise = null;
 
 /** The logged-in user, or null. Fetched once per page and shared by everything that asks. */
 function fetchUser() {
-	_userPromise ??= api("/api/auth/me").catch(() => null);
+	_userPromise ??= loadUser();
 	return _userPromise;
+}
+
+/**
+ * Asks who is logged in. Being logged out is a proper answer (null); a request that fails
+ * is not, so it is tried again before the page decides to show anyone a login screen.
+ */
+async function loadUser() {
+	for (let attempt = 0; ; attempt++) {
+		try {
+			return await api("/api/auth/me");
+		} catch (err) {
+			const worthRetrying = !err.status || err.status >= 500 || err.status === 429;
+			if (!worthRetrying || attempt >= 3) return null;
+			await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+		}
+	}
 }
 
 function loginUrl(redirect = location.pathname + location.search) {
@@ -75,7 +113,7 @@ function renderAuthAreas(user) {
 		</a>`;
 	const html = user
 		? `<div class="flex items-center gap-1">
-			<a href="/u/${encodeURIComponent(user.username)}" data-badge="profile" class="relative flex items-center gap-2 hover:opacity-80 transition mr-1" title="Your profile">
+			<a href="/u/${encodeURIComponent(user.username)}" class="flex items-center gap-2 hover:opacity-80 transition mr-1" title="Your profile">
 				${avatarHtml(user.avatar_url)}
 				<span class="hidden sm:inline text-sm text-zinc-300 max-w-[9rem] truncate">${escHtml(user.display_name || user.username)}</span>
 			</a>
@@ -105,7 +143,7 @@ function countBadgeHtml(count, tone = "bg-red-500") {
 	return `<span class="attention-badge absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-1 rounded-full ${tone} text-white text-[10px] font-bold leading-4 text-center pointer-events-none">${count > 99 ? "99+" : count}</span>`;
 }
 
-/** Puts counts on the profile, settings and staff panel buttons when something needs a look. */
+/** Puts counts on the settings and staff panel buttons when something needs a look. */
 function renderAttentionBadges() {
 	for (const old of document.querySelectorAll("[data-auth-area] .attention-badge")) old.remove();
 	if (!_attention) return;
@@ -120,7 +158,6 @@ function renderAttentionBadges() {
 	};
 	const unread = _attention.unread;
 	const unreadText = `${unread} unread notification${unread === 1 ? "" : "s"}`;
-	mark("profile", unread, "bg-red-500", `Your profile · ${unreadText}`);
 	mark("settings", unread, "bg-red-500", `Settings · ${unreadText}`);
 	const staff = _attention.staff;
 	if (staff && _attentionUser?.prefs?.staff_badges) {
@@ -142,6 +179,8 @@ function announceNotification(latest, user) {
 		localStorage.setItem(LAST_ANNOUNCED_KEY, String(Math.max(lastSeen, latest.id)));
 	} catch {}
 	if (latest.id <= lastSeen) return;
+	// An achievement announces itself with its own animation, not a plain toast.
+	if (latest.category === "achievements") return void checkAchievements();
 
 	Sounds.play("notify");
 	if (user.prefs?.toasts !== false)
@@ -359,11 +398,13 @@ for (const area of document.querySelectorAll("[data-auth-area]")) {
 }
 fetchUser().then((user) => {
 	renderAuthAreas(user);
+	// For everyone, logged in or not: it also stands in for the site while the server restarts.
+	whenIdle(registerServiceWorker);
 	if (!user) return;
 	// The account's sound preference wins over whatever this browser remembered.
 	if (typeof user.prefs?.sounds === "boolean") Sounds.setEnabled(user.prefs.sounds);
 	startAttentionPolling();
-	whenIdle(registerServiceWorker);
+	whenIdle(() => checkAchievements());
 });
 
 function showToast(message, type = "info", { href = "" } = {}) {
@@ -783,6 +824,158 @@ function renderMaintenanceBanner(state) {
 	document.body.appendChild(banner);
 }
 fetchUser().then((user) => renderMaintenanceBanner(user?.maintenance));
+
+/* ---- Achievements: the unlock animation ---- */
+
+const ACHIEVEMENT_SHOWN_MS = 4500;
+let _achievementQueue = [];
+let _achievementShowing = false;
+let _achievementCheck = null;
+
+/**
+ * Asks the server for achievements earned since it was last asked and plays the unlock
+ * animation for each. Pages call this after a result; `delay` lets the result land first.
+ */
+function checkAchievements(delay = 0) {
+	clearTimeout(_achievementCheck);
+	_achievementCheck = setTimeout(async () => {
+		if (!(await fetchUser())) return;
+		const unlocked = await api("/api/achievements/unseen").catch(() => []);
+		if (!Array.isArray(unlocked) || !unlocked.length) return;
+		_achievementQueue.push(...unlocked);
+		showNextAchievement();
+	}, delay);
+}
+
+async function showNextAchievement() {
+	if (_achievementShowing) return;
+	const achievement = _achievementQueue.shift();
+	if (!achievement) return;
+	_achievementShowing = true;
+	const user = await fetchUser();
+
+	const card = document.createElement("a");
+	card.className = "achievement-pop";
+	card.href = user ? `/u/${encodeURIComponent(user.username)}#achievements` : "#";
+	card.setAttribute("role", "status");
+	card.innerHTML = `<span class="achievement-icon" aria-hidden="true"><span class="material-symbols-outlined">${escHtml(achievement.icon)}</span></span>
+		<span class="achievement-text">
+			<span class="achievement-kicker">Achievement unlocked</span>
+			<span class="achievement-title">${escHtml(achievement.title)}</span>
+			<span class="achievement-desc">${escHtml(achievement.description)}</span>
+		</span>`;
+	document.body.appendChild(card);
+	Sounds.play("good");
+	// Same pacing as the welcome card, held a little longer because there is more to read.
+	setTimeout(() => card.classList.add("leaving"), ACHIEVEMENT_SHOWN_MS - 500);
+	setTimeout(() => {
+		card.remove();
+		_achievementShowing = false;
+		showNextAchievement();
+	}, ACHIEVEMENT_SHOWN_MS);
+}
+
+/* ---- Planned restarts: everyone is warned, then told when the server is back ---- */
+
+const RESTART_POLL_MS = 20_000;
+let _restartAt = 0;
+let _restartTimer = null;
+
+/**
+ * Called with what the server last said about a restart: the seconds left, or nothing at
+ * all. Hearing nothing while a restart is on screen means it was called off or is over.
+ */
+function noteRestart(seconds) {
+	if (seconds === null || seconds === undefined || seconds === "") return clearRestartBanner();
+	if (!Number.isFinite(Number(seconds))) return;
+	const at = Date.now() + Number(seconds) * 1000;
+	// Keep the earliest deadline heard, so the countdown never jumps backwards.
+	showRestartBanner(_restartAt ? Math.min(_restartAt, at) : at, true);
+}
+
+/** Puts the countdown up. The deadline is remembered, so a reloaded page shows it at once. */
+function showRestartBanner(at, announce) {
+	_restartAt = at;
+	try {
+		sessionStorage.setItem(RESTART_AT_KEY, String(at));
+	} catch {}
+	if (!_restartTimer) {
+		if (announce) Sounds.play("notify");
+		_restartTimer = setInterval(tickRestartBanner, 1000);
+	}
+	tickRestartBanner();
+}
+
+const RESTART_SEEN_KEY = "restart_seen";
+const RESTART_AT_KEY = "restart_at";
+
+/**
+ * The server says it came back from a restart a moment ago. Anyone who watched the
+ * countdown is told by the banner going away; this is for whoever reloaded during it
+ * or arrived just after, and it says so once per restart.
+ */
+function noteRestarted(id) {
+	if (!id) return;
+	try {
+		if (localStorage.getItem(RESTART_SEEN_KEY) === id) return;
+		localStorage.setItem(RESTART_SEEN_KEY, id);
+	} catch {
+		return;
+	}
+	if (_restartTimer) return;
+	showToast("The server was just restarted for an update. Duels and team games that were open have ended.");
+}
+
+function clearRestartBanner() {
+	if (!_restartTimer) return;
+	// With time still on the clock the server cannot have restarted yet, so it was called off.
+	const calledOff = Date.now() < _restartAt - 2000;
+	clearInterval(_restartTimer);
+	_restartTimer = null;
+	_restartAt = 0;
+	try {
+		sessionStorage.removeItem(RESTART_AT_KEY);
+	} catch {}
+	document.getElementById("restart-banner")?.remove();
+	showToast(
+		calledOff ? "The restart was called off." : "The server is back. Reload the page if anything looks off.",
+		"success"
+	);
+}
+
+function tickRestartBanner() {
+	let banner = document.getElementById("restart-banner");
+	if (!banner) {
+		banner = document.createElement("div");
+		banner.id = "restart-banner";
+		banner.setAttribute("role", "alert");
+		banner.className = "restart-banner";
+		banner.innerHTML = `<span class="material-symbols-outlined">restart_alt</span><span></span>`;
+		document.body.appendChild(banner);
+	}
+	const left = Math.ceil((_restartAt - Date.now()) / 1000);
+	banner.lastElementChild.textContent =
+		left > 0
+			? `Server restarting in ${left}s. Duels and team games will be closed.`
+			: "Server restarting… back in a moment.";
+	// Past the deadline, keep knocking until the new server answers without mentioning a restart.
+	if (left <= 0 && left % 2 === 0) api("/api/status").catch(() => {});
+}
+
+/** A page reloaded mid-countdown shows it straight away, without waiting to hear it again. */
+(function resumeRestartBanner() {
+	let at = 0;
+	try {
+		at = Number(sessionStorage.getItem(RESTART_AT_KEY)) || 0;
+	} catch {}
+	// Long past its deadline it is stale: the restart came and went while this tab was elsewhere.
+	if (at && Date.now() - at < 60_000) showRestartBanner(at, false);
+})();
+
+const checkForRestart = () => document.hidden || api("/api/status").catch(() => {});
+setInterval(checkForRestart, RESTART_POLL_MS);
+// A tab coming back to the front asks at once rather than waiting out the interval.
+document.addEventListener("visibilitychange", checkForRestart);
 
 /** A script of ours failing should not leave the page silently half-working. Said once per page. */
 (function reportScriptErrors() {

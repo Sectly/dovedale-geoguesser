@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="/css/shared.css" />
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] overflow-hidden h-screen w-screen">
-    <div id="login-gate" class="absolute inset-0 z-20 flex flex-col screen-fade">
+    <div id="login-gate" class="hidden absolute inset-0 z-20 flex flex-col screen-fade">
       <div class="flex items-center justify-between px-5 py-4 flex-shrink-0">
         <a href="/" class="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition text-sm">
           <span class="material-symbols-outlined text-base leading-none">arrow_back</span> Home
@@ -80,7 +80,8 @@
             <span class="material-symbols-outlined text-3xl" style="font-variation-settings: &quot;FILL&quot; 1">bolt</span>
             <div>
               <div class="font-bold text-lg leading-tight">Quick Play</div>
-              <div class="text-blue-200 text-sm">Get matched with another player · 5 rounds</div>
+              <div class="text-blue-200 text-sm">Ranked · matched with a player near your rating · 5 rounds</div>
+              <div class="text-blue-200/80 text-xs mt-0.5 hidden" id="lobby-rating"></div>
             </div>
           </button>
 
@@ -296,6 +297,9 @@
           class="hidden absolute top-14 right-3 z-10 bg-black/70 rounded-full px-3 py-1.5 text-xs text-zinc-300 flex items-center gap-1.5"
         ></div>
 
+        <div id="emote-feed" class="absolute bottom-28 left-3 z-10 flex flex-col-reverse items-start gap-2 pointer-events-none"></div>
+        <div id="emote-bar" class="hidden absolute bottom-12 left-3 z-10 bg-black/70 rounded-full p-1"></div>
+
         <div
           id="opponent-guessed-badge"
           class="hidden absolute bottom-3 left-3 z-10 bg-black/70 rounded-full px-3 py-1.5 text-xs text-green-400 flex items-center gap-1.5"
@@ -413,6 +417,7 @@
 
     <script src="/js/sounds.js"></script>
     <script src="/js/shared.js"></script>
+    <script src="/js/tooltips.js"></script>
     <script src="/js/round.js"></script>
     <script type="module" src="/js/duels.js"></script>
   </body>

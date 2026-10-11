@@ -188,12 +188,21 @@
         <textarea
           id="deny-reason"
           rows="3"
-          placeholder="Reason, shown to the user"
-          class="w-full bg-zinc-800 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-zinc-600 mb-4"
+          placeholder="Reason, shown to the user (required)"
+          maxlength="500"
+          required
+          class="w-full bg-zinc-800 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-zinc-600 mb-1"
         ></textarea>
+        <p id="deny-count" class="text-xs text-zinc-500 mb-3 min-h-[1rem]"></p>
         <div class="flex gap-3 justify-end">
           <button id="deny-cancel" class="px-5 py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 transition text-sm">Cancel</button>
-          <button id="deny-confirm" class="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 transition text-sm font-semibold">Deny</button>
+          <button
+            id="deny-confirm"
+            class="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 transition text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled
+          >
+            Deny
+          </button>
         </div>
       </div>
     </div>
@@ -202,6 +211,7 @@
     <script src="/js/map-canvas.js"></script>
     <script src="/js/sounds.js"></script>
     <script src="/js/shared.js"></script>
+    <script src="/js/tooltips.js"></script>
     <script src="/js/rules.js"></script>
     <script src="/js/tickets.js"></script>
     <script src="/js/admin/core.js"></script>

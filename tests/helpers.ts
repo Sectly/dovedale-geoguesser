@@ -35,6 +35,19 @@ export function createLocation(opts: { x?: number; y?: number; hints?: string[];
 	);
 }
 
+/**
+ * Empties the review queues. Every test file does this before it starts, so what one
+ * file leaves waiting for staff cannot change the counts another file checks.
+ */
+export function resetReviewQueues() {
+	db.run("DELETE FROM evasion_flags");
+	db.run("DELETE FROM fingerprints");
+	db.run("DELETE FROM ticket_replies");
+	db.run("DELETE FROM support_tickets");
+	db.run("DELETE FROM location_suggestions WHERE status = 'pending'");
+	db.run("DELETE FROM submissions WHERE status = 'pending'");
+}
+
 export function clearLocations() {
 	db.run("DELETE FROM daily_scores");
 	db.run("DELETE FROM daily_attempts");

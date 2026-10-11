@@ -37,6 +37,7 @@ const ANNOUNCED: Record<string, [category: WebhookCategory, title: string, path:
 	suggestion_deny: ["suggestions", "Suggestion denied", "/admin#suggestions"],
 	location_activate: ["locations", "Location enabled", "/admin#locations"],
 	location_deactivate: ["locations", "Location disabled", "/admin#locations"],
+	location_stats_reset: ["locations", "Location difficulty reset", "/admin#locations"],
 	location_delete: ["locations", "Location deleted", "/admin#locations"],
 	location_label_edit: ["locations", "Location label edited", "/admin#locations"],
 	location_hints_edit: ["locations", "Location hints edited", "/admin#locations"],
@@ -53,6 +54,9 @@ const ANNOUNCED: Record<string, [category: WebhookCategory, title: string, path:
 	logs_clear: ["system", "Server log cleared", "/admin#system"],
 	server_update: ["system", "Update started", "/admin#system"],
 	server_restart: ["system", "Restart requested", "/admin#system"],
+	server_restart_cancel: ["system", "Restart called off", "/admin#system"],
+	feature_toggle: ["system", "Feature switched", "/admin#system"],
+	achievements_backfill: ["system", "Achievements recalculated", "/admin#system"],
 };
 
 function announce(actor: User | null, action: string, target: AuditTarget) {

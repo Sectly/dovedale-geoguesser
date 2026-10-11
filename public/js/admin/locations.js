@@ -59,6 +59,11 @@ function renderLocations(items) {
                             <span class="text-xs font-mono text-zinc-600 flex-shrink-0">LOC-${String(loc.id).padStart(4, "0")}</span>
                         </div>
                         <div class="text-xs text-zinc-600 mb-2">${new Date(loc.created_at * 1000).toLocaleDateString()} · ${loc.is_active ? '<span class="text-green-400">Active</span>' : '<span class="text-zinc-500">Inactive</span>'}${loc.submitted_by ? ` · <span class="text-zinc-500">By: <span class="text-zinc-400">${escHtml(loc.submitted_by_display_name || loc.submitted_by_username || `#${loc.submitted_by}`)}</span></span>` : ""}${loc.approved_by ? ` · <span class="text-zinc-500">Approved by: <span class="text-zinc-400">${escHtml(loc.approved_by_display_name || loc.approved_by_username || `#${loc.approved_by}`)}</span></span>` : ""}</div>
+                        <div class="text-xs text-zinc-500 mb-2 flex items-center gap-2 flex-wrap">
+                            <span class="m-tag ${loc.difficulty === "hard" ? "danger" : loc.difficulty === "easy" ? "success" : loc.difficulty ? "warn" : ""}">${loc.difficulty ? loc.difficulty[0].toUpperCase() + loc.difficulty.slice(1) : "Ungraded"}</span>
+                            <span>${loc.plays ? `${loc.plays.toLocaleString()} guess${loc.plays === 1 ? "" : "es"}, avg ${Number(loc.avg_score).toLocaleString()} pts` : "No guesses counted yet"}</span>
+                            ${loc.plays ? `<button onclick="resetLocationStats(${loc.id})" class="underline hover:text-zinc-300 transition" title="Forget how players have done here, e.g. after fixing the pin or the screenshot">Reset</button>` : ""}
+                        </div>
                         <div class="mb-2">
                             <div class="text-xs text-zinc-500 mb-1">Hints</div>
                             <div id="hints-${loc.id}">${hintsHtml}</div>
@@ -78,6 +83,25 @@ function renderLocations(items) {
             <div id="panel-search-empty" class="hidden col-span-full text-zinc-500 text-center py-8">No locations match your search.</div>
         </div>`;
 	bindPanelSearch("#locations-list [data-search]");
+}
+
+/** Clears a location's difficulty record so it is graded afresh from the next guesses. */
+async function resetLocationStats(locId) {
+	if (
+		!(await showConfirm(
+			"Reset this location's difficulty?",
+			"Its guess count and average are cleared, and it stays ungraded until enough new guesses come in.",
+			{ confirmLabel: "Reset" }
+		))
+	)
+		return;
+	try {
+		await api(`/api/admin/locations/${locId}/stats/reset`, { method: "POST" });
+		showToast("Difficulty reset.", "success");
+		loadLocations();
+	} catch (err) {
+		showToast(err.message || "Failed to reset.", "error");
+	}
 }
 
 async function saveLabel(locId) {

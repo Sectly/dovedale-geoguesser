@@ -1,7 +1,7 @@
 import type { Location } from "../db";
 import { GAME } from "../config";
 import { uploadUrl } from "../lib/uploads";
-import { parseHints } from "./locations";
+import { difficultyOf, parseHints, recordLocationPlay } from "./locations";
 
 /**
  * One guessable round: a location, a clock, hints and scoring.
@@ -165,8 +165,14 @@ export class Round {
 			correct_x: this.location.world_x,
 			correct_y: this.location.world_y,
 			label: this.location.label,
+			difficulty: difficultyOf(this.location.id),
 		};
 	}
+}
+
+/** Counts a real guess towards its location's difficulty. A round nobody answered says nothing about it. */
+export function recordOutcome(location: Location, outcome: RoundOutcome) {
+	if (outcome.distance !== null) recordLocationPlay(location.id, distanceScore(outcome.distance));
 }
 
 /** Wire format for a scored guess. */
