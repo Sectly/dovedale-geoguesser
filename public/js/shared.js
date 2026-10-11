@@ -18,6 +18,28 @@ function show(id, visible = true) {
 }
 
 /**
+ * Restart news rides on the game's own responses, so it is read from every request this
+ * page makes, whichever part of it sent it: the staff panel hears of a restart from its
+ * own calls just as a game does. A proxy's error page while the server is down carries
+ * no "X-App" mark, and must not be mistaken for "the restart is over".
+ */
+(function watchResponsesForRestart() {
+	const original = window.fetch.bind(window);
+	window.fetch = async (...args) => {
+		const res = await original(...args);
+		try {
+			if (res.headers.get("X-App")) {
+				noteRestarted(res.headers.get("X-Restarted"));
+				// Only API answers carry the countdown; a page or a script having none says nothing.
+				if (new URL(res.url, location.href).pathname.startsWith("/api/"))
+					noteRestart(res.headers.get("X-Restart-In"));
+			}
+		} catch {}
+		return res;
+	};
+})();
+
+/**
  * Calls the API and returns the parsed JSON body. On any failure it throws an
  * Error whose message is safe to show the player and whose `status` is the HTTP
  * status (0 when the server could not be reached).
@@ -33,7 +55,6 @@ async function api(path, { method, json, body } = {}) {
 	} catch {
 		throw Object.assign(new Error("Can't reach the server. Check your connection and try again."), { status: 0 });
 	}
-	noteRestart(res.headers.get("X-Restart-In"));
 	const raw = await res.text();
 	if (!res.ok) {
 		const message = raw && raw.length < 300 && !raw.startsWith("<") && !raw.startsWith("{") ? raw : "";
@@ -50,8 +71,24 @@ let _userPromise = null;
 
 /** The logged-in user, or null. Fetched once per page and shared by everything that asks. */
 function fetchUser() {
-	_userPromise ??= api("/api/auth/me").catch(() => null);
+	_userPromise ??= loadUser();
 	return _userPromise;
+}
+
+/**
+ * Asks who is logged in. Being logged out is a proper answer (null); a request that fails
+ * is not, so it is tried again before the page decides to show anyone a login screen.
+ */
+async function loadUser() {
+	for (let attempt = 0; ; attempt++) {
+		try {
+			return await api("/api/auth/me");
+		} catch (err) {
+			const worthRetrying = !err.status || err.status >= 500 || err.status === 429;
+			if (!worthRetrying || attempt >= 3) return null;
+			await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+		}
+	}
 }
 
 function loginUrl(redirect = location.pathname + location.search) {
@@ -361,11 +398,12 @@ for (const area of document.querySelectorAll("[data-auth-area]")) {
 }
 fetchUser().then((user) => {
 	renderAuthAreas(user);
+	// For everyone, logged in or not: it also stands in for the site while the server restarts.
+	whenIdle(registerServiceWorker);
 	if (!user) return;
 	// The account's sound preference wins over whatever this browser remembered.
 	if (typeof user.prefs?.sounds === "boolean") Sounds.setEnabled(user.prefs.sounds);
 	startAttentionPolling();
-	whenIdle(registerServiceWorker);
 	whenIdle(() => checkAchievements());
 });
 
@@ -852,12 +890,40 @@ function noteRestart(seconds) {
 	if (!Number.isFinite(Number(seconds))) return;
 	const at = Date.now() + Number(seconds) * 1000;
 	// Keep the earliest deadline heard, so the countdown never jumps backwards.
-	_restartAt = _restartAt ? Math.min(_restartAt, at) : at;
+	showRestartBanner(_restartAt ? Math.min(_restartAt, at) : at, true);
+}
+
+/** Puts the countdown up. The deadline is remembered, so a reloaded page shows it at once. */
+function showRestartBanner(at, announce) {
+	_restartAt = at;
+	try {
+		sessionStorage.setItem(RESTART_AT_KEY, String(at));
+	} catch {}
 	if (!_restartTimer) {
-		Sounds.play("notify");
+		if (announce) Sounds.play("notify");
 		_restartTimer = setInterval(tickRestartBanner, 1000);
 	}
 	tickRestartBanner();
+}
+
+const RESTART_SEEN_KEY = "restart_seen";
+const RESTART_AT_KEY = "restart_at";
+
+/**
+ * The server says it came back from a restart a moment ago. Anyone who watched the
+ * countdown is told by the banner going away; this is for whoever reloaded during it
+ * or arrived just after, and it says so once per restart.
+ */
+function noteRestarted(id) {
+	if (!id) return;
+	try {
+		if (localStorage.getItem(RESTART_SEEN_KEY) === id) return;
+		localStorage.setItem(RESTART_SEEN_KEY, id);
+	} catch {
+		return;
+	}
+	if (_restartTimer) return;
+	showToast("The server was just restarted for an update. Duels and team games that were open have ended.");
 }
 
 function clearRestartBanner() {
@@ -867,6 +933,9 @@ function clearRestartBanner() {
 	clearInterval(_restartTimer);
 	_restartTimer = null;
 	_restartAt = 0;
+	try {
+		sessionStorage.removeItem(RESTART_AT_KEY);
+	} catch {}
 	document.getElementById("restart-banner")?.remove();
 	showToast(
 		calledOff ? "The restart was called off." : "The server is back. Reload the page if anything looks off.",
@@ -880,9 +949,8 @@ function tickRestartBanner() {
 		banner = document.createElement("div");
 		banner.id = "restart-banner";
 		banner.setAttribute("role", "alert");
-		banner.className =
-			"fixed top-16 left-1/2 -translate-x-1/2 z-[90] max-w-[calc(100vw-1.5rem)] bg-amber-300 text-zinc-950 rounded-full pl-3.5 pr-4 py-2 text-sm font-semibold shadow-lg flex items-center gap-2 pointer-events-none";
-		banner.innerHTML = `<span class="material-symbols-outlined text-lg flex-shrink-0">restart_alt</span><span></span>`;
+		banner.className = "restart-banner";
+		banner.innerHTML = `<span class="material-symbols-outlined">restart_alt</span><span></span>`;
 		document.body.appendChild(banner);
 	}
 	const left = Math.ceil((_restartAt - Date.now()) / 1000);
@@ -894,9 +962,20 @@ function tickRestartBanner() {
 	if (left <= 0 && left % 2 === 0) api("/api/status").catch(() => {});
 }
 
-setInterval(() => {
-	if (!document.hidden) api("/api/status").catch(() => {});
-}, RESTART_POLL_MS);
+/** A page reloaded mid-countdown shows it straight away, without waiting to hear it again. */
+(function resumeRestartBanner() {
+	let at = 0;
+	try {
+		at = Number(sessionStorage.getItem(RESTART_AT_KEY)) || 0;
+	} catch {}
+	// Long past its deadline it is stale: the restart came and went while this tab was elsewhere.
+	if (at && Date.now() - at < 60_000) showRestartBanner(at, false);
+})();
+
+const checkForRestart = () => document.hidden || api("/api/status").catch(() => {});
+setInterval(checkForRestart, RESTART_POLL_MS);
+// A tab coming back to the front asks at once rather than waiting out the interval.
+document.addEventListener("visibilitychange", checkForRestart);
 
 /** A script of ours failing should not leave the page silently half-working. Said once per page. */
 (function reportScriptErrors() {

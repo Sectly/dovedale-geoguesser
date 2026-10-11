@@ -286,6 +286,25 @@ describe("duel reactions", () => {
 		duelRooms.delete(room.code);
 	});
 
+	test("no event has the same name going in as coming out", async () => {
+		// The socket library fires an event's own handlers on any connection the server sends that
+		// event to. A name used in both directions would make every recipient act as if they sent it.
+		const source = async (file: string) => Bun.file(new URL(`../src/${file}`, import.meta.url)).text();
+		const wire = await source("game/duels/wire.ts");
+		const sent = wire + (await source("game/duels/rooms.ts")) + (await source("system/restart.ts"));
+		const incoming = [...wire.matchAll(/conn\.on\(\s*"([a-z_]+)"/g)].map((m) => m[1]);
+		const outgoing = new Set(
+			[
+				...sent.matchAll(
+					/(?:send|broadcast|sendToPlayers|sendToSpectators|broadcastToDuels)\([^"\n]*"([a-z_]+)"/g
+				),
+			].map((m) => m[1])
+		);
+		expect(incoming).toContain("send_emote");
+		expect(outgoing).toContain("emote");
+		expect(incoming.filter((name) => name !== "disconnect" && outgoing.has(name))).toEqual([]);
+	});
+
 	test("staff can switch them off", async () => {
 		const op = operator();
 		expect((await post("/api/admin/system/features", createUser({ role: "supervisor" }), {})).status).toBe(403);

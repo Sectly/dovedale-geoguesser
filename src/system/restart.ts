@@ -1,4 +1,5 @@
 import { GAME } from "../config";
+import { db } from "../db";
 import { activeDuelRooms, broadcastToDuels, closeAllDuels, setDuelsClosing } from "../game/duels/rooms";
 import { saveSoloGames } from "../game/solo";
 import { closeTeamRooms, teamRoomCount } from "../game/teams";
@@ -15,6 +16,35 @@ import { logInfo } from "../lib/logs";
 const CLOSED_MESSAGE = "The server restarted for an update, so your game was ended. It won't count against you.";
 /** Long enough for the goodbye messages to leave before the sockets go down with the process. */
 const FLUSH_MS = 400;
+
+/** Left in the database by a clean stop, so the next start knows it follows a planned restart. */
+const CLEAN_STOP_KEY = "clean_stop";
+/** How long after coming back the server keeps saying it has just restarted. */
+const BACK_NOTICE_MS = 3 * 60 * 1000;
+
+/**
+ * When this process started, if it follows a clean stop moments ago; otherwise null.
+ * Pages use it to tell someone who reloaded during the restart what just happened.
+ */
+const startedAfterRestart = (() => {
+	try {
+		const row = db
+			.query<{ value: string }, [string]>("SELECT value FROM app_settings WHERE key = ?")
+			.get(CLEAN_STOP_KEY);
+		if (!row) return null;
+		db.run("DELETE FROM app_settings WHERE key = ?", [CLEAN_STOP_KEY]);
+		return Date.now() - Number(row.value) < 5 * 60 * 1000 ? Date.now() : null;
+	} catch {
+		return null;
+	}
+})();
+
+/** An id for the restart this server has just come back from, for a few minutes after it; null otherwise. */
+export function justRestarted(): number | null {
+	return startedAfterRestart !== null && Date.now() - startedAfterRestart < BACK_NOTICE_MS
+		? startedAfterRestart
+		: null;
+}
 
 let dueAt: number | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -71,6 +101,7 @@ export function stopCleanly(reason: string) {
 		closeAllDuels(CLOSED_MESSAGE);
 		closeTeamRooms();
 		saveSoloGames();
+		db.run("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", [CLEAN_STOP_KEY, String(Date.now())]);
 	} catch (err) {
 		console.error("[server] Could not put every game away before stopping:", err);
 	}

@@ -157,7 +157,7 @@ async function init() {
 	}
 	el("gate-spectate-btn").addEventListener("click", () => spectate(el("gate-spectate-btn").dataset.code));
 	el("end-replay-again").addEventListener("click", playReplay);
-	bindEmoteBar((emote) => wire?.emit("emote", { emote }));
+	bindEmoteBar((emote) => wire?.emit("send_emote", { emote }));
 	el("live-duels-btn").addEventListener("click", openLiveDuels);
 	el("live-duels-close").addEventListener("click", closeLiveDuels);
 	el("live-duels-refresh").addEventListener("click", loadLiveDuels);

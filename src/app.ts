@@ -18,7 +18,7 @@ import { miscRoutes } from "./routes/misc";
 import { notificationRoutes } from "./routes/notifications";
 import { ogRoutes } from "./routes/og";
 import { DEFAULT_MAINTENANCE_MESSAGE, maintenance } from "./system/maintenance";
-import { blockedByRestart, restartIn } from "./system/restart";
+import { blockedByRestart, justRestarted, restartIn } from "./system/restart";
 import { errorPage, notFound, pageRoutes, wantsPage } from "./routes/pages";
 import { profileRoutes } from "./routes/profile";
 import { soloRoutes, specialRoutes } from "./routes/solo";
@@ -47,6 +47,8 @@ export const app = new Hono();
 
 app.use("*", async (c, next) => {
 	await next();
+	// Says the answer came from the game itself, not from a proxy standing in while it is down.
+	c.header("X-App", "dovedale");
 	c.header("X-Content-Type-Options", "nosniff");
 	c.header("X-Frame-Options", "DENY");
 	c.header("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -67,7 +69,13 @@ app.use("*", async (c, next) => {
  * off). New multiplayer games are turned away: there would be no time to finish them.
  */
 app.use("/api/*", async (c, next) => {
-	if (restartIn() === null) return next();
+	if (restartIn() === null) {
+		await next();
+		// Just back from a restart: say so, for anyone who reloaded while it was happening.
+		const restarted = justRestarted();
+		if (restarted !== null) c.header("X-Restarted", String(restarted));
+		return;
+	}
 	if (blockedByRestart(c.req.method, c.req.path)) {
 		c.header("X-Restart-In", String(restartIn()));
 		c.header("Retry-After", String(restartIn()! + 10));

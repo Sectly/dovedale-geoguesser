@@ -87,9 +87,13 @@ export const GAME = {
 			"handshake",
 			"celebration",
 			"local_fire_department",
+			"favorite",
 			"sentiment_very_satisfied",
 			"sentiment_dissatisfied",
 			"psychology_alt",
+			"bolt",
+			"rocket_launch",
+			"skull",
 		],
 		/** Shortest gap between two reactions from the same player, in milliseconds. */
 		emoteCooldownMs: 1500,

@@ -192,9 +192,12 @@ wireServer.on("connection", (conn: WireConnection) => {
 		})
 	);
 
+	// Named differently from the "emote" event sent back out: this library also fires an event's
+	// handlers on a connection the server sends that event to, so one shared name would make every
+	// player who receives a reaction appear to send it as well.
 	conn.on(
-		"emote",
-		handler("emote", (data) => {
+		"send_emote",
+		handler("send_emote", (data) => {
 			const s = seat();
 			if (s) sendEmote(s.room, s.player.userId, (data as { emote?: unknown } | null)?.emote);
 		})

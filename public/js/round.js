@@ -305,10 +305,17 @@ function difficultyText(difficulty) {
 	return difficulty ? `${difficulty[0].toUpperCase()}${difficulty.slice(1)} location` : "";
 }
 
-/* ---- Reactions: a few preset icons players can send each other (duels and team games) ---- */
+/* ---- Reactions: preset icons players can send each other (duels and team games) ---- */
 
 const EMOTE_COOLDOWN_MS = 1500;
-const EMOTE_SHOWN_MS = 2600;
+const EMOTE_SHOWN_MS = 3000;
+/**
+ * The key that sends each reaction while the picker is open, following the number row:
+ * 1 to 9, 0 for the tenth, then - and + for the eleventh and twelfth.
+ */
+const EMOTE_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "+"];
+/** + is Shift and = on most keyboards; either one counts. */
+const EMOTE_KEY_ALIASES = { "=": "+" };
 let emoteList = [];
 
 /**
@@ -323,13 +330,13 @@ function renderEmoteBar(list, canSend = true) {
 	show("emote-bar", emoteList.length > 0 && canSend);
 	if (!changed) return;
 	el("emote-bar").innerHTML =
-		`<button data-emote-toggle class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-300 hover:bg-white/10 transition" title="Send a reaction (E)" aria-label="Send a reaction" aria-expanded="false">
-			<span class="material-symbols-outlined text-xl leading-none">add_reaction</span>
+		`<button data-emote-toggle class="emote-btn" title="Send a reaction" data-tip-key="E" aria-label="Send a reaction" aria-expanded="false">
+			<span class="material-symbols-outlined">add_reaction</span>
 		</button>
-		<div data-emote-choices class="hidden flex items-center gap-0.5 pr-1">${emoteList
+		<div data-emote-choices class="emote-picker" hidden>${emoteList
 			.map(
 				(name, i) =>
-					`<button data-emote="${name}" class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-200 hover:bg-white/10 transition disabled:opacity-40" title="Press ${i + 1}" aria-label="${name.replaceAll("_", " ")}"><span class="material-symbols-outlined text-xl leading-none">${name}</span></button>`
+					`<button data-emote="${name}" class="emote-btn" title="${name.replaceAll("_", " ")}" ${EMOTE_KEYS[i] ? `data-tip-key="${EMOTE_KEYS[i]}"` : ""} aria-label="${name.replaceAll("_", " ")}"><span class="material-symbols-outlined">${name}</span></button>`
 			)
 			.join("")}</div>`;
 }
@@ -337,53 +344,54 @@ function renderEmoteBar(list, canSend = true) {
 /** Wires the picker up once per page. `send` is handed the name of the chosen reaction. */
 function bindEmoteBar(send) {
 	const bar = el("emote-bar");
+	const choices = () => bar.querySelector("[data-emote-choices]");
+	const setOpen = (open) => {
+		if (!choices()) return;
+		choices().hidden = !open;
+		bar.querySelector("[data-emote-toggle]").setAttribute("aria-expanded", String(open));
+	};
 	bar.addEventListener("click", (e) => {
-		const choices = bar.querySelector("[data-emote-choices]");
-		const toggle = e.target.closest("[data-emote-toggle]");
-		if (toggle) {
-			toggle.setAttribute("aria-expanded", String(choices.classList.toggle("hidden") === false));
-			return;
-		}
+		if (e.target.closest("[data-emote-toggle]")) return setOpen(choices().hidden);
 		const choice = e.target.closest("[data-emote]");
 		if (!choice || choice.disabled) return;
 		send(choice.dataset.emote);
-		choices.classList.add("hidden");
-		bar.querySelector("[data-emote-toggle]").setAttribute("aria-expanded", "false");
+		setOpen(false);
 		// The server allows one every so often; show that instead of letting clicks vanish.
 		const buttons = [...bar.querySelectorAll("[data-emote]")];
 		for (const button of buttons) button.disabled = true;
 		setTimeout(() => buttons.forEach((button) => (button.disabled = false)), EMOTE_COOLDOWN_MS);
 	});
+	// Clicking anywhere else puts the picker away.
+	document.addEventListener("click", (e) => bar.contains(e.target) || setOpen(false));
 
 	// E opens the picker and a number sends that reaction, so nobody has to leave the map for the mouse.
 	const usable = () => !bar.classList.contains("hidden") && bar.offsetParent !== null;
 	const sendNumbered = (e) => {
-		const choices = bar.querySelector("[data-emote-choices]");
-		if (!usable() || !choices || choices.classList.contains("hidden")) return false;
-		const choice = choices.querySelectorAll("[data-emote]")[Number(e.key) - 1];
+		if (!usable() || !choices() || choices().hidden) return false;
+		const key = EMOTE_KEY_ALIASES[e.key] ?? e.key;
+		const choice = choices().querySelectorAll("[data-emote]")[EMOTE_KEYS.indexOf(key)];
 		return choice ? choice.click() : false;
 	};
 	addKeybinds("Reactions", [
-		[
-			["E"],
-			"Open or close the reaction picker",
-			() => (usable() ? bar.querySelector("[data-emote-toggle]").click() : false),
-		],
+		[["E"], "Open or close the reaction picker", () => (usable() ? setOpen(choices().hidden) : false)],
 		// Listed as one row in the help; the digits themselves are bound just below.
-		[["1-8"], "Send that reaction (while the picker is open)", () => false],
+		[["1-9", "0", "-", "+"], "Send that reaction (while the picker is open)", () => false],
 	]);
-	for (let n = 1; n <= 8; n++) _pageKeys.set(String(n), [sendNumbered, ...(_pageKeys.get(String(n)) || [])]);
+	// Ahead of anything else on these keys (- and + zoom the map), and only while the picker is open.
+	for (const key of [...EMOTE_KEYS, ...Object.keys(EMOTE_KEY_ALIASES)])
+		_pageKeys.set(key, [sendNumbered, ...(_pageKeys.get(key) || []).filter((handler) => handler !== sendNumbered)]);
 }
 
-/** Pops one reaction up beside the screenshot for a moment. */
+/** Pops one reaction up beside the screenshot for a moment, with its sound. */
 function showEmoteBubble(emote, { name, avatarUrl, color }) {
 	if (!emoteList.includes(emote)) return;
+	Sounds.play(Sounds.has(`emote_${emote}`) ? `emote_${emote}` : "emote");
 	const bubble = document.createElement("div");
-	bubble.className = "emote-pop flex items-center gap-2 bg-black/75 rounded-full pl-1 pr-3 py-1";
+	bubble.className = "emote-pop emote-bubble";
 	bubble.setAttribute("role", "status");
-	bubble.innerHTML = `${avatarHtml(avatarUrl, "w-7 h-7")}
-		<span class="text-xs text-zinc-300 max-w-[7rem] truncate">${escHtml(name)}</span>
-		<span class="material-symbols-outlined text-2xl leading-none" style="color:${color};font-variation-settings:'FILL' 1">${emote}</span>`;
+	bubble.innerHTML = `${avatarHtml(avatarUrl, "w-9 h-9")}
+		<span class="emote-bubble-name">${escHtml(name)}</span>
+		<span class="material-symbols-outlined" style="color:${color}">${emote}</span>`;
 	const feed = el("emote-feed");
 	feed.appendChild(bubble);
 	// Keep the stack short when players trade reactions quickly.

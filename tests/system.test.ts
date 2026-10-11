@@ -110,6 +110,9 @@ describe("planned restarts", () => {
 		const room = createRoom(host.id, 1);
 		joinRoom(room.code, guest.id);
 		expect((await call("/api/status")).headers.get("X-Restart-In")).toBeNull();
+		// Every answer from the game is marked, so a page can tell it from a proxy's error page.
+		expect((await call("/api/status")).headers.get("X-App")).toBe("dovedale");
+		expect((await call("/play")).headers.get("X-App")).toBe("dovedale");
 
 		expect(scheduleRestart("test")).toBeGreaterThan(0);
 		expect(Number((await call("/api/status")).headers.get("X-Restart-In"))).toBe(restartIn()!);
