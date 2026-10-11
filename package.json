@@ -12,6 +12,7 @@
 		"vapid": "bun run scripts/generate-vapid.ts",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
+		"maintenance": "bun --hot dev-maintenance.ts",
 		"sync-map": "bun run scripts/sync-map.ts"
 	},
 	"dependencies": {
