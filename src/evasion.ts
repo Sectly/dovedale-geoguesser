@@ -6,11 +6,9 @@ import { DAY, nowSec } from "./lib/time";
 import { auditLog } from "./lib/audit";
 
 /**
- * Spotting accounts that may belong to a banned player. Neither signal proves two
- * accounts are one person, so a match is only ever flagged for staff, never acted on.
- *
- * - "device": a random id in a cookie; the same browser profile (or a shared family computer).
- * - "browser": a hash of browser and hardware details; identical devices collide, so only a hint.
+ * Spots accounts that may belong to a banned player. A match is only flagged for staff, never acted on.
+ *   - "device": a random id in a cookie (same browser, or a shared computer)
+ *   - "browser": a hash of browser and hardware details; only a hint
  */
 
 export type Signal = "device" | "browser";
@@ -74,12 +72,7 @@ function isBannedNow(user: { is_banned: number; ban_type: string | null; ban_exp
 	return !!user.is_banned && (user.ban_type === "perm" || (user.ban_expires_at ?? 0) > nowSec());
 }
 
-/**
- * Looks at everything linked to this account and raises a flag for each pair where
- * one side is banned and the other is free to play. Runs when an account shows up
- * on a device and when an account is banned, so the order things happen in does
- * not matter. Staff accounts are never flagged.
- */
+/** Flags each linked pair where one account is banned and the other is not. Staff are never flagged. */
 export function checkForEvasion(userId: number) {
 	const user = db.query<User, [number]>("SELECT * FROM users WHERE id = ?").get(userId);
 	if (!user || user.username === "[deleted]") return;
@@ -94,7 +87,7 @@ export function checkForEvasion(userId: number) {
 			)
 			.get(suspect.id, banned.id);
 		if (known) {
-			// A weak match that has since been seen on the very same device is worth another look.
+			/** A weak match that has since been seen on the very same device is worth another look. */
 			if (known.signal === "browser" && other.signal === "device")
 				db.run("UPDATE evasion_flags SET signal = 'device', dismissed_at = NULL WHERE id = ?", [known.id]);
 			continue;
@@ -119,7 +112,7 @@ const OPEN_FLAGS = `FROM evasion_flags f
 	WHERE f.dismissed_at IS NULL AND u.is_banned = 0 AND u.role IS NULL AND u.username != '[deleted]'
 		AND b.is_banned = 1 AND (b.ban_type = 'perm' OR b.ban_expires_at > unixepoch())`;
 
-/** Flags still waiting for a decision: the suspect is unbanned and the matched account is still banned. */
+/** Flags still waiting for a decision. */
 export function openEvasionFlags() {
 	return db
 		.query(

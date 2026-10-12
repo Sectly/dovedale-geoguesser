@@ -1,11 +1,7 @@
 import { db } from "../../db";
 import { GAME } from "../../config";
 
-/**
- * Duel ratings: an Elo rating per player, moved only by Quick Play duels. Private rooms
- * are for playing with friends and never touch it. The change each player got is kept
- * with the game, so voiding a duel can hand the points back.
- */
+/** Duel ratings: Elo, moved only by Quick Play. Each change is stored with the game so voiding can undo it. */
 
 export type RatingChange = { user_id: number; rating: number; change: number };
 
@@ -23,8 +19,8 @@ function getRated(userId: number): Rated | null {
 }
 
 /**
- * Applies the result of one duel between two players. `winnerId` is null for a tie.
- * Returns each player's new rating and how far it moved, or null when the game cannot be rated.
+ * Rates one duel. `winnerId` is null for a tie.
+ * Returns each player's new rating and change, or null if it cannot be rated.
  */
 export function rateDuel(gameId: number, playerIds: number[], winnerId: number | null): RatingChange[] | null {
 	if (playerIds.length !== 2) return null;
@@ -35,7 +31,7 @@ export function rateDuel(gameId: number, playerIds: number[], winnerId: number |
 	const changes = [a, b].map((player, i) => {
 		const other = i === 0 ? b : a;
 		const result = winnerId === null ? 0.5 : winnerId === player.id ? 1 : 0;
-		// New players move quickly towards where they belong, then settle.
+		/** New players move quickly towards where they belong, then settle. */
 		const k =
 			(player.duel_rated_games ?? 0) < GAME.rating.provisionalGames ? GAME.rating.kProvisional : GAME.rating.k;
 		const before = ratingOf(player);

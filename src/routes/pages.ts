@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { readFileSync, statSync } from "fs";
 import { join, normalize, sep } from "path";
 import { currentUser } from "../auth/sessions";
@@ -45,11 +46,7 @@ function assetVersion(path: string): string {
 	}
 }
 
-/**
- * Loads a page from public/ and prepares it for serving: local scripts and styles
- * get a content hash in their URL (so they can be cached forever and still update
- * on deploy) and share-image URLs are made absolute.
- */
+/** Loads a page from public/: adds content hashes to script and style URLs, and makes share-image URLs absolute. */
 function loadPage(file: string): Page {
 	const cached = pageCache.get(file);
 	if (cached && !DEV_MODE) return cached;
@@ -106,7 +103,7 @@ function withMeta(html: string, meta: Meta): string {
 
 for (const [route, file] of Object.entries(PAGES)) {
 	pageRoutes.get(route, (c) => {
-		// Specials need a login; the hub is where logged-out visitors are asked.
+		/** Specials need a login; the hub is where logged-out visitors are asked. */
 		if (route.startsWith("/specials/") && !currentUser(c)) return c.redirect("/specials");
 		const page = loadPage(file);
 		return sendHtml(c, page.html, page.etag);
@@ -199,7 +196,7 @@ function sendFile(c: Context, root: string, relativePath: string, cacheControl: 
 		return null;
 	}
 	if (decoded.includes("\0") || decoded.split("/").some((part) => part.startsWith("."))) return null;
-	// The root comes from configuration and may use either kind of slash.
+	/** The root comes from configuration and may use either kind of slash. */
 	const base = normalize(root).replace(/[\\/]+$/, "");
 	const path = normalize(join(base, decoded));
 	if (!path.startsWith(base + sep)) return null;
@@ -227,21 +224,19 @@ const BARE_ERROR_PAGE = `<!doctype html><meta charset="UTF-8"><meta name="viewpo
 <h1>Something went wrong</h1><p>That one is on us, not you. Try again in a moment.</p><p><a href="/" style="color:#60a5fa">Return home</a></p>`;
 
 type ErrorPageOptions = {
-	status?: 400 | 403 | 429 | 500 | 503;
+	status?: ContentfulStatusCode;
 	title?: string;
 	message?: string;
 	ref?: string;
-	/** Material Symbols icon name; defaults to the error icon. */
-	icon?: string;
 	/** False to drop the "tell us in a ticket" line, for screens that are not faults. */
 	help?: boolean;
 };
 
 /**
- * The full-page error screen, for when a page (not an API call) cannot be shown.
- * Defaults to the 500 screen; `ref` is the id written to the server log.
+ * The full-page error screen. Defaults to 500; `ref` is the id in the server log. The status picks the opening
+ * animation.
  */
-export function errorPage(c: Context, { status = 500, title, message, ref, icon, help = true }: ErrorPageOptions = {}) {
+export function errorPage(c: Context, { status = 500, title, message, ref, help = true }: ErrorPageOptions = {}) {
 	let html = BARE_ERROR_PAGE;
 	try {
 		const fill = (page: string, id: string, value: string | undefined) =>
@@ -253,11 +248,7 @@ export function errorPage(c: Context, { status = 500, title, message, ref, icon,
 		html = fill(html, "err-title", title);
 		html = fill(html, "err-message", message);
 		html = fill(html, "err-ref", ref ? ` and quote reference ${ref}` : undefined);
-		if (icon)
-			html = html.replace(
-				/(<span[^>]*>)error(<\/span>)/,
-				(_, open, close) => `${open}${escapeXml(icon)}${close}`
-			);
+		html = html.replace('data-status="500"', `data-status="${status}"`);
 		if (!help) html = html.replace(/<p[^>]*id="err-help"[\s\S]*?<\/p>/, '<div class="mb-8"></div>');
 		if (title)
 			html = html.replace(
@@ -283,9 +274,8 @@ pageRoutes.get("*", (c) => {
 	const path = c.req.path;
 	if (path.startsWith("/api/")) return notFound(c);
 	/**
-	 * Scripts and styles carry a content hash in their URL, so they may be kept for ever.
-	 * Nothing else may: a "?v=" on an image is just a label, and the map tiles in particular
-	 * must follow the coordinates when the map is updated. Those are revalidated hourly.
+	 * Hashed scripts and styles are cached for ever. Everything else is revalidated; map tiles must follow map
+	 * updates.
 	 */
 	const hashed = /^\/(js|css)\//.test(path) && c.req.query("v") !== undefined;
 	const isMedia = /\.(png|webp|svg|ico|jpg|woff2)$/.test(path);

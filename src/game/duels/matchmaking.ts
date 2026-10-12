@@ -4,9 +4,8 @@ import { ratingOf } from "./rating";
 import { createRoom, duelRooms, joinRoom, leaveWaitingRoom, type DuelRoom } from "./rooms";
 
 /**
- * Quick Play: the first player to ask gets a room and waits in it; the next player
- * asking for the same number of rounds joins whoever is waiting with the rating
- * closest to their own. Nobody is kept waiting for a better match than that.
+ * Quick Play: the first player waits in a room; the next asking for the same rounds joins the waiting player closest
+ * in rating.
  */
 
 type QueueEntry = { code: string; rounds: number; rating: number };
@@ -45,7 +44,7 @@ export function quickplay(user: User, rounds: number, canCreateRoom: () => boole
 		.sort(([, a], [, b]) => Math.abs(a.rating - rating) - Math.abs(b.rating - rating));
 	for (const [hostId, entry] of closestFirst) {
 		const room = waitingRoom(entry.code);
-		// Only match into rooms whose host is actually sitting there.
+		/** Only match into rooms whose host is actually sitting there. */
 		if (!room || room.players.length !== 1 || !room.players[0].connected) continue;
 		if (joinRoom(entry.code, user.id) !== "ok") continue;
 
@@ -85,10 +84,7 @@ export function cancelQuickplay(userId: number) {
 	if (room) leaveQuickplayRoom(room, userId);
 }
 
-/**
- * Removes a player from a waiting room. In a quickplay room the player left
- * behind goes back into the queue instead of waiting for someone who is gone.
- */
+/** Removes a player from a waiting room. In quickplay the player left behind goes back in the queue. */
 export function leaveQuickplayRoom(room: DuelRoom, userId: number) {
 	leaveWaitingRoom(room, userId);
 	if (!room.quickplay) return;

@@ -3,11 +3,7 @@ import { fail } from "./lib/http";
 import { nowSec } from "./lib/time";
 import { notifyUser } from "./notifications";
 
-/**
- * Announcements: a message from the operators to many accounts at once. Each one lands in
- * the inbox of everyone it is for and, when asked, is also pinned as a banner on every
- * page for a while, where even logged-out visitors see it. A record is kept of each.
- */
+/** Announcements: one message to many accounts, optionally pinned as a banner on every page. */
 
 export const ANNOUNCEMENT_AUDIENCES = ["everyone", "active", "staff"] as const;
 export type Audience = (typeof ANNOUNCEMENT_AUDIENCES)[number];
@@ -99,10 +95,7 @@ export function recentAnnouncements(limit = 20): (Announcement & { banner_live: 
 		.map((a) => ({ ...a, banner_live: a.id === live && (a.banner_until ?? 0) > now }));
 }
 
-/**
- * The banner showing on the site right now, if any: the newest announcement whose banner
- * has not run out. A staff-only announcement is never shown to the public this way.
- */
+/** The banner showing now, if any. Staff-only announcements never show publicly. */
 export function currentBanner(): Pick<Announcement, "id" | "title" | "body" | "link"> | null {
 	return (
 		db

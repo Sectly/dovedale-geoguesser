@@ -8,6 +8,7 @@ import { checkUserRateLimit } from "../lib/rate-limit";
 import { DAY, HOUR, nowSec } from "../lib/time";
 import { saveUploadedImage } from "../lib/uploads";
 import { displayName, notify } from "../lib/webhook";
+import { requireFeature } from "../system/features";
 
 export const submissionRoutes = new Hono();
 
@@ -21,6 +22,7 @@ export function formCoords(form: FormData): { x: number; y: number } | null {
 submissionRoutes.post("/", async (c) => {
 	const user = requirePlayer(c);
 	if (user.upload_limited) fail(403, "Your upload ability has been temporarily limited");
+	requireFeature("submissions", user, "Submissions are closed for now. Please try again later.");
 
 	const form = await readForm(c);
 	const label = text(form.get("label"), LIMITS.labelMax + 1);
@@ -29,7 +31,7 @@ submissionRoutes.post("/", async (c) => {
 	const coords = formCoords(form) ?? fail(400, "Place a pin on the map first");
 	const hints = cleanHints(form.get("hints"));
 
-	// Checked after validation so a typo does not burn one of the hourly submissions.
+	/** Checked after validation so a typo does not burn one of the hourly submissions. */
 	if (!checkUserRateLimit(user, "sub", 5, HOUR * 1000)) fail(429, "Too many submissions. Try again later.");
 	const filename = await saveUploadedImage(form.get("image"));
 	const result = db.run(
@@ -49,7 +51,7 @@ submissionRoutes.get("/mine", (c) => {
 	const user = requireUser(c);
 	const rows = db
 		.query(
-			`SELECT id, image_path, label, status, deny_reason, created_at, reviewed_at
+			`SELECT id, image_path, label, hints, world_x, world_y, status, deny_reason, created_at, reviewed_at
 			FROM submissions
 			WHERE submitted_by = ? AND NOT (status = 'denied' AND reviewed_at < ?)
 			ORDER BY created_at DESC LIMIT 50`

@@ -1,121 +1,212 @@
 /** Staff panel: reviewing suggested changes to locations. */
 
+let _suggestions = [];
+let _suggestionUser = "";
+let _suggestionView = "waiting";
+let _suggestionHistory = [];
+
+const SUGGESTION_TYPES = {
+	hint: ["New hint", "info"],
+	screenshot: ["New screenshot", "info"],
+	coordinates: ["Move the pin", "warn"],
+	full_edit: ["Full edit", "warn"],
+	removal: ["Remove location", "danger"],
+};
+const sugCode = (id) => `SUG-${String(id).padStart(4, "0")}`;
+
 async function loadSuggestions() {
 	try {
-		const r = await fetch("/api/admin/suggestions");
-		if (!r.ok) throw new Error();
-		renderSuggestions(await r.json());
-	} catch {
-		el("tab-content").innerHTML = '<div class="text-red-400">Failed to load suggestions.</div>';
+		_suggestions = await api("/api/admin/suggestions");
+		if (_suggestionView === "reviewed") return setSuggestionView("reviewed");
+		renderSuggestions();
+	} catch (err) {
+		el("tab-content").innerHTML = errorStateHtml(
+			err.message || "Couldn't load the suggestions.",
+			"loadSuggestions()"
+		);
 	}
 }
 
-function renderSuggestions(items) {
-	if (!items.length) {
-		el("tab-content").innerHTML = '<div class="text-zinc-500">No pending suggestions.</div>';
-		return;
+function suggestionContent(s) {
+	try {
+		return JSON.parse(s.content || "{}") || {};
+	} catch {
+		return {};
 	}
-	const typeLabel = {
-		hint: "Hint",
-		screenshot: "Screenshot",
-		coordinates: "Coordinates",
-		full_edit: "Full edit",
-		removal: "Removal",
-	};
+}
+
+/** The pin a suggestion would move the location to, or null when it leaves the pin alone. */
+function suggestedPin(s, content) {
+	const moves = s.type === "coordinates" || s.type === "full_edit";
+	return moves && Number.isFinite(content.world_x) && Number.isFinite(content.world_y)
+		? { x: content.world_x, y: content.world_y }
+		: null;
+}
+
+const beforeAfterHtml = (s) => `<div class="grid grid-cols-2 gap-2">
+	<a href="/uploads/${escHtml(s.location_image)}" target="_blank" rel="noopener"><div class="m-label">Now</div><img loading="lazy" src="/uploads/${escHtml(s.location_image)}" alt="Current screenshot" class="w-full rounded-xl object-cover aspect-video bg-black" /></a>
+	<a href="/uploads/${escHtml(s.image_path)}" target="_blank" rel="noopener"><div class="m-label">Suggested</div><img loading="lazy" src="/uploads/${escHtml(s.image_path)}" alt="Suggested screenshot" class="w-full rounded-xl object-cover aspect-video bg-black" /></a>
+</div>`;
+
+const changeRow = (name, html) =>
+	`<div class="flex gap-3 py-1.5 border-b border-zinc-800 last:border-0 text-sm"><span class="w-16 flex-shrink-0 text-zinc-500">${name}</span><span class="flex-1 min-w-0 break-words">${html}</span></div>`;
+
+function suggestionBodyHtml(s, content) {
+	const quote = (text) => (text ? `<p class="text-sm text-zinc-400 italic">"${escHtml(text)}"</p>` : "");
+	const pin = suggestedPin(s, content);
+	const moved = pin ? Math.round(Math.hypot(pin.x - s.location_x, pin.y - s.location_y)) : 0;
+	const pinRow = pin
+		? changeRow(
+				"Pin",
+				`${Math.round(s.location_x)}, ${Math.round(s.location_y)} <span class="text-zinc-500">to</span> <span class="text-zinc-100">${Math.round(pin.x)}, ${Math.round(pin.y)}</span> <span class="text-zinc-500">(${moved.toLocaleString()} units)</span>
+				<button onclick="showSuggestionMap(${s.id})" class="m-btn m-btn-text m-btn-sm ml-1">Show on map</button>`
+			)
+		: "";
+	const mapSlot = pin
+		? `<div id="sug-map-${s.id}" class="hidden relative h-64 rounded-xl overflow-hidden bg-zinc-800"></div>`
+		: "";
+
+	if (s.type === "hint")
+		return changeRow("Hint", `<span class="text-zinc-100">${escHtml(content.text || "")}</span>`);
+	if (s.type === "screenshot") return beforeAfterHtml(s) + quote(content.note);
+	if (s.type === "removal")
+		return `${changeRow("Reason", `<span class="text-zinc-100">${escHtml(content.reason || "None given")}</span>`)}
+			<p class="text-xs text-zinc-500">Approving takes the location out of play. It can be put back from Locations.</p>`;
+	if (s.type === "coordinates") return pinRow + mapSlot + quote(content.note);
+	if (s.type === "full_edit") {
+		const rows = [
+			content.label
+				? changeRow(
+						"Label",
+						`${escHtml(s.location_label || "(none)")} <span class="text-zinc-500">to</span> <span class="text-zinc-100">${escHtml(content.label)}</span>`
+					)
+				: "",
+			pinRow,
+			content.hints?.length
+				? changeRow(
+						"Hints",
+						`Replaced with: <span class="text-zinc-100">${content.hints.map((hint) => escHtml(hint)).join(" · ")}</span>`
+					)
+				: "",
+		].join("");
+		return `${s.image_path ? beforeAfterHtml(s) : ""}${rows || '<p class="text-sm text-zinc-500">No readable changes.</p>'}${mapSlot}${quote(content.note)}`;
+	}
+	return "";
+}
+
+function setSuggestionUser(name) {
+	_suggestionUser = name;
+	renderSuggestions();
+}
+
+async function setSuggestionView(view) {
+	_suggestionUser = "";
+	if (view === "reviewed") {
+		try {
+			_suggestionHistory = await api("/api/admin/suggestions/history");
+		} catch (err) {
+			return showToast(err.message || "Couldn't load the reviewed list.", "error");
+		}
+	}
+	_suggestionView = view;
+	renderSuggestions();
+}
+
+function reviewedSuggestionHtml(s) {
+	const [typeName, tone] = SUGGESTION_TYPES[s.type] || [s.type, ""];
+	return reviewedRowHtml({
+		code: sugCode(s.id),
+		title: s.location_label || locId(s.location_id),
+		userId: s.user_id,
+		username: s.username,
+		displayName: s.display_name,
+		status: s.status,
+		reviewer: s.reviewed_by_username,
+		reviewedAt: s.reviewed_at,
+		reason: s.deny_reason,
+		tag: `<span class="m-tag ${tone}">${typeName}</span>`,
+	});
+}
+
+function suggestionCardHtml(s) {
+	const content = suggestionContent(s);
+	const [typeName, tone] = SUGGESTION_TYPES[s.type] || [s.type, ""];
+	const searchText = [
+		s.id,
+		sugCode(s.id),
+		s.location_id,
+		locId(s.location_id),
+		s.location_label,
+		s.display_name,
+		s.username && `@${s.username}`,
+		typeName,
+		JSON.stringify(content),
+	].join(" ");
+	return `<div class="bg-zinc-900 rounded-2xl p-4 flex flex-col gap-3" id="sug-${s.id}" data-search="${escHtml(searchText)}">
+		<div class="flex items-center gap-2 flex-wrap">
+			<span class="m-tag ${tone}">${typeName}</span>
+			<button onclick="jumpToSearch('locations', '${locId(s.location_id)}')" class="text-sm font-semibold hover:underline truncate" title="Find this location">${escHtml(s.location_label || locId(s.location_id))}</button>
+			<span class="text-xs font-mono text-zinc-600">${locId(s.location_id)}</span>
+			<span class="ml-auto text-xs text-zinc-500 flex-shrink-0">${staffUserLink(s.user_id, s.username)} · ${shortAgo(s.created_at)} ago · <span class="font-mono text-zinc-600">${sugCode(s.id)}</span></span>
+		</div>
+		${suggestionBodyHtml(s, content)}
+		<div class="flex gap-2 justify-end">
+			<button onclick="denySuggestion(${s.id})" class="m-btn m-btn-text danger">Deny</button>
+			<button onclick="approveSuggestion(${s.id})" class="m-btn m-btn-filled"><span class="material-symbols-outlined">check</span>Approve</button>
+		</div>
+	</div>`;
+}
+
+function renderSuggestions() {
+	const reviewed = _suggestionView === "reviewed";
+	const list = reviewed ? _suggestionHistory : _suggestions;
+	if (_suggestionUser && !list.some((s) => s.username === _suggestionUser)) _suggestionUser = "";
+	const shown = list.filter((s) => !_suggestionUser || s.username === _suggestionUser);
+	const search = el("suggestions-list") ? el("panel-search")?.value : "";
 	el("tab-content").innerHTML = `
-        <h2 class="font-bold text-lg mb-4">Pending Suggestions (${items.length})</h2>
-        ${panelSearchInput("Search suggestion ID, location, user, type or details...")}
-        <div class="flex flex-col gap-4" id="suggestions-list">
-            ${items
-				.map((s) => {
-					let content = {};
-					try {
-						content = JSON.parse(s.content || "{}");
-					} catch {}
-					const typeTag = `<span class="text-xs bg-zinc-700 px-2 py-0.5 rounded-full">${typeLabel[s.type] || s.type}</span>`;
-					const forLabel = `<span class="text-xs text-zinc-500">For: <span class="text-zinc-300">${escHtml(s.location_label || `#${s.location_id}`)}</span></span>`;
-					let body = "";
-					if (s.type === "hint") {
-						body = `<div class="bg-yellow-900/30 border border-yellow-700/30 text-yellow-200 text-sm px-3 py-2 rounded-lg mt-2">"${escHtml(content.text || "")}"</div>`;
-					} else if (s.type === "screenshot") {
-						body = `<div class="flex gap-2 mt-2">
-                        <div class="flex-1"><div class="text-xs text-zinc-500 mb-1">Current</div><img loading="lazy" src="/uploads/${escHtml(s.location_image)}" class="submission-img rounded-lg" /></div>
-                        <div class="flex-1"><div class="text-xs text-zinc-500 mb-1">Suggested</div><img loading="lazy" src="/uploads/${escHtml(s.image_path)}" class="submission-img rounded-lg" /></div>
-                    </div>${content.note ? `<div class="text-xs text-zinc-400 mt-1">"${escHtml(content.note)}"</div>` : ""}`;
-					} else if (s.type === "removal") {
-						body = `<div class="bg-red-900/20 border border-red-800/40 text-red-200 text-sm px-3 py-2 rounded-lg mt-2">
-						Wants this location removed: "${escHtml(content.reason || "")}"
-						<div class="text-xs text-red-200/60 mt-1">Approving deactivates the location; it can be reactivated from Locations.</div>
-					</div>`;
-					} else if (s.type === "full_edit") {
-						const changes = [
-							content.label
-								? `<div><span class="text-zinc-500">Label:</span> ${escHtml(s.location_label || "(none)")} to <span class="text-zinc-100">${escHtml(content.label)}</span></div>`
-								: "",
-							content.world_x !== null && content.world_x !== undefined
-								? `<div><span class="text-zinc-500">Pin:</span> (${Math.round(s.location_x)}, ${Math.round(s.location_y)}) to <span class="text-zinc-100">(${Math.round(content.world_x)}, ${Math.round(content.world_y)})</span></div>`
-								: "",
-							content.hints?.length
-								? `<div><span class="text-zinc-500">Hints replaced with:</span> ${content.hints.map((h) => `"${escHtml(h)}"`).join(", ")}</div>`
-								: "",
-							content.note ? `<div class="text-zinc-400">"${escHtml(content.note)}"</div>` : "",
-						].join("");
-						body = `${
-							s.image_path
-								? `<div class="flex gap-2 mt-2">
-							<div class="flex-1"><div class="text-xs text-zinc-500 mb-1">Current</div><img loading="lazy" src="/uploads/${escHtml(s.location_image)}" class="submission-img rounded-lg" /></div>
-							<div class="flex-1"><div class="text-xs text-zinc-500 mb-1">Suggested</div><img loading="lazy" src="/uploads/${escHtml(s.image_path)}" class="submission-img rounded-lg" /></div>
-						</div>`
-								: ""
-						}<div class="text-xs text-zinc-300 mt-2 bg-zinc-800 rounded-lg px-3 py-2 flex flex-col gap-1">${changes || "No readable changes."}</div>`;
-					} else if (s.type === "coordinates") {
-						body = `<div class="text-xs text-zinc-400 mt-2 bg-zinc-800 rounded-lg px-3 py-2">
-                        New coords: (${Math.round(content.world_x ?? 0)}, ${Math.round(content.world_y ?? 0)})
-                        ${content.note ? `<br>"${escHtml(content.note)}"` : ""}
-                    </div>`;
-					}
-					const searchText = [
-						s.id,
-						`SUG-${String(s.id).padStart(4, "0")}`,
-						s.location_id,
-						`LOC-${String(s.location_id).padStart(4, "0")}`,
-						s.location_label,
-						s.user_id,
-						s.display_name,
-						s.username,
-						s.type,
-						JSON.stringify(content),
-						s.image_path,
-					].join(" ");
-					return `
-                <div class="bg-zinc-900 rounded-2xl p-4" id="sug-${s.id}" data-search="${escHtml(searchText)}">
-                    <div class="flex items-center gap-2 mb-1">
-                        ${typeTag} ${forLabel}
-                        <span class="ml-auto text-xs text-zinc-600">${new Date(s.created_at * 1000).toLocaleDateString()}</span>
-                    </div>
-                    <div class="text-sm text-zinc-400 mb-1">By: <span class="text-zinc-200">${escHtml(s.display_name || s.username)}</span> <span class="text-zinc-600">· SUG-${String(s.id).padStart(4, "0")} · LOC-${String(s.location_id).padStart(4, "0")}</span></div>
-                    ${body}
-                    <div class="flex gap-2 mt-3">
-                        <button onclick="approveSuggestion(${s.id})" class="flex-1 bg-green-700 hover:bg-green-600 transition px-3 py-1.5 rounded-lg text-sm font-semibold">Approve</button>
-                        <button onclick="denySuggestion(${s.id})" class="flex-1 bg-red-800 hover:bg-red-700 transition px-3 py-1.5 rounded-lg text-sm font-semibold">Deny</button>
-                    </div>
-                </div>`;
-				})
-				.join("")}
-            <div id="panel-search-empty" class="hidden text-zinc-500 text-center py-8">No suggestions match your search.</div>
-        </div>`;
+		${reviewHeader("Suggestions", _suggestions.length, "loadSuggestions()")}
+		${panelSearchInput("Search suggestion ID, location, user, type or details...")}
+		<div class="flex items-center gap-1.5 flex-wrap mb-3">
+			${reviewViewChips(_suggestionView, "setSuggestionView", _suggestions.length)}
+			<span class="ml-auto"></span>
+			${userFilterSelect(list, (s) => s.username, _suggestionUser, "setSuggestionUser")}
+		</div>
+		<div class="flex flex-col ${reviewed ? "gap-2" : "gap-3"}" id="suggestions-list">
+			${shown.map(reviewed ? reviewedSuggestionHtml : suggestionCardHtml).join("")}
+			<div id="panel-search-empty" class="hidden text-zinc-500 text-center py-8">No suggestions match your search.</div>
+		</div>
+		${shown.length ? "" : reviewed ? '<p class="text-sm text-zinc-500 text-center py-8">Nothing has been reviewed yet.</p>' : emptyQueueHtml("No suggestions are waiting for review.")}`;
 	bindPanelSearch("#suggestions-list [data-search]");
+	restorePanelSearch(search);
+}
+
+/** Shows where the location is now and where the suggestion would put it. One map is shared between the cards. */
+function showSuggestionMap(id) {
+	const s = _suggestions.find((item) => item.id === id);
+	const pin = s && suggestedPin(s, suggestionContent(s));
+	const slot = el(`sug-map-${id}`);
+	if (!pin || !slot) return;
+	for (const other of document.querySelectorAll('[id^="sug-map-"]')) other.classList.toggle("hidden", other !== slot);
+	const map = mountReviewMap(slot);
+	map.clearPin();
+	map.setNamePin("now", s.location_x, s.location_y, "#a1a1aa", "Now");
+	map.setNamePin("suggested", pin.x, pin.y, "#42A5F5", "Suggested");
+	map.fitTo([{ x: s.location_x, y: s.location_y }, pin]);
+}
+
+function suggestionReviewed(id) {
+	_suggestions = _suggestions.filter((s) => s.id !== id);
+	renderSuggestions();
+	refreshAttention();
 }
 
 async function approveSuggestion(id) {
 	try {
-		const r = await fetch(`/api/admin/suggestions/${id}/approve`, { method: "POST" });
-		if (!r.ok) throw new Error(await r.text());
-		el(`sug-${id}`)?.remove();
-		refreshAttention();
-		if (!el("tab-content").querySelector('[id^="sug-"]')) loadSuggestions();
+		await api(`/api/admin/suggestions/${id}/approve`, { method: "POST" });
+		showToast(`${sugCode(id)} approved.`, "success");
+		suggestionReviewed(id);
 	} catch (err) {
-		showToast(err.message || "Failed to approve.", "error");
+		showToast(err.message || "Couldn't approve it.", "error");
 	}
 }
 
@@ -123,21 +214,16 @@ function denySuggestion(id) {
 	denyTargetId = null;
 	denyCallback = async (reason) => {
 		try {
-			const r = await fetch(`/api/admin/suggestions/${id}/deny`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ reason }),
-			});
-			if (!r.ok) throw new Error(await r.text());
-			el(`sug-${id}`)?.remove();
-			refreshAttention();
-			if (!el("tab-content").querySelector('[id^="sug-"]')) loadSuggestions();
+			await api(`/api/admin/suggestions/${id}/deny`, { json: { reason } });
+			showToast(`${sugCode(id)} denied.`);
+			suggestionReviewed(id);
 		} catch (err) {
-			showToast(err.message || "Failed to deny.", "error");
+			showToast(err.message || "Couldn't deny it.", "error");
 		}
 	};
-	el("deny-modal-title").textContent = "Deny Suggestion";
+	el("deny-modal-title").textContent = `Deny ${sugCode(id)}`;
 	el("deny-reason").value = "";
 	el("deny-reason").dispatchEvent(new Event("input"));
 	el("deny-modal").classList.remove("hidden");
+	setTimeout(() => el("deny-reason").focus(), 50);
 }

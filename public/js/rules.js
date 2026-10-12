@@ -1,8 +1,4 @@
-/**
- * The numbered rules staff can cite when they take a moderation action or deny a
- * submission. The full wording lives on the pages linked here; this list only has
- * to match their numbers and titles (a test checks that it does).
- */
+/** The numbered rules staff can cite. Must match the numbers and titles on the linked pages (a test checks). */
 const RULES = [
 	{ code: "F1", title: "Cheating", page: "/fairplay" },
 	{ code: "F2", title: "Exploiting bugs", page: "/fairplay" },
@@ -14,10 +10,13 @@ const RULES = [
 	{ code: "F8", title: "Inappropriate content", page: "/fairplay" },
 	{ code: "F9", title: "Disrupting duels", page: "/fairplay" },
 	{ code: "F10", title: "False reports and ticket misuse", page: "/fairplay" },
+	{ code: "F11", title: "Multiple accounts", page: "/fairplay" },
+	{ code: "F12", title: "Personal information", page: "/fairplay" },
 	{ code: "A1", title: "Ban evasion", page: "/tos" },
 	{ code: "A2", title: "Other people's accounts", page: "/tos" },
 	{ code: "A3", title: "Attacking the Service", page: "/tos" },
 	{ code: "A4", title: "Impersonation", page: "/tos" },
+	{ code: "A5", title: "Illegal use", page: "/tos" },
 	{ code: "U1", title: "Wrong game", page: "/guidelines" },
 	{ code: "U2", title: "Player names visible", page: "/guidelines" },
 	{ code: "U3", title: "Chat or interface visible", page: "/guidelines" },
@@ -30,6 +29,8 @@ const RULES = [
 	{ code: "U10", title: "Misleading label or hints", page: "/guidelines" },
 	{ code: "U11", title: "Spam", page: "/guidelines" },
 	{ code: "U12", title: "Not yours to share", page: "/guidelines" },
+	{ code: "U13", title: "AI-generated or AI-altered", page: "/guidelines" },
+	{ code: "U14", title: "Out of date", page: "/guidelines" },
 ];
 
 const RULE_GROUPS = { F: "Fair play", A: "Account", U: "Uploads" };
@@ -61,10 +62,7 @@ function ruleChipsHtml(groups) {
 		.join("");
 }
 
-/**
- * Wires a set of rule buttons to a text box: clicking one adds "[F1 Cheating]" to
- * the start of the reason, or takes it out again.
- */
+/** Wires rule buttons to a text box: clicking one adds or removes "[F1 Cheating]". */
 function bindRuleChips(container, textarea) {
 	const sync = () => {
 		for (const chip of container.querySelectorAll("[data-rule]")) {

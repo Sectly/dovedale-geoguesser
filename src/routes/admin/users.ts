@@ -4,7 +4,7 @@ import { db, type User } from "../../db";
 import { OPERATOR_IDS } from "../../config";
 import { hasRole, requireStaff, roleRank } from "../../auth/guards";
 import { auditLog } from "../../lib/audit";
-import { fail, idParam, readJson } from "../../lib/http";
+import { fail, idParam, readJson, text } from "../../lib/http";
 import { HOUR, nowSec } from "../../lib/time";
 import { displayName, notify } from "../../lib/webhook";
 import { notifyUser } from "../../notifications";
@@ -22,9 +22,12 @@ import {
 	type ModerationAction,
 } from "../../moderation";
 import { dismissEvasionFlag, linkedAccounts, openEvasionFlags } from "../../evasion";
+import { FAIRPLAY_LABELS, dismissFairplayFlag, openFairplayFlags } from "../../fairplay";
 import { removeFromDuels } from "../../game/duels/rooms";
 import { removeFromTeamRooms } from "../../game/teams";
 import { deleteUserAccount, exportUserData } from "../account";
+
+const NOTE_MAX = 1000;
 
 /** Routes mounted at /api/admin/users. */
 export const adminUserRoutes = new Hono();
@@ -120,7 +123,8 @@ adminUserRoutes.get("/", (c) => {
 					u.is_banned, u.ban_type, u.ban_expires_at, u.upload_limited, u.upload_limit_expires_at,
 					u.duel_limited, u.duel_limit_expires_at, u.profile_private, u.staff_locked, u.staff_lock_reason,
 					(SELECT COUNT(*) FROM moderation_actions m WHERE m.user_id = u.id) AS moderation_count,
-					(SELECT COUNT(*) FROM moderation_actions m WHERE m.user_id = u.id AND m.type = 'warning' AND m.revoked_at IS NULL) AS warning_count
+					(SELECT COUNT(*) FROM moderation_actions m WHERE m.user_id = u.id AND m.type = 'warning' AND m.revoked_at IS NULL) AS warning_count,
+					(SELECT COUNT(*) FROM fairplay_flags f WHERE f.user_id = u.id AND f.dismissed_at IS NULL) AS fairplay_flags
 				FROM users u ORDER BY u.created_at DESC`
 			)
 			.all()
@@ -146,7 +150,54 @@ adminUserRoutes.post("/evasion/:id/dismiss", (c) => {
 	return c.json({ success: true });
 });
 
-/** Everything staff need to judge a user: who they are, what they have done, and what was done about it. */
+/** A private note about a player, for other staff. The player is never shown it or told of it. */
+adminUserRoutes.post("/:id/notes", async (c) => {
+	const actor = requireStaff(c);
+	const target = getUser(idParam(c));
+	const body = text((await readJson<{ body: string }>(c)).body, NOTE_MAX);
+	if (body.length < 3) fail(400, "Write a note first.");
+	db.run("INSERT INTO staff_notes (user_id, author_id, author_username, body) VALUES (?, ?, ?, ?)", [
+		target.id,
+		actor.id,
+		actor.username,
+		body,
+	]);
+	auditLog(actor, "staff_note_add", { targetType: "user", targetId: target.id, targetUsername: target.username });
+	return c.json({ success: true });
+});
+
+/** Removes a note. Its author can, and so can a supervisor. */
+adminUserRoutes.delete("/notes/:id", (c) => {
+	const actor = requireStaff(c);
+	const note = db
+		.query<{ id: number; user_id: number; author_id: number | null }, [number]>(
+			"SELECT id, user_id, author_id FROM staff_notes WHERE id = ?"
+		)
+		.get(idParam(c));
+	if (!note) fail(404, "That note is already gone.");
+	if (note.author_id !== actor.id && !hasRole(actor, "supervisor"))
+		fail(403, "Only its author or a supervisor can remove a note.");
+	db.run("DELETE FROM staff_notes WHERE id = ?", [note.id]);
+	const target = getUser(note.user_id);
+	auditLog(actor, "staff_note_remove", { targetType: "user", targetId: target.id, targetUsername: target.username });
+	return c.json({ success: true });
+});
+
+/** Clears a fair-play flag once someone has looked at it. The guesses behind it are not counted again. */
+adminUserRoutes.post("/fairplay/:id/dismiss", (c) => {
+	const actor = requireStaff(c);
+	const flag = dismissFairplayFlag(idParam(c), actor) ?? fail(404, "This flag has already been dealt with");
+	const player = getUser(flag.user_id);
+	auditLog(actor, "fairplay_flag_dismiss", {
+		targetType: "user",
+		targetId: player.id,
+		targetUsername: player.username,
+		details: FAIRPLAY_LABELS[flag.signal],
+	});
+	return c.json({ success: true });
+});
+
+/** Everything staff need to judge a user. */
 adminUserRoutes.get("/:id/moderation", (c) => {
 	const staff = requireStaff(c);
 	const target = getUser(idParam(c));
@@ -181,9 +232,34 @@ adminUserRoutes.get("/:id/moderation", (c) => {
 			),
 			tickets: count("SELECT COUNT(*) AS n FROM support_tickets WHERE user_id = ?"),
 		},
+		/** Things the account already holds that help when answering a ticket or weighing a report. */
+		account: {
+			last_played_date: target.last_played_date,
+			current_streak: target.current_streak,
+			longest_streak: target.longest_streak,
+			duel_rating: target.duel_rating,
+			duel_rated_games: target.duel_rated_games,
+			profile_private: !!target.profile_private,
+			sessions: count("SELECT COUNT(*) AS n FROM sessions WHERE user_id = ? AND expires_at > unixepoch()"),
+			last_login: count("SELECT MAX(created_at) AS n FROM sessions WHERE user_id = ?") || null,
+			devices: count("SELECT COUNT(*) AS n FROM fingerprints WHERE user_id = ?"),
+			push_devices: count("SELECT COUNT(*) AS n FROM push_subscriptions WHERE user_id = ?"),
+			achievements: count("SELECT COUNT(*) AS n FROM user_achievements WHERE user_id = ?"),
+			suggestions: count("SELECT COUNT(*) AS n FROM location_suggestions WHERE user_id = ?"),
+			suggestions_approved: count(
+				"SELECT COUNT(*) AS n FROM location_suggestions WHERE user_id = ? AND status = 'approved'"
+			),
+			locations_live: count("SELECT COUNT(*) AS n FROM locations WHERE submitted_by = ? AND is_active = 1"),
+		},
 		actions: userHistory(target.id, staff),
-		// Other accounts seen on the same device, which is how ban evasion shows up.
+		/** Other accounts seen on the same device, which is how ban evasion shows up. */
 		linked_accounts: linkedAccounts(target.id),
+		fairplay_flags: openFairplayFlags(target.id),
+		notes: db
+			.query(
+				"SELECT id, author_id, author_username, body, created_at FROM staff_notes WHERE user_id = ? ORDER BY id DESC LIMIT 50"
+			)
+			.all(target.id),
 		can_moderate: target.id !== staff.id && roleRank(target.role) < roleRank(staff.role),
 	});
 });
@@ -269,7 +345,7 @@ adminUserRoutes.post("/:id/role", async (c) => {
 	if (OPERATOR_IDS.includes(target.discord_id)) fail(403, "Cannot change env-protected operator");
 	if (roleRank(target.role) >= roleRank(actor.role)) fail(403, "Cannot change a user with equal or higher rank");
 
-	// A lock belongs to the role it was placed on; a fresh appointment starts without one.
+	/** A lock belongs to the role it was placed on; a fresh appointment starts without one. */
 	db.run("UPDATE users SET role = ?, staff_locked = 0, staff_lock_reason = NULL WHERE id = ?", [newRole, target.id]);
 	auditLog(actor, "user_role_change", {
 		targetType: "user",
@@ -280,13 +356,9 @@ adminUserRoutes.post("/:id/role", async (c) => {
 	return c.json({ success: true });
 });
 
-/**
- * Suspends a lower-ranked member of staff's access to the panel and to every staff
- * action, for when an account is compromised or being misused. Their role is kept, so
- * restoring access is one step; they can still play as an ordinary user meanwhile.
- */
+/** Suspends a lower-ranked staff member's staff access. Their role is kept and they can still play. */
 adminUserRoutes.post("/:id/staff-lock", async (c) => {
-	// Anyone from moderator up may do this to staff ranked below them: a moderator to helpers only.
+	/** Anyone from moderator up may do this to staff ranked below them: a moderator to helpers only. */
 	const actor = requireStaff(c, "moderator");
 	const target = moderationTarget(c, actor);
 	if (!target.role) fail(400, "This user is not a member of staff");

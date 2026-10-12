@@ -1,0 +1,31 @@
+import type { User } from "../db";
+import { displayName } from "./webhook";
+
+/**
+ * Who is looking at what in the staff panel, so two people do not review the same thing.
+ * Kept in memory only: a claim is a courtesy marker, never a lock, and is gone after a restart.
+ */
+
+export const CLAIM_KINDS = ["submission", "ticket"] as const;
+export type ClaimKind = (typeof CLAIM_KINDS)[number];
+export type Claim = { kind: ClaimKind; id: number; staff_id: number; name: string; at: number };
+
+/** A claim nobody has renewed for this long is dropped. The panel renews it while the item stays open. */
+const CLAIM_MS = 90_000;
+
+/** One per member of staff, so this can never outgrow the team. */
+const claims = new Map<number, Claim>();
+
+export function setClaim(staff: User, kind: ClaimKind, id: number) {
+	claims.set(staff.id, { kind, id, staff_id: staff.id, name: displayName(staff), at: Date.now() });
+}
+
+export function releaseClaim(staffId: number) {
+	claims.delete(staffId);
+}
+
+export function liveClaims(): Claim[] {
+	const cutoff = Date.now() - CLAIM_MS;
+	for (const [staffId, claim] of claims) if (claim.at < cutoff) claims.delete(staffId);
+	return [...claims.values()];
+}

@@ -9,10 +9,7 @@ export function roleRank(role: string | null | undefined): number {
 	return ROLE_RANK[role as Role] ?? 0;
 }
 
-/**
- * Staff who may act as staff right now. Someone whose access has been locked keeps their
- * role on record but counts as an ordinary player everywhere until it is restored.
- */
+/** Staff who may act as staff now. A locked account keeps its role but counts as a player. */
 export function isStaff(user: User | null | undefined): boolean {
 	return roleRank(user?.role) > 0 && !user?.staff_locked;
 }
@@ -33,10 +30,7 @@ export function requirePlayer(c: Context): User {
 	return user;
 }
 
-/**
- * A member of staff of at least `min`. The default is moderator, so a route has to say
- * "helper" in so many words before the lowest role can reach it.
- */
+/** A member of staff of at least `min`. Defaults to moderator, so helper access must be asked for by name. */
 export function requireStaff(c: Context, min: Role = "moderator"): User {
 	const user = currentUser(c);
 	if (user?.staff_locked && roleRank(user.role) > 0) fail(403, "Your staff access has been suspended.");

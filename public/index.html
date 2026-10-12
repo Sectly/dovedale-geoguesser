@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dovedale GeoGuesser</title>
+    <script src="/js/intro.js"></script>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#09090b" />
     <link rel="stylesheet" href="/css/tailwind.css" />
@@ -29,9 +30,29 @@
     <meta name="twitter:description" content="Identify locations across the Dovedale Railway from screenshots. Challenge friends, climb the leaderboard." />
     <meta name="twitter:image" content="/og.png?type=home" />
     <link rel="stylesheet" href="/css/shared.css" />
+    <script src="/js/transitions.js"></script>
     <link rel="stylesheet" href="/css/seasonal.css" />
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
+    <div id="intro-splash" class="intro-splash" role="status" aria-label="Loading Dovedale GeoGuesser">
+      <div class="intro-scrim"></div>
+      <div class="intro-mark" aria-hidden="true">
+        <span class="intro-mark-y">
+          <span class="intro-mark-pop">
+            <svg viewBox="0 0 24 24">
+              <mask id="intro-mark-mask">
+                <rect width="24" height="24" fill="#fff" />
+                <g class="intro-needle"><path d="M18 6l-3.81 8.19L6 18l3.81-8.19z" /></g>
+                <circle cx="12" cy="12" r="1.1" fill="#fff" />
+              </mask>
+              <circle cx="12" cy="12" r="10" mask="url(#intro-mark-mask)" />
+            </svg>
+          </span>
+        </span>
+      </div>
+      <div class="intro-title text-3xl sm:text-5xl font-bold" aria-hidden="true"><span>Dovedale</span> <span>GeoGuesser</span></div>
+      <div class="intro-bar" aria-hidden="true"><span></span></div>
+    </div>
     <nav id="site-nav"></nav>
     <div class="flex-1 flex items-center justify-center py-12 px-6">
       <div class="text-center max-w-lg">

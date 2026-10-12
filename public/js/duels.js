@@ -13,7 +13,8 @@ let user = null;
 let wire = null;
 let view = null;
 let roomCode = null;
-let role = "player"; // or "spectator"
+/** "player" or "spectator". */
+let role = "player";
 let isHost = false;
 let isQuickPlay = false;
 let busy = false;
@@ -84,7 +85,7 @@ function openLiveDuels() {
 	el("live-duels-list").innerHTML = skeletonRows(3, "h-16");
 	loadLiveDuels();
 	clearInterval(liveDuelsTimer);
-	// Scores and rounds move quickly, so keep the open list fresh.
+	/** Scores and rounds move quickly, so keep the open list fresh. */
 	liveDuelsTimer = setInterval(loadLiveDuels, 4000);
 }
 
@@ -174,7 +175,7 @@ async function init() {
 	});
 	setInterval(() => el("lobby-screen").classList.contains("hidden") || loadLiveDuels(), 15_000);
 
-	// Built up front so the map tiles are already loaded when the duel starts.
+	/** Built up front so the map tiles are already loaded when the duel starts. */
 	view = new RoundView({ onGuess: sendGuess });
 	const visible = (id) => !el(id).classList.contains("hidden");
 	const press = (id) => (visible(id) && !el(id).disabled ? el(id).click() : false);
@@ -197,18 +198,19 @@ async function init() {
 			() => (visible("end-screen") && visible("end-actions") ? press("play-again-btn") : false),
 		],
 	]);
-	user = await fetchUser();
-	el("login-link").href = loginUrl();
-
 	const params = new URLSearchParams(location.search);
 	const pathCode = location.pathname.match(/^\/duel\/([A-Z0-9]+)/i)?.[1];
 	const wantsSpectate = params.get("spectate") !== null;
 	const code = (pathCode || params.get("join") || params.get("spectate") || "").toUpperCase();
+	if (code) inviteIntro(code, wantsSpectate);
+
+	user = await fetchUser();
+	el("login-link").href = loginUrl();
 
 	if (code && (wantsSpectate || params.get("spectate"))) return spectate(code);
 	if (!user) {
 		switchScreen("login-gate");
-		// An invite link still lets a logged-out visitor watch.
+		/** An invite link still lets a logged-out visitor watch. */
 		if (code) {
 			el("gate-spectate-btn").dataset.code = code;
 			show("gate-spectate-btn");
@@ -250,6 +252,47 @@ function createRoom() {
 	});
 }
 
+/** How long the invite card stays up. */
+const INVITE_INTRO_MS = 1500;
+
+const INVITE_ART = {
+	duel: `<svg class="invite-swords" viewBox="0 0 96 96">
+		<g class="sword sword-a"><path d="M48 12v52" /><path class="sword-guard" d="M38 64h20" /><path d="M48 64v14" /></g>
+		<g class="sword sword-b"><path d="M48 12v52" /><path class="sword-guard" d="M38 64h20" /><path d="M48 64v14" /></g>
+		<circle class="invite-spark" cx="48" cy="48" r="16" />
+	</svg>`,
+	watch: `<svg class="invite-eye" viewBox="0 0 96 96">
+		<path d="M8 48c12-20 28-30 40-30s28 10 40 30c-12 20-28 30-40 30S20 68 8 48z" />
+		<circle cx="48" cy="48" r="13" />
+	</svg>`,
+};
+let inviteCard = null;
+
+/** Title card for an invite or spectate link. Takes no input and removes itself on a timer. */
+function inviteIntro(code, watching) {
+	if (prefersReducedMotion() || !/^[A-Z0-9]{6}$/.test(code)) return;
+	const card = document.createElement("div");
+	card.className = "invite-intro";
+	card.setAttribute("aria-hidden", "true");
+	card.innerHTML = `${watching ? INVITE_ART.watch : INVITE_ART.duel}
+		<div class="invite-intro-kicker">${watching ? "Spectating" : "Duel invite"}</div>
+		<div class="invite-intro-code">${[...code].map((ch, i) => `<span style="--i:${i}">${ch}</span>`).join("")}</div>`;
+	document.body.appendChild(card);
+	inviteCard = card;
+	setTimeout(() => card.classList.add("leaving"), INVITE_INTRO_MS);
+	setTimeout(() => {
+		card.remove();
+		inviteCard = null;
+	}, INVITE_INTRO_MS + 400);
+}
+
+/** Switches the card to "Spectating" when the invite turns out to be watch-only (Quick Play, full, or under way). */
+function inviteIntroWatching() {
+	if (!inviteCard?.querySelector(".invite-swords")) return;
+	inviteCard.querySelector("svg").outerHTML = INVITE_ART.watch;
+	inviteCard.querySelector(".invite-intro-kicker").textContent = "Spectating";
+}
+
 function joinRoom(input) {
 	return lobbyAction(async () => {
 		const code = String(input || "")
@@ -259,8 +302,11 @@ function joinRoom(input) {
 		try {
 			await api(`/api/duels/rooms/${code}/join`, { method: "POST" });
 		} catch (err) {
-			// Full or already under way: watching is the next best thing.
-			if (err.status === 409) return spectate(code);
+			/** Full, already under way, or a Quick Play match: watching is the next best thing. */
+			if (err.status === 409) {
+				inviteIntroWatching();
+				return spectate(code);
+			}
 			throw err;
 		}
 		await enterRoom(code, { host: false });
@@ -348,7 +394,7 @@ async function connect(joinEvent) {
 
 	on("room_state", (state) => {
 		if (state.players?.length) lastPlayers = state.players;
-		// Colours go by seat, so a player keeps theirs from round to round and into the replay.
+		/** Colours go by seat, so a player keeps theirs from round to round and into the replay. */
 		for (const p of lastPlayers) pinColor(p.user_id);
 		renderEmoteBar(state.emotes, !isSpectator());
 		showSpectatorCount(state.spectators);
@@ -405,7 +451,7 @@ async function connect(joinEvent) {
 	on("server_restarting", (data) => noteRestart(data.seconds));
 	on("server_restart_cancelled", () => noteRestart(null));
 	on("server_restart", (data) => {
-		// On the end screen the result stands; there is just nobody left to rematch.
+		/** On the end screen the result stands; there is just nobody left to rematch. */
 		if (!el("end-screen").classList.contains("hidden")) {
 			closeWire();
 			return rematchUnavailable("Server restarting");
@@ -429,7 +475,7 @@ async function connect(joinEvent) {
 		el("spectate-new-game-btn").onclick = () => spectate(data.code);
 	});
 
-	// WebWire reconnects by itself; each time we rejoin and get a snapshot of the room.
+	/** WebWire reconnects by itself; each time we rejoin and get a snapshot of the room. */
 	on("connect", () => {
 		clearTimeout(reconnectTimer);
 		reconnectTimer = null;
@@ -583,7 +629,7 @@ let shownRound = 0;
 
 /** Puts a round on screen ahead of its clock, so both players can load it first. */
 function showRound(round) {
-	// The round can arrive a moment before the countdown's last tick, so take the countdown down with its timer.
+	/** The round can arrive just before the countdown's last tick, so clear the countdown too. */
 	clearInterval(countdownTimer);
 	show("start-countdown", false);
 	clearInterval(nextRoundTimer);
@@ -598,7 +644,7 @@ function showRound(round) {
 }
 
 function startRound(round) {
-	// Joining mid-round: the round is not on screen yet, so show it first.
+	/** Joining mid-round: the round is not on screen yet, so show it first. */
 	if (shownRound !== round.round || !view.loaded) showRound(round);
 	showJoinIntro();
 	Sounds.play("start");
@@ -614,7 +660,7 @@ function startRound(round) {
 }
 
 function sendGuess(pin) {
-	// The clock keeps running: the round only ends when both players are in or time is up.
+	/** The clock keeps running: the round only ends when both players are in or time is up. */
 	el("click-hint").textContent = pin ? "Guess locked in" : "Time's up. No pin placed";
 	setOpponentBadge("hourglass_top", "Waiting for your opponent...");
 	wire?.emit("guess", { world_x: pin?.x ?? null, world_y: pin?.y ?? null });
@@ -668,7 +714,7 @@ function showRoundResult(result) {
 			.join("") +
 		`<div class="flex items-center justify-between mt-2 pt-2 border-t border-zinc-700">
 			<span class="text-xs font-mono text-zinc-500">${[locId(result.location_id), difficultyText(result.difficulty)].filter(Boolean).join(" · ")}</span>
-			<a href="${reportLocationUrl(result.location_id)}" target="_blank" rel="noopener" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline">Report location</a>
+			<a href="${reportLocationUrl(result.location_id)}" onclick="reportLocation(event, ${Number(result.location_id)})" target="_blank" rel="noopener" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline">Report location</a>
 		</div>`;
 
 	for (const node of el("result-rows").querySelectorAll("[data-count]")) {
@@ -679,7 +725,7 @@ function showRoundResult(result) {
 	runNextRoundCountdown(result.next_in);
 	switchScreen("round-screen");
 	el("result-screen").classList.add("shown");
-	// The sheet covers the bottom of the map, so bring the answer and every guess into what is left.
+	/** The sheet covers the bottom of the map, so bring the answer and every guess into what is left. */
 	view.fitResult(
 		result,
 		result.results.filter((r) => r.guessed_x !== null).map((r) => ({ x: r.guessed_x, y: r.guessed_y }))
@@ -788,7 +834,7 @@ function showSeries(result) {
 	const players = result.scores || [];
 	show("end-series", !!series && series.games > 1 && players.length === 2);
 	if (!series || series.games <= 1 || players.length !== 2) return;
-	// Your own score first; a spectator sees the two in the order they sit.
+	/** Your own score first; a spectator sees the two in the order they sit. */
 	const [first, second] = [...players].sort((a, b) => (b.user_id === user?.id) - (a.user_id === user?.id));
 	const name = (p) => (p.user_id === user?.id && !isSpectator() ? "You" : p.display_name || p.username);
 	const wins = (p) => series.wins[p.user_id] ?? 0;
@@ -798,7 +844,7 @@ function showSeries(result) {
 }
 
 function showGameEnd(result, { forfeit = false } = {}) {
-	// The server's record covers rounds played before we joined or reloaded.
+	/** The server's record covers rounds played before we joined or reloaded. */
 	if (result.rounds?.length) roundHistory = result.rounds;
 	clearInterval(nextRoundTimer);
 	hideOverlay();

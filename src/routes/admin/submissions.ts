@@ -12,6 +12,9 @@ import { notifyUser } from "../../notifications";
 
 export const adminSubmissionRoutes = new Hono();
 
+/** How many reviewed items the Reviewed list goes back. */
+const HISTORY_LIMIT = 100;
+
 type PendingSubmission = Submission & { username: string | null };
 
 function pendingSubmission(id: number): PendingSubmission {
@@ -33,6 +36,24 @@ adminSubmissionRoutes.get("/", (c) => {
 				FROM submissions s LEFT JOIN users u ON u.id = s.submitted_by
 				WHERE s.status = 'pending'
 				ORDER BY s.created_at ASC`
+			)
+			.all()
+	);
+});
+
+/** The latest reviewed submissions, with who reviewed each and why any was denied. */
+adminSubmissionRoutes.get("/history", (c) => {
+	requireStaff(c, "helper");
+	return c.json(
+		db
+			.query(
+				`SELECT s.id, s.image_path, s.label, s.world_x, s.world_y, s.status, s.deny_reason, s.created_at, s.reviewed_at,
+					s.submitted_by, u.username, u.display_name, r.username AS reviewed_by_username
+				FROM submissions s
+				LEFT JOIN users u ON u.id = s.submitted_by
+				LEFT JOIN users r ON r.id = s.reviewed_by
+				WHERE s.status != 'pending'
+				ORDER BY s.reviewed_at DESC, s.id DESC LIMIT ${HISTORY_LIMIT}`
 			)
 			.all()
 	);
@@ -64,7 +85,7 @@ adminSubmissionRoutes.post("/:id/approve", async (c) => {
 		`**Submission #${id} approved** by **${displayName(staff)}** - "${label}"${sub.username ? ` (originally by ${sub.username})` : ""}`,
 		"/admin#submissions"
 	);
-	// Said in the same message, so a first approval does not arrive as two notifications.
+	/** Said in the same message, so a first approval does not arrive as two notifications. */
 	const earned = award(sub.submitted_by, "contributor", { quiet: true });
 	notifyUser(sub.submitted_by, "submissions", {
 		title: "Your location was approved",
@@ -85,7 +106,7 @@ adminSubmissionRoutes.post("/:id/deny", async (c) => {
 	const id = idParam(c);
 	const body = await readJson<{ reason: string }>(c);
 	const sub = pendingSubmission(id);
-	// The player is shown this, so a denial always says why.
+	/** The player is shown this, so a denial always says why. */
 	const reason = requireReason(body.reason, "A reason for denying");
 
 	db.run(

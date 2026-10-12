@@ -3,11 +3,7 @@ import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from "fs";
 import { join } from "path";
 import { DATA_DIR } from "./config";
 
-/**
- * Database backups: single-file copies kept in data/backups. Each kind has its own
- * limit and the oldest are removed as new ones are made, so the folder cannot grow
- * without bound however long the server is left running.
- */
+/** Database backups in data/backups. Each kind has a limit; the oldest are removed. */
 
 export const BACKUP_DIR = join(DATA_DIR, "backups");
 

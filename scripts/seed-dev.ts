@@ -1,8 +1,4 @@
-/**
- * Fills an empty local database with placeholder locations so the game can be
- * played in development: `bun run seed`. Refuses to touch a database that
- * already has locations.
- */
+/** Fills an empty local database with placeholder locations (`bun run seed`). Refuses if locations exist. */
 import sharp from "sharp";
 import { join } from "path";
 import { db } from "../src/db";

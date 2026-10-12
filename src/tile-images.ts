@@ -7,9 +7,11 @@ const IMAGES_DIR = join(PUBLIC_DIR, "images");
 const GENERATED_DIR = join(IMAGES_DIR, "generated");
 const MANIFEST_PATH = `${GENERATED_DIR}/manifest.json`;
 
+/** Keep in step with MAP_QUALITY_SCALE in public/js/map-canvas.js. "tiny" is the whole-map base on phones. */
 const QUALITY_VARIANTS = [
 	{ name: "medium", widthPercent: 75, webpQuality: 90 },
 	{ name: "low", widthPercent: 45, webpQuality: 70 },
+	{ name: "tiny", widthPercent: 25, webpQuality: 70 },
 ];
 const VARIANTS_CONFIG_HASH = Bun.hash(JSON.stringify(QUALITY_VARIANTS)).toString(16);
 

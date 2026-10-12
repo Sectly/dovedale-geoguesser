@@ -329,8 +329,13 @@ body .fixed.inset-0 > div {
 	box-shadow: var(--md-elev-2);
 }
 
+/* `scale`, not `transform`, so buttons that are positioned with a transform stay where they are. */
 body button:not(:disabled):active {
 	filter: brightness(1.15);
+	scale: 0.97;
+}
+body button.memory-card:active {
+	scale: none;
 }
 
 body :focus-visible:not([class*="ring"]) {
@@ -363,10 +368,13 @@ body :focus-visible:not([class*="ring"]) {
 
 /* While the screenshot loads, the panel shimmers and the image stays out of sight. */
 #round-photo {
-	transition: opacity 0.2s ease-out;
+	transition:
+		opacity 0.2s ease-out,
+		transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 #photo-panel.photo-loading #round-photo {
 	opacity: 0;
+	transform: scale(1.03);
 }
 #photo-panel.photo-loading::before {
 	content: "";
@@ -407,7 +415,7 @@ body :focus-visible:not([class*="ring"]) {
 	}
 }
 
-/* ---- Motion: small, quick, and the same everywhere ---- */
+/* ---- Motion ---- */
 @keyframes rise-in {
 	from {
 		opacity: 0;
@@ -441,8 +449,9 @@ main,
 	animation: rise-in 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 /* Lists arrive one row after another instead of all at once. */
+/* Filled backwards only: held at its end, the animation would pin `transform` and block the hover lift. */
 .stagger > * {
-	animation: rise-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+	animation: rise-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 .stagger > *:nth-child(2) {
 	animation-delay: 30ms;
@@ -467,29 +476,131 @@ main,
 }
 
 .modal-fade {
-	animation: fadeIn 0.15s ease-out both;
+	animation: fadeIn 0.15s ease-out backwards;
 }
 .modal-fade > * {
-	animation: pop-in 0.2s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+	animation: pop-in 0.2s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 .modal-fade > .panel-slide {
-	animation: slide-in-right 0.25s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+	animation: slide-in-right 0.25s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 #toast-container > * {
 	animation: rise-in 0.2s ease-out both;
+}
+/* An error shakes its way in; a success ticks. */
+#toast-container > [data-type="error"]:not(.leaving) {
+	animation: toast-shake 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.toast-icon {
+	flex-shrink: 0;
+	font-size: 1.125rem;
+	font-variation-settings: "FILL" 1;
+}
+[data-type="success"] > .toast-icon {
+	animation: pop-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) 0.1s backwards;
+}
+@keyframes toast-shake {
+	0% {
+		opacity: 0;
+		transform: translateX(14px);
+	}
+	30% {
+		opacity: 1;
+		transform: translateX(-6px);
+	}
+	50% {
+		transform: translateX(4px);
+	}
+	70% {
+		transform: translateX(-2px);
+	}
+}
+#toast-container > .leaving {
+	pointer-events: none;
+	animation: toast-out 0.25s cubic-bezier(0.3, 0, 1, 1) forwards;
+}
+/* The negative margin is its own height plus the gap, so the stack closes up as it leaves. */
+@keyframes toast-out {
+	to {
+		opacity: 0;
+		transform: translateX(24px);
+		margin-bottom: calc(-0.5rem - var(--toast-height, 0px));
+	}
+}
+/*
+ * Dialogs close by getting "hidden" back. The discrete `display` transition keeps one on screen for its exit.
+ * Entrance animations fill backwards only, or they would block the exit.
+ */
+.modal-fade {
+	transition:
+		opacity 0.2s ease-in,
+		display 0.2s allow-discrete;
+}
+.modal-fade > * {
+	transition:
+		opacity 0.15s ease-in,
+		transform 0.15s ease-in;
+}
+.modal-fade > .panel-slide {
+	transition: transform 0.2s cubic-bezier(0.3, 0, 1, 1);
+}
+.modal-fade.hidden {
+	opacity: 0;
+	pointer-events: none;
+	animation: none;
+}
+.modal-fade.hidden > * {
+	opacity: 0;
+	transform: scale(0.96);
+	animation: none;
+}
+.modal-fade.hidden > .panel-slide {
+	opacity: 1;
+	transform: translateX(100%);
+}
+/* The highlight behind the chosen tab, moved by the page's script. */
+.tab-pill {
+	position: absolute;
+	top: 0.25rem;
+	bottom: 0.25rem;
+	border-radius: 9999px;
+	background: #3f3f46;
+	transition:
+		left 0.3s cubic-bezier(0.2, 0, 0, 1),
+		width 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+/* An earned achievement's icon on a profile, each a beat after the one before. */
+.achievement-lit {
+	animation: achievement-lit 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes achievement-lit {
+	from {
+		color: #3f3f46;
+		transform: scale(0.6);
+	}
 }
 #start-countdown-value,
 #overlay-count {
 	animation: pop-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 /* Interactive things answer the pointer the same way everywhere. */
+/* `manipulation` drops the wait a touch browser adds to tell a tap from a double-tap zoom. */
 a,
 button {
 	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+}
+/* iOS zooms the page into any field whose text is under 16px, and does not zoom back out. */
+@supports (-webkit-touch-callout: none) {
+	input,
+	select,
+	textarea {
+		font-size: 16px !important;
+	}
 }
 button:not(:disabled),
 a[class*="rounded"] {
-	transition-property: background-color, border-color, color, opacity, transform, box-shadow;
+	transition-property: background-color, border-color, color, opacity, transform, scale, box-shadow;
 	transition-duration: 0.15s;
 }
 :focus-visible {
@@ -517,17 +628,35 @@ body.h-screen {
 	}
 }
 
+/*
+ * Reduced motion: every animation and transition jumps to its end, and loops run once.
+ * Anything that must still take time gets its own !important rule.
+ */
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
 	*::after {
 		animation-duration: 0.01ms !important;
 		animation-delay: 0ms !important;
+		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+	/* A spinner standing still would look stuck, so it turns slowly instead. */
+	.animate-spin {
+		animation-duration: 3s !important;
+		animation-iteration-count: infinite !important;
+	}
+	body button:not(:disabled):active,
+	.md-card:hover,
+	.md-card:active,
+	.md-card:hover > .material-symbols-outlined:first-child {
+		scale: none !important;
+		transform: none !important;
 	}
 }
 
-/* A faint ripple from wherever a button was pressed, drawn in a layer above it. */
+/* The ripple from a button press, drawn in a layer above the button. */
 .ripple-layer {
 	position: fixed;
 	overflow: hidden;
@@ -559,23 +688,141 @@ body.h-screen {
 }
 
 /*
- * Page-to-page transitions (cross-document view transitions). Browsers without
- * support navigate as before. Kept to a short cross-fade; the header is
- * named so it stays put instead of fading with the page.
+ * Page-to-page transitions. public/js/transitions.js picks the direction: sideways between header sections,
+ * in or out for depth, a fade-through otherwise. The header is named so it stays put.
  */
 @view-transition {
 	navigation: auto;
 }
 ::view-transition-old(root),
 ::view-transition-new(root) {
-	animation-duration: 0.16s;
-	animation-timing-function: ease-out;
+	mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+	animation: vt-out 0.1s cubic-bezier(0.3, 0, 1, 1) both;
+}
+::view-transition-new(root) {
+	animation: vt-in 0.25s cubic-bezier(0.05, 0.7, 0.1, 1) 0.05s both;
+}
+html:active-view-transition-type(forward)::view-transition-old(root) {
+	animation-name: vt-out-left;
+}
+html:active-view-transition-type(forward)::view-transition-new(root) {
+	animation-name: vt-in-right;
+}
+html:active-view-transition-type(back)::view-transition-old(root) {
+	animation-name: vt-out-right;
+}
+html:active-view-transition-type(back)::view-transition-new(root) {
+	animation-name: vt-in-left;
+}
+html:active-view-transition-type(deeper)::view-transition-old(root) {
+	animation-name: vt-out-near;
+}
+html:active-view-transition-type(deeper)::view-transition-new(root) {
+	animation-name: vt-in-far;
+}
+html:active-view-transition-type(shallower)::view-transition-old(root) {
+	animation-name: vt-out-far;
+}
+html:active-view-transition-type(shallower)::view-transition-new(root) {
+	animation-name: vt-in-near;
+}
+@keyframes vt-out {
+	to {
+		opacity: 0;
+	}
+}
+@keyframes vt-in {
+	from {
+		opacity: 0;
+		transform: scale(0.98);
+	}
+}
+@keyframes vt-out-left {
+	to {
+		opacity: 0;
+		transform: translateX(-30px);
+	}
+}
+@keyframes vt-in-right {
+	from {
+		opacity: 0;
+		transform: translateX(30px);
+	}
+}
+@keyframes vt-out-right {
+	to {
+		opacity: 0;
+		transform: translateX(30px);
+	}
+}
+@keyframes vt-in-left {
+	from {
+		opacity: 0;
+		transform: translateX(-30px);
+	}
+}
+@keyframes vt-out-near {
+	to {
+		opacity: 0;
+		transform: scale(1.05);
+	}
+}
+@keyframes vt-in-far {
+	from {
+		opacity: 0;
+		transform: scale(0.95);
+	}
+}
+@keyframes vt-out-far {
+	to {
+		opacity: 0;
+		transform: scale(0.95);
+	}
+}
+@keyframes vt-in-near {
+	from {
+		opacity: 0;
+		transform: scale(1.05);
+	}
 }
 #site-nav {
 	view-transition-name: site-nav;
 }
 ::view-transition-group(site-nav) {
 	animation-duration: 0s;
+}
+/* To or from a page with no header, it fades instead of blinking. */
+::view-transition-new(site-nav):only-child {
+	animation: vt-out 0.2s ease-out reverse both;
+}
+::view-transition-old(site-nav):only-child {
+	animation: vt-out 0.15s ease-in both;
+}
+/*
+ * The highlight behind the header's current section, named so it slides between sections.
+ * Translucent because it is drawn over the header's text during the slide.
+ */
+.nav-active-pill {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: rgba(255, 255, 255, 0.07);
+	pointer-events: none;
+	view-transition-name: nav-active;
+}
+::view-transition-group(nav-active) {
+	animation-duration: 0.3s;
+	animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+/* A mode page's own icon. The home card that leads to it takes the same name for the trip (transitions.js). */
+.hero-icon {
+	view-transition-name: hero-icon;
+}
+::view-transition-group(hero-icon) {
+	animation-duration: 0.35s;
+	animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 @media (prefers-reduced-motion: reduce) {
 	@view-transition {
@@ -665,11 +912,7 @@ a.rule-code:hover {
 	white-space: nowrap;
 }
 
-/*
- * Checkbox in the site's Material style: the real input stays in place (invisible)
- * so it keeps working with the keyboard and screen readers, and the box beside it
- * is drawn to match.
- */
+/* Checkbox: the real input stays in place, invisible, so keyboard and screen readers still work. */
 .md-check {
 	display: flex;
 	align-items: center;
@@ -697,7 +940,7 @@ a.rule-code:hover {
 		background-color 0.15s,
 		border-color 0.15s;
 }
-/* The soft halo Material puts behind a control on hover and focus. */
+/* The halo behind the box on hover and focus. */
 .md-check-box::before {
 	content: "";
 	position: absolute;
@@ -744,7 +987,7 @@ a.rule-code:hover {
 	color-scheme: dark;
 }
 
-/* Scrollbars: thin and quiet everywhere, not just where a class was remembered. */
+/* Scrollbars, on every element. */
 * {
 	scrollbar-width: thin;
 	scrollbar-color: #3f3f46 transparent;
@@ -864,7 +1107,7 @@ textarea {
 	animation: pop-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
 }
 
-/* The greeting shown just after logging in: drops in from the top, then lifts away. */
+/* The greeting shown just after logging in. */
 @keyframes welcome-in {
 	from {
 		opacity: 0;
@@ -900,18 +1143,37 @@ textarea {
 	transform: translate(-50%, -16px);
 }
 
-/* Game feel: things arrive rather than appear. */
+/* Cards lift under the pointer; results pop in. */
 .md-card {
 	transition:
 		transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1),
 		background-color 0.15s,
 		box-shadow 0.18s;
 }
-.md-card:hover {
-	transform: translateY(-3px);
+/* Only where a pointer can hover: on a touch screen :hover sticks to whatever was tapped last. */
+@media (hover: hover) {
+	.md-card:hover {
+		transform: translateY(-3px);
+	}
+	.md-card:hover > .material-symbols-outlined:first-child {
+		transform: scale(1.12) rotate(-6deg);
+	}
 }
 .md-card:active {
 	transform: translateY(0) scale(0.99);
+}
+.md-card > .material-symbols-outlined:first-child {
+	transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* The header's menu on a phone. */
+#site-nav-menu:not(.hidden) {
+	animation: menu-in 0.18s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes menu-in {
+	from {
+		opacity: 0;
+		transform: translateY(-6px);
+	}
 }
 #result-screen.shown #result-score-display,
 .streak-pop {
@@ -937,11 +1199,7 @@ textarea {
 	text-align: center;
 }
 
-/*
- * ---- Material components ----
- * A small shared set so the same thing looks the same wherever it appears:
- * buttons, chips, status tags, a segmented control and text fields.
- */
+/* ---- Material components: buttons, chips, status tags, a segmented control and text fields ---- */
 .m-btn {
 	display: inline-flex;
 	align-items: center;
@@ -1058,7 +1316,7 @@ textarea {
 	color: #93c5fd;
 }
 
-/* Status tags: small, quiet, one shape, colour only for meaning. */
+/* Status tags: colour only for meaning. */
 .m-tag {
 	display: inline-flex;
 	align-items: center;
@@ -1261,6 +1519,22 @@ textarea.m-field {
 	z-index: 25;
 	pointer-events: none;
 }
+/* The round counter and the clock stay readable over any effect. */
+#photo-panel > .top-3 {
+	z-index: 27;
+}
+.photo-effect-cover {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #09090b;
+	color: #a1a1aa;
+	font-weight: 600;
+	transition: opacity 0.12s;
+}
+.photo-effect-cover.lifted {
+	opacity: 0;
+}
 .photo-effect-meter {
 	position: absolute;
 	left: 50%;
@@ -1338,7 +1612,7 @@ button.memory-card {
 	}
 }
 
-/* A reaction sent in a duel: pops in beside the screenshot, lingers, then drifts off. */
+/* A reaction sent in a duel, shown beside the screenshot for a moment. */
 .emote-pop {
 	animation: emote-pop 3s ease-out forwards;
 }
@@ -1428,7 +1702,7 @@ button.memory-card {
 }
 @media (prefers-reduced-motion: reduce) {
 	.emote-pop {
-		animation-duration: 3s;
+		animation-duration: 3s !important;
 		animation-name: emote-fade;
 	}
 	.emote-picker {
@@ -1445,11 +1719,7 @@ button.memory-card {
 	}
 }
 
-/*
- * Achievement unlocked. Built like the welcome card (same surface, outline, shadow and
- * easing) so it reads as part of the site: it drops in from the top, the icon settles
- * into its tonal container with one ripple, and the card lifts away again.
- */
+/* Achievement unlocked: built like the welcome card. */
 .achievement-pop {
 	position: fixed;
 	top: 4rem;
@@ -1481,7 +1751,7 @@ button.memory-card {
 	opacity: 0;
 	transform: translate(-50%, -16px);
 }
-/* The icon sits in a tonal container, the same amber the site uses for streaks and warnings. */
+/* The same amber as streaks and warnings. */
 .achievement-icon {
 	position: relative;
 	flex-shrink: 0;
@@ -1558,10 +1828,7 @@ button.memory-card {
 	}
 }
 
-/*
- * Tooltips (public/js/tooltips.js): one plain Material tooltip shared by every control.
- * It sits above everything, including dialogs, and never takes the pointer.
- */
+/* Tooltips (public/js/tooltips.js). Above everything, and never takes the pointer. */
 .m-tooltip {
 	position: fixed;
 	top: 0;
@@ -1609,10 +1876,7 @@ button.memory-card {
 	}
 }
 
-/*
- * The restart countdown. Styled here rather than with utility classes so it looks and sits
- * the same on every page, above dialogs and side panels, whatever that page's own styles are.
- */
+/* The restart countdown. Styled here so it looks the same on every page, above dialogs and panels. */
 .restart-banner {
 	position: fixed;
 	top: 4rem;
@@ -1645,11 +1909,7 @@ button.memory-card {
 	}
 }
 
-/*
- * A pinned announcement (public/js/shared.js): a card in the bottom corner on the same
- * surface as the site's other cards. It steps aside while a round is on screen, where the
- * corner belongs to the game.
- */
+/* A pinned announcement (public/js/shared.js). Hidden while a round is on screen. */
 .site-announcement {
 	position: fixed;
 	left: 1rem;
@@ -1769,4 +2029,916 @@ body:has(#game-screen:not(.hidden)) .site-announcement {
 	min-width: 0;
 	text-align: center;
 	white-space: nowrap;
+}
+
+/*
+ * The title screen (public/js/intro.js). It ends by turning into the page.
+ * Only paints once the script has put "intro-play" on <html>.
+ */
+.intro-splash {
+	display: none;
+}
+html.intro-play .intro-splash {
+	position: fixed;
+	inset: 0;
+	z-index: 300;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1.25rem;
+	padding: 1.5rem;
+	transition: opacity 0.15s linear;
+}
+.intro-scrim {
+	position: absolute;
+	inset: 0;
+	background: var(--md-surface);
+	transition: opacity 0.45s cubic-bezier(0.2, 0, 0, 1);
+}
+/*
+ * Two wrappers move the mark, one per axis, so it travels along an arc.
+ * Entrance animations sit on inner elements so they cannot override those transforms.
+ */
+.intro-mark,
+.intro-mark-y,
+.intro-title {
+	position: relative;
+	will-change: transform;
+}
+.intro-mark {
+	width: 6rem;
+	height: 6rem;
+	transition: transform 0.6s cubic-bezier(0.5, 0, 0.3, 1);
+}
+.intro-mark-y {
+	display: block;
+	height: 100%;
+	transition: transform 0.6s cubic-bezier(0.3, 0, 0.1, 1);
+}
+.intro-mark-pop {
+	position: relative;
+	display: block;
+	height: 100%;
+	color: #60a5fa;
+	animation: intro-pop 0.5s cubic-bezier(0.05, 0.7, 0.1, 1) both;
+}
+.intro-mark-pop svg {
+	position: relative;
+	z-index: 1;
+	display: block;
+	width: 100%;
+	height: 100%;
+	fill: currentColor;
+}
+/* One ripple as the mark lands, the same as an unlocked achievement's. */
+.intro-mark-pop::after {
+	content: "";
+	position: absolute;
+	inset: 8.333%;
+	border-radius: 9999px;
+	background: rgba(37, 99, 235, 0.35);
+	opacity: 0;
+	animation: achievement-ripple 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.35s both;
+}
+.intro-needle {
+	transform-origin: 12px 12px;
+	animation: intro-needle 1.3s cubic-bezier(0.3, 0.1, 0.2, 1) both;
+}
+.intro-title {
+	white-space: nowrap;
+	transition: transform 0.6s cubic-bezier(0.2, 0, 0, 1);
+}
+.intro-title span {
+	display: inline-block;
+	animation: intro-rise 0.5s cubic-bezier(0.05, 0.7, 0.1, 1) 0.3s both;
+}
+.intro-title span + span {
+	animation-delay: 0.4s;
+}
+/* Creeps while the page loads, then finishes once it is ready. */
+.intro-bar {
+	position: relative;
+	width: min(12rem, 60vw);
+	height: 4px;
+	margin-top: 0.5rem;
+	border-radius: 9999px;
+	background: var(--md-surface-container-highest);
+	overflow: hidden;
+	animation: fadeIn 0.3s ease-out 0.6s both;
+}
+.intro-bar span {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: var(--md-primary-bright);
+	transform: scaleX(0);
+	transform-origin: left;
+	transition: transform 1.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.intro-splash[data-state="loading"] .intro-bar span {
+	transform: scaleX(0.85);
+}
+.intro-splash[data-state="ready"] .intro-bar span {
+	transform: scaleX(1);
+	transition-duration: 0.25s;
+}
+
+/* Turning into the page: the script measures where the mark and title go and passes it in. */
+html.intro-play:not(.intro-hold) .intro-splash {
+	pointer-events: none;
+}
+html.intro-play:not(.intro-hold) .intro-scrim {
+	opacity: 0;
+}
+html.intro-play:not(.intro-hold) .intro-bar {
+	animation: intro-fade-out 0.2s ease-out forwards;
+}
+html.intro-play:not(.intro-hold) .intro-mark {
+	transform: translateX(var(--dx, 0px));
+}
+html.intro-play:not(.intro-hold) .intro-mark-y {
+	transform: translateY(var(--dy, 0px)) scale(var(--s, 1));
+}
+html.intro-play:not(.intro-hold) .intro-title {
+	transform: translate(var(--dx, 0px), var(--dy, 0px)) scale(var(--s, 1));
+}
+/* Landed: the real mark and title now show underneath, so the copies fade out. */
+html.intro-play:not(.intro-hold):not(.intro-morph) .intro-splash {
+	opacity: 0;
+}
+/* The real ones stay hidden until their copies have landed. */
+html.intro-hold #home-title,
+html.intro-morph #home-title,
+html.intro-hold #season-splash,
+html.intro-morph #season-splash,
+html.intro-hold #site-nav > a[href="/"] > .material-symbols-outlined,
+html.intro-morph #site-nav > a[href="/"] > .material-symbols-outlined {
+	visibility: hidden;
+}
+/* The tagline and cards wait, then arrive in turn once the title has passed over them. */
+html.intro-play #home-tagline,
+html.intro-play .stagger > * {
+	animation: intro-rise 0.5s cubic-bezier(0.05, 0.7, 0.1, 1) var(--intro-delay, 0ms) backwards;
+}
+html.intro-hold #home-tagline,
+html.intro-hold .stagger > * {
+	animation-play-state: paused;
+}
+#home-tagline {
+	--intro-delay: 320ms;
+}
+.stagger > :nth-child(1) {
+	--intro-delay: 380ms;
+}
+.stagger > :nth-child(2) {
+	--intro-delay: 420ms;
+}
+.stagger > :nth-child(3) {
+	--intro-delay: 460ms;
+}
+.stagger > :nth-child(4) {
+	--intro-delay: 500ms;
+}
+.stagger > :nth-child(5) {
+	--intro-delay: 540ms;
+}
+.stagger > :nth-child(6) {
+	--intro-delay: 580ms;
+}
+.stagger > :nth-child(7) {
+	--intro-delay: 620ms;
+}
+.stagger > :nth-child(n + 8) {
+	--intro-delay: 660ms;
+}
+@keyframes intro-pop {
+	from {
+		opacity: 0;
+		transform: scale(0.6);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+/* The needle spins and settles where it sits in the site's compass icon. */
+@keyframes intro-needle {
+	0% {
+		transform: rotate(-300deg);
+	}
+	60% {
+		transform: rotate(14deg);
+	}
+	78% {
+		transform: rotate(-8deg);
+	}
+	90% {
+		transform: rotate(3deg);
+	}
+	100% {
+		transform: none;
+	}
+}
+@keyframes intro-rise {
+	from {
+		opacity: 0;
+		transform: translateY(18px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes intro-fade-out {
+	to {
+		opacity: 0;
+	}
+}
+
+/* ---- Failed loads (errorStateHtml in shared.js) ---- */
+.error-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 3rem 1rem;
+	text-align: center;
+	font-size: 0.875rem;
+	color: var(--md-on-surface-variant);
+	animation: rise-in 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+.error-state-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 3.5rem;
+	height: 3.5rem;
+	border-radius: 9999px;
+	background: rgba(239, 83, 80, 0.18);
+	color: #fca5a5;
+	animation: err-wobble 0.6s ease-in-out 0.3s;
+}
+.error-state-icon .material-symbols-outlined {
+	font-size: 1.75rem;
+}
+.err-retry {
+	transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+:hover > .err-retry {
+	transform: rotate(180deg);
+}
+@keyframes err-wobble {
+	20% {
+		transform: rotate(-14deg);
+	}
+	40% {
+		transform: rotate(11deg);
+	}
+	60% {
+		transform: rotate(-7deg);
+	}
+	80% {
+		transform: rotate(4deg);
+	}
+}
+
+/*
+ * ---- Error pages (404.html, and 500.html for every other status) ----
+ * Each opens on a short scene for its status. Every keyframe set ends on the element's own style,
+ * so with reduced motion the page is just there in its final state.
+ */
+.err-page {
+	/* How long the scene plays before the page arrives. */
+	--err-wait: 1.6s;
+}
+.err-late {
+	animation: rise-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--err-wait) + var(--i, 0) * 70ms) backwards;
+}
+/* The scene plays large in the middle of the screen, then shrinks into its place above the code. */
+.err-scene-box {
+	width: 6rem;
+	height: 6rem;
+	margin: 0 auto 1.25rem;
+	animation: err-scene calc(var(--err-wait) + 0.45s) cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+@keyframes err-scene {
+	0% {
+		opacity: 0;
+		transform: translateY(5.5rem) scale(2);
+	}
+	6% {
+		opacity: 1;
+	}
+	78% {
+		transform: translateY(5.5rem) scale(2);
+	}
+}
+.err-scene {
+	display: none;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+/* 401 shares the padlock; every other 4xx gets the rejected form and every other 5xx the server. */
+.err-page:is([data-status="401"], [data-status="403"]) .err-scene-403,
+.err-page[data-status="429"] .err-scene-429,
+.err-page[data-status="503"] .err-scene-503,
+.err-page[data-status^="4"]:not([data-status="401"], [data-status="403"], [data-status="429"]) .err-scene-400,
+.err-page[data-status^="5"]:not([data-status="503"]) .err-scene-500 {
+	display: block;
+}
+.err-scene rect {
+	fill: #27272a;
+	stroke: #3f3f46;
+	stroke-width: 2;
+}
+.err-scene * {
+	animation-duration: var(--err-wait);
+	animation-fill-mode: backwards;
+}
+
+/* 500: a server rack that flickers, shakes and breaks. */
+.srv-vent {
+	fill: none;
+	stroke: #52525b;
+	stroke-width: 3;
+	stroke-linecap: round;
+}
+.srv-led {
+	fill: #ef5350;
+	animation-name: srv-led;
+	animation-timing-function: steps(1);
+}
+.srv-rack {
+	animation-name: srv-shake;
+	animation-timing-function: linear;
+}
+.srv-top {
+	transform-origin: 16px 34px;
+	transform: rotate(-9deg) translateY(-3px);
+	animation-name: srv-break;
+}
+.srv-spark {
+	fill: none;
+	stroke: #fcd34d;
+	stroke-width: 3;
+	stroke-linecap: round;
+	opacity: 0;
+	transform-origin: 78px 18px;
+	animation-name: srv-spark;
+}
+@keyframes srv-led {
+	0%,
+	46%,
+	54% {
+		fill: #4caf50;
+	}
+	42%,
+	50% {
+		fill: #fcd34d;
+	}
+	60% {
+		fill: #ef5350;
+	}
+}
+@keyframes srv-shake {
+	0%,
+	36%,
+	64% {
+		transform: none;
+	}
+	40%,
+	48%,
+	56% {
+		transform: translateX(-3px);
+	}
+	44%,
+	52%,
+	60% {
+		transform: translateX(3px);
+	}
+}
+@keyframes srv-break {
+	0%,
+	60% {
+		transform: none;
+	}
+	72% {
+		transform: rotate(-16deg) translateY(-8px);
+	}
+	84% {
+		transform: rotate(-6deg) translateY(-1px);
+	}
+}
+@keyframes srv-spark {
+	0%,
+	60% {
+		opacity: 0;
+		transform: scale(0.4);
+	}
+	66%,
+	80% {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* 400: a form that gets stamped as rejected. */
+.doc {
+	animation-name: doc-in;
+}
+.doc-line {
+	fill: none;
+	stroke: #52525b;
+	stroke-width: 3;
+	stroke-linecap: round;
+}
+.doc-stamp {
+	transform-origin: 62px 66px;
+	animation-name: doc-stamp;
+}
+.doc-stamp circle {
+	fill: #ef5350;
+}
+.doc-stamp path {
+	fill: none;
+	stroke: #fff;
+	stroke-width: 4;
+	stroke-linecap: round;
+}
+@keyframes doc-in {
+	0% {
+		opacity: 0;
+		transform: translateY(-30px);
+	}
+	30% {
+		opacity: 1;
+		transform: none;
+	}
+	60% {
+		transform: none;
+	}
+	66% {
+		transform: translate(2px, 3px);
+	}
+}
+@keyframes doc-stamp {
+	0%,
+	48% {
+		opacity: 0;
+		transform: scale(2.4);
+	}
+	60% {
+		opacity: 1;
+		transform: scale(0.92);
+	}
+}
+
+/* 403: a padlock that snaps shut and will not budge. */
+.lock {
+	transform-origin: 48px 62px;
+	animation-name: lock-deny;
+}
+.lock-shackle {
+	fill: none;
+	stroke: #a1a1aa;
+	stroke-width: 7;
+	stroke-linecap: round;
+	animation-name: lock-shut;
+}
+.lock-hole {
+	fill: #ef5350;
+	animation-name: lock-hole;
+	animation-timing-function: steps(1);
+}
+@keyframes lock-shut {
+	0%,
+	40% {
+		transform: translateY(-10px);
+	}
+	52% {
+		transform: none;
+	}
+}
+@keyframes lock-deny {
+	0%,
+	56% {
+		transform: none;
+	}
+	62%,
+	74%,
+	86% {
+		transform: rotate(-7deg);
+	}
+	68%,
+	80% {
+		transform: rotate(7deg);
+	}
+}
+@keyframes lock-hole {
+	0% {
+		fill: #71717a;
+	}
+	54% {
+		fill: #ef5350;
+	}
+}
+
+/* 429: a gauge whose needle runs into the red. */
+.gauge-track,
+.gauge-red {
+	fill: none;
+	stroke: #3f3f46;
+	stroke-width: 8;
+	stroke-linecap: round;
+}
+.gauge-red {
+	stroke: #ef5350;
+}
+.gauge-needle {
+	fill: none;
+	stroke: #e4e4e7;
+	stroke-width: 4;
+	stroke-linecap: round;
+	transform-origin: 48px 66px;
+	transform: rotate(72deg);
+	animation-name: gauge-max;
+}
+.gauge-hub {
+	fill: #e4e4e7;
+}
+@keyframes gauge-max {
+	0% {
+		transform: rotate(-78deg);
+	}
+	16% {
+		transform: rotate(-38deg);
+	}
+	28% {
+		transform: rotate(-52deg);
+	}
+	56% {
+		transform: rotate(82deg);
+	}
+	66% {
+		transform: rotate(64deg);
+	}
+	76% {
+		transform: rotate(78deg);
+	}
+	86% {
+		transform: rotate(68deg);
+	}
+}
+
+/* 503: a railway signal going from clear to danger. */
+.err-scene rect.sig-post {
+	fill: #3f3f46;
+	stroke: none;
+}
+.sig-red {
+	fill: #ef5350;
+	animation-name: sig-red;
+	animation-timing-function: steps(1);
+}
+.sig-green {
+	fill: #3f3f46;
+	animation-name: sig-green;
+	animation-timing-function: steps(1);
+}
+.sig-glow {
+	fill: none;
+	stroke: #ef5350;
+	stroke-width: 3;
+	opacity: 0;
+	transform-origin: 48px 24px;
+	animation-name: sig-glow;
+}
+@keyframes sig-red {
+	0% {
+		fill: #3f3f46;
+	}
+	58% {
+		fill: #ef5350;
+	}
+}
+@keyframes sig-green {
+	0%,
+	48% {
+		fill: #4caf50;
+	}
+	44%,
+	52% {
+		fill: #3f3f46;
+	}
+}
+@keyframes sig-glow {
+	0%,
+	58% {
+		opacity: 0;
+		transform: none;
+	}
+	62% {
+		opacity: 0.8;
+	}
+	92% {
+		opacity: 0;
+		transform: scale(2);
+	}
+}
+
+/* 404: a magnifying glass searches, gives up, and becomes the 0 between the two 4s. */
+.err-code-row {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.02em;
+}
+.err-digit {
+	display: inline-block;
+	animation: err-drop 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--err-wait) + var(--i, 0) * 90ms) backwards;
+}
+.err-glass {
+	display: inline-block;
+	animation: err-search calc(var(--err-wait) + 0.15s) cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+.err-glass svg {
+	display: block;
+	width: 0.9em;
+	height: 0.9em;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2.6;
+	stroke-linecap: round;
+}
+@keyframes err-search {
+	0% {
+		opacity: 0;
+		transform: translate(-1.5em, 0.4em) scale(1.2);
+	}
+	8% {
+		opacity: 1;
+	}
+	26% {
+		transform: translate(1.3em, -0.25em) scale(1.2);
+	}
+	48% {
+		transform: translate(-0.8em, 0.6em) scale(1.2);
+	}
+	70% {
+		transform: translate(0.7em, 0.35em) scale(1.2);
+	}
+	86% {
+		transform: translate(0, -0.08em) scale(1.25);
+	}
+}
+@keyframes err-drop {
+	0% {
+		opacity: 0;
+		transform: translateY(-28px);
+	}
+	60% {
+		opacity: 1;
+		transform: translateY(5px);
+	}
+}
+
+/* ---- The restart screen (restartOverlay in shared.js) ---- */
+.restart-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 190;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 1.5rem;
+	text-align: center;
+	background: var(--md-surface);
+	animation: fadeIn 0.35s ease-out backwards;
+	transition: opacity 0.4s ease-in;
+}
+/* Already up when the reloaded page appears, so it must not fade in a second time. */
+.restart-overlay.arrived {
+	animation: none;
+}
+.restart-overlay.leaving {
+	opacity: 0;
+	pointer-events: none;
+}
+.restart-overlay > * {
+	animation: rise-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s backwards;
+}
+.restart-overlay.arrived > * {
+	animation: none;
+}
+.restart-overlay-title {
+	font-size: 1.5rem;
+	font-weight: 700;
+}
+.restart-overlay p {
+	font-size: 0.875rem;
+	color: var(--md-on-surface-variant);
+}
+/* Only offered once the wait has gone on longer than a restart should take. */
+.restart-overlay button {
+	margin-top: 1rem;
+	animation: fadeIn 0.3s ease-out 12s backwards;
+}
+.restart-overlay[data-state="back"] button {
+	display: none;
+}
+/* That wait is a timer, not motion, so reduced motion keeps it. */
+@media (prefers-reduced-motion: reduce) {
+	.restart-overlay button {
+		animation-delay: 12s !important;
+	}
+}
+.restart-rack {
+	width: 6rem;
+	height: 6rem;
+	margin-bottom: 0.75rem;
+}
+.restart-rack rect {
+	fill: #27272a;
+	stroke: #3f3f46;
+	stroke-width: 2;
+}
+.restart-rack path {
+	fill: none;
+	stroke: #52525b;
+	stroke-width: 3;
+	stroke-linecap: round;
+}
+/* While the server is away the lights run down the rack in turn; once it answers they all go green. */
+.restart-rack circle {
+	fill: #3f3f46;
+	animation: restart-led 1.2s linear infinite;
+	transition: fill 0.3s;
+}
+.restart-rack circle:nth-of-type(2) {
+	animation-delay: 0.2s;
+}
+.restart-rack circle:nth-of-type(3) {
+	animation-delay: 0.4s;
+}
+[data-state="back"] .restart-rack circle {
+	fill: #4caf50;
+	animation: none;
+}
+[data-state="back"] .restart-rack {
+	animation: restart-back 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes restart-back {
+	40% {
+		transform: scale(1.12);
+	}
+}
+@keyframes restart-led {
+	0%,
+	45%,
+	100% {
+		fill: #3f3f46;
+	}
+	15%,
+	30% {
+		fill: #fcd34d;
+	}
+}
+
+/* ---- The card shown when a duel is opened from an invite or spectate link (inviteIntro in duels.js) ---- */
+.invite-intro {
+	position: fixed;
+	inset: 0;
+	z-index: 60;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	background: var(--md-surface);
+	pointer-events: none;
+	transition:
+		opacity 0.4s ease-in,
+		transform 0.4s ease-in;
+}
+.invite-intro.leaving {
+	opacity: 0;
+	transform: scale(1.06);
+}
+.invite-intro svg {
+	width: 7rem;
+	height: 7rem;
+	margin-bottom: 0.5rem;
+	overflow: visible;
+	fill: none;
+	stroke: #e4e4e7;
+	stroke-width: 5;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+.invite-intro-kicker {
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.2em;
+	text-transform: uppercase;
+	color: var(--md-on-surface-variant);
+	animation: rise-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) 0.3s backwards;
+}
+.invite-intro-code {
+	font-family: ui-monospace, monospace;
+	font-size: 3rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+}
+.invite-intro-code span {
+	display: inline-block;
+	animation: err-drop 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) calc(0.4s + var(--i) * 60ms) backwards;
+}
+/* The swords come in from either side and meet with a spark. */
+.sword {
+	transform-origin: 48px 48px;
+}
+.sword-a {
+	transform: rotate(45deg);
+	animation: sword-a 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+.sword-b {
+	transform: rotate(-45deg);
+	animation: sword-b 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+.sword-guard {
+	stroke: var(--md-primary-bright);
+}
+.invite-spark {
+	stroke: #fcd34d;
+	stroke-width: 3;
+	opacity: 0;
+	transform-origin: 48px 48px;
+	animation: invite-spark 0.5s ease-out 0.38s backwards;
+}
+@keyframes sword-a {
+	0% {
+		opacity: 0;
+		transform: translateX(-70px) rotate(-10deg);
+	}
+	60% {
+		opacity: 1;
+		transform: rotate(54deg);
+	}
+}
+@keyframes sword-b {
+	0% {
+		opacity: 0;
+		transform: translateX(70px) rotate(10deg);
+	}
+	60% {
+		opacity: 1;
+		transform: rotate(-54deg);
+	}
+}
+@keyframes invite-spark {
+	0% {
+		opacity: 0;
+		transform: scale(0.3);
+	}
+	15% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+		transform: scale(1.7);
+	}
+}
+/* The eye opens, then looks left and right. */
+.invite-eye path {
+	transform-origin: 48px 48px;
+	animation: eye-open 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+.invite-eye circle {
+	fill: var(--md-primary-bright);
+	stroke: none;
+	animation: eye-look 1.1s ease-in-out 0.3s backwards;
+}
+@keyframes eye-open {
+	0% {
+		transform: scaleY(0.05);
+	}
+}
+@keyframes eye-look {
+	0% {
+		opacity: 0;
+	}
+	15% {
+		opacity: 1;
+		transform: none;
+	}
+	40% {
+		transform: translateX(-9px);
+	}
+	75% {
+		transform: translateX(9px);
+	}
 }

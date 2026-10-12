@@ -1,8 +1,21 @@
-function _defaultMapQuality() {
+/** Each quality's width as a share of the full-size map (see src/tile-images.ts), smallest first. */
+const MAP_QUALITY_SCALE = { tiny: 0.25, low: 0.45, medium: 0.75, high: 1 };
+const MAP_QUALITIES = Object.keys(MAP_QUALITY_SCALE);
+
+/**
+ * How much map a device gets. The full map decodes to nearly 1 GB, which crashes phones and Safari.
+ * Those get a small `base` map plus sharper `detail` tiles for what is on screen.
+ * With no `base`, one quality is loaded for the whole map.
+ */
+function _mapProfile() {
 	const ua = navigator.userAgent;
-	const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
-	const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS/i.test(ua);
-	return isMobile || isSafari ? "medium" : "high";
+	/** An iPad asks for the desktop site and calls itself a Mac; only its touch screen gives it away. */
+	const isMobile =
+		/Mobi|Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+	const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg/i.test(ua);
+	if (isMobile) return { base: "tiny", detail: "medium", maxDetailTiles: 3, maxPixelRatio: 2 };
+	if (isSafari) return { base: "low", detail: "medium", maxDetailTiles: 4, maxPixelRatio: 2 };
+	return { base: null, detail: null, maxDetailTiles: 0, maxPixelRatio: 3 };
 }
 
 class MapCanvas {
@@ -25,11 +38,19 @@ class MapCanvas {
 		this.replayDots = [];
 		this._deferredPins = [];
 		this.namePins = new Map();
-		// Lines drawn from a guess to the answer, each animating out from the guess.
+		/** Lines drawn from a guess to the answer. */
 		this.guessLines = [];
-		// Expanding rings that mark a pin landing.
+		/** Rings that mark a pin landing. */
 		this.ripples = [];
-		this.quality = localStorage.getItem("mapQuality") || _defaultMapQuality();
+		this.profile = _mapProfile();
+		/** Sharper tiles for the part of the map on screen, by "quality:row:column". Only used with a `base`. */
+		this.detailImages = new Map();
+		this._detailTimer = null;
+		this.quality = this.profile.base || "high";
+		/** Blocked storage throws; the map must still be built. */
+		try {
+			if (!this.profile.base) this.quality = localStorage.getItem("mapQuality") || this.quality;
+		} catch {}
 		this._mapAR = MAP_CONFIG.totalWidth / MAP_CONFIG.totalHeight;
 		this._sf = 0;
 		this._sw = 0;
@@ -44,7 +65,7 @@ class MapCanvas {
 		const _parent = this.canvas.parentElement || this.canvas;
 		if (typeof ResizeObserver !== "undefined") {
 			new ResizeObserver(() => this._handleResize()).observe(_parent);
-			// Browser zoom and moving to another screen change the pixel ratio without a resize.
+			/** Browser zoom and moving to another screen change the pixel ratio without a resize. */
 			window.addEventListener("resize", () => this._handleResize());
 		} else {
 			window.addEventListener("resize", () => this._handleResize());
@@ -79,7 +100,8 @@ class MapCanvas {
 
 	/** Sends a ring outward from a spot on the map, e.g. where a pin just landed. */
 	addRipple(worldX, worldY, color, delay = 0) {
-		// One ring per colour at a time: re-placing a pin quickly must not stack rings.
+		if (MapCanvas.reducedMotion()) return;
+		/** One ring per colour at a time: re-placing a pin quickly must not stack rings. */
 		this.ripples = this.ripples.filter((r) => r.answer || r.color !== color);
 		this.ripples.push({ worldX, worldY, color, startAt: performance.now() + delay });
 		this._scheduleDraw();
@@ -101,27 +123,22 @@ class MapCanvas {
 		this.draw();
 	}
 
-	/**
-	 * Draws a line that grows from a guess to the correct spot. Every result view
-	 * uses this, so guesses look the same in solo, daily, duels and replays.
-	 * Returns the time at which the line will have arrived.
-	 */
+	/** Draws a line growing from a guess to the answer. Returns when it will arrive. */
 	addGuessLine(fromX, fromY, toX, toY, color = MapCanvas.GUESS_COLOR, delay = 0) {
-		const startAt = performance.now() + delay;
+		/** Reduced motion: already at full length. */
+		const startAt = MapCanvas.reducedMotion()
+			? performance.now() - MapCanvas.LINE_DURATION
+			: performance.now() + delay;
 		this.guessLines.push({ fromX, fromY, toX, toY, color, startAt });
 		this._scheduleDraw();
 		return startAt + MapCanvas.LINE_DURATION;
 	}
 
-	/**
-	 * Shows the answer for a round. With a guess, the line travels to the answer
-	 * first and the answer pin appears as it lands. Passing `roundNum` adds a
-	 * numbered pair instead, for the end-of-game replay map.
-	 */
+	/** Shows the answer for a round. `roundNum` adds a numbered pair for the replay map instead. */
 	showResult(correctX, correctY, guessX, guessY, roundNum) {
 		const hasGuess = guessX !== undefined && guessX !== null && guessY !== undefined && guessY !== null;
 		if (roundNum !== undefined) {
-			const delay = this.replayPins.length * 250;
+			const delay = MapCanvas.reducedMotion() ? 0 : this.replayPins.length * 250;
 			const revealAt = hasGuess
 				? this.addGuessLine(guessX, guessY, correctX, correctY, MapCanvas.GUESS_COLOR, delay)
 				: performance.now() + delay;
@@ -142,13 +159,9 @@ class MapCanvas {
 		this.draw();
 	}
 
-	/**
-	 * Adds one round to a replay with any number of players: the answer marker,
-	 * numbered, and a small dot and line for each player's guess in their colour.
-	 * Rounds play back one after another.
-	 */
+	/** Adds one round to a multi-player replay: a numbered answer, and a dot and line per guess. */
 	addReplayRound(roundNum, correctX, correctY, guesses) {
-		const delay = this.replayPins.length * 700;
+		const delay = MapCanvas.reducedMotion() ? 0 : this.replayPins.length * 700;
 		let revealAt = performance.now() + delay;
 		for (const g of guesses) {
 			this.replayDots.push({ worldX: g.x, worldY: g.y, color: g.color, showAt: performance.now() + delay });
@@ -166,17 +179,14 @@ class MapCanvas {
 	}
 
 	_answerRipple(at) {
+		if (MapCanvas.reducedMotion()) return;
 		const { worldX, worldY } = this.correctPin;
 		this.ripples = this.ripples.filter((r) => !r.answer);
 		this.ripples.push({ worldX, worldY, color: MapCanvas.ANSWER_COLOR, startAt: at, answer: true });
 		this._scheduleDraw();
 	}
 
-	/**
-	 * Moves and zooms the map so every given world position is in view, clear of whatever
-	 * covers the bottom `insetBottom` pixels (a result sheet). The view it replaces is kept
-	 * for `restoreView`.
-	 */
+	/** Fits every given world position in view, above the bottom `insetBottom` pixels. `restoreView` undoes it. */
 	fitTo(points, { insetBottom = 0, padding = 56 } = {}) {
 		this._handleResize();
 		if (!points.length || this.viewWidth <= 0 || this.viewHeight <= 0) return;
@@ -189,7 +199,7 @@ class MapCanvas {
 		const [left, right, top, bottom] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
 		const roomX = Math.max(40, this.viewWidth - padding * 2);
 		const roomY = Math.max(40, this.viewHeight - insetBottom - padding * 2);
-		// Never closer than 4x, so two guesses side by side do not fill the screen with a few tiles.
+		/** Never closer than 4x, so two guesses side by side do not fill the screen with a few tiles. */
 		const scale = Math.min(4, Math.max(0.5, Math.min(roomX / (right - left || 1), roomY / (bottom - top || 1))));
 
 		this.ctx.resetTransform();
@@ -214,7 +224,9 @@ class MapCanvas {
 
 	setQuality(q) {
 		this.quality = q;
-		localStorage.setItem("mapQuality", q);
+		try {
+			localStorage.setItem("mapQuality", q);
+		} catch {}
 		this._loadImages();
 	}
 
@@ -233,6 +245,68 @@ class MapCanvas {
 	/** Where tile `index` starts, in map pixels: the same rounding the map was cut with. */
 	_tileEdge(index, count, total) {
 		return Math.round((index * total) / count);
+	}
+
+	_pixelRatio() {
+		return Math.min(window.devicePixelRatio || 1, this.profile.maxPixelRatio);
+	}
+
+	/** The tile quality this zoom needs, or null when the base map is sharp enough. */
+	_detailQuality() {
+		const { base, detail } = this.profile;
+		if (!base) return null;
+		const density = this._sf * this.currentScale * this._pixelRatio();
+		const enough = MAP_QUALITIES.find((q) => MAP_QUALITY_SCALE[q] >= density) || "high";
+		const wanted = MAP_QUALITIES[Math.min(MAP_QUALITIES.indexOf(enough), MAP_QUALITIES.indexOf(detail))];
+		return MAP_QUALITIES.indexOf(wanted) > MAP_QUALITIES.indexOf(base) ? wanted : null;
+	}
+
+	/** The sharpest loaded image for a tile, no sharper than `wanted`; the base map when there is none. */
+	_tileImage(r, c, wanted, now) {
+		for (let i = MAP_QUALITIES.indexOf(wanted); i > MAP_QUALITIES.indexOf(this.profile.base); i--) {
+			const entry = this.detailImages.get(`${MAP_QUALITIES[i]}:${r}:${c}`);
+			if (!entry) continue;
+			entry.usedAt = now;
+			if (entry.ready) return entry.img;
+		}
+		return this.mapImages[r]?.[c];
+	}
+
+	/** Loads sharper tiles once the view has been still for a moment. */
+	_queueDetail(quality, tiles) {
+		clearTimeout(this._detailTimer);
+		/** Zoomed back out to where the base map is enough: the sharper tiles are only holding memory. */
+		if (!quality) {
+			if (this.detailImages.size) this._detailTimer = setTimeout(() => this._dropStaleDetail(0), 1500);
+			return;
+		}
+		const missing = tiles.filter(([r, c]) => !this.detailImages.has(`${quality}:${r}:${c}`));
+		if (!missing.length) return;
+		this._detailTimer = setTimeout(() => {
+			for (const [r, c] of missing.slice(0, this.profile.maxDetailTiles)) {
+				const entry = { img: new Image(), ready: false, usedAt: performance.now() };
+				entry.img.decoding = "async";
+				entry.img.onload = () => {
+					entry.ready = true;
+					this._scheduleDraw();
+				};
+				/** Kept as a failed entry, so the same tile is not asked for on every frame. */
+				entry.img.onerror = () => (entry.failed = true);
+				entry.img.src = tileUrl(r, c, quality);
+				this.detailImages.set(`${quality}:${r}:${c}`, entry);
+			}
+			this._dropStaleDetail();
+		}, 180);
+	}
+
+	/** Drops the sharper tiles used longest ago. Emptying `src` makes WebKit free the decoded image. */
+	_dropStaleDetail(keep = this.profile.maxDetailTiles) {
+		const oldestFirst = [...this.detailImages].sort((a, b) => a[1].usedAt - b[1].usedAt);
+		for (const [key, entry] of oldestFirst.slice(0, Math.max(0, oldestFirst.length - keep))) {
+			entry.img.onload = entry.img.onerror = null;
+			entry.img.src = "";
+			this.detailImages.delete(key);
+		}
 	}
 
 	_scheduleDraw() {
@@ -265,23 +339,33 @@ class MapCanvas {
 		ctx.restore();
 
 		ctx.imageSmoothingEnabled = false;
-		// Tiles differ in size, so each goes at its true edges or the map drifts under the coordinates.
+		/** Tiles differ in size, so each goes at its true edges or the map drifts under the coordinates. */
 		const overlap = Math.max(0.5, 2 / this.currentScale);
-		const eachTile = (fn) => {
-			for (let r = 0; r < MAP_CONFIG.rows; r++) {
-				for (let c = 0; c < MAP_CONFIG.columns; c++) {
-					const img = this.mapImages[r]?.[c];
-					if (!img?.complete || !img.naturalWidth) continue;
-					const x = this._ox + this._tileEdge(c, MAP_CONFIG.columns, MAP_CONFIG.totalWidth) * this._sf;
-					const y = this._oy + this._tileEdge(r, MAP_CONFIG.rows, MAP_CONFIG.totalHeight) * this._sf;
-					const right =
-						this._ox + this._tileEdge(c + 1, MAP_CONFIG.columns, MAP_CONFIG.totalWidth) * this._sf;
-					const bottom = this._oy + this._tileEdge(r + 1, MAP_CONFIG.rows, MAP_CONFIG.totalHeight) * this._sf;
-					fn(img, x, y, right - x, bottom - y, c < MAP_CONFIG.columns - 1, r < MAP_CONFIG.rows - 1);
-				}
+		/** Only the tiles on screen are drawn: drawing one is what makes the browser decode it. */
+		const topLeft = ctx.transformedPoint(0, 0);
+		const bottomRight = ctx.transformedPoint(this.viewWidth, this.viewHeight);
+		const wanted = this._detailQuality();
+		const frameAt = performance.now();
+		const onScreen = [];
+		const tiles = [];
+		for (let r = 0; r < MAP_CONFIG.rows; r++) {
+			for (let c = 0; c < MAP_CONFIG.columns; c++) {
+				const x = this._ox + this._tileEdge(c, MAP_CONFIG.columns, MAP_CONFIG.totalWidth) * this._sf;
+				const y = this._oy + this._tileEdge(r, MAP_CONFIG.rows, MAP_CONFIG.totalHeight) * this._sf;
+				const right = this._ox + this._tileEdge(c + 1, MAP_CONFIG.columns, MAP_CONFIG.totalWidth) * this._sf;
+				const bottom = this._oy + this._tileEdge(r + 1, MAP_CONFIG.rows, MAP_CONFIG.totalHeight) * this._sf;
+				if (right < topLeft.x || x > bottomRight.x || bottom < topLeft.y || y > bottomRight.y) continue;
+				onScreen.push([r, c]);
+				const img = wanted ? this._tileImage(r, c, wanted, frameAt) : this.mapImages[r]?.[c];
+				if (img?.complete && img.naturalWidth) tiles.push({ r, c, img, x, y, w: right - x, h: bottom - y });
 			}
+		}
+		if (this.profile.base) this._queueDetail(wanted, onScreen);
+		const eachTile = (fn) => {
+			for (const { r, c, img, x, y, w, h } of tiles)
+				fn(img, x, y, w, h, c < MAP_CONFIG.columns - 1, r < MAP_CONFIG.rows - 1);
 		};
-		// An oversized pass fills the hairline gaps, then an exact pass on top so nothing else is stretched.
+		/** An oversized pass fills the hairline gaps, then an exact pass on top so nothing else is stretched. */
 		eachTile((img, x, y, w, h, moreRight, moreBelow) =>
 			ctx.drawImage(img, x, y, w + (moreRight ? overlap : 0), h + (moreBelow ? overlap : 0))
 		);
@@ -289,6 +373,8 @@ class MapCanvas {
 		ctx.imageSmoothingEnabled = true;
 
 		const now = performance.now();
+		/** How long ago something was revealed; with reduced motion, long enough that nothing is mid-entrance. */
+		const sinceReveal = (at) => (MapCanvas.reducedMotion() && now >= (at || 0) ? Infinity : now - (at || 0));
 		let animating = false;
 		for (const line of this.guessLines) {
 			if (this._drawGuessLine(line, now)) animating = true;
@@ -298,7 +384,7 @@ class MapCanvas {
 			this._drawPin(this.pin.worldX, this.pin.worldY, MapCanvas.GUESS_COLOR, null);
 		}
 
-		// Rings scheduled for later (waiting on a line) have a negative age and are kept.
+		/** Rings scheduled for later (waiting on a line) have a negative age and are kept. */
 		this.ripples = this.ripples.filter((r) => now - r.startAt < MapCanvas.RIPPLE_DURATION);
 		for (const ripple of this.ripples) this._drawRipple(ripple, now);
 		if (this.ripples.length) animating = true;
@@ -312,14 +398,14 @@ class MapCanvas {
 		}
 		const deferred = [];
 		for (const rp of this.replayPins) {
-			const since = now - (rp.revealAt || 0);
+			const since = sinceReveal(rp.revealAt);
 			if (since >= 0)
 				deferred.push(() => this._drawAnswerPin(rp.correctX, rp.correctY, String(rp.roundNum), since));
-			// Keep drawing until the marker has finished fading in, or the last one never fully appears.
+			/** Keep drawing until the marker has finished fading in, or the last one never fully appears. */
 			if (since < 300) animating = true;
 		}
 		if (this.correctPin) {
-			const since = now - (this.correctPin.revealAt || 0);
+			const since = sinceReveal(this.correctPin.revealAt);
 			if (since >= 0)
 				deferred.push(() => this._drawAnswerPin(this.correctPin.worldX, this.correctPin.worldY, null, since));
 			else animating = true;
@@ -328,7 +414,7 @@ class MapCanvas {
 		this._deferredPins = deferred;
 
 		for (const pin of this.namePins.values()) this._drawNamePin(pin);
-		// The answer goes on last so nothing covers it.
+		/** The answer goes on last so nothing covers it. */
 		for (const drawAnswer of this._deferredPins) drawAnswer();
 		if (animating) this._scheduleDraw();
 	}
@@ -361,11 +447,7 @@ class MapCanvas {
 		ctx.restore();
 	}
 
-	/**
-	 * The correct location, drawn as the Material "place" marker: a flat teardrop
-	 * with a round cut-out, its tip exactly on the spot, lifted off the map by a
-	 * soft shadow. It scales in as it is revealed.
-	 */
+	/** The correct location: a "place" marker with its tip on the spot. It scales in as it is revealed. */
 	_drawAnswerPin(worldX, worldY, label, sinceReveal = 1000) {
 		const { x, y } = this._screenPos(worldX, worldY);
 		const t = Math.min(1, Math.max(0, sinceReveal / 250));
@@ -407,11 +489,7 @@ class MapCanvas {
 		ctx.restore();
 	}
 
-	/**
-	 * Draws one guess line at its current length: a single solid stroke in the
-	 * guess's colour, with a small dot leading it while it travels. Returns true
-	 * while it is still growing.
-	 */
+	/** Draws one guess line at its current length. Returns true while it is still growing. */
 	_drawGuessLine(line, now) {
 		const t = Math.min(1, Math.max(0, (now - line.startAt) / MapCanvas.LINE_DURATION));
 		if (t <= 0) return true;
@@ -467,7 +545,7 @@ class MapCanvas {
 		ctx.restore();
 	}
 
-	/** A guess: a flat disc in the player's colour with a white ring and a soft shadow. */
+	/** A guess pin in the player's colour. */
 	_drawPin(worldX, worldY, color, label) {
 		const ctx = this.ctx;
 		const { x: sx, y: sy } = this._screenPos(worldX, worldY);
@@ -566,10 +644,13 @@ class MapCanvas {
 	_loadImages() {
 		const loadId = ++this.mapLoadId;
 		this.mapImages = [];
+		this._dropStaleDetail(0);
 		for (let r = 0; r < MAP_CONFIG.rows; r++) {
 			this.mapImages[r] = [];
 			for (let c = 0; c < MAP_CONFIG.columns; c++) {
 				const img = new Image();
+				img.decoding = "async";
+				let quality = this.quality;
 				img.src = this._tileUrl(r, c);
 				img.onload = () => {
 					if (loadId !== this.mapLoadId) return;
@@ -581,10 +662,12 @@ class MapCanvas {
 						this.draw();
 					}
 				};
+				/** A variant that is missing falls back to the next size up, not straight to the full-size tile. */
 				img.onerror = () => {
-					if (this.quality !== "high") {
-						img.src = tileUrl(r, c, "high");
-					}
+					const next = MAP_QUALITIES[MAP_QUALITIES.indexOf(quality) + 1];
+					if (!next || loadId !== this.mapLoadId) return;
+					quality = next;
+					img.src = tileUrl(r, c, quality);
 				};
 			}
 		}
@@ -603,7 +686,7 @@ class MapCanvas {
 
 	_resize(w, h) {
 		if (w <= 0 || h <= 0) return;
-		const dpr = window.devicePixelRatio || 1;
+		const dpr = this._pixelRatio();
 		const pw = Math.round(w * dpr);
 		const ph = Math.round(h * dpr);
 		const newVw = pw / dpr;
@@ -650,14 +733,10 @@ class MapCanvas {
 		this.draw();
 	}
 
-	/**
-	 * Fits the canvas to its container. The size is read from layout (clientWidth), which
-	 * CSS transforms and animations on the page do not touch, so the canvas is never sized
-	 * to a box that is mid-animation.
-	 */
+	/** Fits the canvas to its container. Reads layout size, which animations and transforms do not affect. */
 	_handleResize() {
 		const parent = this.canvas.parentElement;
-		const dpr = window.devicePixelRatio || 1;
+		const dpr = this._pixelRatio();
 		const sameSize =
 			Math.abs(parent.clientWidth - this.viewWidth) < 1 && Math.abs(parent.clientHeight - this.viewHeight) < 1;
 		if (sameSize && this._dpr === dpr) return;
@@ -727,9 +806,7 @@ class MapCanvas {
 	}
 
 	/**
-	 * A pointer position in canvas units. The canvas's on-screen box is measured fresh every
-	 * time and the position scaled into it, so the answer is right whatever the page is doing:
-	 * scrolled, browser-zoomed, mid-resize, or inside something being scaled by an animation.
+	 * A pointer position in canvas units, measured fresh so it stays right while the page scrolls, zooms or animates.
 	 */
 	_canvasCoords(e) {
 		this._handleResize();
@@ -762,7 +839,7 @@ class MapCanvas {
 	_setupEvents() {
 		const canvas = this.canvas;
 
-		// A press that ends where it began places the pin, however long it took; one that moves is a pan.
+		/** A press that ends where it began places the pin, however long it took; one that moves is a pan. */
 		const moved = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 		let pressedAt = null;
 
@@ -777,7 +854,7 @@ class MapCanvas {
 		canvas.addEventListener("mousemove", (e) => {
 			if (!this.isDragging) return;
 			const pos = this._canvasCoords(e);
-			// Hold still until it is clearly a drag, so a click never nudges the map.
+			/** Hold still until it is clearly a drag, so a click never nudges the map. */
 			if (pressedAt && moved(pos, pressedAt) <= MapCanvas.CLICK_SLOP) return;
 			pressedAt = null;
 			const cur = this.ctx.transformedPoint(pos.x, pos.y);
@@ -811,8 +888,10 @@ class MapCanvas {
 		);
 
 		let lastDist = 0;
-		// Where a one-finger touch began, while it could still turn out to be a tap.
+		/** Where a one-finger touch began, while it could still turn out to be a tap. */
 		let tapAt = null;
+		/** The last tap, so a second one right after it in the same spot zooms in. */
+		let lastTap = null;
 
 		canvas.addEventListener(
 			"touchstart",
@@ -824,7 +903,7 @@ class MapCanvas {
 					tapAt = pos;
 					this.isDragging = true;
 				} else {
-					// A second finger makes it a pinch, never a tap.
+					/** A second finger makes it a pinch, never a tap. */
 					tapAt = null;
 					this.isDragging = false;
 					lastDist = Math.hypot(
@@ -866,7 +945,17 @@ class MapCanvas {
 		canvas.addEventListener("touchend", (e) => {
 			if (tapAt && e.touches.length === 0 && e.changedTouches.length === 1) {
 				const pos = this._canvasCoords(e.changedTouches[0]);
-				if (moved(pos, tapAt) <= MapCanvas.TAP_SLOP) this._placePinAt(pos);
+				if (moved(pos, tapAt) <= MapCanvas.TAP_SLOP) {
+					const now = performance.now();
+					const double =
+						lastTap &&
+						now - lastTap.at < MapCanvas.DOUBLE_TAP_MS &&
+						moved(pos, lastTap) <= 3 * MapCanvas.TAP_SLOP;
+					lastTap = double ? null : { ...pos, at: now };
+					/** The first tap has already put the pin there; the second only zooms. */
+					if (double) this._zoomAt(pos.x, pos.y, 1.8);
+					else this._placePinAt(pos);
+				}
 			}
 			tapAt = null;
 			this.isDragging = false;
@@ -883,23 +972,29 @@ class MapCanvas {
 			.getElementById("zoom-out")
 			?.addEventListener("click", () => this._zoomAt(this.viewWidth / 2, this.viewHeight / 2, 1 / 1.3));
 		const qualitySel = document.getElementById("map-quality");
-		if (qualitySel) {
+		/** With a base map the quality follows the zoom by itself, so there is nothing to choose. */
+		if (qualitySel && this.profile.base) qualitySel.hidden = true;
+		else if (qualitySel) {
 			qualitySel.value = this.quality;
 			qualitySel.addEventListener("change", () => {
 				this.setQuality(qualitySel.value);
-				// Hand the keyboard back to the game, so Space still submits a guess.
+				/** Hand the keyboard back to the game, so Space still submits a guess. */
 				qualitySel.blur();
 			});
 		}
 	}
 }
 
-// Material palette: Red 400 for a guess, Green 500 for the answer.
+/** Material Red 400 for a guess, Green 500 for the answer. */
 MapCanvas.GUESS_COLOR = "#EF5350";
 MapCanvas.ANSWER_COLOR = "#4CAF50";
 /** How long a guess line takes to reach the answer, in milliseconds. */
 MapCanvas.LINE_DURATION = 1100;
 MapCanvas.RIPPLE_DURATION = 600;
+/** Asked each time, so a change to the system setting applies to the next result without a reload. */
+MapCanvas.reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** How far (in CSS pixels) a press may wander and still count as a click or a tap. */
 MapCanvas.CLICK_SLOP = 4;
 MapCanvas.TAP_SLOP = 10;
+/** Two taps within this many milliseconds are a double tap. */
+MapCanvas.DOUBLE_TAP_MS = 300;

@@ -13,6 +13,8 @@ import { notifyUser } from "../../notifications";
 
 export const adminSuggestionRoutes = new Hono();
 
+const HISTORY_LIMIT = 100;
+
 type PendingSuggestion = {
 	id: number;
 	user_id: number;
@@ -35,10 +37,7 @@ function pendingSuggestion(id: number): PendingSuggestion {
 	);
 }
 
-/**
- * Applies an approved suggestion to its location. Returns the screenshot that was
- * replaced, if any, so the caller can delete the file once the change is saved.
- */
+/** Applies an approved suggestion. Returns the replaced screenshot, if any, for the caller to delete. */
 function applySuggestion(sug: PendingSuggestion): string | null {
 	const location = db.query<Location, [number]>("SELECT * FROM locations WHERE id = ?").get(sug.location_id)!;
 	let content: Record<string, unknown> = {};
@@ -118,6 +117,25 @@ adminSuggestionRoutes.get("/", (c) => {
 	);
 });
 
+/** The latest reviewed suggestions, with who reviewed each and why any was denied. */
+adminSuggestionRoutes.get("/history", (c) => {
+	requireStaff(c, "helper");
+	return c.json(
+		db
+			.query(
+				`SELECT ls.id, ls.location_id, ls.user_id, ls.type, ls.content, ls.status, ls.deny_reason, ls.created_at,
+					ls.reviewed_at, u.username, u.display_name, l.label AS location_label, r.username AS reviewed_by_username
+				FROM location_suggestions ls
+				JOIN users u ON u.id = ls.user_id
+				JOIN locations l ON l.id = ls.location_id
+				LEFT JOIN users r ON r.id = ls.reviewed_by
+				WHERE ls.status != 'pending'
+				ORDER BY ls.reviewed_at DESC, ls.id DESC LIMIT ${HISTORY_LIMIT}`
+			)
+			.all()
+	);
+});
+
 adminSuggestionRoutes.post("/:id/approve", async (c) => {
 	const staff = requireStaff(c, "helper");
 	const sug = pendingSuggestion(idParam(c));
@@ -154,7 +172,7 @@ adminSuggestionRoutes.post("/:id/approve", async (c) => {
 adminSuggestionRoutes.post("/:id/deny", async (c) => {
 	const staff = requireStaff(c, "helper");
 	const sug = pendingSuggestion(idParam(c));
-	// The player is shown this, so a denial always says why.
+	/** The player is shown this, so a denial always says why. */
 	const reason = requireReason((await readJson<{ reason: string }>(c)).reason, "A reason for denying");
 
 	db.run(

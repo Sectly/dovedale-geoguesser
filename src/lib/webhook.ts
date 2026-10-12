@@ -38,7 +38,7 @@ async function drain(url: string) {
 				continue;
 			}
 		} catch {
-			// Discord being unreachable must never get in the way of the site.
+			/** Discord being unreachable must never get in the way of the site. */
 		}
 		queue.shift();
 	}
@@ -50,10 +50,7 @@ export function md(value: string | null | undefined): string {
 	return (value ?? "").replace(/([\\*_~`|>\[\]()#-])/g, "\\$1");
 }
 
-/**
- * Fire-and-forget Discord notification. Never throws.
- * `content` may start with a bold "**Title**"; the rest becomes the body of the embed.
- */
+/** Fire-and-forget Discord notification. Never throws. A leading "**Title**" becomes the embed title. */
 export function notify(category: WebhookCategory, content: string, adminPath = "/admin") {
 	const url = DISCORD.webhookUrl;
 	if (!url) return;
@@ -75,7 +72,7 @@ export function notify(category: WebhookCategory, content: string, adminPath = "
 				timestamp: new Date().toISOString(),
 			},
 		],
-		// Usernames and labels are user-controlled, so never let them ping anyone.
+		/** Usernames and labels are user-controlled, so never let them ping anyone. */
 		allowed_mentions: { parse: [] },
 	});
 	void drain(url);

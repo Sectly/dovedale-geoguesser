@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { compress } from "hono/compress";
 import { Hono } from "hono";
 import type { ErrorHandler } from "hono";
 import { join } from "path";
@@ -45,15 +46,19 @@ const wireClientJs = await bundleWireClient();
 
 export const app = new Hono();
 
+/** Compresses text responses, for servers with no proxy doing it. Never a socket upgrade. */
+const compressed = compress();
+app.use("*", (c, next) => (c.req.header("Upgrade") ? next() : compressed(c, next)));
+
 app.use("*", async (c, next) => {
 	await next();
-	// Says the answer came from the game itself, not from a proxy standing in while it is down.
+	/** Says the answer came from the game itself, not from a proxy standing in while it is down. */
 	c.header("X-App", "dovedale");
 	c.header("X-Content-Type-Options", "nosniff");
 	c.header("X-Frame-Options", "DENY");
 	c.header("Referrer-Policy", "strict-origin-when-cross-origin");
 	c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
-	// Inline handlers rule out a stricter script policy; this still stops framing, plugins and <base> hijacking.
+	/** Inline handlers rule out a stricter script policy; this still stops framing, plugins and <base> hijacking. */
 	c.header(
 		"Content-Security-Policy",
 		"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
@@ -63,15 +68,18 @@ app.use("*", async (c, next) => {
 	if (SECURE_COOKIES) c.header("Strict-Transport-Security", "max-age=31536000");
 });
 
-/**
- * A planned restart rides along on every API response, so each open page learns of it from
- * whatever it asks next (and, when the header stops coming, that it is over or was called
- * off). New multiplayer games are turned away: there would be no time to finish them.
- */
+/** Refuses state changes and sockets from other sites. A second lock behind the SameSite=Lax session cookie. */
+app.use("*", async (c, next) => {
+	const unsafe = !["GET", "HEAD", "OPTIONS"].includes(c.req.method) || !!c.req.header("Upgrade");
+	if (unsafe && c.req.header("Sec-Fetch-Site") === "cross-site") return c.text("Cross-site request refused.", 403);
+	await next();
+});
+
+/** Puts a planned restart on every API response so open pages learn of it. New multiplayer games are refused. */
 app.use("/api/*", async (c, next) => {
 	if (restartIn() === null) {
 		await next();
-		// Just back from a restart: say so, for anyone who reloaded while it was happening.
+		/** Just back from a restart: say so, for anyone who reloaded while it was happening. */
 		const restarted = justRestarted();
 		if (restarted !== null) c.header("X-Restarted", String(restarted));
 		return;
@@ -82,7 +90,7 @@ app.use("/api/*", async (c, next) => {
 		return c.text("The server is about to restart for an update. Try again in a minute.", 503);
 	}
 	await next();
-	// Asked again here: the request may be the very one that called the restart off.
+	/** Asked again here: the request may be the very one that called the restart off. */
 	const seconds = restartIn();
 	if (seconds !== null) c.header("X-Restart-In", String(seconds));
 });
@@ -103,7 +111,7 @@ app.use("*", async (c, next) => {
 	const message = state.message || DEFAULT_MAINTENANCE_MESSAGE;
 	c.header("Retry-After", "600");
 	if (path.startsWith("/api/")) return c.text(`Down for maintenance. ${message}`, 503);
-	return errorPage(c, { status: 503, title: "Down for maintenance", message, icon: "construction", help: false });
+	return errorPage(c, { status: 503, title: "Down for maintenance", message, help: false });
 });
 
 /** API responses depend on who is asking; never let a shared cache hold on to them. */
@@ -141,14 +149,27 @@ app.route("/", pageRoutes);
 
 app.notFound(notFound);
 
-/** Turns anything thrown while handling a request into a response: a page for pages, text for API calls. */
+/** Headings for refusals that reach a page. Any other status says "That didn't work". */
+const REFUSAL_TITLES: Record<number, string> = {
+	401: "Log in first",
+	403: "You can't open that",
+	429: "Slow down a moment",
+	503: "Not available right now",
+};
+
+/** Turns anything thrown into a response: a page for pages, text for API calls. */
 export const handleError: ErrorHandler = (err, c) => {
 	/** Login and logout live under /api but are opened as pages, so they get the page too. */
 	const asPage = wantsPage(c) || (c.req.method === "GET" && c.req.path.startsWith("/api/auth/"));
 	if (err instanceof HttpError) {
-		if (asPage && err.status !== 404)
-			return errorPage(c, { status: 400, title: "That didn't work", message: err.message });
-		return c.text(err.message, err.status);
+		if (!asPage) return c.text(err.message, err.status);
+		/** Login and logout count as pages but live under /api, where notFound answers in JSON. */
+		if (err.status === 404) return c.req.path.startsWith("/api/") ? c.text(err.message, 404) : notFound(c);
+		return errorPage(c, {
+			status: err.status,
+			title: REFUSAL_TITLES[err.status] ?? "That didn't work",
+			message: err.message,
+		});
 	}
 	/** A short id ties what the player saw to the line in the log. */
 	const ref = randomBytes(4).toString("hex");

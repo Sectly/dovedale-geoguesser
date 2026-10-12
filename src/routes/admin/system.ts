@@ -107,7 +107,7 @@ adminSystemRoutes.get("/backups/:name/download", (c) => {
 	const actor = requireStaff(c, "operator");
 	const name = c.req.param("name");
 	const path = backupPath(name) ?? fail(404, "Backup not found");
-	// A backup holds every account, so taking a copy off the server is always on record.
+	/** A backup holds every account, so taking a copy off the server is always on record. */
 	auditLog(actor, "backup_download", { details: name });
 	return c.body(Bun.file(path).stream(), 200, {
 		"Content-Type": "application/vnd.sqlite3",
@@ -195,7 +195,7 @@ adminSystemRoutes.post("/features", async (c) => {
 	return c.json(state);
 });
 
-/** Works out achievements from every player's history again, e.g. after scores were restored from a backup. */
+/** Works out achievements from every player's history again. */
 adminSystemRoutes.post("/achievements/backfill", (c) => {
 	const actor = requireStaff(c, "operator");
 	if (!checkUserRateLimit(actor, "achievement-backfill", 3, 10 * 60 * 1000))

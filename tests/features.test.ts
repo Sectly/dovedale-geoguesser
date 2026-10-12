@@ -69,7 +69,7 @@ describe("announcements and reminders", () => {
 		const titles = async (user: typeof player) =>
 			(await call("/api/notifications", { as: user })).data.notifications.map((n: any) => n.title);
 
-		// A test goes to the sender alone and leaves no record.
+		/** A test goes to the sender alone and leaves no record. */
 		const before = (await call("/api/admin/announcements", { as: op })).data.history.length;
 		expect((await post("/api/admin/announcements", op, { ...draft, test: true })).data).toMatchObject({
 			test: true,
@@ -78,7 +78,7 @@ describe("announcements and reminders", () => {
 		expect(await titles(player)).not.toContain("[Test] Ranked duels are here");
 		expect((await call("/api/admin/announcements", { as: op })).data.history.length).toBe(before);
 
-		// Links stay on this site.
+		/** Links stay on this site. */
 		for (const link of ["https://example.com", "//example.com", "daily"])
 			expect((await post("/api/admin/announcements", op, { ...draft, link })).status).toBe(400);
 		expect((await post("/api/admin/announcements", op, { ...draft, audience: "nobody" })).status).toBe(400);
@@ -86,7 +86,7 @@ describe("announcements and reminders", () => {
 			(await post("/api/admin/announcements", op, { ...draft, audience: "staff", banner_hours: 1 })).status
 		).toBe(400);
 
-		// Staff only: the player hears nothing, and no banner goes up.
+		/** Staff only: the player hears nothing, and no banner goes up. */
 		await post("/api/admin/announcements", op, {
 			title: "Staff meeting",
 			body: "Friday at eight, in the usual place.",
@@ -96,7 +96,7 @@ describe("announcements and reminders", () => {
 		expect(await titles(player)).not.toContain("Staff meeting");
 		expect((await call("/api/announcement")).data).toBeNull();
 
-		// Everyone, with a link and a banner that logged-out visitors see too.
+		/** Everyone, with a link and a banner that logged-out visitors see too. */
 		const sent = await post("/api/admin/announcements", op, { ...draft, link: "/duels", banner_hours: 1 });
 		expect(sent.status).toBe(200);
 		expect((await call("/api/notifications", { as: player })).data.notifications[0]).toMatchObject({
@@ -113,7 +113,7 @@ describe("announcements and reminders", () => {
 		expect(history.audiences.staff).toBeLessThan(history.audiences.everyone);
 		expect((await call("/api/admin/announcements", { as: mod })).status).toBe(403);
 
-		// Taken down early.
+		/** Taken down early. */
 		expect((await post(`/api/admin/announcements/${sent.data.id}/end-banner`, mod)).status).toBe(403);
 		expect((await post(`/api/admin/announcements/${sent.data.id}/end-banner`, op)).status).toBe(200);
 		expect((await post(`/api/admin/announcements/${sent.data.id}/end-banner`, op)).status).toBe(409);
@@ -220,6 +220,27 @@ describe("live duels and history", () => {
 });
 
 describe("push subscriptions", () => {
+	test("only the browsers' own push services are accepted as endpoints", async () => {
+		const { isPushEndpoint } = await import("../src/push");
+		for (const good of [
+			"https://fcm.googleapis.com/fcm/send/abc",
+			"https://updates.push.services.mozilla.com/wpush/v2/abc",
+			"https://web.push.apple.com/abc",
+			"https://db5p.notify.windows.com/w/?token=abc",
+		])
+			expect(isPushEndpoint(good)).toBe(true);
+		for (const bad of [
+			"https://push.example/abc",
+			"http://fcm.googleapis.com/fcm/send/abc",
+			"https://fcm.googleapis.com.evil.example/abc",
+			"https://evil.example/fcm.googleapis.com",
+			"https://localhost/abc",
+			"https://fcm.googleapis.com:8443/abc",
+			"not a url",
+		])
+			expect(isPushEndpoint(bad)).toBe(false);
+	});
+
 	test("are refused when the server has no push keys, and need a login", async () => {
 		expect((await post("/api/push/subscribe", undefined, {})).status).toBe(401);
 		expect(
@@ -247,6 +268,16 @@ describe("specials", () => {
 		expect(list.map((s: { id: string }) => s.id)).toContain("blitz");
 		expect((await call("/specials/reflex", { as: player })).status).toBe(200);
 		expect((await post("/api/solo/games", player, { special: "nope" })).status).toBe(404);
+	});
+
+	test("Flash gives two seconds to look and ten to guess", async () => {
+		clearLocations();
+		for (let i = 0; i < 6; i++) createLocation();
+		const player = createUser();
+		const listed = (await call("/api/specials", { as: player })).data.find((s: { id: string }) => s.id === "flash");
+		expect(listed).toMatchObject({ status: "live", effect: "flash", flashSeconds: 2 });
+		const game = (await post("/api/solo/games", player, { special: "flash" })).data;
+		expect(game).toMatchObject({ special: "flash", rounds: 3, time_limit: 12 });
 	});
 
 	test("Blitz uses its own rules and never reaches the leaderboard", async () => {
@@ -280,7 +311,7 @@ describe("seasonal specials", () => {
 		});
 		expect(statusOf("night-shift", player, "2026-10-31T12:00:00Z")).toMatchObject({ status: "live" });
 		expect(statusOf("night-shift", player, "2027-10-31T12:00:00Z")).toMatchObject({ status: "live" });
-		// The day after it ends it is already counting down to next year.
+		/** The day after it ends it is already counting down to next year. */
 		expect(statusOf("night-shift", player, "2026-11-03T12:00:00Z")?.startsAt).toBe("2027-10-24T00:00:00.000Z");
 	});
 
@@ -297,7 +328,7 @@ describe("seasonal specials", () => {
 		});
 		clearLocations();
 		for (let i = 0; i < 5; i++) createLocation();
-		// A seasonal mode that has not started is refused for players and open to staff.
+		/** A seasonal mode that has not started is refused for players and open to staff. */
 		const closed = SPECIALS.find(
 			(s) => s.season && specialsFor(player).find((l) => l.id === s.id)?.status === "upcoming"
 		);
@@ -329,15 +360,15 @@ describe("the homepage season", () => {
 			event: { title: "Night Shift", ends_at: "2026-11-03T00:00:00.000Z" },
 		});
 		expect(on("2026-12-25T12:00:00Z")).toMatchObject({ theme: "christmas", event: { title: "Snowed In" } });
-		// New Year sits inside the Christmas season and takes over for its few days.
+		/** New Year sits inside the Christmas season and takes over for its few days. */
 		expect(on("2026-12-31T23:00:00Z")).toMatchObject({ theme: "newyear", splash: "Happy New Year!", event: null });
 		expect(on("2027-01-03T12:00:00Z")).toMatchObject({ theme: "christmas" });
 		expect(on("2027-01-06T12:00:00Z")).toBeNull();
 		expect(on("2027-02-14T12:00:00Z")).toMatchObject({ theme: "valentines", event: null });
 		expect(on("2026-11-05T20:00:00Z")).toMatchObject({ theme: "bonfire" });
-		// Logged-out visitors get it with the rest of the public page details.
+		/** Logged-out visitors get it with the rest of the public page details. */
 		expect((await call("/api/meta")).data).toHaveProperty("season");
-		// Any season can be previewed by name, whatever the date.
+		/** Any season can be previewed by name, whatever the date. */
 		expect((await call("/api/meta?season=easter")).data.season).toMatchObject({
 			theme: "easter",
 			splash: "Happy Easter!",
@@ -353,5 +384,17 @@ describe("the homepage season", () => {
 		expect(on("2026-04-06T12:00:00Z")).toMatchObject({ theme: "easter" });
 		expect(on("2026-04-07T12:00:00Z")).toBeNull();
 		expect(on("2027-04-05T12:00:00Z")).toBeNull();
+	});
+});
+
+describe("suggestion gate", () => {
+	test("a new account is told how far along it is, and a week-old one with games is let in", async () => {
+		const fresh = createUser({ ageDays: 2 });
+		const locked = (await call("/api/suggestions/eligibility", { as: fresh })).data;
+		expect(locked.eligible).toBe(false);
+		expect(locked.progress.days).toEqual({ have: 2, need: 7 });
+		expect(locked.progress.games.have).toBe(0);
+		const staff = (await call("/api/suggestions/eligibility", { as: createUser({ role: "moderator" }) })).data;
+		expect(staff).toMatchObject({ eligible: true, progress: null });
 	});
 });

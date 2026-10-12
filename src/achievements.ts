@@ -2,11 +2,7 @@ import { db } from "./db";
 import type { RoundOutcome } from "./game/round";
 import { notifyUser } from "./notifications";
 
-/**
- * Achievements: one-off marks on a player's profile for things they have done. Each is
- * earned once and kept. The games call the `check...` functions at the moments something
- * could have been earned; nothing here is worked out from history after the fact.
- */
+/** Achievements: earned once and kept. Games call the `check...` functions when one could have been earned. */
 
 export const ACHIEVEMENTS = [
 	{ id: "first_game", title: "First Steps", description: "Finish a solo game.", icon: "flag" },
@@ -58,10 +54,7 @@ export function isAchievement(id: unknown): id is AchievementId {
 	return typeof id === "string" && BY_ID.has(id);
 }
 
-/**
- * Gives a player an achievement. Returns true when it is new to them; they are told
- * unless `quiet` is set (staff granting one say so in their own words).
- */
+/** Gives a player an achievement. Returns true when new; they are told unless `quiet`. */
 export function award(userId: number | null | undefined, id: AchievementId, { quiet = false } = {}): boolean {
 	if (!userId) return false;
 	try {
@@ -80,16 +73,13 @@ export function award(userId: number | null | undefined, id: AchievementId, { qu
 		}
 		return true;
 	} catch (err) {
-		// An achievement must never be the reason a game result fails to save.
+		/** An achievement must never be the reason a game result fails to save. */
 		console.error("[achievements] Could not award", id, err);
 		return false;
 	}
 }
 
-/**
- * The achievements this player has earned but not yet been shown, marked as shown in the
- * same step. The page plays its unlock animation for each one.
- */
+/** The achievements this player has earned but not been shown. Marks them shown. */
 export function takeUnseen(userId: number) {
 	const keys = db
 		.query<{ key: string }, [number]>(
@@ -101,10 +91,7 @@ export function takeUnseen(userId: number) {
 }
 
 /**
- * Gives players the achievements their history already shows they earned: scores, streaks,
- * duels and approved locations from before achievements existed. They arrive already
- * "seen", so nobody is greeted by a dozen pop-ups. Safe to run again; nothing is given twice.
- * Returns how many were handed out.
+ * Gives players the achievements their history already earned, marked as seen. Safe to run again. Returns how many.
  */
 export function backfillAchievements(): number {
 	const give = (id: AchievementId, select: string) =>
@@ -217,7 +204,7 @@ export function checkStreak(userId: number, streak: { longest_streak: number }) 
 	if (streak.longest_streak >= 30) award(userId, "streak_30");
 }
 
-/** A finished solo game. Only a ranked one (not practice on chosen difficulties) can earn the score mark. */
+/** A finished solo game. Only a ranked one can earn the score mark. */
 export function checkSoloGame(userId: number, totalScore: number, maxPossible: number, ranked: boolean) {
 	award(userId, "first_game");
 	if (ranked && maxPossible > 0 && totalScore / maxPossible >= 0.8) award(userId, "local_expert");

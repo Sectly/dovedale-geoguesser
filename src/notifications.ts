@@ -4,11 +4,7 @@ import { hasRole, isStaff } from "./auth/guards";
 import { DAY, utcDate } from "./lib/time";
 import { sendPush } from "./push";
 
-/**
- * Per-user notifications ("your submission was approved") and the preferences
- * that control them. Staff also get a count of the work waiting for them, which
- * is computed live rather than stored.
- */
+/** Per-user notifications and their preferences, plus a live count of work waiting for staff. */
 
 export const NOTIFICATION_CATEGORIES = [
 	"submissions",
@@ -55,6 +51,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
 
 const RETENTION = 90 * DAY;
 const INBOX_SIZE = 50;
+/** The most kept for one player, newest first; the inbox shows the first INBOX_SIZE of them. */
+const MAX_PER_USER = 200;
 
 /** Reads stored preferences, filling in defaults for anything missing or malformed. */
 export function parsePreferences(raw: string | null | undefined): Preferences {
@@ -103,10 +101,7 @@ export function updatePreferences(user: User, changes: unknown): Preferences {
 
 type NewNotification = { title: string; body?: string | null; link?: string };
 
-/**
- * Tells a user something happened to them. Respects their category preferences;
- * moderation notices always go through, since a ban is not something to opt out of hearing about.
- */
+/** Tells a user something happened. Respects their preferences; moderation notices always go through. */
 export function notifyUser(userId: number | null | undefined, category: NotificationCategory, n: NewNotification) {
 	if (!userId) return;
 	try {
@@ -138,6 +133,10 @@ export function listNotifications(userId: number) {
 		.all(userId, INBOX_SIZE);
 }
 
+export function countNotifications(userId: number): number {
+	return count("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ?", userId);
+}
+
 /** Marks notifications as read: the given ids, or everything when none are given. */
 export function markRead(userId: number, ids: number[] | null) {
 	if (ids?.length) {
@@ -163,7 +162,7 @@ export function staffQueue() {
 	return {
 		submissions: count("SELECT COUNT(*) AS n FROM submissions WHERE status = 'pending'"),
 		suggestions: count("SELECT COUNT(*) AS n FROM location_suggestions WHERE status = 'pending'"),
-		// Open tickets where the last word was the player's, or nobody has answered yet.
+		/** Open tickets where the last word was the player's, or nobody has answered yet. */
 		tickets: count(
 			`SELECT COUNT(*) AS n FROM support_tickets t WHERE t.status = 'open' AND (
 				t.awaiting_staff = 1 OR NOT EXISTS (SELECT 1 FROM ticket_replies r WHERE r.ticket_id = t.id AND r.type = 'staff')
@@ -173,10 +172,7 @@ export function staffQueue() {
 	};
 }
 
-/**
- * Everything that needs this user's attention, in one cheap call the header polls:
- * their unread notifications and, for staff who want it, the review queues.
- */
+/** Everything needing this user's attention: unread notifications and, for staff, the review queues. */
 export function attentionFor(user: User) {
 	const latest = db
 		.query<{ id: number; category: string; title: string; body: string | null; link: string | null }, [number]>(
@@ -187,7 +183,7 @@ export function attentionFor(user: User) {
 	const prefs = parsePreferences(user.prefs);
 	const wantsQueue = prefs.staff_badges || prefs.staff_alerts;
 	const all = isStaff(user) && !user.is_banned && wantsQueue ? staffQueue() : null;
-	// Helpers review submissions and suggestions only; tickets and flags are not theirs to see.
+	/** Helpers review submissions and suggestions only; tickets and flags are not theirs to see. */
 	const queue = all && !hasRole(user, "moderator") ? { ...all, tickets: 0, users: 0 } : all;
 	return {
 		unread: count("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND read_at IS NULL", user.id),
@@ -198,12 +194,17 @@ export function attentionFor(user: User) {
 
 export function pruneNotifications() {
 	db.run("DELETE FROM notifications WHERE created_at < unixepoch() - ?", [RETENTION]);
+	db.run(
+		`DELETE FROM notifications WHERE id IN (
+			SELECT id FROM (
+				SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC, id DESC) AS n FROM notifications
+			) WHERE n > ?
+		)`,
+		[MAX_PER_USER]
+	);
 }
 
-/**
- * In the evening (UTC), nudges players whose streak will end at midnight because
- * they have not played today. Each player gets at most one reminder a day.
- */
+/** In the evening (UTC), reminds players whose streak ends at midnight. At most one a day. */
 export function sendStreakReminders(now = new Date()) {
 	if (now.getUTCHours() < 18) return 0;
 	const due = db

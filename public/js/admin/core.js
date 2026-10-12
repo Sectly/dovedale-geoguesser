@@ -1,12 +1,12 @@
 /** Staff panel core: shared state, dialogs, access checks and tab switching. */
 
 let currentUser = null;
-let currentTab = "submissions";
+let currentTab = "";
 let denyTargetId = null;
 let denyCallback = null;
 const STAFF_ROLES = ["helper", "moderator", "supervisor", "operator"];
 /** A helper reviews what players send in and can look at the locations; nothing else is theirs. */
-const HELPER_TABS = ["submissions", "suggestions", "locations"];
+const HELPER_TABS = ["overview", "submissions", "suggestions", "locations"];
 const isHelper = () => currentUser?.role === "helper";
 /** Whether the logged-in member of staff may open a tab. */
 const canOpenTab = (tab) => !isHelper() || HELPER_TABS.includes(tab);
@@ -22,6 +22,161 @@ function panelSearchInput(placeholder) {
         <input id="panel-search" type="search" placeholder="${escHtml(placeholder)}" autocomplete="off"
             class="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600" />
     </label>`;
+}
+
+/** The title row of a review tab: name, how many are waiting, and a refresh button. */
+function reviewHeader(title, count, refresh) {
+	return `<div class="flex items-center gap-2 mb-4">
+		<h2 class="font-bold text-lg">${title}</h2>
+		${count ? `<span class="m-tag info">${count} waiting</span>` : ""}
+		<button onclick="${refresh}" class="m-icon-btn ml-auto" aria-label="Refresh" title="Refresh"><span class="material-symbols-outlined">refresh</span></button>
+	</div>`;
+}
+
+function emptyQueueHtml(text) {
+	return `<div class="flex flex-col items-center gap-2 py-16 text-center">
+		<span class="material-symbols-outlined text-4xl text-green-400/70" style="font-variation-settings:'FILL' 1">task_alt</span>
+		<p class="text-sm text-zinc-400">${text}</p>
+	</div>`;
+}
+
+/** A player's name that opens their staff panel. Helpers cannot open it, so they get plain text. */
+function staffUserLink(userId, username) {
+	const name = `@${escHtml(username || "unknown")}`;
+	return userId && !isHelper()
+		? `<button onclick="openUserPanel(${userId})" class="text-blue-400 hover:underline">${name}</button>`
+		: `<span class="text-zinc-300">${name}</span>`;
+}
+
+/** A picker of everyone with something in the list, busiest first. Empty when there is nobody to choose between. */
+function userFilterSelect(items, nameOf, current, setter) {
+	const counts = new Map();
+	for (const item of items) {
+		const name = nameOf(item);
+		if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
+	}
+	if (counts.size < 2 && !current) return "";
+	const names = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+	return `<select onchange="${setter}(this.value)" class="m-field !w-auto !py-1.5 text-xs" aria-label="Filter by user">
+		<option value="">From anyone</option>
+		${names.map(([name, count]) => `<option value="${escHtml(name)}" ${name === current ? "selected" : ""}>@${escHtml(name)} (${count})</option>`).join("")}
+	</select>`;
+}
+
+/** Puts a search back after a list is redrawn. */
+function restorePanelSearch(text) {
+	const input = el("panel-search");
+	if (!text || !input) return;
+	input.value = text;
+	input.dispatchEvent(new Event("input"));
+}
+
+/** The Waiting and Reviewed switch at the top of a review tab. */
+function reviewViewChips(view, setter, waiting) {
+	return `<button onclick="${setter}('waiting')" class="m-chip" aria-pressed="${view === "waiting"}">Waiting <span class="count">${waiting}</span></button>
+		<button onclick="${setter}('reviewed')" class="m-chip" aria-pressed="${view === "reviewed"}">Reviewed</button>`;
+}
+
+/** One line of a Reviewed list: what it was, who sent it, who reviewed it and why it was denied. */
+function reviewedRowHtml({
+	code,
+	title,
+	image,
+	userId,
+	username,
+	displayName,
+	status,
+	reviewer,
+	reviewedAt,
+	reason,
+	tag = "",
+}) {
+	const approved = status === "approved";
+	const search = [
+		code,
+		title,
+		username && `@${username}`,
+		displayName,
+		status,
+		reviewer && `@${reviewer}`,
+		reason,
+	].join(" ");
+	return `<div class="bg-zinc-900 rounded-2xl px-4 py-3 flex items-start gap-3" data-search="${escHtml(search)}">
+		${image ? `<img loading="lazy" src="/uploads/${escHtml(image)}" alt="" onerror="this.remove()" class="w-16 h-10 rounded-lg object-cover flex-shrink-0" />` : ""}
+		<div class="flex-1 min-w-0">
+			<div class="flex items-center gap-2 flex-wrap">
+				${tag}
+				<span class="text-sm font-semibold truncate">${title ? escHtml(title) : '<span class="text-zinc-500 font-normal">No label</span>'}</span>
+				<span class="m-tag ${approved ? "success" : "danger"}">${approved ? "Approved" : "Denied"}</span>
+			</div>
+			<div class="text-xs text-zinc-500 mt-0.5">${staffUserLink(userId, username)} · reviewed${reviewedAt ? ` ${shortAgo(reviewedAt)} ago` : ""}${reviewer ? ` by @${escHtml(reviewer)}` : ""}</div>
+			${reason ? `<p class="text-xs text-zinc-400 mt-1 break-words">${escHtml(reason)}</p>` : ""}
+		</div>
+		<span class="text-xs font-mono text-zinc-600 flex-shrink-0">${code}</span>
+	</div>`;
+}
+
+/* ---- Claims: who else has an item open ---- */
+
+const CLAIM_REFRESH_MS = 20_000;
+let _claims = [];
+let _claimKey = "";
+
+/** What this member of staff has open right now, if it is something others could also pick up. */
+function openClaim() {
+	if (currentTab === "submissions" && _submissionView === "waiting" && _openSubmission)
+		return { kind: "submission", id: _openSubmission };
+	if (currentTab === "tickets" && expandedTicketId) return { kind: "ticket", id: expandedTicketId };
+	return {};
+}
+
+function paintClaims() {
+	for (const slot of document.querySelectorAll("[data-claim]")) {
+		const [kind, id] = slot.dataset.claim.split(":");
+		const claim = _claims.find((item) => item.kind === kind && item.id === Number(id));
+		slot.innerHTML = claim ? `<span class="m-tag warn">${escHtml(claim.name)} is on this</span>` : "";
+	}
+}
+
+/** Tells the server what is open here and learns what others have open. Also keeps this claim alive. */
+async function syncClaims() {
+	const mine = openClaim();
+	_claimKey = `${mine.kind}:${mine.id}`;
+	try {
+		_claims = await api("/api/admin/claims", { json: mine });
+	} catch {
+		return;
+	}
+	paintClaims();
+}
+
+/** Called after a list is drawn: repaints the markers, and reports in only when something else was opened. */
+function claimChanged() {
+	const mine = openClaim();
+	if (`${mine.kind}:${mine.id}` !== _claimKey) syncClaims();
+	else paintClaims();
+}
+
+setInterval(() => {
+	if (
+		!document.hidden &&
+		currentUser?.role &&
+		(_claimKey !== "undefined:undefined" || ["submissions", "tickets"].includes(currentTab))
+	)
+		syncClaims();
+}, CLAIM_REFRESH_MS);
+
+let _reviewMap = null;
+
+/** The one map the review tabs share, moved into whichever slot is showing it. A map per row would never be let go. */
+function mountReviewMap(slot) {
+	const canvas =
+		_reviewMap?.canvas ??
+		Object.assign(document.createElement("canvas"), { className: "absolute inset-0 w-full h-full" });
+	slot.appendChild(canvas);
+	_reviewMap ??= new MapCanvas(canvas, {});
+	_reviewMap._handleResize();
+	return _reviewMap;
 }
 
 function bindPanelSearch(selector) {
@@ -129,6 +284,7 @@ async function init() {
 	for (const btn of document.querySelectorAll(".tab-btn")) {
 		if (!canOpenTab(btn.dataset.tab)) btn.classList.add("hidden");
 	}
+	if (isHelper()) document.querySelectorAll(".moderator-up").forEach((label) => label.classList.add("hidden"));
 
 	document.querySelectorAll(".tab-btn").forEach((btn) => {
 		btn.addEventListener("click", () => {
@@ -147,7 +303,7 @@ async function init() {
 
 	el("deny-rules").innerHTML = ruleChipsHtml("U");
 	bindRuleChips(el("deny-rules"), el("deny-reason"));
-	// A denial has to say why: the button stays off until there is a reason to send.
+	/** A denial has to say why: the button stays off until there is a reason to send. */
 	el("deny-reason").addEventListener("input", () => {
 		const left = DENY_REASON_MIN - el("deny-reason").value.trim().length;
 		el("deny-confirm").disabled = left > 0;
@@ -181,7 +337,7 @@ function renderQueueCounts(queue) {
 		if (count > 0) {
 			btn.insertAdjacentHTML(
 				"beforeend",
-				`<span class="tab-count float-right ml-2 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-blue-500 text-white text-[11px] font-bold leading-5 text-center" title="${count} waiting">${count > 99 ? "99+" : count}</span>`
+				`<span class="tab-count ml-auto min-w-[1.25rem] h-5 px-1.5 rounded-full bg-blue-500 text-white text-[11px] font-bold leading-5 text-center" title="${count} waiting">${count > 99 ? "99+" : count}</span>`
 			);
 		}
 	}
@@ -194,7 +350,7 @@ function handleHashNav() {
 		.replace(/^support/, "tickets")
 		.replace(/^(games|duels)$/, "audit");
 	if (!hash) {
-		switchTab("submissions", true);
+		switchTab("overview", true);
 		return;
 	}
 	const [tab, id] = hash.split(":");
@@ -206,7 +362,7 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 		location.hash = tab;
 		return;
 	}
-	// A link or an old bookmark to a tab this role cannot open lands on the first one it can.
+	/** A link or an old bookmark to a tab this role cannot open lands on the first one it can. */
 	if (!canOpenTab(tab)) tab = HELPER_TABS[0];
 	currentTab = tab;
 	if (!fromHash) location.hash = tab;
@@ -215,7 +371,7 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 		const isOpOnly = btn.classList.contains("operator-only");
 		const isSeniorOnly = btn.classList.contains("senior-only");
 		const active = btn.dataset.tab === tab;
-		btn.className = `tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition${isOpOnly ? " operator-only" : ""}${isSeniorOnly ? " senior-only" : ""} ${active ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}`;
+		btn.className = `tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition${isOpOnly ? " operator-only" : ""}${isSeniorOnly ? " senior-only" : ""} ${active ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}`;
 		if (isOpOnly && currentUser?.role !== "operator") btn.classList.add("hidden");
 		if (isSeniorOnly && !["operator", "supervisor"].includes(currentUser?.role)) btn.classList.add("hidden");
 		if (!canOpenTab(btn.dataset.tab)) btn.classList.add("hidden");
@@ -225,13 +381,16 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 	content.innerHTML = skeletonRows(5, "h-24");
 	refreshAttention();
 
-	if (tab === "submissions") loadSubmissions();
+	if (tab === "overview") loadOverview();
+	else if (tab === "submissions") loadSubmissions();
 	else if (tab === "suggestions") loadSuggestions();
 	else if (tab === "locations") loadLocations();
 	else if (tab === "users") loadUsers();
 	else if (tab === "tickets") loadTickets(true, autoOpenId);
+	else if (tab === "duels") loadDuels();
 	else if (tab === "staff") loadStaff();
 	else if (tab === "stats") loadStats();
 	else if (tab === "audit") loadAudit();
 	else if (tab === "system") loadSystem();
+	claimChanged();
 }

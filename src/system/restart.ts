@@ -13,10 +13,8 @@ import { shutdown } from "../lib/lifecycle";
 import { logInfo } from "../lib/logs";
 
 /**
- * Restarting without pulling the rug out. A planned restart (an update, the button in
- * the staff panel, or a signal from the deploy script) is announced to everyone first;
- * when the notice runs out every duel and team game is closed and its players told why,
- * solo games are put away to be picked up afterwards, and only then does the process exit.
+ * A planned restart is announced first. When the notice ends, duels and team games close,
+ * solo games are saved, then the process exits.
  */
 
 const CLOSED_MESSAGE = "The server restarted for an update, so your game was ended. It won't count against you.";
@@ -28,10 +26,7 @@ const CLEAN_STOP_KEY = "clean_stop";
 /** How long after coming back the server keeps saying it has just restarted. */
 const BACK_NOTICE_MS = 3 * 60 * 1000;
 
-/**
- * When this process started, if it follows a clean stop moments ago; otherwise null.
- * Pages use it to tell someone who reloaded during the restart what just happened.
- */
+/** When this process started, if it follows a clean stop moments ago. Lets pages explain a restart. */
 const startedAfterRestart = (() => {
 	try {
 		const row = db
@@ -45,7 +40,7 @@ const startedAfterRestart = (() => {
 	}
 })();
 
-/** An id for the restart this server has just come back from, for a few minutes after it; null otherwise. */
+/** An id for the restart this server just came back from, for a few minutes; null otherwise. */
 export function justRestarted(): number | null {
 	return startedAfterRestart !== null && Date.now() - startedAfterRestart < BACK_NOTICE_MS
 		? startedAfterRestart
@@ -72,10 +67,7 @@ export function blockedByRestart(method: string, path: string): boolean {
 	return dueAt !== null && method === "POST" && (GAME_STARTS.has(path) || TEAM_GAME_START.test(path));
 }
 
-/**
- * Announces a restart and carries it out when the notice is up. Returns how many seconds
- * of notice players get: the full warning while games are being played, a short one otherwise.
- */
+/** Announces a restart and carries it out. Returns the seconds of notice given. */
 export function scheduleRestart(reason: string): number {
 	const pending = restartIn();
 	if (pending !== null) return pending;
@@ -84,7 +76,7 @@ export function scheduleRestart(reason: string): number {
 	logInfo(`[server] Restarting in ${seconds}s: ${reason}`);
 	setDuelsClosing(true);
 	setDeadline(seconds, reason);
-	// No new game can start now, so once the ones being played are over there is nothing left to wait for.
+	/** No new game can start now, so once the current ones end there is nothing to wait for. */
 	if (busy) {
 		watcher = setInterval(() => {
 			if (duelsInProgress() + teamGamesInProgress() > 0) return;
@@ -111,7 +103,7 @@ function stopWatching() {
 	watcher = null;
 }
 
-/** Calls off a restart that has been announced but not begun. Returns false when there was none to stop. */
+/** Calls off an announced restart. Returns false when there was none. */
 export function cancelRestart(): boolean {
 	if (dueAt === null || stopping) return false;
 	if (timer) clearTimeout(timer);

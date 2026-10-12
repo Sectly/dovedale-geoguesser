@@ -12,6 +12,7 @@
     <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
     <link rel="stylesheet" href="/css/shared.css" />
+    <script src="/js/transitions.js"></script>
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
     <nav id="site-nav"></nav>
@@ -62,19 +63,14 @@
           <button onclick="closeTicketInfoModal()" class="m-icon-btn" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="m-dialog-body">
-          <p class="text-sm text-zinc-400 mb-4">Tickets go to our volunteer staff: ban appeals, denied submissions, reports, and account problems.</p>
+          <p class="text-sm text-zinc-400 mb-4">For ban appeals, denied submissions, reports and account problems.</p>
           <ul class="text-sm text-zinc-400 flex flex-col gap-2 mb-5">
             <li class="flex gap-2.5">
-              <span class="material-symbols-outlined text-lg text-zinc-500 flex-shrink-0">edit_note</span>Include IDs, dates and links so staff can find what
-              you mean.
+              <span class="material-symbols-outlined text-lg text-zinc-500 flex-shrink-0">edit_note</span>Include IDs, dates and links.
             </li>
+            <li class="flex gap-2.5"><span class="material-symbols-outlined text-lg text-zinc-500 flex-shrink-0">filter_3</span>Up to three tickets a day.</li>
             <li class="flex gap-2.5">
-              <span class="material-symbols-outlined text-lg text-zinc-500 flex-shrink-0">filter_3</span>You can open up to three tickets a day. Please don't
-              send duplicates.
-            </li>
-            <li class="flex gap-2.5">
-              <span class="material-symbols-outlined text-lg text-zinc-500 flex-shrink-0">schedule</span>This is a fully volunteer-run project, so a reply can
-              take anywhere from a few days to a few weeks, and we can't promise that every ticket gets one.
+              <span class="material-symbols-outlined text-lg text-zinc-500 flex-shrink-0">schedule</span>Staff are volunteers. A reply can take days or weeks.
             </li>
             <li id="modal-github-row" class="hidden gap-2.5">
               <span class="material-symbols-outlined text-lg text-zinc-500 flex-shrink-0">bug_report</span>
@@ -86,7 +82,7 @@
             </li>
           </ul>
           <label class="m-label" for="modal-category">What is it about?</label>
-          <select id="modal-category" class="m-field">
+          <select id="modal-category" class="m-field" onchange="onModalCategoryChange()">
             <option value="">Select a category...</option>
             <option value="ban_appeal">Ban Appeal</option>
             <option value="submission_appeal">Submission Denied Appeal</option>
@@ -97,10 +93,17 @@
             <option value="bug_report">Bug / Technical Issue</option>
             <option value="feature_request">Feature Request</option>
           </select>
+          <div id="modal-github-notice" class="hidden bg-zinc-800 rounded-xl p-4 mt-3 text-sm text-zinc-300">
+            <div class="font-semibold text-zinc-100 mb-1">That one goes on GitHub</div>
+            <p class="text-zinc-400 text-xs mb-3">Bugs and feature requests are tracked on GitHub Issues.</p>
+            <a id="modal-github-button" href="#" target="_blank" rel="noopener noreferrer" class="m-btn m-btn-tonal m-btn-sm"
+              >Open GitHub Issues<span class="material-symbols-outlined">open_in_new</span></a
+            >
+          </div>
         </div>
         <div class="m-dialog-foot">
           <button onclick="closeTicketInfoModal()" class="m-btn m-btn-text">Cancel</button>
-          <button onclick="proceedToTicketForm()" class="m-btn m-btn-filled">Continue</button>
+          <button id="modal-continue" onclick="proceedToTicketForm()" class="m-btn m-btn-filled" disabled>Continue</button>
         </div>
       </div>
     </div>

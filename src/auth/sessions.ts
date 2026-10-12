@@ -29,6 +29,10 @@ function sanitizeDisplayName(name: string): string {
 		.slice(0, 32);
 }
 
+export function hasAccount(discordId: string): boolean {
+	return !!db.query("SELECT 1 FROM users WHERE discord_id = ?").get(discordId);
+}
+
 /** Creates or refreshes a user from their Discord profile. Roles listed in the environment always win. */
 export function upsertUser(profile: DiscordProfile, forcedRole?: string): { id: number; isNew: boolean } {
 	const displayName = sanitizeDisplayName(profile.display_name) || profile.username;
@@ -60,10 +64,7 @@ export function upsertUser(profile: DiscordProfile, forcedRole?: string): { id: 
 	return { id, isNew: true };
 }
 
-/**
- * A player who deleted their account and came back gets their moderation history
- * back with them, so a ban or a string of warnings cannot be shed by deleting.
- */
+/** Gives a returning player their moderation history back, so deleting an account cannot shed a ban. */
 function restoreModerationHistory(userId: number, discordId: string) {
 	const identity = hashIdentity(`discord:${discordId}`);
 	const old = db.query<{ id: number }, [string]>("SELECT id FROM users WHERE deleted_identity = ?").all(identity);
@@ -112,7 +113,7 @@ export function userFromSessionId(sessionId: string | null): User | null {
 		)
 		.get(sessionId, nowSec());
 	if (!user) return null;
-	// The dev account only exists while AUTH_DEV is on.
+	/** The dev account only exists while AUTH_DEV is on. */
 	if (user.discord_id === DEV_DISCORD_ID && !DEV_MODE) return null;
 
 	/** Bans and limits lapse on their own; refresh the flags the moment one has run out. */
@@ -149,6 +150,16 @@ export function clearedSessionCookie(): string {
 /** A one-minute, script-readable note for the next page so it can greet the player. */
 export function welcomeCookie(kind: "new" | "back"): string {
 	return `welcome=${kind}; Path=/; Max-Age=60; SameSite=Lax${SECURE_FLAG}`;
+}
+
+/**
+ * The login's state, kept in the browser that started it, so a login finished elsewhere cannot be handed to someone
+ * as a link.
+ */
+export function stateCookie(state: string | null): string {
+	return state
+		? `oauth_state=${state}; HttpOnly; Path=/; Max-Age=600; SameSite=Lax${SECURE_FLAG}`
+		: `oauth_state=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${SECURE_FLAG}`;
 }
 
 export function redirectCookie(target: string | null): string {

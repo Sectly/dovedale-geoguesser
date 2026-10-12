@@ -120,7 +120,7 @@ supportRoutes.post("/:id/reply", async (c) => {
 			"INSERT INTO ticket_replies (ticket_id, author_id, author_username, body, type) VALUES (?, ?, ?, ?, 'user')",
 			[ticketId, user.id, user.username, message]
 		);
-		// A new message withdraws any earlier request to close.
+		/** A new message withdraws any earlier request to close. */
 		db.run("UPDATE support_tickets SET awaiting_staff = 1, close_requested = 0 WHERE id = ?", [ticketId]);
 	})();
 	notify(

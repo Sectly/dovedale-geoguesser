@@ -14,7 +14,7 @@ describe("numbered rules", () => {
 		const listed = [...read("js/rules.js").matchAll(/code: "([FAU]\d+)", title: "([^"]+)", page: "\/(\w+)"/g)].map(
 			([, code, title, page]) => ({ code, title, page })
 		);
-		expect(listed.length).toBe(26);
+		expect(listed.length).toBe(31);
 
 		const published: typeof listed = [];
 		for (const page of ["fairplay", "tos", "guidelines"]) {

@@ -15,7 +15,7 @@ import { ensureStyles, watchStyles } from "./src/styles";
 import { scheduleRestart, stopCleanly } from "./src/system/restart";
 import { generateTileVariants } from "./src/tile-images";
 
-// Also keep warnings and errors where operators can read them in the staff panel.
+/** Also keep warnings and errors where operators can read them in the staff panel. */
 captureConsole();
 
 process.on("uncaughtException", (err) => {
@@ -34,7 +34,7 @@ if (DEV_MODE) {
 }
 
 migrateLegacyModeration();
-// The stylesheet is a build product: make sure it exists, and keep it fresh while developing.
+/** The stylesheet is a build product: make sure it exists, and keep it fresh while developing. */
 await ensureStyles();
 if (DEV_MODE) watchStyles();
 
@@ -46,14 +46,14 @@ startCleanupJobs();
 generateTileVariants().catch((err) => console.error("Tile variant generation failed:", err));
 
 logInfo(`Dovedale GeoGuesser listening on http://localhost:${PORT}${SUPERVISED ? " (managed by PM2)" : ""}`);
-// A start nobody asked for (a crash, the host rebooting) is worth knowing about.
+/** A start nobody asked for (a crash, the host rebooting) is worth knowing about. */
 notify(
 	"system",
 	`**Server started**\nListening on port ${PORT}${DEV_MODE ? ", with the development login enabled" : ""}.`,
 	"/admin#stats"
 );
 
-/** Close the games, finish what is being written and leave the database tidy when the host stops or restarts us. */
+/** Stop cleanly when the host stops or restarts us. */
 process.on("SIGTERM", () => stopCleanly("SIGTERM received"));
 process.on("SIGINT", () => stopCleanly("SIGINT received"));
 /** `pm2 sendSignal SIGUSR2` (see deploy.sh) asks for a restart with the usual warning to players. */
@@ -64,7 +64,7 @@ export default {
 	port: PORT,
 	websocket,
 	idleTimeout: 60,
-	// The largest legitimate request is one 8 MB screenshot plus its form fields.
+	/** The largest legitimate request is one 8 MB screenshot plus its form fields. */
 	maxRequestBodySize: 12 * 1024 * 1024,
 	/** Last resort for anything that fails outside the app's own error handler. */
 	error(err: Error) {

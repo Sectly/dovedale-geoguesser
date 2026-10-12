@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db, type Location } from "../../db";
-import { LIMITS } from "../../config";
+import { GAME, LIMITS } from "../../config";
 import { requireStaff } from "../../auth/guards";
 import { cleanHints, difficultyOf, resetLocationStats } from "../../game/locations";
 import { auditLog } from "../../lib/audit";
@@ -36,7 +36,7 @@ adminLocationRoutes.get("/", (c) => {
 				`SELECT l.*, u.username AS submitted_by_username, u.display_name AS submitted_by_display_name,
 					a.username AS approved_by_username, a.display_name AS approved_by_display_name,
 					COALESCE(s.plays, 0) AS plays,
-					CASE WHEN s.plays > 0 THEN ROUND(CAST(s.score_sum AS REAL) / s.plays) END AS avg_score
+					CASE WHEN s.plays > 0 THEN ROUND(s.recent_sum / MIN(s.plays, ${GAME.difficulty.window})) END AS avg_score
 				FROM locations l
 				LEFT JOIN users u ON u.id = l.submitted_by
 				LEFT JOIN users a ON a.id = l.approved_by
@@ -46,6 +46,54 @@ adminLocationRoutes.get("/", (c) => {
 			.all()
 			.map((location: any) => ({ ...location, difficulty: difficultyOf(location.id) }))
 	);
+});
+
+/**
+ * How a location has played: how often it came up and how players did on it, by mode.
+ * Totals only, no names, so helpers may see it. Guesses come from the recent-guess log, which keeps
+ * each player's latest ones, so they are a recent sample rather than all-time.
+ */
+adminLocationRoutes.get("/:id/breakdown", (c) => {
+	requireStaff(c, "helper");
+	const id = idParam(c);
+	if (!db.query("SELECT 1 FROM locations WHERE id = ?").get(id)) fail(404, "Location not found");
+	return c.json({
+		totals: db.query("SELECT plays, score_sum, updated_at FROM location_stats WHERE location_id = ?").get(id) ?? {
+			plays: 0,
+			score_sum: 0,
+			updated_at: null,
+		},
+		modes: db
+			.query(
+				`SELECT mode, COUNT(*) AS guesses, ROUND(AVG(points)) AS avg_points, ROUND(AVG(distance)) AS avg_distance,
+					ROUND(AVG(time_taken), 1) AS avg_time, MAX(created_at) AS last_at
+				FROM guess_log WHERE location_id = ? GROUP BY mode ORDER BY guesses DESC`
+			)
+			.all(id),
+		/** Guesses per thousand points: 0 is under 1,000, 4 is 4,000 and up. */
+		spread: db
+			.query(
+				"SELECT MIN(points / 1000, 4) AS band, COUNT(*) AS guesses FROM guess_log WHERE location_id = ? GROUP BY band"
+			)
+			.all(id),
+		duels: db
+			.query(
+				`SELECT COUNT(DISTINCT game_id) AS games, COUNT(*) AS guesses, ROUND(AVG(score)) AS avg_score,
+					COALESCE(SUM(guessed_x IS NULL), 0) AS no_guess
+				FROM duel_round_scores WHERE location_id = ?`
+			)
+			.get(id),
+		daily: db
+			.query(
+				`SELECT dc.date, COUNT(ds.id) AS players, ROUND(AVG(ds.score)) AS avg_score, ROUND(AVG(ds.hints_used), 1) AS avg_hints
+				FROM daily_challenges dc LEFT JOIN daily_scores ds ON ds.date = dc.date
+				WHERE dc.location_id = ? GROUP BY dc.date ORDER BY dc.date DESC LIMIT 6`
+			)
+			.all(id),
+		suggestions: db
+			.query("SELECT status, COUNT(*) AS n FROM location_suggestions WHERE location_id = ? GROUP BY status")
+			.all(id),
+	});
 });
 
 /** Forgets how players have done on a location, e.g. after its screenshot or pin was corrected. */

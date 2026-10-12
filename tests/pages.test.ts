@@ -84,13 +84,13 @@ describe("service worker", () => {
 		const waiting = await down("navigate")!;
 		expect(waiting.status).toBe(503);
 		expect(await waiting.text()).toContain("Back in a moment");
-		// Scripts, images and API calls are never touched.
+		/** Scripts, images and API calls are never touched. */
 		expect(down("cors")).toBeNull();
 
 		const proxyError = await fetchHandler(async () => new Response("Bad gateway", { status: 502 }));
 		expect(await (await proxyError("navigate")!).text()).toContain("Back in a moment");
 
-		// The game's own pages pass straight through, including its maintenance screen.
+		/** The game's own pages pass straight through, including its maintenance screen. */
 		const own = (status: number) =>
 			fetchHandler(async () => new Response("from the game", { status, headers: { "X-App": "dovedale" } }));
 		expect(await (await (await own(503))("navigate")!).text()).toBe("from the game");

@@ -1,21 +1,13 @@
 /**
- * Tooltips for the whole site: one small label that follows whatever is hovered or
- * focused, and the list of what each control says.
- *
- * A control gets a tooltip from, in order:
- *   1. its `title` attribute (taken over, so the browser's own tooltip never doubles up);
- *   2. a `data-tip` attribute, with an optional `data-tip-key` shortcut;
- *   3. the TOOLTIPS list below, matched by CSS selector;
- *   4. its `aria-label`, when the control shows nothing but an icon.
- *
- * Everything is handled by listeners on the document, so controls drawn later (lists,
- * dialogs, the staff panel) need no setup of their own.
+ * Tooltips for the whole site. A control gets its text from, in order:
+ *   1. its `title` attribute (taken over, so the browser's tooltip never doubles up)
+ *   2. `data-tip`, with an optional `data-tip-key` shortcut
+ *   3. the TOOLTIPS list below, matched by CSS selector
+ *   4. its `aria-label`, when it shows only an icon
+ * Handled by document listeners, so controls drawn later need no setup.
  */
 
-/**
- * What each control says. A plain string, or [text, shortcut] where the shortcut is shown
- * as a key cap. Keep them short: what the control does, not what it is called.
- */
+/** What each control says: a string, or [text, shortcut]. Say what it does, not what it is called. */
 const TOOLTIPS = {
 	/* ---- Site header ---- */
 	"#site-nav-toggle": "Menu",
@@ -132,7 +124,7 @@ const Tooltips = (() => {
 					break;
 				}
 			} catch {
-				// A selector this browser does not understand (:has on an old one) just never matches.
+				/** A selector this browser does not understand (:has on an old one) just never matches. */
 			}
 		}
 		listed.set(element, found);
@@ -153,7 +145,7 @@ const Tooltips = (() => {
 
 	/** The tooltip for one element, or null when it has none. */
 	function tipFor(element) {
-		// A title is taken over rather than read, or the browser would show its own tooltip as well.
+		/** A title is taken over rather than read, or the browser would show its own tooltip as well. */
 		const title = element.getAttribute("title");
 		if (title) {
 			element.dataset.tip = title;
@@ -205,7 +197,7 @@ const Tooltips = (() => {
 		}
 		bubble.classList.remove("shown");
 		place(element);
-		// Reading the size makes the browser settle the new position first, so the fade starts from there.
+		/** Reading the size makes the browser settle the new position first, so the fade starts from there. */
 		void bubble.offsetWidth;
 		bubble.classList.add("shown");
 	}
@@ -227,7 +219,7 @@ const Tooltips = (() => {
 	}
 
 	document.addEventListener("pointerover", (e) => {
-		// Touch has no hover; a tooltip there would only appear after the tap that already did the thing.
+		/** Touch has no hover; a tooltip there would only appear after the tap that already did the thing. */
 		if (e.pointerType === "touch") return;
 		approach(e.target, HOVER_DELAY_MS);
 	});

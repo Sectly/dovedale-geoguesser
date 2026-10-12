@@ -3,10 +3,7 @@ import { utcDate } from "../lib/time";
 
 export type Streak = { current_streak: number; longest_streak: number };
 
-/**
- * SQL for a user's live streak. The stored counter only changes when they play,
- * so a streak that was broken by a missed day has to read as 0 until then.
- */
+/** SQL for a user's live streak: 0 once a day has been missed, even before the stored counter updates. */
 export function currentStreakSql(alias = "u"): string {
 	return `CASE WHEN ${alias}.last_played_date >= date('now', '-1 day') THEN COALESCE(${alias}.current_streak, 0) ELSE 0 END`;
 }

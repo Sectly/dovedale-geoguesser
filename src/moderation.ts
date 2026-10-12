@@ -4,11 +4,7 @@ import { fail } from "./lib/http";
 import { nowSec } from "./lib/time";
 import { checkForEvasion } from "./evasion";
 
-/**
- * Every moderation action taken against a user is one row here: what, why, by whom,
- * until when, and whether it was later overturned. The flags on the users table
- * (is_banned, upload_limited, ...) are derived from these rows by `syncUser`.
- */
+/** One row per moderation action. The flags on the users table are derived from these by `syncUser`. */
 
 export type ActionType = "warning" | "limit_upload" | "limit_duel" | "ban_temp" | "ban_perm";
 
@@ -123,7 +119,7 @@ export function issueAction(
 		).lastInsertRowid
 	);
 	syncUser(target.id);
-	// Anyone already seen on this player's device is now worth a look.
+	/** Anyone already seen on this player's device is now worth a look. */
 	if (type === "ban_perm" || type === "ban_temp") checkForEvasion(target.id);
 	return getAction(id);
 }
@@ -182,10 +178,7 @@ export function ownHistory(userId: number) {
 	}));
 }
 
-/**
- * One-off, repeat-safe import of records that predate this table: old warnings, and
- * bans or limits that are in force but have no action behind them.
- */
+/** One-off, repeat-safe import of records that predate this table. */
 export function migrateLegacyModeration() {
 	/** Warnings used to live in their own table. Copy them across, then retire it. */
 	const hasOldTable = db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'user_warnings'").get();

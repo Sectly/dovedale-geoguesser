@@ -120,14 +120,14 @@ describe("admin users", () => {
 			call(`/api/admin/users/${player.id}/moderation`, { as: operator }).then((r) => r.data.actions);
 		const [perm, temp, warning] = await actions();
 
-		// Moderators issue actions but cannot take them back.
+		/** Moderators issue actions but cannot take them back. */
 		expect(
 			(await post(`/api/admin/moderation/${warning.id}/overturn`, mod, { reason: "Changed my mind" })).status
 		).toBe(403);
 		expect((await post(`/api/admin/users/${player.id}/unban`, mod, { reason: "Changed my mind" })).status).toBe(
 			403
 		);
-		// Supervisors handle warnings and temporary bans, with a reason.
+		/** Supervisors handle warnings and temporary bans, with a reason. */
 		expect((await post(`/api/admin/moderation/${warning.id}/overturn`, supervisor, {})).status).toBe(400);
 		expect(
 			(await post(`/api/admin/moderation/${warning.id}/overturn`, supervisor, { reason: "Appeal accepted" }))
@@ -140,7 +140,7 @@ describe("admin users", () => {
 		expect(
 			(await post(`/api/admin/moderation/${temp.id}/overturn`, supervisor, { reason: "Appeal accepted" })).status
 		).toBe(200);
-		// The permanent ban still stands, and only an operator can lift or erase it.
+		/** The permanent ban still stands, and only an operator can lift or erase it. */
 		expect((await call("/api/auth/me", { as: player })).data).toMatchObject({ is_banned: true, ban_type: "perm" });
 		expect(
 			(await post(`/api/admin/moderation/${perm.id}/overturn`, supervisor, { reason: "Appeal accepted" })).status
@@ -302,7 +302,7 @@ describe("support", () => {
 		expect(created.status).toBe(200);
 		const id = created.data.id;
 
-		// A player can add a couple of follow-ups, then has to wait for staff.
+		/** A player can add a couple of follow-ups, then has to wait for staff. */
 		expect((await post(`/api/support/${id}/reply`, player, { message: "Forgot to say which one." })).status).toBe(
 			200
 		);
@@ -443,7 +443,7 @@ describe("locking a member of staff out", () => {
 		expect((await post(`/api/admin/users/${moderator.id}/staff-lock`, supervisor, {})).status).toBe(400);
 		expect((await post(`/api/admin/users/${moderator.id}/staff-lock`, supervisor, { reason })).status).toBe(200);
 
-		// Their existing session stops working as staff at once.
+		/** Their existing session stops working as staff at once. */
 		expect((await call("/api/admin/stats", { as: moderator })).status).toBe(403);
 		expect(
 			(
@@ -457,7 +457,7 @@ describe("locking a member of staff out", () => {
 		const me = (await call("/api/auth/me", { as: moderator })).data;
 		expect(me).toMatchObject({ role: null, staff_locked: true });
 		expect((await call("/api/attention", { as: moderator })).data.staff).toBeNull();
-		// They can still play.
+		/** They can still play. */
 		expect((await call("/api/daily", { as: moderator })).status).toBe(200);
 
 		expect(
@@ -478,7 +478,7 @@ describe("locking a member of staff out", () => {
 		expect((await post(`/api/admin/users/${supA.id}/staff-lock`, supA, { reason })).status).toBe(403);
 		expect((await post(`/api/admin/users/${createUser().id}/staff-lock`, supA, { reason })).status).toBe(400);
 		expect((await post(`/api/admin/users/${supB.id}/staff-lock`, operator, { reason })).status).toBe(200);
-		// A locked supervisor cannot use the powers they would need to undo it.
+		/** A locked supervisor cannot use the powers they would need to undo it. */
 		expect((await post(`/api/admin/users/${modA.id}/staff-lock`, supB, { reason })).status).toBe(403);
 	});
 });
@@ -497,7 +497,7 @@ describe("helpers", () => {
 		const author = createUser();
 		expect((await call("/api/auth/me", { as: helper })).data.role).toBe("helper");
 
-		// Theirs to do.
+		/** Theirs to do. */
 		expect((await call("/api/admin/submissions", { as: helper })).status).toBe(200);
 		expect((await call("/api/admin/suggestions", { as: helper })).status).toBe(200);
 		expect((await call("/api/admin/locations", { as: helper })).status).toBe(200);
@@ -507,7 +507,7 @@ describe("helpers", () => {
 				.status
 		).toBe(200);
 
-		// Not theirs.
+		/** Not theirs. */
 		const location = db.query<{ id: number }, []>("SELECT id FROM locations ORDER BY id DESC LIMIT 1").get()!.id;
 		for (const [path, body] of [
 			[`/api/admin/locations/${location}/toggle`, undefined],
@@ -520,7 +520,7 @@ describe("helpers", () => {
 			expect((await call(path, { as: helper })).status).toBe(403);
 		expect((await call(`/api/admin/locations/${location}`, { method: "DELETE", as: helper })).status).toBe(403);
 
-		// Their queue counts only what they review.
+		/** Their queue counts only what they review. */
 		const queue = (await call("/api/attention", { as: helper })).data.staff;
 		expect(queue).toMatchObject({ tickets: 0, users: 0 });
 		expect(queue.total).toBe(queue.submissions + queue.suggestions);
@@ -530,7 +530,7 @@ describe("helpers", () => {
 		const helper = createUser({ role: "helper" });
 		const moderator = createUser({ role: "moderator" });
 
-		// A suggestion they accept is applied, but a removal only takes the location out of play.
+		/** A suggestion they accept is applied, but a removal only takes the location out of play. */
 		const location = createLocation();
 		const removal = createSuggestion(location, "removal", { reason: "duplicate" });
 		expect((await post(`/api/admin/suggestions/${removal}/approve`, helper)).status).toBe(200);
@@ -541,13 +541,13 @@ describe("helpers", () => {
 			(await post(`/api/admin/suggestions/${hint}/deny`, helper, { reason: "Too vague to help" })).status
 		).toBe(200);
 
-		// A private profile stays private to them; a moderator may look.
+		/** A private profile stays private to them; a moderator may look. */
 		const shy = createUser();
 		await post("/api/settings", shy, { profile_private: true });
 		expect((await call(`/api/profile/${shy.username}`, { as: helper })).status).toBe(403);
 		expect((await call(`/api/profile/${shy.username}`, { as: moderator })).status).toBe(200);
 
-		// Maintenance locks them out with the players.
+		/** Maintenance locks them out with the players. */
 		setMaintenance(true, "Back soon", "test");
 		try {
 			expect((await call("/api/leaderboard/solo", { as: helper })).status).toBe(503);
@@ -558,13 +558,13 @@ describe("helpers", () => {
 			setMaintenance(false, "", "test");
 		}
 
-		// They cannot change roles, their own included, or reach the operator tools.
+		/** They cannot change roles, their own included, or reach the operator tools. */
 		expect((await post(`/api/admin/users/${helper.id}/role`, helper, { role: "moderator" })).status).toBe(403);
 		expect((await post(`/api/admin/users/${shy.id}/role`, helper, { role: "helper" })).status).toBe(403);
 		for (const path of ["/api/admin/system/info", "/api/admin/announcements", `/api/admin/scores/${shy.id}`])
 			expect((await call(path, { as: helper })).status).toBe(403);
 
-		// Suspended: the role is kept on record, but they are an ordinary player everywhere.
+		/** Suspended: the role is kept on record, but they are an ordinary player everywhere. */
 		expect(
 			(
 				await post(`/api/admin/users/${helper.id}/staff-lock`, moderator, {
@@ -598,7 +598,7 @@ describe("helpers", () => {
 		expect((await setRole(operator, recruit, "moderator")).status).toBe(200);
 		expect((await setRole(supervisor, recruit, "helper")).status).toBe(200);
 
-		// A moderator can suspend and restore a helper, but not a fellow moderator.
+		/** A moderator can suspend and restore a helper, but not a fellow moderator. */
 		const lock = (as: TestUser, target: TestUser, action: "staff-lock" | "staff-unlock") =>
 			post(`/api/admin/users/${target.id}/${action}`, as, { reason: "Checking the helper lock" });
 		expect((await lock(moderator, recruit, "staff-lock")).status).toBe(200);
@@ -610,5 +610,86 @@ describe("helpers", () => {
 
 		expect((await setRole(supervisor, recruit, null)).status).toBe(200);
 		expect(roleOf(recruit)).toBeNull();
+	});
+});
+
+describe("admin overview and staff notes", () => {
+	test("the overview shows each role only its own queues", async () => {
+		const helper = (await call("/api/admin/overview", { as: createUser({ role: "helper" }) })).data;
+		const senior = (await call("/api/admin/overview", { as: createUser({ role: "supervisor" }) })).data;
+		expect((await call("/api/admin/overview", { as: createUser() })).status).toBe(403);
+		expect(helper.waiting.map((queue: { tab: string }) => queue.tab)).toEqual(["submissions", "suggestions"]);
+		expect(senior.waiting.length).toBeGreaterThan(helper.waiting.length);
+		expect(helper.flagged).toEqual([]);
+		expect(typeof senior.live.duels).toBe("number");
+	});
+
+	test("notes are kept per player, and only the author or a supervisor can remove one", async () => {
+		const player = createUser();
+		const author = createUser({ role: "moderator" });
+		const otherMod = createUser({ role: "moderator" });
+		const notesOf = async () => (await call(`/api/admin/users/${player.id}/moderation`, { as: author })).data.notes;
+
+		expect(
+			(await post(`/api/admin/users/${player.id}/notes`, createUser({ role: "helper" }), { body: "No" })).status
+		).toBe(403);
+		expect((await post(`/api/admin/users/${player.id}/notes`, author, { body: " " })).status).toBe(400);
+		expect(
+			(await post(`/api/admin/users/${player.id}/notes`, author, { body: "Asked about a ban twice" })).status
+		).toBe(200);
+		const [note] = await notesOf();
+		expect(note.body).toBe("Asked about a ban twice");
+		expect(note.author_username).toBe(author.username);
+
+		const remove = (as: TestUser) => call(`/api/admin/users/notes/${note.id}`, { as, method: "DELETE" });
+		expect((await remove(otherMod)).status).toBe(403);
+		expect((await remove(createUser({ role: "supervisor" }))).status).toBe(200);
+		expect(await notesOf()).toEqual([]);
+	});
+});
+
+describe("admin claims, history and insight", () => {
+	test("a claim shows to other staff, never to its owner, and tickets stay hidden from helpers", async () => {
+		const mod = createUser({ role: "moderator" });
+		const helper = createUser({ role: "helper" });
+		expect((await post("/api/admin/claims", createUser(), {})).status).toBe(403);
+		expect((await post("/api/admin/claims", mod, { kind: "ticket", id: 7 })).data).toEqual([]);
+		expect((await post("/api/admin/claims", helper, { kind: "ticket", id: 9 })).data).toEqual([]);
+		const seen = (await post("/api/admin/claims", createUser({ role: "moderator" }), {})).data;
+		expect(seen.map((claim: { kind: string; id: number }) => `${claim.kind}:${claim.id}`)).toEqual(["ticket:7"]);
+
+		await post("/api/admin/claims", mod, { kind: "submission", id: 3 });
+		expect((await post("/api/admin/claims", helper, {})).data[0].id).toBe(3);
+		await post("/api/admin/claims", mod, {});
+		expect((await post("/api/admin/claims", helper, {})).data).toEqual([]);
+	});
+
+	test("reviewed lists, location breakdown and duel history answer for the right roles", async () => {
+		const helper = createUser({ role: "helper" });
+		const mod = createUser({ role: "moderator" });
+		const location = createLocation();
+		expect((await call("/api/admin/submissions/history", { as: helper })).status).toBe(200);
+		expect((await call("/api/admin/suggestions/history", { as: helper })).status).toBe(200);
+		const breakdown = await call(`/api/admin/locations/${location}/breakdown`, { as: helper });
+		expect(breakdown.data.totals.plays).toBe(0);
+		expect((await call("/api/admin/locations/999999/breakdown", { as: helper })).status).toBe(404);
+		expect((await call("/api/admin/duels", { as: helper })).status).toBe(403);
+		expect(Array.isArray((await call("/api/admin/duels?kind=quickplay&q=%25", { as: mod })).data.games)).toBe(true);
+		expect(typeof (await call("/api/admin/duels/stats", { as: mod })).data.finished.total).toBe("number");
+		expect((await call(`/api/admin/users/${helper.id}/moderation`, { as: mod })).data.account.sessions).toBe(1);
+	});
+
+	test("a switched-off feature refuses players but not staff", async () => {
+		const operator = createUser({ role: "operator" });
+		const toggle = (enabled: boolean) =>
+			post("/api/admin/system/features", operator, { feature: "new_duels", enabled });
+		expect((await toggle(false)).status).toBe(200);
+		try {
+			expect((await post("/api/duels/rooms", createUser(), { rounds: 1 })).status).toBe(503);
+			expect((await post("/api/duels/rooms", createUser({ role: "moderator" }), { rounds: 1 })).status).toBe(200);
+		} finally {
+			await toggle(true);
+		}
+		expect((await post("/api/duels/rooms", createUser(), { rounds: 1 })).status).toBe(200);
 	});
 });

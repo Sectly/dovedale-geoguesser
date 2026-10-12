@@ -1,8 +1,6 @@
-/*
- * Service worker. It shows the notifications the server pushes and opens the right
- * page when one is clicked, and it stands in with a waiting page when the server
- * cannot be reached (a restart, usually). It deliberately caches nothing, so it can
- * never serve a stale copy of the game.
+/**
+ * Service worker: shows push notifications and stands in with a waiting page when the server is unreachable. Caches
+ * nothing.
  */
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
@@ -27,7 +25,7 @@ self.addEventListener("notificationclick", (event) => {
 	const link = event.notification.data?.link || "/";
 	event.waitUntil(
 		self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
-			// Reuse a tab that is already open rather than piling up new ones.
+			/** Reuse a tab that is already open rather than piling up new ones. */
 			const open = windows.find((w) => "focus" in w);
 			if (open) {
 				open.navigate(link);
@@ -38,11 +36,7 @@ self.addEventListener("notificationclick", (event) => {
 	);
 });
 
-/*
- * Opening or reloading a page while the server is down would otherwise show the browser's
- * own error page, or a bare one from the proxy in front of the server. This page waits
- * instead and reloads by itself the moment the server answers.
- */
+/** Shown in place of the browser's error page while the server is down. Reloads itself when the server answers. */
 const WAITING_PAGE = `<!doctype html>
 <html lang="en">
 <head>
@@ -52,28 +46,47 @@ const WAITING_PAGE = `<!doctype html>
 <style>
 	html, body { height: 100%; margin: 0; }
 	body { background: #09090b; color: #e4e4e7; font-family: Inter, system-ui, sans-serif; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 1.5rem; }
-	.spinner { width: 2.75rem; height: 2.75rem; margin: 0 auto 1.25rem; border-radius: 50%; border: 3px solid #27272a; border-top-color: #60a5fa; animation: spin 0.9s linear infinite; }
+	body { transition: opacity 0.3s ease-in; }
+	body.leaving { opacity: 0; }
+	svg { display: block; width: 6rem; height: 6rem; margin: 0 auto 1.25rem; }
+	rect { fill: #27272a; stroke: #3f3f46; stroke-width: 2; }
+	path { fill: none; stroke: #52525b; stroke-width: 3; stroke-linecap: round; }
+	circle { fill: #3f3f46; animation: led 1.2s linear infinite; }
+	circle:nth-of-type(2) { animation-delay: 0.2s; }
+	circle:nth-of-type(3) { animation-delay: 0.4s; }
+	.back circle { fill: #4caf50; animation: none; }
 	h1 { font-size: 1.5rem; margin: 0 0 0.5rem; }
 	p { color: #a1a1aa; font-size: 0.875rem; margin: 0 auto; max-width: 24rem; line-height: 1.5; }
 	button { margin-top: 1.5rem; background: #27272a; color: #e4e4e7; border: 0; border-radius: 9999px; padding: 0.6rem 1.4rem; font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
 	button:hover { background: #3f3f46; }
-	@keyframes spin { to { transform: rotate(360deg); } }
-	@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+	@keyframes led { 0%, 45%, 100% { fill: #3f3f46; } 15%, 30% { fill: #fcd34d; } }
+	@media (prefers-reduced-motion: reduce) { circle { animation: none; } body { transition: none; } }
 </style>
 </head>
 <body>
 <main role="status">
-	<div class="spinner" aria-hidden="true"></div>
+	<svg viewBox="0 0 96 96" aria-hidden="true">
+		<rect x="16" y="14" width="64" height="20" rx="5" /><circle cx="27" cy="24" r="3" /><path d="M44 24h26" />
+		<rect x="16" y="38" width="64" height="20" rx="5" /><circle cx="27" cy="48" r="3" /><path d="M44 48h26" />
+		<rect x="16" y="62" width="64" height="20" rx="5" /><circle cx="27" cy="72" r="3" /><path d="M44 72h26" />
+	</svg>
 	<h1>Back in a moment</h1>
-	<p>The server can't be reached right now. It is most likely restarting for an update, which takes a few seconds. This page will reload by itself as soon as it is back.</p>
+	<p>The server can't be reached right now. This page reloads by itself when it's back.</p>
 	<button onclick="location.reload()">Try now</button>
 </main>
 <script>
-	// The game marks its own answers; a proxy's error page does not, so that is not "back".
+	/** The game marks its own answers; a proxy's error page does not, so that is not "back". */
 	setInterval(async () => {
 		try {
 			const res = await fetch("/api/status", { cache: "no-store" });
-			if (res.ok && res.headers.get("X-App")) location.reload();
+			if (!res.ok || !res.headers.get("X-App")) return;
+			/**
+			 * Lights green, fade out, and tell the page that loads next to fade in from the same screen (shared.js).
+			 */
+			document.querySelector("main").className = "back";
+			document.body.className = "leaving";
+			try { sessionStorage.setItem("restart_reloaded", "1"); } catch {}
+			setTimeout(() => location.reload(), 350);
 		} catch {}
 	}, 2000);
 </script>
@@ -87,11 +100,11 @@ const waitingPage = () =>
 	});
 
 self.addEventListener("fetch", (event) => {
-	// Pages only. Scripts, images and API calls go straight to the network as before.
+	/** Pages only. Scripts, images and API calls go straight to the network as before. */
 	if (event.request.mode !== "navigate") return;
 	event.respondWith(
 		fetch(event.request).then(
-			// A gateway error with no sign of the game behind it is the proxy saying the server is down.
+			/** A gateway error with no sign of the game behind it is the proxy saying the server is down. */
 			(res) => ([502, 503, 504].includes(res.status) && !res.headers.get("X-App") ? waitingPage() : res),
 			() => waitingPage()
 		)

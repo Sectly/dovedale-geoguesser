@@ -13,6 +13,8 @@ const DIFFICULTY_NAMES = [null, "easy", "medium", "hard"];
 const special = new URLSearchParams(location.search).get("special");
 /** How this special changes the screenshot ("torch", "snow"), if it does. */
 let specialEffect = null;
+/** A setting for that effect, when it takes one (how long Flash shows the picture). */
+let specialEffectOption;
 
 async function init() {
 	getRounds = setupPills(".rounds-pill", (n) => (el("rounds-preview").textContent = n));
@@ -23,11 +25,11 @@ async function init() {
 	});
 	getDifficulty = setupPills(".difficulty-pill", (level) => {
 		el("difficulty-note").textContent = level
-			? "Practice: picking a difficulty keeps the game off the leaderboard."
+			? "Practice: not counted on the leaderboard."
 			: "Locations are graded by how players have done on them.";
 	});
 	for (const pill of document.querySelectorAll(".difficulty-pill")) {
-		// Runs before the pill's own handler, so a difficulty with no locations cannot be picked.
+		/** Runs before the pill's own handler, so a difficulty with no locations cannot be picked. */
 		pill.addEventListener(
 			"click",
 			(e) => pill.getAttribute("aria-disabled") === "true" && e.stopImmediatePropagation(),
@@ -40,8 +42,9 @@ async function init() {
 	el("replay-btn").addEventListener("click", showReplay);
 	el("replay-back-btn").addEventListener("click", () => switchScreen("summary-screen"));
 	el("play-again-btn").addEventListener("click", () => switchScreen("start-screen"));
+	el("summary-share-btn").addEventListener("click", shareSummary);
 
-	// Built up front so the map tiles are already loaded when the first round starts.
+	/** Built up front so the map tiles are already loaded when the first round starts. */
 	view = new RoundView({
 		onGuess: submitGuess,
 		onHint: () => api(`/api/solo/games/${game.game_id}/hint`, { method: "POST" }),
@@ -69,7 +72,7 @@ async function loadDifficulties() {
 	for (const pill of document.querySelectorAll(".difficulty-pill")) {
 		const name = DIFFICULTY_NAMES[Number(pill.dataset.val)];
 		if (!name) continue;
-		// Marked unavailable rather than disabled, so hovering it can still say why.
+		/** Marked unavailable rather than disabled, so hovering it can still say why. */
 		pill.setAttribute("aria-disabled", String(!counts[name]));
 		pill.classList.toggle("opacity-40", !counts[name]);
 		pill.classList.toggle("cursor-not-allowed", !counts[name]);
@@ -87,6 +90,7 @@ async function setupSpecial() {
 	);
 	if (!info) return location.replace("/specials");
 	specialEffect = info.effect || null;
+	specialEffectOption = info.flashSeconds;
 	document.title = `${info.title} | Dovedale GeoGuesser`;
 	el("start-icon").textContent = info.icon;
 	el("start-title").textContent = info.title;
@@ -144,11 +148,12 @@ async function beginRound(round) {
 	el("round-num").textContent = round.number;
 	el("round-total").textContent = round.total;
 	el("result-screen").classList.remove("shown");
-	PhotoEffects.apply(specialEffect);
+	PhotoEffects.apply(specialEffect, specialEffectOption);
 	await view.show(round);
 	if (round.loading) round = (await api(`/api/solo/games/${game.game_id}/begin`, { method: "POST" })).round;
 	Sounds.play("start");
 	view.go(round);
+	PhotoEffects.begin();
 }
 
 /** The game is gone (server restart or hours idle); nothing to do but start over. */
@@ -159,14 +164,14 @@ function gameLost(err) {
 
 async function submitGuess(pin) {
 	view.stop();
-	// The round is over, so the player may see the whole picture.
+	/** The round is over, so the player may see the whole picture. */
 	PhotoEffects.clear();
 	let result;
 	try {
 		result = await api(`/api/solo/games/${game.game_id}/guess`, { json: pin ?? {} });
 	} catch (err) {
 		if (err.status !== 0) return gameLost(err);
-		// Offline: let them try the same guess again once the connection is back.
+		/** Offline: let them try the same guess again once the connection is back. */
 		showToast(err.message, "error");
 		view.locked = false;
 		view._setGuessEnabled(true);
@@ -182,6 +187,7 @@ async function submitGuess(pin) {
 		.filter(Boolean)
 		.join(" · ");
 	el("result-report-link").href = reportLocationUrl(result.location_id);
+	el("result-report-link").onclick = (e) => reportLocation(e, result.location_id);
 	el("next-btn").textContent = result.finished ? "See Results" : "Next Round";
 	el("result-screen").classList.add("shown");
 	view.fitResult(result, [pin]);
@@ -242,6 +248,20 @@ function showSummary() {
 			: summary.saved
 				? `${summary.personal_best ? `<p class="streak-pop text-yellow-400 text-sm font-semibold mb-1 flex items-center justify-center gap-1.5"><span class="material-symbols-outlined text-base leading-none" style="font-variation-settings:'FILL' 1">trending_up</span>New personal best! Up from ${summary.previous_best.toLocaleString()}</p>` : ""}<p class="text-green-400 text-sm">Score saved to the leaderboard.</p>`
 				: `<p class="text-zinc-500 text-sm"><a href="${escHtml(loginUrl("/play"))}" class="text-blue-400 hover:underline">Log in</a> before you play to save your scores to the leaderboard.</p>`;
+}
+
+/** Copies the finished game to share: a square per round and the total, nothing that names a location. */
+async function shareSummary() {
+	if (!summary) return;
+	const square = (score) => (score >= 4000 ? "🟩" : score >= 2000 ? "🟨" : score > 0 ? "🟧" : "⬜");
+	const lines = [
+		`Dovedale GeoGuesser · Solo, ${rounds.length} round${rounds.length === 1 ? "" : "s"}`,
+		`${rounds.map((r) => square(r.score)).join("")} ${summary.total_score.toLocaleString()} of ${summary.max_possible.toLocaleString()}`,
+		summary.personal_best ? "New personal best" : "",
+		`${location.origin}/play`,
+	].filter(Boolean);
+	if (await copyText(lines.join("\n"))) showToast("Result copied. Paste it anywhere.", "success");
+	else showToast("Couldn't copy the result.", "error");
 }
 
 function showReplay() {

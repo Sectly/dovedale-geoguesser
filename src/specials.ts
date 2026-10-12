@@ -3,16 +3,14 @@ import { hasRole } from "./auth/guards";
 import type { RoundRules } from "./game/round";
 
 /**
- * The Specials hub: side modes, mini-games, experiments and limited-time events.
- * Everything in it needs a login. To add something, add an entry to SPECIALS and
- * either point `href` at its page or, for a twist on solo, add its rules to
- * SPECIAL_MODES and link to /play?special=<id>.
+ * The Specials hub. To add one: add it to SPECIALS and point `href` at its page,
+ * or add rules to SPECIAL_MODES and link to /play?special=<id>.
  */
 
 export type SpecialKind = "mode" | "minigame" | "experiment" | "event";
 
 /** How a solo-style special changes the screenshot. Drawn by public/js/photo-effects.js. */
-export type PhotoEffect = "torch" | "snow";
+export type PhotoEffect = "torch" | "snow" | "flash";
 
 export type SeasonTheme = "newyear" | "valentines" | "easter" | "halloween" | "bonfire" | "christmas";
 
@@ -29,18 +27,23 @@ export type Special = {
 	endsAt?: string;
 	/** A window that comes round every year, as "MM-DD" (inclusive). May run over New Year. */
 	season?: { from: string; to: string };
-	/** While this special is running, the homepage is dressed for the occasion. */
+	/** The homepage theme shown while this special is running. */
 	theme?: SeasonTheme;
 	/** Only staff see it: for trying things out before everyone gets them. */
 	staffOnly?: boolean;
 	effect?: PhotoEffect;
+	/** For the "flash" effect: how long the screenshot shows before it is covered. */
+	flashSeconds?: number;
 };
+
+/** Flash: seconds to look at the screenshot, then seconds to place a pin from memory. */
+const FLASH = { look: 2, guess: 10 };
 
 export const SPECIALS: Special[] = [
 	{
 		id: "teams",
 		title: "Team Duels",
-		blurb: "Two against two. You see your teammate's pin as they place it, and each round your team scores its best guess.",
+		blurb: "Two against two. Each round your team scores its best guess.",
 		icon: "groups",
 		kind: "mode",
 		href: "/specials/teams",
@@ -48,7 +51,7 @@ export const SPECIALS: Special[] = [
 	{
 		id: "night-shift",
 		title: "Night Shift",
-		blurb: "The lights are out. All you have is a torch: sweep it over the screenshot and work out where you are.",
+		blurb: "The lights are out. Find where you are by torchlight.",
 		icon: "flashlight_on",
 		kind: "event",
 		href: "/play?special=night-shift",
@@ -59,7 +62,7 @@ export const SPECIALS: Special[] = [
 	{
 		id: "snowed-in",
 		title: "Snowed In",
-		blurb: "The screenshot is buried in snow. Wipe it away to see what is underneath, but you can only clear so much.",
+		blurb: "The screenshot is buried in snow, and you can only clear so much.",
 		icon: "ac_unit",
 		kind: "event",
 		href: "/play?special=snowed-in",
@@ -74,6 +77,16 @@ export const SPECIALS: Special[] = [
 		icon: "bolt",
 		kind: "experiment",
 		href: "/play?special=blitz",
+	},
+	{
+		id: "flash",
+		title: "Flash",
+		blurb: `${FLASH.look} seconds to look, ${FLASH.guess} to guess from memory. Three rounds, no hints.`,
+		icon: "photo_camera",
+		kind: "experiment",
+		href: "/play?special=flash",
+		effect: "flash",
+		flashSeconds: FLASH.look,
 	},
 	{
 		id: "memory",
@@ -103,6 +116,7 @@ const NO_HINTS = (timeLimit: number, maxTimeBonus = 0): RoundRules => ({
 /** Solo with different rules. Scores from these never reach the leaderboard. */
 export const SPECIAL_MODES: Record<string, { rounds: number; rules: RoundRules }> = {
 	blitz: { rounds: 5, rules: NO_HINTS(15, 1000) },
+	flash: { rounds: 3, rules: NO_HINTS(FLASH.look + FLASH.guess) },
 	"night-shift": { rounds: 5, rules: NO_HINTS(75) },
 	"snowed-in": { rounds: 5, rules: NO_HINTS(75) },
 };
@@ -120,7 +134,7 @@ function windowOf(special: Special, now: number): { start: number | null; end: n
 	const year = new Date(now).getUTCFullYear();
 	const on = (y: number, monthDay: string) => Date.parse(`${y}-${monthDay}T00:00:00Z`);
 	const overNewYear = special.season.to < special.season.from;
-	// The season that started last year (if it runs over New Year), this year's, then next year's.
+	/** The season that started last year (if it runs over New Year), this year's, then next year's. */
 	for (const y of [year - 1, year, year + 1]) {
 		const start = on(y, special.season.from);
 		const end = on(overNewYear ? y + 1 : y, special.season.to) + DAY_MS;
@@ -131,10 +145,7 @@ function windowOf(special: Special, now: number): { start: number | null; end: n
 
 type Listed = Special & { status: "live" | "upcoming"; preview: boolean };
 
-/**
- * What this user can see right now: live entries first, then what is coming. Staff may
- * open an upcoming special early (`preview`) to check it before players get it.
- */
+/** What this user can see now: live first, then upcoming. Staff may `preview` an upcoming special. */
 export function specialsFor(user: User, now = Date.now()): Listed[] {
 	const listed: Listed[] = [];
 	for (const special of SPECIALS) {
@@ -163,11 +174,7 @@ type SeasonWindow =
 	/** Days relative to Easter Sunday, which moves every year. */
 	| { easter: [from: number, to: number] };
 
-/**
- * Times of year the homepage dresses up for. They need no special of their own: where a
- * special shares the theme and is running, the homepage points at it as well. Earlier
- * entries win when two overlap (New Year falls inside the Christmas season).
- */
+/** Times of year with a homepage theme. Earlier entries win when two overlap. */
 export const SEASONS: { theme: SeasonTheme; splash: string; when: SeasonWindow }[] = [
 	{ theme: "newyear", splash: "Happy New Year!", when: { from: "12-31", to: "01-02" } },
 	{ theme: "valentines", splash: "Happy Valentine's Day!", when: { from: "02-13", to: "02-15" } },
@@ -204,11 +211,7 @@ function inSeason(when: SeasonWindow, now: number): boolean {
 	return start !== null && end !== null && now >= start && now < end;
 }
 
-/**
- * What the homepage should wear right now, if anything, and the seasonal special to
- * point at when one is running. Entirely by the calendar: nothing has to be switched on.
- * `preview` names a theme to show regardless of the date, for checking how it looks.
- */
+/** The homepage's seasonal theme now, if any, and the special to point at. `preview` forces a theme. */
 export function currentSeason(now = Date.now(), preview?: string) {
 	const season = SEASONS.find((s) => (preview ? s.theme === preview : inSeason(s.when, now)));
 	if (!season) return null;

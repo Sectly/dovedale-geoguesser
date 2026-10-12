@@ -1,7 +1,4 @@
-/**
- * SVG templates for the 1200x630 share images, in the site's Material dark style:
- * flat surfaces, one accent colour, no gradients or glows.
- */
+/** SVG templates for the 1200x630 share images. */
 
 const SURFACE = "#121214";
 const CARD = "#1e1e22";

@@ -11,9 +11,8 @@ import { requireReason } from "../../moderation";
 import { notifyUser } from "../../notifications";
 
 /**
- * Routes mounted at /api/admin/scores: an operator's view of one player's scores and
- * history, with the means to correct or wipe them (cheated scores, test data, mistakes).
- * Every change needs a reason, is written to the audit log, and the player is told.
+ * Routes at /api/admin/scores: view, correct or wipe one player's scores.
+ * Every change needs a reason, is logged, and the player is told.
  */
 export const adminScoreRoutes = new Hono();
 
@@ -174,10 +173,7 @@ adminScoreRoutes.delete("/:userId/daily/:id", async (c) => {
 	return c.json({ success: true });
 });
 
-/**
- * Voids a duel: the whole game goes, for both players, so nobody keeps a win or a loss
- * from a game that should not count.
- */
+/** Voids a duel for both players. */
 adminScoreRoutes.delete("/:userId/duels/:id", async (c) => {
 	const actor = requireStaff(c, "operator");
 	const user = target(c);
@@ -190,7 +186,7 @@ adminScoreRoutes.delete("/:userId/duels/:id", async (c) => {
 			)
 			.get(idParam(c), user.id) ?? fail(404, "Duel not found, or it is still being played");
 	db.transaction(() => {
-		// Both players get back whatever rating the duel moved.
+		/** Both players get back whatever rating the duel moved. */
 		unrateDuel(game.id);
 		db.run("DELETE FROM duel_games WHERE id = ?", [game.id]);
 	})();
@@ -296,14 +292,14 @@ adminScoreRoutes.post("/:userId/reset", async (c) => {
 			removed.push(`${db.run("DELETE FROM daily_scores WHERE user_id = ?", [user.id]).changes} daily scores`);
 		}
 		if (wants("duels")) {
-			// Finished and abandoned games only: one being played right now is left to end by itself.
+			/** Finished and abandoned games only: one being played right now is left to end by itself. */
 			const voided = db.run(
 				`DELETE FROM duel_games WHERE status IN ('finished', 'abandoned')
 					AND id IN (SELECT game_id FROM duel_participants WHERE user_id = ?)`,
 				[user.id]
 			).changes;
 			removed.push(`${voided} duels voided`);
-			// With no duels left there is nothing for a rating to rest on.
+			/** With no duels left there is nothing for a rating to rest on. */
 			resetRating(user.id);
 			removed.push("duel rating reset");
 		}

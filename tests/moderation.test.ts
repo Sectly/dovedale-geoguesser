@@ -106,7 +106,7 @@ describe("ban evasion", () => {
 		expect(flag).toMatchObject({ banned_id: banned.id, signal: "device" });
 		expect((await call("/api/attention", { as: operator() })).data.staff.users).toBeGreaterThan(0);
 
-		// Staff decide it is a sibling: the flag goes away and stays away.
+		/** Staff decide it is a sibling: the flag goes away and stays away. */
 		expect((await post(`/api/admin/users/evasion/${flag.id}/dismiss`, operator())).status).toBe(200);
 		await seenOn(second, hex("a1"), hex("b1"));
 		expect((await flags()).some((f) => f.user_id === second.id)).toBe(false);
@@ -158,6 +158,8 @@ describe("error handling", () => {
 		throw new Error("secret internal detail");
 	});
 	broken.get("/api/refused", () => fail(403, "Not for you"));
+	broken.get("/refused", () => fail(403, "Not for you"));
+	broken.get("/gone", () => fail(404, "No such thing"));
 	broken.onError(handleError);
 	const get = (path: string, accept: string) =>
 		broken.fetch(new Request(`http://localhost${path}`, { headers: { Accept: accept } }));
@@ -168,8 +170,21 @@ describe("error handling", () => {
 		expect(res.status).toBe(500);
 		expect(res.headers.get("Content-Type")).toContain("text/html");
 		expect(html).toContain("Something went wrong");
+		expect(html).toContain('data-status="500"');
 		expect(html).toContain(`quote reference ${res.headers.get("X-Error-Ref")}`);
 		expect(html).not.toContain("secret internal detail");
+	});
+
+	test("a refusal on a page keeps its status and gets the page for it", async () => {
+		const refused = await get("/refused", "text/html");
+		const html = await refused.text();
+		expect(refused.status).toBe(403);
+		expect(html).toContain('data-status="403"');
+		expect(html).toContain("Not for you");
+
+		const gone = await get("/gone", "text/html");
+		expect(gone.status).toBe(404);
+		expect(await gone.text()).toContain("Page not found");
 	});
 
 	test("a crashing API call answers in plain text", async () => {
@@ -186,5 +201,31 @@ describe("error handling", () => {
 		expect(res.status).toBe(400);
 		expect(res.data).toContain("<!doctype html>");
 		expect(res.data).toContain("Login didn");
+	});
+
+	test("a login can only be finished by the browser that started it", async () => {
+		const { createAuthUrl } = await import("../src/auth/discord");
+		const { state } = createAuthUrl();
+		/** The right state, but arriving in a browser that never asked for it. */
+		const res = await call(`/api/auth/callback?code=abc&state=${state}`, { headers: { Accept: "text/html" } });
+		expect(res.status).toBe(400);
+		expect(res.data).toContain("Login link expired");
+	});
+
+	test("a request from another site cannot change anything", async () => {
+		const user = createUser();
+		const cross = await call("/api/settings", {
+			as: user,
+			json: { prefs: { sounds: false } },
+			headers: { "Sec-Fetch-Site": "cross-site" },
+		});
+		expect(cross.status).toBe(403);
+		const same = await call("/api/settings", {
+			as: user,
+			json: { prefs: { sounds: false } },
+			headers: { "Sec-Fetch-Site": "same-origin" },
+		});
+		expect(same.status).toBe(200);
+		expect((await call("/api/status", { headers: { "Sec-Fetch-Site": "cross-site" } })).status).toBe(200);
 	});
 });

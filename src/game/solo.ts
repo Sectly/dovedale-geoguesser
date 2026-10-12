@@ -5,14 +5,14 @@ import { db, type Location } from "../db";
 import { DATA_DIR, GAME } from "../config";
 import { fail } from "../lib/http";
 import { checkRound, checkSoloGame, checkStreak } from "../achievements";
+import { reviewGuess } from "../fairplay";
 import { pickLocations, type Difficulty } from "./locations";
 import { Round, SOLO_RULES, outcomeJson, recordOutcome, type Guess, type RoundOutcome, type RoundRules } from "./round";
 import { recordPlay, type Streak } from "./streaks";
 
 /**
- * Solo games live in memory and are scored entirely on the server, so the answer
- * never reaches the browser before the guess does. Anonymous games work the same
- * way; they just are not saved to the leaderboard.
+ * Solo games live in memory and are scored on the server, so the answer never reaches the browser first.
+ * Anonymous games are not saved.
  */
 
 type SoloGame = {
@@ -39,6 +39,13 @@ export function pruneSoloGames() {
 	const cutoff = Date.now() - IDLE_TTL_MS;
 	for (const [id, game] of games) {
 		if (game.touchedAt < cutoff) games.delete(id);
+	}
+}
+
+/** Ends every game a player has open without saving it, for when their account is deleted. */
+export function dropSoloGames(userId: number) {
+	for (const [id, game] of games) {
+		if (game.userId === userId) games.delete(id);
 	}
 }
 
@@ -125,10 +132,11 @@ export function submitSoloGuess(id: string, userId: number | null, guess: Guess 
 	const outcome = round.score(guess);
 	game.outcomes.push(outcome);
 	game.round = null;
-	// Specials change the picture or the clock, so they say nothing fair about a location or a player.
+	/** Specials change the picture or the clock, so they say nothing fair about a location or a player. */
 	if (!game.special) {
 		recordOutcome(round.location, outcome);
 		checkRound(game.userId, outcome);
+		reviewGuess(game.userId, "solo", round.location.id, outcome);
 	}
 
 	const finished = game.outcomes.length >= game.locations.length;
@@ -160,10 +168,7 @@ type SavedGame = Omit<SoloGame, "locations" | "round"> & {
 	round: { elapsedMs: number | null; hintsRevealed: number } | null;
 };
 
-/**
- * Writes every game in progress to disk and empties the list, so nothing changes after
- * the snapshot. Called as the server stops; `restoreSoloGames` reads it back on the way up.
- */
+/** Writes every game in progress to disk and empties the list. `restoreSoloGames` reads it back. */
 export function saveSoloGames(): number {
 	const now = Date.now();
 	const saved: SavedGame[] = [...games.values()].map(({ locations, round, ...game }) => ({
@@ -196,7 +201,7 @@ export function restoreSoloGames(): number {
 	for (const { locationIds, round, ...game } of saved) {
 		if (now - game.touchedAt > IDLE_TTL_MS) continue;
 		const locations = locationIds.map((id) => findLocation.get(id));
-		// A location removed in the meantime cannot be played; the game is dropped.
+		/** A location removed in the meantime cannot be played; the game is dropped. */
 		if (locations.some((l) => !l)) continue;
 		const restoredGame: SoloGame = { ...game, locations: locations as Location[], round: null, touchedAt: now };
 		if (round) {
