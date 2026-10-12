@@ -9,11 +9,8 @@ import { pickLocations } from "./locations";
 import { Round, type Guess, type RoundOutcome, type RoundRules } from "./round";
 
 /**
- * Team duels (a Specials mode): two teams of up to two guess the same locations and
- * each round a team scores its best guess. Teammates see each other's pin as it moves.
- *
- * Rooms live in memory on a server-side clock and browsers poll for state, so a player
- * who drops out briefly just carries on. Nothing here reaches the leaderboards.
+ * Team duels (Specials): two teams of up to two; a team scores its best guess each round.
+ * Rooms live in memory and browsers poll. Never on the leaderboards.
  */
 
 export type TeamId = "a" | "b";
@@ -88,7 +85,6 @@ export function teamRoomCount(): number {
 	return rooms.size;
 }
 
-/** Team games being played right now. */
 export function teamGamesInProgress(): number {
 	return [...rooms.values()].filter((room) => room.status === "playing").length;
 }
@@ -177,7 +173,7 @@ export function leaveTeamRoom(code: string, user: User) {
 	const room = rooms.get(code.toUpperCase());
 	if (!room?.members.has(user.id)) return;
 	if (room.status === "playing") {
-		// Their team plays on without them; their seat stays so the scoreboard still makes sense.
+		/** Their team plays on without them; their seat stays so the scoreboard still makes sense. */
 		room.members.get(user.id)!.seenAt = 0;
 	} else {
 		room.members.delete(user.id);
@@ -194,7 +190,7 @@ function startRound(room: TeamRoom, now: number) {
 		m.pin = null;
 		m.outcome = null;
 	}
-	// The clock starts after the "get ready" count, while browsers preload the screenshot.
+	/** The clock starts after the "get ready" count, while browsers preload the screenshot. */
 	room.round = new Round(room.locations[room.roundNumber - 1], TEAM_RULES, now + READY_SECONDS * 1000);
 	room.phase = "ready";
 	room.phaseEndsAt = now + READY_SECONDS * 1000;
@@ -354,7 +350,7 @@ export function teamRoomState(code: string, user: User) {
 						starts_in: room.phase === "ready" ? Math.max(0, Math.ceil((room.phaseEndsAt - now) / 1000)) : 0,
 					}
 				: null,
-		// Only your own side's pins, so the other team learns nothing from them.
+		/** Only your own side's pins, so the other team learns nothing from them. */
 		team_pins: live
 			? [...room.members.values()]
 					.filter((m) => m.team === me.team && m.userId !== me.userId && m.pin)

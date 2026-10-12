@@ -14,21 +14,67 @@
     <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
     <link rel="stylesheet" href="/css/shared.css" />
+    <script src="/js/transitions.js"></script>
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col items-center justify-center px-6 text-center">
-    <div class="max-w-md w-full">
-      <div class="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-zinc-900 mb-6">
-        <span class="material-symbols-outlined text-5xl text-zinc-500" style="font-variation-settings: &quot;FILL&quot; 1">error</span>
+    <div class="err-page max-w-md w-full" data-status="500">
+      <div class="err-scene-box" aria-hidden="true">
+        <svg class="err-scene err-scene-500" viewBox="0 0 96 96">
+          <g class="srv-rack">
+            <g class="srv-top">
+              <rect x="16" y="14" width="64" height="20" rx="5" />
+              <circle class="srv-led" cx="27" cy="24" r="3" />
+              <path class="srv-vent" d="M44 24h26" />
+            </g>
+            <rect x="16" y="38" width="64" height="20" rx="5" />
+            <circle class="srv-led" cx="27" cy="48" r="3" />
+            <path class="srv-vent" d="M44 48h26" />
+            <rect x="16" y="62" width="64" height="20" rx="5" />
+            <circle class="srv-led" cx="27" cy="72" r="3" />
+            <path class="srv-vent" d="M44 72h26" />
+          </g>
+          <path class="srv-spark" d="M84 14l7-5M86 24h8M80 6l2-6" />
+        </svg>
+        <svg class="err-scene err-scene-400" viewBox="0 0 96 96">
+          <g class="doc">
+            <rect x="24" y="12" width="44" height="60" rx="6" />
+            <path class="doc-line" d="M34 28h24M34 38h24M34 48h12" />
+          </g>
+          <g class="doc-stamp">
+            <circle cx="62" cy="66" r="17" />
+            <path d="M55 59l14 14M69 59 55 73" />
+          </g>
+        </svg>
+        <svg class="err-scene err-scene-403" viewBox="0 0 96 96">
+          <g class="lock">
+            <path class="lock-shackle" d="M34 46V32a14 14 0 0 1 28 0v14" />
+            <rect x="24" y="44" width="48" height="38" rx="8" />
+            <circle class="lock-hole" cx="48" cy="63" r="6" />
+          </g>
+        </svg>
+        <svg class="err-scene err-scene-429" viewBox="0 0 96 96">
+          <path class="gauge-track" d="M18 66a30 30 0 0 1 60 0" />
+          <path class="gauge-red" d="M69.2 44.8A30 30 0 0 1 78 66" />
+          <path class="gauge-needle" d="M48 66V42" />
+          <circle class="gauge-hub" cx="48" cy="66" r="5" />
+        </svg>
+        <svg class="err-scene err-scene-503" viewBox="0 0 96 96">
+          <rect class="sig-post" x="44" y="62" width="8" height="30" />
+          <rect x="30" y="6" width="36" height="60" rx="12" />
+          <circle class="sig-glow" cx="48" cy="24" r="10" />
+          <circle class="sig-red" cx="48" cy="24" r="9" />
+          <circle class="sig-green" cx="48" cy="48" r="9" />
+        </svg>
       </div>
-      <div class="text-7xl font-bold font-mono text-blue-500 mb-3" id="err-code">500</div>
-      <h1 class="text-2xl font-bold mb-2" id="err-title">Something went wrong</h1>
-      <p class="text-zinc-400 text-sm mb-2" id="err-message">That one is on us, not you. Try again in a moment.</p>
-      <p class="text-zinc-600 text-xs mb-8" id="err-help">
+      <div class="err-late text-7xl font-bold font-mono text-blue-500 mb-3" style="--i: 0" id="err-code">500</div>
+      <h1 class="err-late text-2xl font-bold mb-2" style="--i: 1" id="err-title">Something went wrong</h1>
+      <p class="err-late text-zinc-400 text-sm mb-2" style="--i: 2" id="err-message">That one is on us, not you. Try again in a moment.</p>
+      <p class="err-late text-zinc-600 text-xs mb-8" style="--i: 3" id="err-help">
         If it keeps happening, tell us in a <a href="/settings?ticket=other#support" class="underline hover:text-zinc-400">support ticket</a
         ><span id="err-ref"></span>.
       </p>
-      <div class="flex gap-3 justify-center flex-wrap">
-        <button onclick="location.reload()" class="m-btn m-btn-filled"><span class="material-symbols-outlined">refresh</span>Try again</button>
+      <div class="err-late flex gap-3 justify-center flex-wrap" style="--i: 4">
+        <button onclick="location.reload()" class="m-btn m-btn-filled"><span class="err-retry material-symbols-outlined">refresh</span>Try again</button>
         <a href="/" class="m-btn m-btn-tonal"><span class="material-symbols-outlined">home</span>Return home</a>
       </div>
     </div>

@@ -32,6 +32,15 @@ function closeListDialog() {
 	show("list-dialog", false);
 }
 
+/** The submit page with a denied submission's label, pin and hints filled back in. The screenshot is chosen again. */
+function resendUrl(sub) {
+	const params = new URLSearchParams({ label: sub.label || "", x: sub.world_x, y: sub.world_y });
+	try {
+		for (const hint of JSON.parse(sub.hints || "[]")) params.append("hint", hint);
+	} catch {}
+	return `/submit?${params}`;
+}
+
 async function openMySubmissions() {
 	openListDialog("submissions", "My submissions");
 	const body = el("list-dialog-body");
@@ -59,6 +68,7 @@ async function openMySubmissions() {
 						<div class="text-sm font-medium truncate">${escHtml(sub.label || "No label")}</div>
 						<div class="text-xs text-zinc-500">SUB-${String(sub.id).padStart(4, "0")} · ${new Date(sub.created_at * 1000).toLocaleDateString()}</div>
 						${sub.status === "denied" && sub.deny_reason ? `<div class="text-xs text-red-300 mt-0.5 break-words">${linkRuleCodes(escHtml(sub.deny_reason))}</div>` : ""}
+						${sub.status === "denied" ? `<a href="${escHtml(resendUrl(sub))}" class="text-xs text-blue-400 hover:underline">Fix and send again</a>` : ""}
 					</div>
 					<span class="text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${tone[sub.status] || "bg-zinc-700 text-zinc-400"}">${escHtml(sub.status)}</span>
 				</div>`
@@ -96,7 +106,7 @@ async function loadModerationHistory() {
 			.map((a) => {
 				const [icon, tone] = STYLE[a.type] || ["gavel", "text-zinc-400"];
 				const [statusLabel, statusTone] = STATUS[a.status];
-				// A warning has no end date, so "active" would only read as alarming.
+				/** A warning has no end date, so "active" would only read as alarming. */
 				const badge =
 					a.type === "warning" && a.status === "active"
 						? ""
@@ -175,22 +185,50 @@ function settingRow(title, description, toggle) {
 /* ---- Preferences ---- */
 
 const NOTIFY_OPTIONS = [
-	["submissions", "Submissions", "When a location you submitted is approved or denied"],
-	["suggestions", "Suggestions", "When a change you suggested is accepted or declined"],
-	["tickets", "Tickets", "When staff reply to or close one of your tickets"],
-	["reminders", "Streak reminders", "An evening nudge when your streak is about to end"],
-	["achievements", "Achievements", "When you unlock an achievement"],
+	["submissions", "Submissions", "When yours is approved or denied"],
+	["suggestions", "Suggestions", "When yours is accepted or declined"],
+	["tickets", "Tickets", "When staff reply or close one"],
+	["reminders", "Streak reminders", "When your streak is about to end"],
+	["achievements", "Achievements", "When you unlock one"],
 ];
+
+/** One-press choices for the toggles below: the label, then which of them it switches on. */
+const NOTIFY_PRESETS = {
+	all: ["Everything", NOTIFY_OPTIONS.map(([key]) => key)],
+	essential: ["Just replies", ["submissions", "suggestions", "tickets"]],
+	none: ["None", []],
+};
+
+async function setNotifyPreset(preset) {
+	const on = NOTIFY_PRESETS[preset][1];
+	try {
+		const { prefs } = await api("/api/settings", {
+			json: { prefs: { notify: Object.fromEntries(NOTIFY_OPTIONS.map(([key]) => [key, on.includes(key)])) } },
+		});
+		currentUser.prefs = prefs;
+		el("preferences-body").innerHTML = preferencesHtml();
+	} catch (err) {
+		showToast(err.message, "error");
+	}
+}
 
 function preferencesHtml() {
 	const prefs = currentUser.prefs;
 	const desktopBlocked = "Notification" in window && Notification.permission === "denied";
 	return `
 		<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-1">General</div>
-		${settingRow("Sound effects", "Short sounds for pins, results, countdowns and new notifications", toggleHtml(prefs.sounds, "setPref('sounds', " + !prefs.sounds + ")", "Sound effects"))}
+		${settingRow("Sound effects", "For pins, results, countdowns and notifications", toggleHtml(prefs.sounds, "setPref('sounds', " + !prefs.sounds + ")", "Sound effects"))}
 		${settingRow("Private profile", "Only you and staff can view your profile page. Your name still appears on leaderboards", toggleHtml(!!currentUser.profile_private, "togglePrivacy()", "Private profile"))}
 
-		<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-5 mb-1">Notify me about</div>
+		<div class="flex items-center gap-1.5 flex-wrap mt-5 mb-1">
+			<span class="text-xs text-zinc-500 uppercase tracking-wider font-medium mr-auto">Notify me about</span>
+			${Object.entries(NOTIFY_PRESETS)
+				.map(
+					([key, [label, on]]) =>
+						`<button onclick="setNotifyPreset('${key}')" class="m-chip" aria-pressed="${NOTIFY_OPTIONS.every(([option]) => !!prefs.notify[option] === on.includes(option))}">${label}</button>`
+				)
+				.join("")}
+		</div>
 		${NOTIFY_OPTIONS.map(([key, title, description]) =>
 			settingRow(
 				title,
@@ -198,15 +236,15 @@ function preferencesHtml() {
 				toggleHtml(prefs.notify[key], `setPref('notify.${key}', ${!prefs.notify[key]})`, title)
 			)
 		).join("")}
-		${settingRow("Moderation and announcements", "Warnings, limits and bans on your account, and important site news. Always sent.", '<span class="text-xs text-zinc-500 flex-shrink-0">Always on</span>')}
+		${settingRow("Moderation and announcements", "Warnings, limits and bans on your account, and site news", '<span class="text-xs text-zinc-500 flex-shrink-0">Always on</span>')}
 
 		<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-5 mb-1">How</div>
-		${settingRow("In-site toasts", "A small pop-up in the corner of the page when something new arrives", toggleHtml(prefs.toasts, "setPref('toasts', " + !prefs.toasts + ")", "In-site toasts"))}
+		${settingRow("In-site toasts", "A pop-up in the corner of the page", toggleHtml(prefs.toasts, "setPref('toasts', " + !prefs.toasts + ")", "In-site toasts"))}
 		${settingRow(
 			"Desktop notifications",
 			desktopBlocked
-				? "Blocked in your browser. Allow notifications for this site in your browser settings first."
-				: "A notification from your browser, even when the site is closed (where supported)",
+				? "Blocked. Allow notifications for this site in your browser settings"
+				: "From your browser, even when the site is closed",
 			"Notification" in window
 				? toggleHtml(
 						prefs.desktop && !desktopBlocked,
@@ -220,7 +258,7 @@ function preferencesHtml() {
 				? `<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-5 mb-1">Staff</div>` +
 					settingRow(
 						"Review queue badges",
-						"Show how many items are waiting for review on the staff panel button and in its sidebar",
+						"Counts on the staff panel button and sidebar",
 						toggleHtml(
 							prefs.staff_badges,
 							"setPref('staff_badges', " + !prefs.staff_badges + ")",
@@ -229,7 +267,7 @@ function preferencesHtml() {
 					) +
 					settingRow(
 						"Review queue alerts",
-						"A pop-up when something new arrives for review. Never shown mid-round.",
+						"A pop-up for new items, never mid-round",
 						toggleHtml(
 							prefs.staff_alerts,
 							"setPref('staff_alerts', " + !prefs.staff_alerts + ")",
@@ -296,8 +334,11 @@ async function loadNotifications() {
 	const area = el("notifications-area");
 	if (!area) return;
 	try {
-		const { notifications, unread } = await api("/api/notifications");
+		const { notifications, unread, total } = await api("/api/notifications");
 		show("notifications-clear", notifications.length > 0);
+		resetClearButton();
+		el("notifications-note").textContent =
+			total > notifications.length ? `Showing the newest ${notifications.length} of ${total}. ` : "";
 		if (!notifications.length) {
 			area.innerHTML = `<div class="text-center py-6">
 				<span class="material-symbols-outlined text-3xl text-zinc-700">notifications_off</span>
@@ -318,14 +359,29 @@ async function loadNotifications() {
 				</a>`;
 			})
 			.join("");
-		// Having the inbox on screen counts as reading it, so the badges clear.
+		/** Having the inbox on screen counts as reading it, so the badges clear. */
 		if (unread > 0) refreshAttention(await api("/api/notifications/read", { method: "POST" }));
 	} catch (err) {
 		area.innerHTML = `<div class="text-red-400 text-sm">${escHtml(err.message)}</div>`;
 	}
 }
 
+let _clearArmed = null;
+
+function resetClearButton() {
+	clearTimeout(_clearArmed);
+	_clearArmed = null;
+	el("notifications-clear").textContent = "Clear all";
+}
+
+/** Deletes every notification. The first press only asks; the second does it. */
 async function clearNotifications() {
+	if (!_clearArmed) {
+		el("notifications-clear").textContent = "Delete them all? Press again";
+		_clearArmed = setTimeout(resetClearButton, 4000);
+		return;
+	}
+	resetClearButton();
 	try {
 		refreshAttention(await api("/api/notifications", { method: "DELETE" }));
 		loadNotifications();
@@ -363,8 +419,9 @@ function renderSettings() {
 		<div id="notifications-area" class="max-h-96 overflow-y-auto overflow-x-hidden pr-1 custom-scroll">
 			<div class="skeleton h-14 rounded-xl mb-2"></div><div class="skeleton h-14 rounded-xl"></div>
 		</div>
-		<div class="flex justify-end mt-3">
-			<button id="notifications-clear" onclick="clearNotifications()" class="hidden text-xs text-zinc-500 hover:text-zinc-300 transition">Clear all</button>
+		<div class="flex items-center justify-between gap-3 mt-3">
+			<p class="text-xs text-zinc-600"><span id="notifications-note"></span>Kept for 90 days.</p>
+			<button id="notifications-clear" onclick="clearNotifications()" class="hidden flex-shrink-0 text-xs text-zinc-500 hover:text-zinc-300 transition">Clear all</button>
 		</div>
 	`
 	)}
@@ -385,7 +442,7 @@ function renderSettings() {
 	${section(
 		"submissions",
 		`
-		<p class="text-zinc-400 text-sm mb-4">The locations you've submitted and how each review went. Denied ones are removed after 30 days.</p>
+		<p class="text-zinc-400 text-sm mb-4">Your submitted locations. Denied ones are removed after 30 days.</p>
 		<button onclick="openMySubmissions()" class="m-btn m-btn-tonal"><span class="material-symbols-outlined">photo_library</span>My submissions</button>
 	`
 	)}
@@ -393,7 +450,7 @@ function renderSettings() {
 	${section(
 		"moderation",
 		`
-		<p class="text-zinc-400 text-sm mb-4">Warnings, limits and bans issued by staff, each with the reason given.</p>
+		<p class="text-zinc-400 text-sm mb-4">Warnings, limits and bans, with the reason for each.</p>
 		<div id="mod-history-area"><div class="skeleton h-14 rounded-xl mb-2"></div><div class="skeleton h-14 rounded-xl mb-2"></div><div class="skeleton h-14 rounded-xl"></div></div>
 	`
 	)}
@@ -449,7 +506,7 @@ function renderSettings() {
 	const linkedTicket = Number(new URLSearchParams(location.search).get("open_ticket"));
 	if (linkedTicket) openMyTickets(linkedTicket);
 	loadNotifications();
-	// Links like /settings#moderation land on a section that did not exist until now.
+	/** Links like /settings#moderation land on a section that did not exist until now. */
 	if (location.hash) requestAnimationFrame(() => document.getElementById(location.hash.slice(1))?.scrollIntoView());
 
 	/** Pre-fill ticket form if arriving from a report link (e.g. ?ticket=report_location&loc=42) */
@@ -460,6 +517,7 @@ function renderSettings() {
 		if ([...picker.options].some((o) => o.value === preTicket)) {
 			openTicketInfoModal();
 			picker.value = preTicket;
+			onModalCategoryChange();
 			_ticketPrefillLoc = urlParams.get("loc");
 		}
 	}
@@ -522,7 +580,6 @@ async function openMyTickets(openId = null) {
 	} catch (err) {
 		el("list-dialog-body").innerHTML = `<div class="text-red-400 text-sm">${escHtml(err.message)}</div>`;
 	}
-	// While the list or a conversation is on screen, pick up new replies without a reload.
 	_stopTicketPolling?.();
 	_stopTicketPolling = pollWhile(
 		() => _listDialog === "tickets" || _viewingTicketId !== null,
@@ -583,9 +640,8 @@ function openTicketView(ticketId) {
 }
 
 /**
- * Draws the open conversation. The messages are redrawn freely, but the reply box
- * is only rebuilt when what the player is allowed to do changes, so a half-typed
- * reply survives new messages arriving.
+ * Draws the open conversation. The reply box is only rebuilt when the player's options change, so a half-typed reply
+ * survives.
  */
 function renderTicketView() {
 	const ticket = _myTickets.find((t) => t.id === _viewingTicketId);
@@ -631,7 +687,7 @@ function renderTicketView() {
 function closeTicketView() {
 	show("ticket-view-modal", false);
 	_viewingTicketId = null;
-	// Back to the list it was opened from, if that was closed in the meantime.
+	/** Back to the list it was opened from, if that was closed in the meantime. */
 	if (_listDialog !== "tickets") openMyTickets();
 }
 
@@ -681,6 +737,7 @@ fetch("/api/meta")
 				link.href = _repoUrl + "/issues/new";
 				link.textContent = "GitHub Issues";
 				row.classList.replace("hidden", "flex");
+				el("modal-github-button").href = _repoUrl + "/issues/new";
 			}
 		}
 	});
@@ -798,13 +855,12 @@ function fieldInputClass() {
 	return "m-field";
 }
 
+/** Draws the extra questions for a category. Answers are kept when the same category is drawn again. */
 function renderStructuredFields(category) {
-	const fields = STRUCTURED_FIELDS[category];
+	const fields = STRUCTURED_FIELDS[category] || [];
 	const container = el("ticket-structured-fields");
-	if (!fields || !fields.length) {
-		container.innerHTML = "";
-		return;
-	}
+	if (container.dataset.category === category) return;
+	container.dataset.category = category;
 	container.innerHTML = fields
 		.map((f) => {
 			const reqMark = f.required ? '<span class="text-red-400 ml-0.5">*</span>' : "";
@@ -830,116 +886,117 @@ const CATEGORY_SUBJECTS = {
 	account: "Account Issue",
 };
 
-function onCategoryChange() {
-	const cat = el("ticket-category").value;
-	const isGithub = cat === "bug_report" || cat === "feature_request";
-	el("ticket-github-notice").classList.toggle("hidden", !isGithub);
-	el("ticket-fields").classList.toggle("hidden", isGithub || !cat);
-	el("ticket-form-cancel-row").classList.toggle("hidden", !isGithub);
-	if (isGithub && _repoUrl) el("ticket-github-link").href = _repoUrl + "/issues/new";
-	if (!isGithub && cat) {
-		renderStructuredFields(cat);
-		const subjectEl = el("ticket-subject");
-		if (subjectEl && !subjectEl.value && CATEGORY_SUBJECTS[cat]) subjectEl.value = CATEGORY_SUBJECTS[cat];
-	}
-}
+/* ---- New ticket: step one picks the category, step two is the form ---- */
 
+/** Tracked on GitHub instead; the form is never opened for these. */
+const GITHUB_CATEGORIES = ["bug_report", "feature_request"];
+/** The category the form is open for, and its name as the picker shows it. */
+let _ticketCategory = "";
+let _ticketCategoryName = "";
+/** The subject the form filled in itself: a category change may replace it, never something typed. */
+let _autoSubject = "";
+/** True while step one is open from the form's "Change" button, with a draft waiting behind it. */
+let _changingCategory = false;
 /** Location id carried in by a "report this location" link, dropped into the form once it opens. */
 let _ticketPrefillLoc = null;
 
+function onModalCategoryChange() {
+	const category = el("modal-category").value;
+	const github = GITHUB_CATEGORIES.includes(category);
+	show("modal-github-notice", github);
+	el("modal-continue").disabled = !category || github;
+}
+
 function openTicketInfoModal() {
+	onModalCategoryChange();
 	el("ticket-info-modal").classList.remove("hidden");
 }
+
+/** Cancels step one. Reached from the form's "Change" button, it goes back to the draft untouched. */
 function closeTicketInfoModal() {
 	el("ticket-info-modal").classList.add("hidden");
 	el("modal-category").value = "";
+	if (!_changingCategory) return;
+	_changingCategory = false;
+	show("ticket-form-dialog");
 }
+
 function proceedToTicketForm() {
-	const modalCat = el("modal-category").value;
-	closeTicketInfoModal();
-	showTicketForm();
-	const catEl = el("ticket-category");
-	if (modalCat) {
-		catEl.value = modalCat;
-		onCategoryChange();
+	const picker = el("modal-category");
+	const category = picker.value;
+	if (!category || GITHUB_CATEGORIES.includes(category)) return;
+	_ticketCategory = category;
+	_ticketCategoryName = picker.selectedOptions[0].textContent;
+	_changingCategory = false;
+	el("ticket-info-modal").classList.add("hidden");
+	picker.value = "";
+
+	if (!el("ticket-form")) el("ticket-form-slot").innerHTML = TICKET_FORM_HTML;
+	el("ticket-category-name").textContent = _ticketCategoryName;
+	renderStructuredFields(category);
+	const subject = el("ticket-subject");
+	if (!subject.value || subject.value === _autoSubject) {
+		_autoSubject = CATEGORY_SUBJECTS[category] || "";
+		subject.value = _autoSubject;
 	}
-	if (_ticketPrefillLoc) {
-		const locField = el("sf_loc_id");
-		if (locField) locField.value = "LOC-" + String(parseInt(_ticketPrefillLoc)).padStart(4, "0");
-		_ticketPrefillLoc = null;
-	}
+	el("ticket-error").classList.add("hidden");
+	if (_ticketPrefillLoc && el("sf_loc_id"))
+		el("sf_loc_id").value = "LOC-" + String(parseInt(_ticketPrefillLoc)).padStart(4, "0");
+	_ticketPrefillLoc = null;
+	show("ticket-form-dialog");
 }
-/** The new-ticket form. It lives in its own dialog and is built once, on first use. */
+
+/** Back to step one with the current category selected. What has been typed stays in the form. */
+function changeTicketCategory() {
+	_changingCategory = true;
+	show("ticket-form-dialog", false);
+	el("modal-category").value = _ticketCategory;
+	openTicketInfoModal();
+}
+
 const TICKET_FORM_HTML = `
 		<div id="ticket-form" class="flex flex-col gap-3">
+			<div class="flex items-center gap-2 bg-zinc-800 rounded-xl pl-4 pr-2 py-2">
+				<span class="material-symbols-outlined text-lg text-zinc-500">label</span>
+				<span id="ticket-category-name" class="flex-1 min-w-0 truncate text-sm font-semibold"></span>
+				<button onclick="changeTicketCategory()" class="m-btn m-btn-text m-btn-sm">Change</button>
+			</div>
+			<div id="ticket-structured-fields" class="space-y-3 empty:hidden"></div>
 			<div>
-				<label class="m-label" for="ticket-category">Category</label>
-				<select id="ticket-category" onchange="onCategoryChange()"
-					class="m-field">
-					<option value="" disabled selected>Select a category...</option>
-					<option value="ban_appeal">Ban Appeal</option>
-					<option value="submission_appeal">Submission Denied Appeal</option>
-					<option value="report_user">Report a User</option>
-					<option value="report_location">Report a Location</option>
-					<option value="account">Account Issue</option>
-					<option value="other">Other</option>
-					<option value="bug_report">Bug / Technical Issue</option>
-					<option value="feature_request">Feature Request</option>
-				</select>
+				<label class="m-label" for="ticket-subject">Subject</label>
+				<input id="ticket-subject" type="text" minlength="5" maxlength="100" placeholder="A short summary"
+					class="m-field" />
 			</div>
-			<div id="ticket-github-notice" class="hidden bg-zinc-800 rounded-xl p-4 text-sm text-zinc-300">
-				<div class="flex items-start gap-2">
-					<span class="material-symbols-outlined text-zinc-500 flex-shrink-0 text-lg">bug_report</span>
-					<div>
-						<div class="font-semibold text-zinc-100 mb-1">Use GitHub Issues instead</div>
-						<p class="text-zinc-400 text-xs mb-3">Bugs and feature requests are tracked on GitHub, not in tickets.</p>
-						<a id="ticket-github-link" href="#" target="_blank" rel="noopener" class="m-btn m-btn-tonal m-btn-sm">Open GitHub Issues<span class="material-symbols-outlined">open_in_new</span></a>
-					</div>
+			<div>
+				<label class="m-label" for="ticket-message">Message</label>
+				<textarea id="ticket-message" rows="5" minlength="20" maxlength="2000" placeholder="What happened? Include dates, IDs and links where you can."
+					oninput="el('msg-counter').textContent=this.value.length+'/2000'"
+					class="m-field"></textarea>
+				<div class="flex justify-between mt-1">
+					<p class="text-zinc-600 text-xs">Minimum 20 characters. Links are allowed.</p>
+					<span id="msg-counter" class="text-zinc-600 text-xs">0/2000</span>
 				</div>
 			</div>
-			<div id="ticket-fields" class="hidden space-y-3">
-				<div id="ticket-structured-fields" class="space-y-3 empty:hidden"></div>
-				<div>
-					<label class="m-label" for="ticket-subject">Subject</label>
-					<input id="ticket-subject" type="text" minlength="5" maxlength="100" placeholder="A short summary"
-						class="m-field" />
-				</div>
-				<div>
-					<label class="m-label" for="ticket-message">Message</label>
-					<textarea id="ticket-message" rows="5" minlength="20" maxlength="2000" placeholder="What happened? Include dates, IDs and links where you can."
-						oninput="el('msg-counter').textContent=this.value.length+'/2000'"
-						class="m-field"></textarea>
-					<div class="flex justify-between mt-1">
-						<p class="text-zinc-600 text-xs">Minimum 20 characters. Links are allowed.</p>
-						<span id="msg-counter" class="text-zinc-600 text-xs">0/2000</span>
-					</div>
-				</div>
-				<p id="ticket-error" class="text-red-300 text-xs hidden"></p>
-				<div class="flex gap-2 justify-end">
-					<button onclick="hideTicketForm()" class="m-btn m-btn-text">Cancel</button>
-					<button onclick="submitTicket()" class="m-btn m-btn-filled">Send ticket</button>
-				</div>
-			</div>
-			<div id="ticket-form-cancel-row" class="hidden text-right">
-				<button onclick="hideTicketForm()" class="m-btn m-btn-text">Close</button>
+			<p id="ticket-error" class="text-red-300 text-xs hidden" role="alert"></p>
+			<div class="flex gap-2 justify-end">
+				<button onclick="hideTicketForm()" class="m-btn m-btn-text">Cancel</button>
+				<button id="ticket-send" onclick="submitTicket()" class="m-btn m-btn-filled">Send ticket</button>
 			</div>
 		</div>
 `;
 
-function showTicketForm() {
-	if (!el("ticket-form")) el("ticket-form-slot").innerHTML = TICKET_FORM_HTML;
-	show("ticket-form-dialog");
-}
+/** Closes the form and throws the draft away. */
 function hideTicketForm() {
 	show("ticket-form-dialog", false);
+	_ticketCategory = _ticketCategoryName = _autoSubject = "";
 	if (!el("ticket-form")) return;
-	el("ticket-github-notice").classList.add("hidden");
-	el("ticket-fields").classList.add("hidden");
-	el("ticket-form-cancel-row").classList.add("hidden");
-	el("ticket-category").value = "";
-	el("ticket-structured-fields").innerHTML = "";
-	if (el("ticket-subject")) el("ticket-subject").value = "";
-	if (el("ticket-message")) el("ticket-message").value = "";
+	const fields = el("ticket-structured-fields");
+	fields.innerHTML = "";
+	delete fields.dataset.category;
+	el("ticket-subject").value = "";
+	el("ticket-message").value = "";
+	el("msg-counter").textContent = "0/2000";
+	el("ticket-error").classList.add("hidden");
 }
 
 function collectStructuredFields(category) {
@@ -950,61 +1007,42 @@ function collectStructuredFields(category) {
 		const input = el(f.id);
 		if (!input) continue;
 		const val = input.value.trim();
-		if (f.required && (!val || val.startsWith("--"))) return null; // signals validation fail
-		if (val && !val.startsWith("--")) lines.push(`${f.label}\n${val}`);
+		if (f.required && !val) return null;
+		if (val) lines.push(`${f.label}\n${val}`);
 	}
 	return lines.join("\n\n");
 }
 
 async function submitTicket() {
-	const category = el("ticket-category").value;
-	const subject = el("ticket-subject")?.value.trim() ?? "";
-	const mainMessage = el("ticket-message")?.value.trim() ?? "";
+	const category = _ticketCategory;
+	const subject = el("ticket-subject").value.trim();
+	const mainMessage = el("ticket-message").value.trim();
 	const errEl = el("ticket-error");
+	const refuse = (why) => {
+		errEl.textContent = why;
+		errEl.classList.remove("hidden");
+	};
 	errEl.classList.add("hidden");
 
-	if (!category || category === "bug_report" || category === "feature_request") {
-		errEl.textContent = "Select a category.";
-		errEl.classList.remove("hidden");
-		return;
-	}
-	if (subject.length < 5) {
-		errEl.textContent = "Subject must be at least 5 characters.";
-		errEl.classList.remove("hidden");
-		return;
-	}
-	if (subject.length > 100) {
-		errEl.textContent = "Subject must be 100 characters or fewer.";
-		errEl.classList.remove("hidden");
-		return;
-	}
-	if (mainMessage.length < 20) {
-		errEl.textContent = "Details must be at least 20 characters.";
-		errEl.classList.remove("hidden");
-		return;
-	}
-
+	if (!category) return refuse("Choose a category first.");
+	if (subject.length < 5) return refuse("Subject must be at least 5 characters.");
+	if (subject.length > 100) return refuse("Subject must be 100 characters or fewer.");
+	if (mainMessage.length < 20) return refuse("The message must be at least 20 characters.");
 	const structuredPart = collectStructuredFields(category);
-	if (structuredPart === null) {
-		errEl.textContent = "Fill in all required fields.";
-		errEl.classList.remove("hidden");
-		return;
-	}
+	if (structuredPart === null) return refuse("Fill in all the fields marked with *.");
 
 	const message = structuredPart ? structuredPart + "\n\n---\n\n" + mainMessage : mainMessage;
-
+	/** Off while it sends, so a second press cannot open a second ticket. */
+	const send = el("ticket-send");
+	send.disabled = true;
 	try {
-		const r = await fetch("/api/support", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ subject, message, category }),
-		});
-		if (!r.ok) throw new Error(await r.text());
+		await api("/api/support", { json: { subject, message, category } });
 		hideTicketForm();
 		await openMyTickets();
 	} catch (err) {
-		errEl.textContent = err.message || "Failed to submit ticket.";
-		errEl.classList.remove("hidden");
+		refuse(err.message || "Couldn't send the ticket. Try again.");
+	} finally {
+		send.disabled = false;
 	}
 }
 
@@ -1030,7 +1068,7 @@ async function deleteAccount() {
 	const confirmEl = el("delete-confirm-row");
 	if (!confirmEl) return;
 	confirmEl.classList.remove("hidden");
-	confirmEl.scrollIntoView({ behavior: "smooth", block: "center" });
+	confirmEl.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
 }
 
 async function confirmDeleteAccount() {

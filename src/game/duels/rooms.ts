@@ -5,14 +5,13 @@ import { auditLog } from "../../lib/audit";
 import { pickLocations } from "../locations";
 import { DUEL_RULES, Round, outcomeJson, recordOutcome, type Guess, type RoundOutcome } from "../round";
 import { checkDuel, checkRound } from "../../achievements";
+import { reviewGuess } from "../../fairplay";
 import { features } from "../../system/features";
 import { rateDuel, type RatingChange } from "./rating";
 
 /**
- * A duel is the shared round engine played by two people at once: both guess the
- * same location, the round ends when both have guessed or the clock runs out, and
- * the higher total after the last round wins. Rooms live in memory; results are
- * written to the database as each round ends.
+ * A duel: two players guess the same locations; the higher total wins.
+ * Rooms live in memory; results are saved each round.
  */
 
 export type DuelPlayer = {
@@ -68,10 +67,7 @@ export type DuelRoom = {
 	history: Record<string, unknown>[];
 	rematchRequests: Set<number>;
 	rematchTimer: ReturnType<typeof setTimeout> | null;
-	/**
-	 * The running score across rematches between the same two players: wins by user id and
-	 * how many duels have been played. Carried into each rematch; gone once either leaves.
-	 */
+	/** The running score across rematches between the same two players. Gone once either leaves. */
 	series: { wins: Record<number, number>; games: number };
 	createdAt: number;
 };
@@ -185,10 +181,7 @@ export function roundStartMessage(room: DuelRoom) {
 	return { round: room.roundNumber, total_rounds: room.rounds, ...room.round.view() };
 }
 
-/**
- * Brings one connection fully up to date with a room: who is in it, and for a game
- * under way the round being played (or the result on screen) and whether it is paused.
- */
+/** Brings one connection up to date with its room: players, the current round or result, and whether it is paused. */
 export function sendSnapshot(room: DuelRoom, conn: WireConnection, viewerId: number | null, spectating = false) {
 	send(conn, "room_state", { ...roomState(room), spectating });
 	if (room.status !== "in_progress") return;
@@ -286,14 +279,11 @@ export function joinRoom(code: string, userId: number): JoinResult {
 function deleteWaitingRoom(room: DuelRoom) {
 	clearPhase(room);
 	duelRooms.delete(room.code);
-	// A game that never started leaves nothing worth keeping.
+	/** A game that never started leaves nothing worth keeping. */
 	db.run("DELETE FROM duel_games WHERE id = ? AND status = 'waiting'", [room.dbId]);
 }
 
-/**
- * Takes a player out of a room that has not started: frees their seat, stops any
- * countdown and tells whoever is left. An empty room is deleted.
- */
+/** Takes a player out of a room that has not started. An empty room is deleted. */
 export function leaveWaitingRoom(room: DuelRoom, userId: number) {
 	if (room.status !== "waiting") return;
 	cancelCountdown(room);
@@ -345,7 +335,7 @@ function startRound(room: DuelRoom) {
 	room.loaded = new Set();
 	room.awaitingLoad = true;
 	room.lastResult = null;
-	// The clock waits until both players have the screenshot, so a slow connection costs nobody time.
+	/** The clock waits until both players have the screenshot, so a slow connection costs nobody time. */
 	room.round = Round.loading(room.locations[room.roundNumber - 1], DUEL_RULES);
 	broadcast(room, "round_loading", roundStartMessage(room));
 	setPhase(room, GAME.loadingWindow, () => beginRound(room));
@@ -404,6 +394,7 @@ function endRound(room: DuelRoom) {
 		player.totalScore += outcome.score;
 		recordOutcome(round.location, outcome);
 		checkRound(player.userId, outcome);
+		reviewGuess(player.userId, "duel", round.location.id, outcome);
 		db.run(
 			`INSERT INTO duel_round_scores
 				(game_id, user_id, round_number, location_id, guessed_x, guessed_y, distance, time_taken, score)
@@ -507,7 +498,7 @@ function tookEveryRound(room: DuelRoom, userId: number): boolean {
 	});
 }
 
-/** Passes one player's reaction to everyone in the room, unless reactions are off or they just sent one. */
+/** Passes a reaction to the room, unless reactions are off or the player just sent one. */
 export function sendEmote(room: DuelRoom, userId: number, emote: unknown) {
 	if (!features().duel_emotes || room.status === "waiting") return;
 	if (typeof emote !== "string" || !GAME.duel.emotes.includes(emote)) return;
@@ -565,10 +556,7 @@ function pausedMessage(room: DuelRoom) {
 	};
 }
 
-/**
- * A player's connection dropped mid-duel. The game is put on hold (round clock
- * included) to give them a chance to come back; if they do not, they forfeit.
- */
+/** A player dropped mid-duel. The game pauses to let them return; if they do not, they forfeit. */
 export function playerDisconnected(room: DuelRoom, userId: number) {
 	const player = room.players.find((p) => p.userId === userId);
 	if (room.status !== "in_progress" || !player) return;
@@ -583,7 +571,7 @@ export function playerDisconnected(room: DuelRoom, userId: number) {
 			room.phase.remainingMs = Math.max(0, room.phase.dueAt - Date.now());
 		}
 	}
-	// Whether this is the first drop or one during the resume countdown, the wait starts over.
+	/** Whether this is the first drop or one during the resume countdown, the wait starts over. */
 	if (room.paused.timer) clearTimeout(room.paused.timer);
 	room.paused.resuming = false;
 	room.paused.timer = setTimeout(() => {
@@ -631,7 +619,7 @@ export function abandonDuel(room: DuelRoom, leaverId: number) {
 	const winner = stayed.length === 1 ? stayed[0] : null;
 
 	finish(room, winner?.userId ?? null);
-	// Walking out of a rated duel is a loss, or leaving would be the way to dodge one.
+	/** Walking out of a rated duel is a loss, or leaving would be the way to dodge one. */
 	const ratings = winner ? rate(room, winner.userId) : null;
 	auditLog(null, "duel_abandon", {
 		targetType: "duel",
@@ -667,7 +655,6 @@ export function activeDuelRooms(): number {
 	return [...duelRooms.values()].filter((room) => room.status !== "finished").length;
 }
 
-/** Duels being played right now. */
 export function duelsInProgress(): number {
 	return [...duelRooms.values()].filter((room) => room.status === "in_progress").length;
 }
@@ -677,10 +664,7 @@ export function broadcastToDuels(event: string, data: unknown) {
 	for (const room of duelRooms.values()) broadcast(room, event, data);
 }
 
-/**
- * Closes every room because the server is about to stop. A duel cut short this way is
- * recorded as abandoned, with no winner, so it costs nobody anything.
- */
+/** Closes every room before the server stops. Cut-short duels are recorded as abandoned, with no winner. */
 export function closeAllDuels(message: string) {
 	for (const room of [...duelRooms.values()]) {
 		clearPhase(room);

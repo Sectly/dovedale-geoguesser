@@ -1,163 +1,335 @@
-/** Staff panel: the location list, stats, and adding locations directly. */
+/** Staff panel: the location list and editor, the Stats tab and announcements. */
+
+let _locations = [];
+let _locationFilter = "all";
+let _locationSort = "newest";
+let _openLocation = null;
+let _locationUser = "";
+
+const LOCATION_FILTERS = {
+	all: ["All", () => true],
+	active: ["In play", (l) => l.is_active],
+	inactive: ["Out of play", (l) => !l.is_active],
+	easy: ["Easy", (l) => l.difficulty === "easy"],
+	medium: ["Medium", (l) => l.difficulty === "medium"],
+	hard: ["Hard", (l) => l.difficulty === "hard"],
+	ungraded: ["Ungraded", (l) => !l.difficulty],
+};
+const LOCATION_SORTS = {
+	newest: ["Newest first", (a, b) => b.created_at - a.created_at],
+	oldest: ["Oldest first", (a, b) => a.created_at - b.created_at],
+	played: ["Most guessed", (a, b) => b.plays - a.plays],
+	hardest: ["Lowest average", (a, b) => (a.avg_score ?? Infinity) - (b.avg_score ?? Infinity)],
+	easiest: ["Highest average", (a, b) => (b.avg_score ?? -1) - (a.avg_score ?? -1)],
+};
+const DIFFICULTY_TONE = { easy: "success", medium: "warn", hard: "danger" };
 
 async function loadLocations() {
 	try {
-		const r = await fetch("/api/admin/locations");
-		if (!r.ok) throw new Error();
-		renderLocations(await r.json());
-	} catch {
-		el("tab-content").innerHTML = '<div class="text-red-400">Failed to load locations.</div>';
+		_locations = await api("/api/admin/locations");
+		renderLocations();
+	} catch (err) {
+		el("tab-content").innerHTML = errorStateHtml(err.message || "Couldn't load the locations.", "loadLocations()");
 	}
 }
 
-function renderLocations(items) {
-	/** New locations go through the Submit page and the review queue, like everyone else's. */
-	const uploadBtn = `<a href="/submit" class="bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-xl text-sm font-semibold">+ Submit a Location</a>`;
-	el("tab-content").innerHTML = `
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="font-bold text-lg">Locations (${items.length})</h2>
-            ${uploadBtn}
-        </div>
-        ${panelSearchInput("Search location ID, label, filename, hints or status...")}
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="locations-list">
-            ${items
-				.map((loc) => {
-					let parsedHints = [];
-					try {
-						parsedHints = JSON.parse(loc.hints || "[]");
-					} catch {}
-					const hintsHtml = parsedHints
-						.map(
-							(h, i) => `
-                    <div class="flex items-center gap-1 mb-1">
-                        <input type="text" value="${escHtml(h)}" class="hint-input flex-1 bg-zinc-800 rounded px-2 py-1 text-xs focus:outline-none" data-idx="${i}" data-loc="${loc.id}" />
-                        <button onclick="removeHint(${loc.id},${i})" class="text-zinc-500 hover:text-red-400 transition text-xs px-1" aria-label="Remove hint"><span class="material-symbols-outlined text-sm leading-none">close</span></button>
-                    </div>`
+function locationHints(loc) {
+	try {
+		const hints = JSON.parse(loc.hints || "[]");
+		return Array.isArray(hints) ? hints : [];
+	} catch {
+		return [];
+	}
+}
+
+function hintRowHtml(text = "") {
+	return `<div class="flex items-center gap-1.5">
+		<input type="text" value="${escHtml(text)}" placeholder="A clue players can reveal" maxlength="200" class="hint-input m-field" />
+		<button onclick="this.parentElement.remove()" class="m-icon-btn" aria-label="Remove hint"><span class="material-symbols-outlined">close</span></button>
+	</div>`;
+}
+
+/** The editor under an open card. Helpers can open it to look and to see the map, but get no controls. */
+function locationEditorHtml(loc) {
+	const readOnly = isHelper();
+	return `<div class="border-t border-zinc-800 p-3 flex flex-col gap-3">
+		<div id="loc-map-${loc.id}" class="relative h-48 rounded-xl overflow-hidden bg-zinc-800"></div>
+		<div class="text-xs text-zinc-500 flex flex-wrap gap-x-4 gap-y-1">
+			<span>Pin <span class="text-zinc-300 font-mono">${Math.round(loc.world_x)}, ${Math.round(loc.world_y)}</span></span>
+			<span>Added <span class="text-zinc-300">${formatWhen(loc.created_at)}</span></span>
+			${loc.submitted_by ? `<span>By ${staffUserLink(loc.submitted_by, loc.submitted_by_username)}</span>` : ""}
+			${loc.approved_by_username ? `<span>Approved by <span class="text-zinc-300">@${escHtml(loc.approved_by_username)}</span></span>` : ""}
+		</div>
+		<div id="loc-breakdown-${loc.id}" class="flex flex-col gap-3">
+			<button onclick="showLocationBreakdown(${loc.id})" class="m-btn m-btn-tonal m-btn-sm self-start"><span class="material-symbols-outlined">query_stats</span>How it has played</button>
+		</div>
+		${
+			readOnly
+				? locationHints(loc).length
+					? `<div><div class="m-label">Hints</div><ol class="text-sm text-zinc-300 list-decimal pl-5">${locationHints(
+							loc
 						)
-						.join("");
-					const searchText = [
-						loc.id,
-						`LOC-${String(loc.id).padStart(4, "0")}`,
-						loc.label,
-						loc.image_path,
-						parsedHints.join(" "),
-						loc.world_x,
-						loc.world_y,
-						loc.is_active ? "active" : "inactive",
-						loc.submitted_by_username,
-						loc.submitted_by_display_name,
-					].join(" ");
-					return `
-                <div class="bg-zinc-900 rounded-2xl overflow-hidden" id="loc-${loc.id}" data-search="${escHtml(searchText)}">
-                    <img loading="lazy" src="/uploads/${escHtml(loc.image_path)}" alt="Location" class="submission-img" />
-                    <div class="p-3">
-                        <div class="flex items-start justify-between gap-2 mb-0.5">
-                            <div class="flex-1 flex items-center gap-1 min-w-0">
-                                <input type="text" value="${escHtml(loc.label || "")}" placeholder="No label" class="label-input flex-1 bg-transparent text-sm font-semibold focus:bg-zinc-800 focus:outline-none rounded px-1 -mx-1 min-w-0 truncate" data-loc="${loc.id}" onkeydown="if(event.key==='Enter')saveLabel(${loc.id})" />
-                                <button onclick="saveLabel(${loc.id})" class="text-xs text-zinc-500 hover:text-zinc-300 transition px-1 flex-shrink-0">Save</button>
-                            </div>
-                            <span class="text-xs font-mono text-zinc-600 flex-shrink-0">LOC-${String(loc.id).padStart(4, "0")}</span>
-                        </div>
-                        <div class="text-xs text-zinc-600 mb-2">${new Date(loc.created_at * 1000).toLocaleDateString()} · ${loc.is_active ? '<span class="text-green-400">Active</span>' : '<span class="text-zinc-500">Inactive</span>'}${loc.submitted_by ? ` · <span class="text-zinc-500">By: <span class="text-zinc-400">${escHtml(loc.submitted_by_display_name || loc.submitted_by_username || `#${loc.submitted_by}`)}</span></span>` : ""}${loc.approved_by ? ` · <span class="text-zinc-500">Approved by: <span class="text-zinc-400">${escHtml(loc.approved_by_display_name || loc.approved_by_username || `#${loc.approved_by}`)}</span></span>` : ""}</div>
-                        <div class="text-xs text-zinc-500 mb-2 flex items-center gap-2 flex-wrap">
-                            <span class="m-tag ${loc.difficulty === "hard" ? "danger" : loc.difficulty === "easy" ? "success" : loc.difficulty ? "warn" : ""}">${loc.difficulty ? loc.difficulty[0].toUpperCase() + loc.difficulty.slice(1) : "Ungraded"}</span>
-                            <span>${loc.plays ? `${loc.plays.toLocaleString()} guess${loc.plays === 1 ? "" : "es"}, avg ${Number(loc.avg_score).toLocaleString()} pts` : "No guesses counted yet"}</span>
-                            ${loc.plays ? `<button onclick="resetLocationStats(${loc.id})" class="underline hover:text-zinc-300 transition" title="Forget how players have done here, e.g. after fixing the pin or the screenshot">Reset</button>` : ""}
-                        </div>
-                        <div class="mb-2">
-                            <div class="text-xs text-zinc-500 mb-1">Hints</div>
-                            <div id="hints-${loc.id}">${hintsHtml}</div>
-                            <button onclick="addHintRow(${loc.id})" class="text-xs text-zinc-500 hover:text-zinc-300 transition mt-1">+ Add hint</button>
-                            <button onclick="saveHints(${loc.id})" class="text-xs bg-zinc-700 hover:bg-zinc-600 transition px-2 py-1 rounded ml-2">Save hints</button>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="toggleLocation(${loc.id}, ${loc.is_active})" class="flex-1 bg-zinc-700 hover:bg-zinc-600 transition px-3 py-1.5 rounded-lg text-xs">
-                                ${loc.is_active ? "Deactivate" : "Activate"}
-                            </button>
-                            ${currentUser?.role === "operator" ? `<button onclick="deleteLocation(${loc.id})" class="bg-red-900 hover:bg-red-800 transition px-3 py-1.5 rounded-lg text-xs">Delete</button>` : ""}
-                        </div>
-                    </div>
-                </div>`;
-				})
+							.map((hint) => `<li>${escHtml(hint)}</li>`)
+							.join("")}</ol></div>`
+					: ""
+				: `<div>
+					<label class="m-label" for="loc-label-${loc.id}">Label</label>
+					<input id="loc-label-${loc.id}" type="text" value="${escHtml(loc.label || "")}" maxlength="${LABEL_MAX_LENGTH}" class="m-field" />
+				</div>
+				<div>
+					<div class="m-label">Hints</div>
+					<div id="hints-${loc.id}" class="flex flex-col gap-1.5">${locationHints(loc).map(hintRowHtml).join("")}</div>
+					<button onclick="el('hints-${loc.id}').insertAdjacentHTML('beforeend', hintRowHtml())" class="m-btn m-btn-text m-btn-sm mt-1"><span class="material-symbols-outlined">add</span>Add hint</button>
+				</div>
+				<div class="flex gap-2 flex-wrap justify-end">
+					${currentUser?.role === "operator" ? `<button onclick="deleteLocation(${loc.id})" class="m-btn m-btn-text m-btn-sm danger mr-auto">Delete</button>` : ""}
+					${loc.plays ? `<button onclick="resetLocationStats(${loc.id})" class="m-btn m-btn-text m-btn-sm" title="Forget how players have done here, e.g. after fixing the pin or the screenshot">Reset difficulty</button>` : ""}
+					<button onclick="toggleLocation(${loc.id})" class="m-btn m-btn-tonal m-btn-sm">${loc.is_active ? "Take out of play" : "Put back in play"}</button>
+					<button onclick="saveLocation(${loc.id})" class="m-btn m-btn-filled m-btn-sm">Save</button>
+				</div>`
+		}
+	</div>`;
+}
+
+function locationCardHtml(loc) {
+	const open = _openLocation === loc.id;
+	const hints = locationHints(loc);
+	const searchText = [
+		loc.id,
+		locId(loc.id),
+		loc.label,
+		loc.image_path,
+		hints.join(" "),
+		loc.world_x,
+		loc.world_y,
+		loc.is_active ? "active in play" : "inactive out of play",
+		loc.difficulty || "ungraded",
+		loc.submitted_by_username && `@${loc.submitted_by_username}`,
+		loc.submitted_by_display_name,
+		loc.approved_by_username && `@${loc.approved_by_username}`,
+	].join(" ");
+	return `<div class="bg-zinc-900 rounded-2xl overflow-hidden ${open ? "ring-1 ring-zinc-700 md:col-span-2 xl:col-span-2" : ""} ${loc.is_active ? "" : "opacity-70"}" id="loc-${loc.id}" data-search="${escHtml(searchText)}">
+		<a href="/uploads/${escHtml(loc.image_path)}" target="_blank" rel="noopener" title="Open full size">
+			<img loading="lazy" src="/uploads/${escHtml(loc.image_path)}" alt="" class="w-full ${open ? "max-h-80 object-contain bg-black" : "h-40 object-cover"}" />
+		</a>
+		<button onclick="toggleLocationEditor(${loc.id})" aria-expanded="${open}" class="w-full text-left px-3 py-2.5 hover:bg-zinc-800/50 transition">
+			<span class="flex items-center gap-2">
+				<span class="flex-1 min-w-0 truncate text-sm font-semibold">${loc.label ? escHtml(loc.label) : '<span class="text-zinc-500 font-normal">No label</span>'}</span>
+				<span class="text-xs font-mono text-zinc-600 flex-shrink-0">${locId(loc.id)}</span>
+				<span class="material-symbols-outlined text-zinc-500 text-base flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}">expand_more</span>
+			</span>
+			<span class="flex items-center gap-1.5 flex-wrap mt-1.5">
+				<span class="m-tag ${loc.is_active ? "success" : ""}">${loc.is_active ? "In play" : "Out of play"}</span>
+				<span class="m-tag ${DIFFICULTY_TONE[loc.difficulty] || ""}">${loc.difficulty ? loc.difficulty[0].toUpperCase() + loc.difficulty.slice(1) : "Ungraded"}</span>
+				<span class="text-xs text-zinc-500">${loc.plays ? `${loc.plays.toLocaleString()} guess${loc.plays === 1 ? "" : "es"} · avg ${Number(loc.avg_score).toLocaleString()}` : "No guesses yet"}${hints.length ? ` · ${hints.length} hint${hints.length === 1 ? "" : "s"}` : ""}</span>
+			</span>
+		</button>
+		${open ? locationEditorHtml(loc) : ""}
+	</div>`;
+}
+
+function renderLocations() {
+	if (_locationUser && !_locations.some((loc) => loc.submitted_by_username === _locationUser)) _locationUser = "";
+	const shown = _locations
+		.filter(LOCATION_FILTERS[_locationFilter][1])
+		.filter((loc) => !_locationUser || loc.submitted_by_username === _locationUser)
+		.sort(LOCATION_SORTS[_locationSort][1]);
+	const search = el("locations-list") ? el("panel-search")?.value : "";
+	el("tab-content").innerHTML = `
+		<div class="flex items-center gap-2 mb-4 flex-wrap">
+			<h2 class="font-bold text-lg">Locations</h2>
+			<span class="m-tag">${_locations.length} in total</span>
+			<button onclick="loadLocations()" class="m-icon-btn ml-auto"aria-label="Refresh" title="Refresh"><span class="material-symbols-outlined">refresh</span></button>
+		</div>
+		${panelSearchInput("Search location ID, label, hints, status or who submitted it...")}
+		<div class="flex items-center gap-1.5 flex-wrap mb-4">
+			${Object.entries(LOCATION_FILTERS)
+				.map(
+					([key, [label, test]]) =>
+						`<button onclick="setLocationFilter('${key}')" class="m-chip" aria-pressed="${_locationFilter === key}">${label} <span class="count">${_locations.filter(test).length}</span></button>`
+				)
 				.join("")}
-            <div id="panel-search-empty" class="hidden col-span-full text-zinc-500 text-center py-8">No locations match your search.</div>
-        </div>`;
+			<span class="ml-auto"></span>
+			${userFilterSelect(_locations, (loc) => loc.submitted_by_username, _locationUser, "setLocationUser")}
+			<select onchange="setLocationSort(this.value)" class="m-field !w-auto !py-1.5 text-xs" aria-label="Sort by">
+				${Object.entries(LOCATION_SORTS)
+					.map(
+						([key, [label]]) =>
+							`<option value="${key}" ${_locationSort === key ? "selected" : ""}>${label}</option>`
+					)
+					.join("")}
+			</select>
+		</div>
+		<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" id="locations-list">
+			${shown.map(locationCardHtml).join("")}
+			<div id="panel-search-empty" class="${shown.length ? "hidden" : ""} col-span-full text-zinc-500 text-center py-8">No locations match.</div>
+		</div>`;
 	bindPanelSearch("#locations-list [data-search]");
-	// Helpers can look but not change: the server would refuse anyway, so the controls go.
-	if (isHelper()) {
-		for (const control of el("locations-list").querySelectorAll("button")) control.remove();
-		for (const field of el("locations-list").querySelectorAll("input")) field.readOnly = true;
+	restorePanelSearch(search);
+	const open = _locations.find((loc) => loc.id === _openLocation);
+	const slot = open && el(`loc-map-${open.id}`);
+	if (slot) {
+		const map = mountReviewMap(slot);
+		map.clearPin();
+		map.setPin(open.world_x, open.world_y);
+		map.fitTo([{ x: open.world_x, y: open.world_y }]);
+	}
+}
+
+function setLocationFilter(key) {
+	_locationFilter = key;
+	renderLocations();
+}
+
+function setLocationUser(name) {
+	_locationUser = name;
+	renderLocations();
+}
+
+function setLocationSort(key) {
+	_locationSort = key;
+	renderLocations();
+}
+
+function toggleLocationEditor(id) {
+	_openLocation = _openLocation === id ? null : id;
+	renderLocations();
+	el(`loc-${id}`)?.scrollIntoView({ block: "nearest" });
+}
+
+/** Saves the label and the hints together, whichever of them changed. */
+async function saveLocation(id) {
+	const loc = _locations.find((item) => item.id === id);
+	const label = el(`loc-label-${id}`).value.trim();
+	const hints = [...el(`hints-${id}`).querySelectorAll(".hint-input")]
+		.map((input) => input.value.trim())
+		.filter(Boolean);
+	try {
+		if (label !== (loc.label || "")) await api(`/api/admin/locations/${id}/label`, { json: { label } });
+		if (JSON.stringify(hints) !== JSON.stringify(locationHints(loc)))
+			await api(`/api/admin/locations/${id}/hints`, { json: { hints } });
+		loc.label = label;
+		loc.hints = JSON.stringify(hints);
+		showToast(`${locId(id)} saved.`, "success");
+		renderLocations();
+	} catch (err) {
+		showToast(err.message || "Couldn't save it.", "error");
 	}
 }
 
 /** Clears a location's difficulty record so it is graded afresh from the next guesses. */
-async function resetLocationStats(locId) {
-	if (
-		!(await showConfirm(
-			"Reset this location's difficulty?",
-			"Its guess count and average are cleared, and it stays ungraded until enough new guesses come in.",
-			{ confirmLabel: "Reset" }
-		))
-	)
-		return;
+async function resetLocationStats(id) {
+	const ok = await showConfirm(
+		"Reset this location's difficulty?",
+		"Its guess count and average are cleared, and it stays ungraded until enough new guesses come in.",
+		{ confirmLabel: "Reset" }
+	);
+	if (!ok) return;
 	try {
-		await api(`/api/admin/locations/${locId}/stats/reset`, { method: "POST" });
+		await api(`/api/admin/locations/${id}/stats/reset`, { method: "POST" });
 		showToast("Difficulty reset.", "success");
 		loadLocations();
 	} catch (err) {
-		showToast(err.message || "Failed to reset.", "error");
+		showToast(err.message || "Couldn't reset it.", "error");
 	}
 }
 
-async function saveLabel(locId) {
-	const input = document.querySelector(`.label-input[data-loc="${locId}"]`);
-	if (!input) return;
-	const label = input.value.trim();
+async function toggleLocation(id) {
 	try {
-		const r = await fetch(`/api/admin/locations/${locId}/label`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ label }),
-		});
-		if (!r.ok) throw new Error(await r.text());
-		showToast("Label saved.", "success");
+		await api(`/api/admin/locations/${id}/toggle`, { method: "POST" });
+		const loc = _locations.find((item) => item.id === id);
+		loc.is_active = loc.is_active ? 0 : 1;
+		showToast(loc.is_active ? `${locId(id)} is back in play.` : `${locId(id)} is out of play.`, "success");
+		renderLocations();
 	} catch (err) {
-		showToast(err.message || "Failed to save label.", "error");
+		showToast(err.message || "Couldn't change it.", "error");
 	}
 }
 
-function addHintRow(locId) {
-	const container = el(`hints-${locId}`);
-	const idx = container.querySelectorAll(".hint-input").length;
-	const div = document.createElement("div");
-	div.className = "flex items-center gap-1 mb-1";
-	div.innerHTML = `
-        <input type="text" placeholder="Hint text..." class="hint-input flex-1 bg-zinc-800 rounded px-2 py-1 text-xs focus:outline-none" data-idx="${idx}" data-loc="${locId}" />
-        <button onclick="this.parentElement.remove()" class="text-zinc-500 hover:text-red-400 transition text-xs px-1" aria-label="Remove hint"><span class="material-symbols-outlined text-sm leading-none">close</span></button>`;
-	container.appendChild(div);
-}
-
-function removeHint(locId, idx) {
-	const inputs = el(`hints-${locId}`).querySelectorAll(".hint-input");
-	inputs[idx]?.closest("div")?.remove();
-}
-
-async function saveHints(locId) {
-	const inputs = el(`hints-${locId}`).querySelectorAll(".hint-input");
-	const hints = Array.from(inputs)
-		.map((i) => i.value.trim())
-		.filter(Boolean);
+async function deleteLocation(id) {
+	const ok = await showConfirm(
+		"Delete this location?",
+		"It is removed for good, along with its screenshot. This cannot be undone.",
+		{
+			confirmLabel: "Delete",
+		}
+	);
+	if (!ok) return;
 	try {
-		const r = await fetch(`/api/admin/locations/${locId}/hints`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ hints }),
-		});
-		if (!r.ok) throw new Error(await r.text());
-		showToast("Hints saved.", "success");
+		await api(`/api/admin/locations/${id}`, { method: "DELETE" });
+		_locations = _locations.filter((loc) => loc.id !== id);
+		_openLocation = null;
+		showToast("Location deleted.", "success");
+		renderLocations();
 	} catch (err) {
-		showToast(err.message || "Failed to save hints.", "error");
+		showToast(err.message || "Couldn't delete it.", "error");
 	}
+}
+
+/* ---- How a location has played ---- */
+
+const GUESS_MODES = { solo: "Solo", daily: "Daily", duel: "Duels" };
+const SPREAD_BANDS = ["Under 1,000", "1,000s", "2,000s", "3,000s", "4,000 and up"];
+
+async function showLocationBreakdown(id) {
+	const box = el(`loc-breakdown-${id}`);
+	if (!box) return;
+	box.innerHTML = '<p class="text-xs text-zinc-500">Loading...</p>';
+	let data;
+	try {
+		data = await api(`/api/admin/locations/${id}/breakdown`);
+	} catch (err) {
+		box.innerHTML = `<p class="text-xs text-red-400">${escHtml(err.message || "Couldn't load it.")}</p>`;
+		return;
+	}
+	const { totals, modes, spread, duels, daily, suggestions } = data;
+	const sampled = spread.reduce((sum, band) => sum + band.guesses, 0);
+	const peak = Math.max(1, ...spread.map((band) => band.guesses));
+	const cell = (value, label) =>
+		`<div class="bg-zinc-800/60 rounded-xl px-3 py-2"><div class="text-sm font-bold">${value}</div><div class="text-[11px] text-zinc-500">${label}</div></div>`;
+	const suggested = suggestions.reduce((sum, row) => sum + row.n, 0);
+	box.innerHTML = `
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+			${cell(totals.plays.toLocaleString(), "Times guessed")}
+			${cell(totals.plays ? Math.round(totals.score_sum / totals.plays).toLocaleString() : "0", "All-time average")}
+			${cell(duels.games.toLocaleString(), "Duels it came up in")}
+			${cell(suggested, `Suggestion${suggested === 1 ? "" : "s"} made`)}
+		</div>
+		${
+			sampled
+				? `<div>
+					<div class="m-label">Score spread <span class="text-zinc-600">Latest ${sampled.toLocaleString()} guesses</span></div>
+					${SPREAD_BANDS.map((label, band) => {
+						const count = spread.find((row) => row.band === band)?.guesses ?? 0;
+						return `<div class="flex items-center gap-2 text-xs py-0.5">
+							<span class="w-24 flex-shrink-0 text-zinc-500">${label}</span>
+							<span class="flex-1 h-2 rounded-full bg-zinc-800 overflow-hidden"><span class="block h-full bg-blue-500" style="width:${(count / peak) * 100}%"></span></span>
+							<span class="w-16 flex-shrink-0 text-right text-zinc-400">${count} · ${Math.round((count / sampled) * 100)}%</span>
+						</div>`;
+					}).join("")}
+				</div>
+				<div>
+					<div class="m-label">By mode</div>
+					<div class="overflow-x-auto"><table class="w-full text-xs">
+						<thead><tr class="text-left text-zinc-500"><th class="font-normal py-1">Mode</th><th class="font-normal text-right">Guesses</th><th class="font-normal text-right">Avg points</th><th class="font-normal text-right">Avg distance</th><th class="font-normal text-right">Avg time</th><th class="font-normal text-right">Last</th></tr></thead>
+						<tbody>${modes
+							.map(
+								(m) =>
+									`<tr class="border-t border-zinc-800"><td class="py-1 text-zinc-300">${escHtml(GUESS_MODES[m.mode] || m.mode)}</td><td class="text-right">${m.guesses}</td><td class="text-right">${m.avg_points.toLocaleString()}</td><td class="text-right">${m.avg_distance.toLocaleString()}</td><td class="text-right">${m.avg_time}s</td><td class="text-right text-zinc-500">${shortAgo(m.last_at)} ago</td></tr>`
+							)
+							.join("")}</tbody>
+					</table></div>
+				</div>`
+				: '<p class="text-xs text-zinc-500">No recent guesses on record.</p>'
+		}
+		${
+			daily.length
+				? `<div><div class="m-label">As the daily challenge</div>
+					${daily.map((d) => `<div class="flex items-baseline gap-2 text-xs py-0.5"><span class="flex-1 text-zinc-300">${escHtml(d.date)}</span><span class="text-zinc-500">${d.players} played${d.players ? ` · avg ${Number(d.avg_score).toLocaleString()} · ${d.avg_hints} hints` : ""}</span></div>`).join("")}
+				</div>`
+				: ""
+		}
+		${duels.no_guess ? `<p class="text-xs text-zinc-500">${duels.no_guess} duel round${duels.no_guess === 1 ? "" : "s"} here ran out of time with no guess.</p>` : ""}`;
 }
 
 /* ---- Stats: what is happening now, what needs doing, and how the last two weeks went ---- */
@@ -179,8 +351,7 @@ async function loadStats() {
 	try {
 		_stats = await api("/api/admin/stats");
 	} catch (err) {
-		el("tab-content").innerHTML =
-			`<div class="text-red-400">${escHtml(err.message || "Failed to load stats.")}</div>`;
+		el("tab-content").innerHTML = errorStateHtml(err.message || "Couldn't load the stats.");
 		return;
 	}
 	renderStats(_stats);
@@ -199,7 +370,7 @@ function statCard(label, value, sub = "", href = "") {
 const statHeading = (title, note = "") =>
 	`<div class="flex items-baseline gap-2 mb-3 mt-8"><h3 class="font-semibold text-zinc-300">${title}</h3>${note ? `<span class="text-xs text-zinc-600">${note}</span>` : ""}</div>`;
 
-/** A bar per day for the chosen series, with the count on hover and a table for those who want the numbers. */
+/** A bar per day for the chosen series, with a table of the numbers. */
 function statChartHtml(series) {
 	const [title, valueOf, noun] = STAT_SERIES[_statSeries];
 	const values = series.map(valueOf);
@@ -315,6 +486,81 @@ const AUDIENCE_LABELS = {
 };
 const BANNER_LABELS = { 0: "No banner", 1: "1 hour", 6: "6 hours", 24: "1 day", 72: "3 days" };
 
+/** Ready-made announcements. Staff can edit the text before sending. */
+const ANNOUNCEMENT_PRESETS = {
+	privacy: [
+		"Privacy Policy",
+		"Privacy Policy updated",
+		"We have updated our Privacy Policy. Please read what changed.",
+		"/privacy",
+	],
+	tos: [
+		"Terms of Service",
+		"Terms of Service updated",
+		"We have updated our Terms of Service. Please read what changed.",
+		"/tos",
+	],
+	fairplay: [
+		"Fair Play",
+		"Fair Play Policy updated",
+		"We have updated our Fair Play Policy. Please read what changed.",
+		"/fairplay",
+	],
+	guidelines: [
+		"Upload Guidelines",
+		"Upload Guidelines updated",
+		"We have updated our Upload Guidelines. Please read them before your next submission.",
+		"/guidelines",
+	],
+	several: [
+		"Several documents",
+		"Our policies have been updated",
+		"We have updated our Terms of Service, Privacy Policy, Fair Play Policy and Upload Guidelines. Please read what changed.",
+		"/tos",
+	],
+	maintenance: [
+		"Planned downtime",
+		"Planned maintenance",
+		"The site will be down for maintenance on [day and time, UK time] for about [how long]. Games still open then will be closed.",
+		"",
+	],
+	update: ["New update", "New update", "[What is new, in a sentence or two.]", ""],
+	special: [
+		"Special event",
+		"[Event name] is live",
+		"A new special is open until [date]. Find it on the Specials page.",
+		"/specials",
+	],
+	scores: [
+		"Scores changed",
+		"Leaderboard corrected",
+		"Some scores were [removed or reset] because [reason].",
+		"/leaderboard",
+	],
+	issue: ["Known issue", "Known issue: [what]", "We know about a problem with [what] and are working on it.", ""],
+	fixed: [
+		"Issue fixed",
+		"Fixed: [what]",
+		"The problem with [what] is fixed. Reload the page if anything still looks off.",
+		"",
+	],
+};
+/** The presets about the published documents; the rest are grouped as general. */
+const DOCUMENT_PRESETS = ["privacy", "tos", "fairplay", "guidelines", "several"];
+/** Presets leave the parts only staff know in [brackets]; nothing is sent while one is still there. */
+const UNFILLED = /\[[^\]]+\]/;
+
+const presetChip = (key) =>
+	`<button onclick="useAnnouncementPreset('${key}')" class="m-chip">${ANNOUNCEMENT_PRESETS[key][0]}</button>`;
+
+function useAnnouncementPreset(key) {
+	const [, title, body, link] = ANNOUNCEMENT_PRESETS[key];
+	el("announce-title").value = title;
+	el("announce-body").value = body;
+	el("announce-link").value = link;
+	updateAnnouncementPreview();
+}
+
 async function loadAnnouncements() {
 	try {
 		_announcements = await api("/api/admin/announcements");
@@ -327,7 +573,7 @@ async function loadAnnouncements() {
 function renderAnnouncements() {
 	const box = el("announcements-panel");
 	if (!box || !_announcements) return;
-	// Redrawing must not throw away what is being written.
+	/** Redrawing must not throw away what is being written. */
 	const draft = announcementDraft();
 	const sizes = _announcements.audiences;
 	const field =
@@ -349,6 +595,16 @@ function renderAnnouncements() {
 		<p class="text-zinc-500 text-xs mb-3 -mt-2">A notification to many accounts at once, for rule changes, planned downtime and new features. It is sent whatever a player's notification settings are, so use it sparingly.</p>
 		<div class="grid md:grid-cols-2 gap-4 items-start">
 			<div class="bg-zinc-900 rounded-2xl p-4 flex flex-col gap-2">
+				<div class="m-label">Start from a preset</div>
+				<div class="flex flex-wrap gap-1.5">
+					${Object.keys(ANNOUNCEMENT_PRESETS)
+						.filter((key) => !DOCUMENT_PRESETS.includes(key))
+						.map(presetChip)
+						.join("")}
+				</div>
+				<div class="flex flex-wrap gap-1.5 mb-2">
+					${DOCUMENT_PRESETS.map(presetChip).join("")}
+				</div>
 				<label class="m-label" for="announce-title">Title <span id="announce-title-count" class="text-zinc-600 font-normal"></span></label>
 				<input id="announce-title" maxlength="120" placeholder="What is it about?" class="${field}" value="${escHtml(draft.title)}" />
 				<label class="m-label mt-1" for="announce-body">Message <span id="announce-body-count" class="text-zinc-600 font-normal"></span></label>
@@ -422,7 +678,9 @@ function updateAnnouncementPreview() {
 				? "The message needs at least 10 characters."
 				: !linkOk
 					? "The link has to start with a single /, like /daily."
-					: "";
+					: UNFILLED.test(draft.title + draft.body)
+						? "Fill in the parts in [brackets] first."
+						: "";
 	const reach = _announcements?.audiences?.[draft.audience] ?? 0;
 	el("announce-hint").textContent =
 		problem ||
@@ -496,30 +754,5 @@ async function endAnnouncementBanner(id) {
 		checkAnnouncement();
 	} catch (err) {
 		showToast(err.message, "error");
-	}
-}
-
-async function toggleLocation(id, currentActive) {
-	try {
-		const r = await fetch(`/api/admin/locations/${id}/toggle`, { method: "POST" });
-		if (!r.ok) throw new Error(await r.text());
-		loadLocations();
-	} catch (err) {
-		showToast(err.message || "Failed to toggle.", "error");
-	}
-}
-
-async function deleteLocation(id) {
-	const ok = await showConfirm("Delete location", "This will permanently remove the location and cannot be undone.", {
-		confirmLabel: "Delete",
-	});
-	if (!ok) return;
-	try {
-		const r = await fetch(`/api/admin/locations/${id}`, { method: "DELETE" });
-		if (!r.ok) throw new Error(await r.text());
-		el(`loc-${id}`)?.remove();
-		showToast("Location deleted.", "success");
-	} catch (err) {
-		showToast(err.message || "Failed to delete.", "error");
 	}
 }

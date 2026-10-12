@@ -6,6 +6,7 @@ import { hasRole, requirePlayer, requireUser } from "../auth/guards";
 import { cleanHints } from "../game/locations";
 import { parseGuess } from "../game/round";
 import { fail, idParam, readForm, readJson, text } from "../lib/http";
+import { requireFeature } from "../system/features";
 import { checkUserRateLimit } from "../lib/rate-limit";
 import { DAY, HOUR, nowSec } from "../lib/time";
 import { saveUploadedImage } from "../lib/uploads";
@@ -17,22 +18,30 @@ export const locationRoutes = new Hono();
 /** Routes mounted at /api/suggestions. */
 export const suggestionRoutes = new Hono();
 
-const MIN_ACCOUNT_AGE = 30 * DAY;
+const MIN_ACCOUNT_DAYS = 7;
 const MIN_GAMES_PLAYED = 5;
 const NOTE_MAX = 200;
 
-/** Why this user may not suggest changes yet, or null when they may. Staff are always allowed. */
-function suggestionBlocker(user: User): string | null {
-	if (hasRole(user, "moderator")) return null;
-	if (user.created_at > nowSec() - MIN_ACCOUNT_AGE)
-		return "Your account must be at least 30 days old to suggest changes";
+/** How far a player is towards being allowed to suggest changes. */
+function suggestionProgress(user: User) {
 	const played =
 		db
 			.query<{ total: number }, [number, number]>(
 				"SELECT (SELECT COUNT(*) FROM solo_scores WHERE user_id = ?) + (SELECT COUNT(*) FROM daily_scores WHERE user_id = ?) AS total"
 			)
 			.get(user.id, user.id)?.total ?? 0;
-	if (played < MIN_GAMES_PLAYED) return `You must have played at least ${MIN_GAMES_PLAYED} games to suggest changes`;
+	return {
+		days: { have: Math.floor((nowSec() - user.created_at) / DAY), need: MIN_ACCOUNT_DAYS },
+		games: { have: played, need: MIN_GAMES_PLAYED },
+	};
+}
+
+/** Why this user may not suggest changes yet, or null when they may. Staff are always allowed. */
+function suggestionBlocker(user: User): string | null {
+	if (hasRole(user, "moderator")) return null;
+	const { days, games } = suggestionProgress(user);
+	if (days.have < days.need) return `Your account must be at least ${days.need} days old to suggest changes`;
+	if (games.have < games.need) return `You must have played at least ${games.need} games to suggest changes`;
 	return null;
 }
 
@@ -43,7 +52,7 @@ function requireSuggester(c: Context): User {
 	return user;
 }
 
-/** Labels say where a screenshot was taken, so this list is as good as the answers and is guarded the same way. */
+/** Labels give the answers away, so this list is guarded like them. */
 locationRoutes.get("/", (c) => {
 	requireSuggester(c);
 	return c.json(
@@ -67,7 +76,12 @@ locationRoutes.get("/with-coords", (c) => {
 suggestionRoutes.get("/eligibility", (c) => {
 	const user = requireUser(c);
 	const reason = user.is_banned ? "You are banned" : suggestionBlocker(user);
-	return c.json({ eligible: !reason, reason, agreed: !!user.suggestions_agreed });
+	return c.json({
+		eligible: !reason,
+		reason,
+		agreed: !!user.suggestions_agreed,
+		progress: reason && !user.is_banned ? suggestionProgress(user) : null,
+	});
 });
 
 suggestionRoutes.post("/agree", (c) => {
@@ -144,6 +158,7 @@ const SUGGESTION_TITLES: Record<Suggestion["type"], string> = {
 locationRoutes.post("/:id/suggest", async (c) => {
 	const user = requireSuggester(c);
 	if (!user.suggestions_agreed) fail(403, "You must agree to the suggestions policy first");
+	requireFeature("suggestions", user, "Suggestions are closed for now. Please try again later.");
 
 	const locationId = idParam(c);
 	const location = db

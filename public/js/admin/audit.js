@@ -44,6 +44,9 @@ const AUDIT_ACTION_LABELS = {
 	evasion_flag: { label: "Possible ban evasion", color: "text-amber-300" },
 	gdpr_export: { label: "Exported own data", color: "text-zinc-400" },
 	evasion_flag_dismiss: { label: "Dismissed evasion flag", color: "text-zinc-400" },
+	fairplay_flag_dismiss: { label: "Dismissed fair-play flag", color: "text-zinc-400" },
+	staff_note_add: { label: "Added a staff note", color: "text-zinc-400" },
+	staff_note_remove: { label: "Removed a staff note", color: "text-zinc-400" },
 	user_ban_perm: { label: "Perma-banned user", color: "text-red-400" },
 	user_ban_temp: { label: "Temp-banned user", color: "text-orange-400" },
 	user_unban: { label: "Unbanned user", color: "text-green-400" },
@@ -93,6 +96,9 @@ const AUDIT_CATEGORIES = [
 			"staff_unlock",
 			"evasion_flag",
 			"evasion_flag_dismiss",
+			"fairplay_flag_dismiss",
+			"staff_note_add",
+			"staff_note_remove",
 			"score_edit",
 			"score_delete",
 			"score_reset",
@@ -209,7 +215,7 @@ async function loadAudit(reset = true) {
 		_lastAuditData = await r.json();
 		renderAudit(_lastAuditData, reset);
 	} catch {
-		el("tab-content").innerHTML = '<div class="text-red-400">Failed to load audit log.</div>';
+		el("tab-content").innerHTML = errorStateHtml("Couldn't load the audit log.");
 	}
 }
 

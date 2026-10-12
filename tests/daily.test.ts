@@ -29,7 +29,7 @@ describe("daily", () => {
 		expect(start.data.loading).toBe(true);
 		expect((await post("/api/daily/begin", user)).data).toMatchObject({ loading: false, time_remaining: 90 });
 		expect((await post("/api/daily/hint", user)).data.hint).toBe("one");
-		// Reloading the page resumes the same attempt with its hints.
+		/** Reloading the page resumes the same attempt with its hints. */
 		expect((await post("/api/daily/start", user)).data.hints).toEqual(["one"]);
 
 		const guess = await post("/api/daily/guess", user, { x: 500, y: 500 });

@@ -1,11 +1,8 @@
 /**
- * The round screen shared by solo, daily and duels: screenshot, timer, hints,
- * map pin and the guess button. The page tells it what round to show and what to
- * do with a guess; everything the player sees while guessing lives here.
- *
- * Expects these element ids on the page: round-photo, photo-panel, resize-handle,
- * timer-display, timer-val, map-canvas, click-hint, guess-btn, and optionally
- * hints-panel and location-id-badge.
+ * The round screen shared by solo, daily and duels: screenshot, timer, hints, map pin and guess button.
+ * Needs these ids: round-photo, photo-panel, resize-handle, timer-display, timer-val, map-canvas, click-hint, guess-
+ * btn.
+ * Optional: hints-panel, location-id-badge.
  */
 
 const GUESS_BTN_BASE =
@@ -64,10 +61,8 @@ class RoundView {
 	}
 
 	/**
-	 * Puts a round on screen without starting it: the screenshot loads, the map is
-	 * locked and the clock shows the full time. Resolves once the screenshot is
-	 * visible (or has clearly failed), which is the moment to ask for the clock.
-	 * `canGuess: false` is for spectators: same screen, no pin and no button.
+	 * Shows a round without starting it. Resolves once the screenshot is visible, which is when to ask for the clock.
+	 * `canGuess: false` is for spectators.
 	 */
 	show(round, { canGuess = true } = {}) {
 		this.stop();
@@ -125,7 +120,7 @@ class RoundView {
 				if (photo.getAttribute("src") === url) panel.classList.remove("photo-loading");
 				resolve();
 			};
-			// A broken or very slow image must not hold the round up forever.
+			/** A broken or very slow image must not hold the round up forever. */
 			const timeout = setTimeout(done, 8000);
 			photo.onload = done;
 			photo.onerror = done;
@@ -183,10 +178,7 @@ class RoundView {
 		else this.map.showResult(answer.correct_x, answer.correct_y);
 	}
 
-	/**
-	 * Brings the answer and the guesses into the part of the map the result sheet leaves
-	 * uncovered. Call it once the sheet has its content, so its height is known.
-	 */
+	/** Fits the answer and guesses above the result sheet. Call once the sheet has its content. */
 	fitResult(answer, guesses = [this.pin], sheet = el("result-screen")) {
 		this.map.fitTo(
 			[{ x: answer.correct_x, y: answer.correct_y }, ...guesses.filter(Boolean).map(({ x, y }) => ({ x, y }))],
@@ -210,7 +202,7 @@ class RoundView {
 		display.classList.toggle("hidden", !this.timeLimit);
 		if (!this.timeLimit) return;
 
-		// Work from a deadline so a throttled background tab cannot stretch the round.
+		/** Work from a deadline so a throttled background tab cannot stretch the round. */
 		clearInterval(this.timerId);
 		this.timerId = null;
 		this.deadline = Date.now() + (remaining ?? limit) * 1000;
@@ -221,7 +213,7 @@ class RoundView {
 			display.classList.remove(...TIMER_TONES, "timer-urgent");
 			display.classList.add(TIMER_TONES[pct > 0.5 ? 0 : pct > 0.25 ? 1 : pct > 0.1 ? 2 : 3]);
 			if (left <= 10 && !this.locked) display.classList.add("timer-urgent");
-			// One tick per second through the last five.
+			/** One tick per second through the last five. */
 			if (left <= 5 && left > 0 && left !== this._lastTick && !this.locked) Sounds.play("tick");
 			this._lastTick = left;
 			if (left <= 0) {
@@ -309,20 +301,13 @@ function difficultyText(difficulty) {
 
 const EMOTE_COOLDOWN_MS = 1500;
 const EMOTE_SHOWN_MS = 3000;
-/**
- * The key that sends each reaction while the picker is open, following the number row:
- * 1 to 9, 0 for the tenth, then - and + for the eleventh and twelfth.
- */
+/** Keys that send each reaction while the picker is open: 1 to 9, 0, then - and +. */
 const EMOTE_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "+"];
 /** + is Shift and = on most keyboards; either one counts. */
 const EMOTE_KEY_ALIASES = { "=": "+" };
 let emoteList = [];
 
-/**
- * Draws the reaction picker from the list the server offers. An empty list hides it, and
- * so does `canSend: false` (spectators), though the reactions themselves still show.
- * Expects #emote-bar and #emote-feed on the page.
- */
+/** Draws the reaction picker. An empty list or `canSend: false` hides it. Needs #emote-bar and #emote-feed. */
 function renderEmoteBar(list, canSend = true) {
 	const offered = Array.isArray(list) ? list.filter((name) => /^[a-z0-9_]+$/.test(name)) : [];
 	const changed = offered.join() !== emoteList.join();
@@ -356,15 +341,14 @@ function bindEmoteBar(send) {
 		if (!choice || choice.disabled) return;
 		send(choice.dataset.emote);
 		setOpen(false);
-		// The server allows one every so often; show that instead of letting clicks vanish.
+		/** The server allows one every so often; show that instead of letting clicks vanish. */
 		const buttons = [...bar.querySelectorAll("[data-emote]")];
 		for (const button of buttons) button.disabled = true;
 		setTimeout(() => buttons.forEach((button) => (button.disabled = false)), EMOTE_COOLDOWN_MS);
 	});
-	// Clicking anywhere else puts the picker away.
 	document.addEventListener("click", (e) => bar.contains(e.target) || setOpen(false));
 
-	// E opens the picker and a number sends that reaction, so nobody has to leave the map for the mouse.
+	/** E opens the picker and a number sends that reaction, so nobody has to leave the map for the mouse. */
 	const usable = () => !bar.classList.contains("hidden") && bar.offsetParent !== null;
 	const sendNumbered = (e) => {
 		if (!usable() || !choices() || choices().hidden) return false;
@@ -374,10 +358,10 @@ function bindEmoteBar(send) {
 	};
 	addKeybinds("Reactions", [
 		[["E"], "Open or close the reaction picker", () => (usable() ? setOpen(choices().hidden) : false)],
-		// Listed as one row in the help; the digits themselves are bound just below.
+		/** Listed as one row in the help; the digits themselves are bound just below. */
 		[["1-9", "0", "-", "+"], "Send that reaction (while the picker is open)", () => false],
 	]);
-	// Ahead of anything else on these keys (- and + zoom the map), and only while the picker is open.
+	/** Ahead of anything else on these keys (- and + zoom the map), and only while the picker is open. */
 	for (const key of [...EMOTE_KEYS, ...Object.keys(EMOTE_KEY_ALIASES)])
 		_pageKeys.set(key, [sendNumbered, ...(_pageKeys.get(key) || []).filter((handler) => handler !== sendNumbered)]);
 }
@@ -394,13 +378,80 @@ function showEmoteBubble(emote, { name, avatarUrl, color }) {
 		<span class="material-symbols-outlined" style="color:${color}">${emote}</span>`;
 	const feed = el("emote-feed");
 	feed.appendChild(bubble);
-	// Keep the stack short when players trade reactions quickly.
+	/** Keep the stack short when players trade reactions quickly. */
 	while (feed.children.length > 4) feed.firstElementChild.remove();
 	setTimeout(() => bubble.remove(), EMOTE_SHOWN_MS);
 }
 
 function reportLocationUrl(locationId) {
 	return `/settings?ticket=report_location&loc=${locationId}`;
+}
+
+const REPORT_REASONS = [
+	"The pin is in the wrong place",
+	"The screenshot is unclear or broken",
+	"Player names or the interface are showing",
+	"It is a copy of another location",
+	"Something else",
+];
+
+/**
+ * Reports a location from the result screen, as a support ticket, without leaving the game.
+ * Use as a link's click handler: logged-out players follow the link to the ticket form instead.
+ */
+async function reportLocation(event, locationId) {
+	event.preventDefault();
+	const link = event.currentTarget;
+	if (!(await fetchUser())) return (location.href = link.href);
+	if (el("report-dialog")) return;
+
+	const code = locId(locationId);
+	const box = document.createElement("div");
+	box.id = "report-dialog";
+	box.className = "fixed inset-0 z-[70] flex items-center justify-center bg-black/70 modal-fade px-4";
+	box.innerHTML = `<div class="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-sm w-full" role="dialog" aria-modal="true" aria-label="Report this location">
+		<h2 class="font-bold mb-1">Report ${code}</h2>
+		<p class="text-zinc-500 text-xs mb-3">What is wrong with it?</p>
+		<div class="flex flex-col gap-1.5 mb-3">
+			${REPORT_REASONS.map((reason, i) => `<label class="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="report-reason" value="${i}" class="accent-blue-500" />${reason}</label>`).join("")}
+		</div>
+		<textarea id="report-note" rows="2" maxlength="500" placeholder="Anything to add? (optional)" class="m-field mb-3"></textarea>
+		<div class="flex gap-2 justify-end">
+			<button id="report-cancel" class="m-btn m-btn-text">Cancel</button>
+			<button id="report-send" class="m-btn m-btn-filled" disabled>Send report</button>
+		</div>
+	</div>`;
+	const close = () => box.remove();
+	/** Keys pressed in the dialog must not also submit a guess or start the next round. */
+	box.addEventListener("keydown", (e) => {
+		e.stopPropagation();
+		if (e.key === "Escape") close();
+	});
+	box.addEventListener("click", (e) => e.target === box && close());
+	box.addEventListener("change", () => (box.querySelector("#report-send").disabled = false));
+	box.querySelector("#report-cancel").addEventListener("click", close);
+	box.querySelector("#report-send").addEventListener("click", async (e) => {
+		const reason = REPORT_REASONS[Number(box.querySelector("input:checked")?.value)];
+		if (!reason) return;
+		e.currentTarget.disabled = true;
+		const note = box.querySelector("#report-note").value.trim();
+		try {
+			await api("/api/support", {
+				json: {
+					category: "report_location",
+					subject: `${code}: ${reason}`,
+					message: `Location ID: ${code}\nProblem: ${reason}\n\n---\n\n${note || "Reported from the result screen."}`,
+				},
+			});
+			close();
+			showToast("Report sent. Thank you.", "success");
+		} catch (err) {
+			e.currentTarget.disabled = false;
+			showToast(err.message || "Couldn't send the report.", "error");
+		}
+	});
+	document.body.appendChild(box);
+	box.querySelector("input").focus();
 }
 
 /** Makes a group of pill buttons act like a radio group. Returns a getter for the selected value. */
@@ -498,7 +549,7 @@ function setupPhotoLens(img) {
 		const top = (rect.height - h) / 2;
 		const x = clientX - rect.left;
 		const y = clientY - rect.top;
-		// The image is letterboxed inside its box; only magnify the picture itself.
+		/** The image is letterboxed inside its box; only magnify the picture itself. */
 		if (!img.naturalWidth || x < left || x > left + w || y < top || y > top + h) return hide();
 
 		last = { clientX, clientY };

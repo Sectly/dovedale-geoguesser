@@ -98,7 +98,7 @@ describe("updates", () => {
 		expect(status.current.hash).toMatch(/^[0-9a-f]{40}$/);
 		expect((await post("/api/admin/system/update", op, {})).status).toBe(400);
 		expect((await post("/api/admin/system/restart", op, {})).status).toBe(400);
-		// Tests never run under a process manager, so a restart has nothing to bring the server back.
+		/** Tests never run under a process manager, so a restart has nothing to bring the server back. */
 		expect((await post("/api/admin/system/restart", op, { confirm: true })).status).toBe(409);
 	});
 });
@@ -111,7 +111,7 @@ describe("planned restarts", () => {
 		const room = createRoom(host.id, 1);
 		joinRoom(room.code, guest.id);
 		expect((await call("/api/status")).headers.get("X-Restart-In")).toBeNull();
-		// Every answer from the game is marked, so a page can tell it from a proxy's error page.
+		/** Every answer from the game is marked, so a page can tell it from a proxy's error page. */
 		expect((await call("/api/status")).headers.get("X-App")).toBe("dovedale");
 		expect((await call("/play")).headers.get("X-App")).toBe("dovedale");
 
@@ -119,7 +119,7 @@ describe("planned restarts", () => {
 		expect(Number((await call("/api/status")).headers.get("X-Restart-In"))).toBe(restartIn()!);
 		expect((await post("/api/duels/rooms", host, { rounds: 1 })).status).toBe(503);
 		expect(startDuel(room)).toContain("restart");
-		// Solo games are carried across the restart, so they may still be started.
+		/** Solo games are carried across the restart, so they may still be started. */
 		expect((await post("/api/solo/games", undefined, {})).status).not.toBe(503);
 
 		expect((await post("/api/admin/system/restart/cancel", operator())).status).toBe(409);
@@ -142,7 +142,7 @@ describe("restart notice", () => {
 			room.status = "in_progress";
 			expect(scheduleRestart("test")).toBe(GAME.restart.notice);
 			jest.advanceTimersByTime(10_000);
-			// Still being played: the long notice stands.
+			/** Still being played: the long notice stands. */
 			expect(restartIn()!).toBeGreaterThan(GAME.restart.quietNotice);
 
 			room.status = "finished";
@@ -168,10 +168,12 @@ describe("maintenance mode", () => {
 		const page = await call("/play", { as: player, headers: { Accept: "text/html" } });
 		expect(page.status).toBe(503);
 		expect(page.data).toContain("Down for maintenance");
+		/** The status picks the page's opening animation. */
+		expect(page.data).toContain('data-status="503"');
 		expect(page.data).toContain("Back at noon");
 		expect((await post("/api/solo/games", player, {})).status).toBe(503);
 		expect((await call("/api/leaderboard/solo")).status).toBe(503);
-		// The screen still needs its stylesheet, and staff still need to be able to log in.
+		/** The screen still needs its stylesheet, and staff still need to be able to log in. */
 		expect((await call("/css/shared.css")).status).toBe(200);
 		expect((await call("/api/auth/me", { as: player })).status).toBe(200);
 		expect((await call("/api/status")).status).toBe(200);
@@ -197,7 +199,7 @@ describe("team duels", () => {
 			expect((await post(`/api/teams/rooms/${code}/join`, player)).status).toBe(200);
 		expect((await post(`/api/teams/rooms/${code}/join`, late)).status).toBe(409);
 
-		// Joining fills the smaller team, so the four land two a side.
+		/** Joining fills the smaller team, so the four land two a side. */
 		const lobby = await room(code, a1);
 		expect(lobby.members.map((m: { team: string }) => m.team).sort()).toEqual(["a", "a", "b", "b"]);
 		const teamOf = (u: TestUser) => lobby.members.find((m: { id: number }) => m.id === u.id).team;
@@ -213,7 +215,7 @@ describe("team duels", () => {
 		expect(state).toMatchObject({ status: "playing", phase: "guessing", round_number: 1, reveal: null });
 		expect(JSON.stringify(state)).not.toContain("correct_x");
 
-		// A teammate's pin is visible to their own side only.
+		/** A teammate's pin is visible to their own side only. */
 		await post(`/api/teams/rooms/${code}/pin`, teamA[1], { x: 900, y: 900 });
 		expect((await room(code, teamA[0])).team_pins).toMatchObject([{ id: teamA[1].id, x: 900, y: 900 }]);
 		expect((await room(code, teamB[0])).team_pins).toEqual([]);

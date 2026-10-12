@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../../db";
-import { requireStaff } from "../../auth/guards";
+import { hasRole, requireStaff } from "../../auth/guards";
 import {
 	ANNOUNCEMENT_AUDIENCES,
 	BANNER_HOURS,
@@ -17,10 +17,14 @@ import { difficultyCounts } from "../../game/locations";
 import { activeSoloGames } from "../../game/solo";
 import { teamGamesInProgress } from "../../game/teams";
 import { auditLog } from "../../lib/audit";
+import { CLAIM_KINDS, liveClaims, releaseClaim, setClaim, type ClaimKind } from "../../lib/claims";
 import { fail, idParam, intQuery, readJson, text } from "../../lib/http";
 import { DAY, nowSec, utcDate } from "../../lib/time";
 import { displayName } from "../../lib/webhook";
 import { staffQueue } from "../../notifications";
+import { maintenance } from "../../system/maintenance";
+import { restartIn } from "../../system/restart";
+import { adminDuelRoutes } from "./duels";
 import { adminLocationRoutes } from "./locations";
 import { adminSubmissionRoutes } from "./submissions";
 import { adminSuggestionRoutes } from "./suggestions";
@@ -39,6 +43,7 @@ adminRoutes.route("/moderation", adminModerationRoutes);
 adminRoutes.route("/support", adminSupportRoutes);
 adminRoutes.route("/system", adminSystemRoutes);
 adminRoutes.route("/scores", adminScoreRoutes);
+adminRoutes.route("/duels", adminDuelRoutes);
 
 /** How many days the activity chart covers. */
 const SERIES_DAYS = 14;
@@ -73,6 +78,96 @@ function activitySeries() {
 		};
 	});
 }
+
+/**
+ * The panel's home tab: what is waiting, who is flagged, what is live, and what staff did lately.
+ * Each role gets only what its own tabs would show it.
+ */
+adminRoutes.get("/overview", (c) => {
+	const staff = requireStaff(c, "helper");
+	const moderator = hasRole(staff, "moderator");
+	const senior = hasRole(staff, "supervisor");
+	const oldest = (sql: string) => db.query<{ at: number | null }, []>(sql).get()?.at ?? null;
+	const queue = staffQueue();
+	const waiting = [
+		{
+			tab: "submissions",
+			label: "Submissions",
+			count: queue.submissions,
+			oldest: oldest("SELECT MIN(created_at) AS at FROM submissions WHERE status = 'pending'"),
+		},
+		{
+			tab: "suggestions",
+			label: "Suggestions",
+			count: queue.suggestions,
+			oldest: oldest("SELECT MIN(created_at) AS at FROM location_suggestions WHERE status = 'pending'"),
+		},
+	];
+	if (moderator)
+		waiting.push(
+			{
+				tab: "tickets",
+				label: "Tickets",
+				count: queue.tickets,
+				oldest: oldest(
+					`SELECT MIN(COALESCE(t.user_replied_at, t.created_at)) AS at FROM support_tickets t WHERE t.status = 'open' AND (
+						t.awaiting_staff = 1 OR NOT EXISTS (SELECT 1 FROM ticket_replies r WHERE r.ticket_id = t.id AND r.type = 'staff'))`
+				),
+			},
+			{ tab: "users", label: "Evasion flags", count: queue.users, oldest: null }
+		);
+	const actions = (where: string, ...params: number[]) =>
+		db
+			.query(
+				`SELECT id, actor_username, action, target_type, target_id, target_username, details, created_at
+				FROM audit_log WHERE ${where} ORDER BY id DESC LIMIT 8`
+			)
+			.all(...params);
+	return c.json({
+		waiting,
+		flagged: moderator
+			? db
+					.query(
+						`SELECT u.id, u.username, u.display_name, u.avatar_url, COUNT(*) AS flags, MIN(f.created_at) AS since
+						FROM fairplay_flags f JOIN users u ON u.id = f.user_id
+						WHERE f.dismissed_at IS NULL GROUP BY u.id ORDER BY since LIMIT 8`
+					)
+					.all()
+			: [],
+		live: {
+			duels: duelsInProgress(),
+			spectators: [...duelRooms.values()].reduce((sum, room) => sum + room.spectators.size, 0),
+			team_games: teamGamesInProgress(),
+			solo_games: activeSoloGames(),
+		},
+		notices: {
+			maintenance: maintenance().enabled,
+			restart_in: restartIn(),
+		},
+		mine: actions("actor_id = ?", staff.id),
+		/** What other staff did is the audit log's business, which starts at supervisor. */
+		recent: senior ? actions("actor_id IS NOT NULL AND actor_id != ?", staff.id) : [],
+	});
+});
+
+/**
+ * Says what this member of staff has open (or nothing), and answers with what everyone else has open.
+ * The panel calls it on a timer, which is also what keeps a claim alive.
+ */
+adminRoutes.post("/claims", async (c) => {
+	const staff = requireStaff(c, "helper");
+	const body = await readJson<{ kind: ClaimKind; id: number }>(c);
+	const { kind, id } = body;
+	const mayClaim = kind === "submission" || hasRole(staff, "moderator");
+	if (kind && CLAIM_KINDS.includes(kind) && typeof id === "number" && Number.isInteger(id) && id > 0 && mayClaim)
+		setClaim(staff, kind, id);
+	else releaseClaim(staff.id);
+	return c.json(
+		liveClaims().filter(
+			(claim) => claim.staff_id !== staff.id && (claim.kind === "submission" || hasRole(staff, "moderator"))
+		)
+	);
+});
 
 adminRoutes.get("/stats", (c) => {
 	requireStaff(c);
@@ -142,10 +237,7 @@ adminRoutes.get("/announcements", (c) => {
 	return c.json({ history: recentAnnouncements(), audiences: audienceSizes(), banner_hours: BANNER_HOURS });
 });
 
-/**
- * Sends a message to many accounts at once, optionally pinning it as a banner on every page.
- * With `test: true` it goes to the sender alone and nothing is recorded.
- */
+/** Sends an announcement, optionally pinned as a banner. `test: true` sends it to the sender alone. */
 adminRoutes.post("/announcements", async (c) => {
 	const staff = requireStaff(c, "operator");
 	const body = await readJson<{

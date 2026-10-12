@@ -1,10 +1,11 @@
-/** Signal Reflex: a reaction-time mini-game. Runs entirely in the browser; the best average is kept on this device. */
+/** Signal Reflex: a reaction-time mini-game. Runs in the browser; the best average is kept on this device. */
 
 const REFLEX_GOES = 5;
 const REFLEX_BEST_KEY = "reflex_best_ms";
 
 const signal = el("signal");
-let state = "idle"; // idle | waiting | go | done
+/** "idle", "waiting", "go" or "done". */
+let state = "idle";
 let times = [];
 let clearedAt = 0;
 let waitTimer = null;
@@ -60,7 +61,7 @@ function press() {
 		return arm();
 	}
 	if (state === "waiting") {
-		// Jumped the signal: that go starts over.
+		/** Jumped the signal: that go starts over. */
 		clearTimeout(waitTimer);
 		Sounds.play("poor");
 		setState("idle", "Too early! Press to try that one again");

@@ -1,8 +1,4 @@
-/**
- * Sound effects, generated in the browser so there are no audio files to load.
- * On by default; the choice is remembered on this device and, when logged in,
- * follows the account's preference from the settings page.
- */
+/** Sound effects, generated in the browser. On by default; remembered on this device and by the account. */
 const Sounds = (() => {
 	const STORAGE_KEY = "sounds";
 	let enabled = true;

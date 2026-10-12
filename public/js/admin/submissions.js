@@ -1,181 +1,291 @@
 /** Staff panel: reviewing submitted locations. */
 
-let expandedSubId = null;
-let subMapCanvas = null;
+let _submissions = [];
+let _openSubmission = null;
+let _submissionUser = "";
+let _submissionView = "waiting";
+let _submissionHistory = [];
+let _knownLocations = [];
+
+/** How close an existing location has to be to a submitted pin to be shown beside it, in map units. */
+const NEARBY_UNITS = 600;
+/** Closer than this and the row is marked as a possible duplicate before it is even opened. */
+const DUPLICATE_UNITS = 150;
+
+const subCode = (id) => `SUB-${String(id).padStart(4, "0")}`;
 
 async function loadSubmissions() {
 	try {
-		const r = await fetch("/api/admin/submissions");
-		if (!r.ok) throw new Error();
-		renderSubmissions(await r.json());
-	} catch {
-		el("tab-content").innerHTML = '<div class="text-red-400">Failed to load submissions.</div>';
+		[_submissions, _knownLocations] = await Promise.all([
+			api("/api/admin/submissions"),
+			api("/api/admin/locations").catch(() => []),
+		]);
+		/** Open on the oldest, so the queue can be worked from the keyboard straight away. */
+		_openSubmission = _submissions[0]?.id ?? null;
+		if (_submissionView === "reviewed") return setSubmissionView("reviewed");
+		renderSubmissions();
+	} catch (err) {
+		el("tab-content").innerHTML = errorStateHtml(
+			err.message || "Couldn't load the submissions.",
+			"loadSubmissions()"
+		);
 	}
 }
 
-function renderSubmissions(items) {
-	_lastSubmissions = items;
-	if (!items.length) {
-		el("tab-content").innerHTML = '<div class="text-zinc-500">No pending submissions.</div>';
-		return;
+/** The queue as filtered by the user picker. */
+const shownSubmissions = () => _submissions.filter((s) => !_submissionUser || s.username === _submissionUser);
+
+function setSubmissionUser(name) {
+	_submissionUser = name;
+	_openSubmission = shownSubmissions()[0]?.id ?? null;
+	renderSubmissions();
+}
+
+async function setSubmissionView(view) {
+	_submissionUser = "";
+	if (view === "reviewed") {
+		try {
+			_submissionHistory = await api("/api/admin/submissions/history");
+		} catch (err) {
+			return showToast(err.message || "Couldn't load the reviewed list.", "error");
+		}
 	}
+	_submissionView = view;
+	renderSubmissions();
+}
+
+const reviewedSubmissionHtml = (s) =>
+	reviewedRowHtml({
+		code: subCode(s.id),
+		title: s.label,
+		image: s.image_path,
+		userId: s.submitted_by,
+		username: s.username,
+		displayName: s.display_name,
+		status: s.status,
+		reviewer: s.reviewed_by_username,
+		reviewedAt: s.reviewed_at,
+		reason: s.deny_reason,
+	});
+
+function renderSubmissions() {
+	const reviewed = _submissionView === "reviewed";
+	const list = reviewed ? _submissionHistory : _submissions;
+	if (_submissionUser && !list.some((s) => s.username === _submissionUser)) _submissionUser = "";
+	const shown = list.filter((s) => !_submissionUser || s.username === _submissionUser);
+	const search = el("submissions-list") ? el("panel-search")?.value : "";
 	el("tab-content").innerHTML = `
-        <h2 class="font-bold text-lg mb-4">Pending Submissions (${items.length})</h2>
-        ${panelSearchInput("Search submission ID, label, username or coordinates...")}
-        <div class="flex flex-col gap-3" id="submissions-list">
-            ${items.map(renderSubmissionRow).join("")}
-            <div id="panel-search-empty" class="hidden text-zinc-500 text-center py-8">No submissions match your search.</div>
-        </div>`;
+		${reviewHeader("Submissions", _submissions.length, "loadSubmissions()")}
+		${panelSearchInput("Search submission ID, label, username or coordinates...")}
+		<div class="flex items-center gap-1.5 flex-wrap mb-3">
+			${reviewViewChips(_submissionView, "setSubmissionView", _submissions.length)}
+			<span class="ml-auto"></span>
+			${userFilterSelect(list, (s) => s.username, _submissionUser, "setSubmissionUser")}
+		</div>
+		<div class="flex flex-col gap-2" id="submissions-list">
+			${shown.map(reviewed ? reviewedSubmissionHtml : submissionRowHtml).join("")}
+			<div id="panel-search-empty" class="hidden text-zinc-500 text-center py-8">No submissions match your search.</div>
+		</div>
+		${shown.length ? "" : reviewed ? '<p class="text-sm text-zinc-500 text-center py-8">Nothing has been reviewed yet.</p>' : emptyQueueHtml("No submissions are waiting for review.")}
+		${reviewed || !shown.length ? "" : '<p class="hidden sm:block text-xs text-zinc-600 mt-4"><kbd class="kbd">J</kbd> <kbd class="kbd">K</kbd> next and previous · <kbd class="kbd">A</kbd> approve · <kbd class="kbd">D</kbd> deny</p>'}`;
 	bindPanelSearch("#submissions-list [data-search]");
+	restorePanelSearch(search);
+	if (!reviewed) mountSubmissionMap();
+	claimChanged();
 }
 
-function renderSubmissionRow(s) {
-	const isExpanded = expandedSubId === s.id;
-	const expandedHtml = isExpanded
-		? `
-        <div class="border-t border-zinc-800 px-4 pt-4 pb-2">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch" style="min-height:320px">
-                <img loading="lazy" src="/uploads/${escHtml(s.image_path)}" alt="Submission" class="w-full rounded-xl object-cover" style="max-height:400px" />
-                <div class="flex flex-col gap-2">
-                    <div class="text-xs text-zinc-500 space-y-1">
-                        <div>Coordinates: <span class="text-zinc-300 font-mono">${s.world_x?.toFixed(1)}, ${s.world_y?.toFixed(1)}</span></div>
-                        <div>Submitted: <span class="text-zinc-300">${new Date(s.created_at * 1000).toLocaleString()}</span></div>
-                        <div>By: <a href="/u/${encodeURIComponent(s.username || "")}" class="text-blue-400 hover:underline">@${escHtml(s.username || "Unknown")}</a></div>
-                    </div>
-                    <div class="text-xs text-zinc-500">Map location</div>
-                    <div class="flex-1" style="min-height:200px">
-                        <canvas id="sub-map-canvas" class="w-full h-full rounded-xl"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>`
-		: "";
+/** Locations already in the game near a submitted pin, nearest first. */
+function nearbyLocations(s) {
+	return _knownLocations
+		.map((loc) => ({ loc, distance: Math.hypot(loc.world_x - s.world_x, loc.world_y - s.world_y) }))
+		.filter((near) => near.distance <= NEARBY_UNITS)
+		.sort((a, b) => a.distance - b.distance)
+		.slice(0, 4);
+}
+
+function nearbyHtml(near) {
+	if (!near.length) return "";
+	return `<div>
+		<div class="m-label">Already in the game close by <span class="text-zinc-600">Check this is not a duplicate (U4).</span></div>
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+			${near
+				.map(
+					({
+						loc,
+						distance,
+					}) => `<a href="/uploads/${escHtml(loc.image_path)}" target="_blank" rel="noopener" class="block bg-zinc-800/60 hover:bg-zinc-800 transition rounded-xl overflow-hidden" title="Open full size">
+						<img loading="lazy" src="/uploads/${escHtml(loc.image_path)}" alt="" class="w-full h-20 object-cover" />
+						<span class="block px-2 py-1.5 text-xs">
+							<span class="block truncate text-zinc-200">${escHtml(loc.label || locId(loc.id))}</span>
+							<span class="text-zinc-500">${locId(loc.id)} · ${Math.round(distance).toLocaleString()} units away${loc.is_active ? "" : " · out of play"}</span>
+						</span>
+					</a>`
+				)
+				.join("")}
+		</div>
+	</div>`;
+}
+
+function submissionHints(s) {
+	try {
+		const hints = JSON.parse(s.hints || "[]");
+		return Array.isArray(hints) ? hints.filter((hint) => typeof hint === "string" && hint.trim()) : [];
+	} catch {
+		return [];
+	}
+}
+
+function submissionRowHtml(s) {
+	const open = _openSubmission === s.id;
+	const hints = submissionHints(s);
+	const near = nearbyLocations(s);
 	const searchText = [
 		s.id,
-		`SUB-${String(s.id).padStart(4, "0")}`,
+		subCode(s.id),
 		s.label,
-		s.username,
+		s.username && `@${s.username}`,
 		s.display_name,
-		s.submitted_by,
 		s.world_x,
 		s.world_y,
 		s.image_path,
 	].join(" ");
-	return `<div class="bg-zinc-900 rounded-2xl overflow-hidden" id="sub-${s.id}" data-search="${escHtml(searchText)}">
-        <button onclick="toggleSubmission(${s.id}, ${s.world_x}, ${s.world_y})" class="w-full flex items-center gap-3 p-4 text-left hover:bg-zinc-800/50 transition">
-            <img loading="lazy" src="/uploads/${escHtml(s.image_path)}" alt="" class="w-14 h-10 rounded-lg object-cover flex-shrink-0" />
-            <div class="flex-1 min-w-0">
-                <div class="text-sm font-semibold truncate">${s.label ? escHtml(s.label) : '<span class="text-zinc-500 font-normal">No label</span>'}</div>
-                <div class="text-xs text-zinc-500 mt-0.5">@${escHtml(s.username || "Unknown")} · ${new Date(s.created_at * 1000).toLocaleDateString()}</div>
-            </div>
-            <div class="flex items-center gap-2 flex-shrink-0">
-                <span class="text-xs font-mono text-zinc-600">SUB-${String(s.id).padStart(4, "0")}</span>
-                <span class="material-symbols-outlined text-zinc-500 text-base transition-transform ${isExpanded ? "rotate-180" : ""}">expand_more</span>
-            </div>
-        </button>
-        ${expandedHtml}
-        ${
-			isExpanded
-				? `<div class="px-4 pb-4 space-y-2">
-            <div>
-                <label class="text-xs text-zinc-500 block mb-1">Label <span class="text-red-400/80">(required, 5-128 chars)</span></label>
-                <input id="sub-label-${s.id}" type="text" value="${escHtml(s.label || "")}" placeholder="e.g. Near Dovedale Central" maxlength="128"
-                    class="w-full bg-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600" />
-            </div>
-            <div class="flex gap-2">
-                <button onclick="approveSubmission(${s.id})" class="flex-1 bg-green-700 hover:bg-green-600 transition px-3 py-1.5 rounded-lg text-sm font-semibold">Approve</button>
-                <button onclick="openDenyModal(${s.id})" class="flex-1 bg-red-800 hover:bg-red-700 transition px-3 py-1.5 rounded-lg text-sm font-semibold">Deny</button>
-            </div>
-        </div>`
+	return `<div class="bg-zinc-900 rounded-2xl overflow-hidden ${open ? "ring-1 ring-zinc-700" : ""}" id="sub-${s.id}" data-search="${escHtml(searchText)}">
+		<button onclick="toggleSubmission(${s.id})" aria-expanded="${open}" class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800/50 transition">
+			<img loading="lazy" src="/uploads/${escHtml(s.image_path)}" alt="" class="w-16 h-10 rounded-lg object-cover flex-shrink-0" />
+			<span class="flex-1 min-w-0">
+				<span class="block text-sm font-semibold truncate">${s.label ? escHtml(s.label) : '<span class="text-zinc-500 font-normal">No label</span>'}</span>
+				<span class="block text-xs text-zinc-500 mt-0.5 truncate">@${escHtml(s.username || "unknown")} · ${shortAgo(s.created_at)} ago${hints.length ? ` · ${hints.length} hint${hints.length === 1 ? "" : "s"}` : ""}</span>
+			</span>
+			${near[0]?.distance <= DUPLICATE_UNITS ? '<span class="m-tag warn flex-shrink-0">Possible duplicate</span>' : ""}
+			<span data-claim="submission:${s.id}" class="flex-shrink-0 empty:hidden"></span>
+			<span class="text-xs font-mono text-zinc-600 flex-shrink-0">${subCode(s.id)}</span>
+			<span class="material-symbols-outlined text-zinc-500 text-base flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}">expand_more</span>
+		</button>
+		${
+			open
+				? `<div class="border-t border-zinc-800 p-4 flex flex-col gap-4">
+					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+						<a href="/uploads/${escHtml(s.image_path)}" target="_blank" rel="noopener" title="Open full size">
+							<img src="/uploads/${escHtml(s.image_path)}" alt="Submitted screenshot" class="w-full rounded-xl object-contain bg-black max-h-[26rem]" />
+						</a>
+						<div class="flex flex-col gap-2 min-h-[16rem]">
+							<div id="review-map-slot" class="relative flex-1 min-h-[14rem] rounded-xl overflow-hidden bg-zinc-800"></div>
+							<div class="text-xs text-zinc-500 flex flex-wrap gap-x-4 gap-y-1">
+								<span>Pin <span class="text-zinc-300 font-mono">${Math.round(s.world_x)}, ${Math.round(s.world_y)}</span></span>
+								<span>Sent <span class="text-zinc-300">${formatWhen(s.created_at)}</span></span>
+								<span>By ${staffUserLink(s.submitted_by, s.username)}</span>
+							</div>
+						</div>
+					</div>
+					${
+						hints.length
+							? `<div><div class="m-label">Hints</div><ol class="text-sm text-zinc-300 list-decimal pl-5 flex flex-col gap-0.5">${hints.map((hint) => `<li>${escHtml(hint)}</li>`).join("")}</ol></div>`
+							: ""
+					}
+					${nearbyHtml(near)}
+					<div>
+						<label class="m-label" for="sub-label-${s.id}">Label <span class="text-zinc-600">${LABEL_MIN_LENGTH} to ${LABEL_MAX_LENGTH} characters. You can tidy it before approving.</span></label>
+						<input id="sub-label-${s.id}" type="text" value="${escHtml(s.label || "")}" placeholder="e.g. Near Dovedale Central" maxlength="${LABEL_MAX_LENGTH}" class="m-field" />
+					</div>
+					<div class="flex gap-2 justify-end">
+						<button onclick="openDenyModal(${s.id})" class="m-btn m-btn-text danger">Deny</button>
+						<button onclick="approveSubmission(${s.id})" class="m-btn m-btn-filled"><span class="material-symbols-outlined">check</span>Approve</button>
+					</div>
+				</div>`
 				: ""
 		}
-    </div>`;
+	</div>`;
 }
 
-function toggleSubmission(id, worldX, worldY) {
-	expandedSubId = expandedSubId === id ? null : id;
-	const items = Array.from(document.querySelectorAll('[id^="sub-"]'))
-		.map((n) => n.id.replace("sub-", ""))
-		.map(Number);
-	const allSubs = _lastSubmissions || [];
-	const list = document.getElementById("submissions-list");
-	if (list) list.innerHTML = allSubs.map(renderSubmissionRow).join("");
-	if (expandedSubId !== null && worldX !== undefined) {
-		requestAnimationFrame(() => {
-			const canvas = document.getElementById("sub-map-canvas");
-			if (canvas) {
-				if (subMapCanvas) {
-					try {
-						subMapCanvas.destroy?.();
-					} catch {}
-				}
-				subMapCanvas = new MapCanvas(canvas, {});
-				subMapCanvas.setPin(worldX, worldY);
-				subMapCanvas._centerOnPin?.() ?? subMapCanvas.centerOn?.(worldX, worldY);
-			}
-		});
-	}
+function mountSubmissionMap() {
+	const s = _submissions.find((item) => item.id === _openSubmission);
+	const slot = el("review-map-slot");
+	if (!s || !slot) return;
+	const map = mountReviewMap(slot);
+	map.clearPin();
+	map.setPin(s.world_x, s.world_y);
+	const near = nearbyLocations(s);
+	for (const { loc } of near) map.setNamePin(`near-${loc.id}`, loc.world_x, loc.world_y, "#a1a1aa", locId(loc.id));
+	map.fitTo([{ x: s.world_x, y: s.world_y }, ...near.map(({ loc }) => ({ x: loc.world_x, y: loc.world_y }))]);
 }
 
-let _lastSubmissions = [];
+function toggleSubmission(id) {
+	_openSubmission = _openSubmission === id ? null : id;
+	renderSubmissions();
+	el(`sub-${id}`)?.scrollIntoView({ block: "nearest" });
+}
+
+/** Opens the submission before or after the open one. */
+function stepSubmission(step) {
+	const shown = shownSubmissions();
+	if (!shown.length) return;
+	const at = shown.findIndex((s) => s.id === _openSubmission);
+	const next = shown[Math.min(shown.length - 1, Math.max(0, at + step))];
+	if (next && next.id !== _openSubmission) toggleSubmission(next.id);
+}
+
+/** Takes a reviewed submission off the list and opens the next one, so the queue keeps moving. */
+function submissionReviewed(id) {
+	const at = shownSubmissions().findIndex((s) => s.id === id);
+	_submissions = _submissions.filter((s) => s.id !== id);
+	const shown = shownSubmissions();
+	_openSubmission = (shown[at] ?? shown[at - 1])?.id ?? null;
+	renderSubmissions();
+	refreshAttention();
+}
 
 async function approveSubmission(id) {
-	const label = (document.getElementById(`sub-label-${id}`)?.value ?? "").trim();
+	const input = el(`sub-label-${id}`);
+	const label = (input?.value ?? "").trim();
 	if (label.length < LABEL_MIN_LENGTH || label.length > LABEL_MAX_LENGTH) {
-		showToast(`Label must be ${LABEL_MIN_LENGTH}-${LABEL_MAX_LENGTH} characters.`, "error");
-		document.getElementById(`sub-label-${id}`)?.focus();
-		return;
+		showToast(`The label must be ${LABEL_MIN_LENGTH} to ${LABEL_MAX_LENGTH} characters.`, "error");
+		return input?.focus();
 	}
 	try {
-		const r = await fetch(`/api/admin/submissions/${id}/approve`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ label }),
-		});
-		if (!r.ok) throw new Error(await r.text());
-		_lastSubmissions = _lastSubmissions.filter((s) => s.id !== id);
-		if (expandedSubId === id) expandedSubId = null;
-		if (!_lastSubmissions.length) {
-			el("tab-content").innerHTML = '<div class="text-zinc-500">No pending submissions.</div>';
-			return;
-		}
-		const list = document.getElementById("submissions-list");
-		if (list) list.innerHTML = _lastSubmissions.map(renderSubmissionRow).join("");
-		else loadSubmissions();
-		refreshAttention();
+		await api(`/api/admin/submissions/${id}/approve`, { json: { label } });
+		showToast(`${subCode(id)} approved.`, "success");
+		submissionReviewed(id);
 	} catch (err) {
-		showToast(err.message || "Failed to approve.", "error");
+		showToast(err.message || "Couldn't approve it.", "error");
 	}
 }
 
 function openDenyModal(id) {
 	denyTargetId = id;
 	denyCallback = null;
-	el("deny-modal-title").textContent = "Deny Submission";
+	el("deny-modal-title").textContent = `Deny ${subCode(id)}`;
 	el("deny-reason").value = "";
 	el("deny-reason").dispatchEvent(new Event("input"));
 	el("deny-modal").classList.remove("hidden");
+	setTimeout(() => el("deny-reason").focus(), 50);
 }
 
 async function denySubmission(id, reason) {
 	try {
-		const r = await fetch(`/api/admin/submissions/${id}/deny`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ reason }),
-		});
-		if (!r.ok) throw new Error(await r.text());
-		_lastSubmissions = _lastSubmissions.filter((s) => s.id !== id);
-		if (expandedSubId === id) expandedSubId = null;
-		if (!_lastSubmissions.length) {
-			el("tab-content").innerHTML = '<div class="text-zinc-500">No pending submissions.</div>';
-			return;
-		}
-		const list = document.getElementById("submissions-list");
-		if (list) list.innerHTML = _lastSubmissions.map(renderSubmissionRow).join("");
-		else loadSubmissions();
-		refreshAttention();
+		await api(`/api/admin/submissions/${id}/deny`, { json: { reason } });
+		showToast(`${subCode(id)} denied.`);
+		submissionReviewed(id);
 	} catch (err) {
-		showToast(err.message || "Failed to deny.", "error");
+		showToast(err.message || "Couldn't deny it.", "error");
 	}
 }
+
+/** Only while the Submissions tab is showing and no dialog is in the way. */
+const reviewingSubmissions = () =>
+	currentTab === "submissions" &&
+	_submissionView === "waiting" &&
+	!document.querySelector(".modal-fade:not(.hidden)");
+addKeybinds("Reviewing submissions", [
+	[["J"], "Next submission", () => (reviewingSubmissions() ? stepSubmission(1) : false)],
+	[["K"], "Previous submission", () => (reviewingSubmissions() ? stepSubmission(-1) : false)],
+	[
+		["A"],
+		"Approve the open one",
+		() => (reviewingSubmissions() && _openSubmission ? approveSubmission(_openSubmission) : false),
+	],
+	[
+		["D"],
+		"Deny the open one",
+		() => (reviewingSubmissions() && _openSubmission ? openDenyModal(_openSubmission) : false),
+	],
+]);

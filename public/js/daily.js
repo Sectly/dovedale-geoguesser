@@ -24,7 +24,7 @@ async function init() {
 		view = new RoundView({ onGuess: submitGuess, onHint: () => api("/api/daily/hint", { method: "POST" }) });
 		let round = await api("/api/daily/start", { method: "POST" });
 		switchScreen("game-screen");
-		// The clock only starts once the screenshot is on screen.
+		/** The clock only starts once the screenshot is on screen. */
 		await view.show(round);
 		if (round.loading) round = await api("/api/daily/begin", { method: "POST" });
 		else showToast("Picking up where you left off. The clock kept running.");
@@ -55,10 +55,7 @@ function showAlreadyPlayed(result) {
 	);
 }
 
-/**
- * Copies a result to paste into a chat: the score and how it was got, but nothing that
- * gives the location away to someone who has yet to play.
- */
+/** Copies a result to share: the score, but nothing that gives the location away. */
 async function shareResult(result) {
 	const day = new Date(`${result.date}T00:00:00Z`).toLocaleDateString(undefined, {
 		day: "numeric",
@@ -127,6 +124,7 @@ async function submitGuess(pin) {
 		.join(" · ");
 	el("result-share-btn").onclick = () => shareResult(result);
 	el("result-report-link").href = reportLocationUrl(result.location_id);
+	el("result-report-link").onclick = (e) => reportLocation(e, result.location_id);
 	show("result-report-link");
 	el("result-streak-display").innerHTML = streakBadgeHtml(result.current_streak, {
 		best: result.current_streak === result.longest_streak,

@@ -11,6 +11,7 @@ import { db } from "../db";
 import { wireServer } from "../game/duels/wire";
 import { auditLog } from "../lib/audit";
 import { clampInt, fail, idParam, readJson } from "../lib/http";
+import { requireFeature } from "../system/features";
 import { checkUserRateLimit } from "../lib/rate-limit";
 import { HOUR } from "../lib/time";
 import { displayName, notify } from "../lib/webhook";
@@ -25,6 +26,8 @@ function requireDuelist(c: Context): User {
 	return user;
 }
 
+const NEW_DUELS_OFF = "New duels are paused for now. Please try again later.";
+
 const canCreateRoom = (user: User) => checkUserRateLimit(user, "room", 10, HOUR * 1000);
 
 async function readRounds(c: Context): Promise<number> {
@@ -34,6 +37,7 @@ async function readRounds(c: Context): Promise<number> {
 
 duelRoutes.post("/quickplay", async (c) => {
 	const user = requireDuelist(c);
+	requireFeature("new_duels", user, NEW_DUELS_OFF);
 	const match = quickplay(user, await readRounds(c), () => canCreateRoom(user));
 	if (!match) fail(429, "Too many rooms created. Try again later.");
 	return c.json(match);
@@ -46,6 +50,7 @@ duelRoutes.delete("/quickplay", (c) => {
 
 duelRoutes.post("/rooms", async (c) => {
 	const user = requireDuelist(c);
+	requireFeature("new_duels", user, NEW_DUELS_OFF);
 	if (!canCreateRoom(user)) fail(429, "Too many rooms created. Try again later.");
 	const body = await readJson<{ rounds: number; listed: boolean }>(c);
 	const rounds = clampInt(body.rounds, GAME.duel.defaultRounds, GAME.duel.minRounds, GAME.duel.maxRounds);
@@ -67,7 +72,7 @@ duelRoutes.post("/rooms/:code/join", (c) => {
 	const user = requireDuelist(c);
 	const code = c.req.param("code").toUpperCase();
 	const room = duelRooms.get(code);
-	// Quick Play seats come from matchmaking; the 409 makes the page offer spectating instead.
+	/** Quick Play seats come from matchmaking; the 409 makes the page offer spectating instead. */
 	if (room?.quickplay && !room.players.some((p) => p.userId === user.id))
 		fail(409, "Quick Play duels can't be joined by code, but you can watch them.");
 

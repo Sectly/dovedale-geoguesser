@@ -12,6 +12,7 @@
     <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
     <link rel="stylesheet" href="/css/shared.css" />
+    <script src="/js/transitions.js"></script>
     <style>
       #map-canvas {
         cursor: crosshair;
@@ -246,9 +247,8 @@
             <span class="material-symbols-outlined text-4xl text-zinc-600" style="font-variation-settings: &quot;FILL&quot; 1">lock_clock</span>
             <div class="font-semibold">Suggestions aren't open to you yet</div>
             <p class="text-zinc-400 text-sm" id="suggest-locked-reason"></p>
-            <p class="text-zinc-600 text-xs">
-              Suggesting changes reveals every location, so it is limited to established players. You can still submit new locations.
-            </p>
+            <div id="suggest-locked-progress" class="w-full max-w-xs flex flex-col gap-3 text-left"></div>
+            <p class="text-zinc-600 text-xs">You can still submit new locations.</p>
           </div>
 
           <div id="suggest-policy-gate" style="display: none" class="flex flex-col gap-4">
@@ -259,9 +259,7 @@
                 >
                 <div>
                   <div class="font-semibold text-yellow-200 mb-1">Spoiler Warning</div>
-                  <p class="text-zinc-300 text-xs">
-                    Suggesting changes shows you where every location is. Don't use that to cheat or to spoil the game for others.
-                  </p>
+                  <p class="text-zinc-300 text-xs">This shows where every location is. Don't use it to cheat or spoil the game.</p>
                 </div>
               </div>
               <p class="text-zinc-400 text-xs mb-4">

@@ -104,7 +104,7 @@ ogRoutes.get("/og.png", async (c) => {
 
 	let png = cache.get(key);
 	if (!png || Date.now() - png.at > TTL_MS) {
-		// Drawing a card is the expensive part; a stale or generic one will do when someone hammers it.
+		/** Drawing a card is the expensive part; a stale or generic one will do when someone hammers it. */
 		if (!checkRateLimit(`og:${clientIp(c)}`, 30, 60 * 1000)) {
 			png ??= cache.get("home");
 			if (!png) return c.text("Too many requests", 429);

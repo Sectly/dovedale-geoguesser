@@ -134,6 +134,13 @@ const FEATURE_INFO = {
 		"Duel reactions",
 		"The preset icons players can send each other during a duel. Switch off if they are being used to annoy people.",
 	],
+	submissions: ["Submissions", "Players sending in new locations. Staff can still submit while it is off."],
+	suggestions: ["Suggestions", "Players suggesting changes to existing locations."],
+	new_duels: ["New duels", "Starting duels, Quick Play and team games. Games already open carry on to the end."],
+	signups: [
+		"New accounts",
+		"People logging in for the first time. Everyone who already has an account is unaffected.",
+	],
 };
 
 async function loadFeatures() {
@@ -145,7 +152,7 @@ async function loadFeatures() {
 		"toggle_on",
 		Object.entries(FEATURE_INFO)
 			.map(
-				([key, [title, blurb]]) => `<div class="flex items-center gap-3">
+				([key, [title, blurb]]) => `<div class="flex items-center gap-3 py-1.5">
 					<div class="flex-1 min-w-0">
 						<div class="text-sm font-semibold">${title} ${state[key] ? '<span class="m-tag success ml-1">On</span>' : '<span class="m-tag ml-1">Off</span>'}</div>
 						<div class="text-xs text-zinc-500">${blurb}</div>
@@ -180,7 +187,11 @@ async function setFeature(feature, enabled) {
 	try {
 		await api("/api/admin/system/features", { json: { feature, enabled } });
 		showToast(
-			enabled ? "Switched on" : "Switched off. Duels already open keep it until their next update.",
+			enabled
+				? "Switched on"
+				: feature === "duel_emotes"
+					? "Switched off. Duels already open keep it until their next update."
+					: "Switched off",
 			"success"
 		);
 		loadFeatures();
@@ -201,7 +212,7 @@ async function loadUpdate(refresh) {
 		if (refresh) box.querySelector("button")?.setAttribute("disabled", "");
 		status = await api(`/api/admin/system/update${refresh ? "?refresh=1" : ""}`);
 	} catch (err) {
-		// While the server restarts it is simply not there; keep asking until it is back.
+		/** While the server restarts it is not there at all; keep asking until it is back. */
 		if (box.dataset.restarting) {
 			systemUpdatePoll = setInterval(() => loadUpdate(false), 2000);
 			return;
@@ -420,7 +431,7 @@ async function loadSystemLogs(before = 0) {
 			</details>`
 		)
 		.join("");
-	// The tab was redrawn or left while the request was out; the newer load owns the page now.
+	/** The tab was redrawn or left while the request was out; the newer load owns the page now. */
 	if (!box.isConnected) return;
 	if (before) {
 		el("system-log-more")?.remove();

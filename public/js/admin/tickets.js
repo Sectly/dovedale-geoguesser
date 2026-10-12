@@ -18,10 +18,7 @@ let expandedTicketId = null;
 let _ticketsSignature = "";
 let _stopTicketPolling = null;
 
-/**
- * Loads the ticket list. With `quiet`, it is a background refresh: nothing is
- * redrawn unless something actually changed, and replies being typed are kept.
- */
+/** Loads the ticket list. `quiet` is a background refresh: it only redraws on a change and keeps typed replies. */
 async function loadTickets(reset = true, autoOpenId = null, { quiet = false } = {}) {
 	if (reset) expandedTicketId = autoOpenId;
 	const params = new URLSearchParams({ status: supportStatus });
@@ -35,24 +32,26 @@ async function loadTickets(reset = true, autoOpenId = null, { quiet = false } = 
 		if (quiet && signature === _ticketsSignature) return;
 		_ticketsSignature = signature;
 
-		// Hold on to anything being typed, and where the reader had scrolled to.
 		const drafts = new Map(
 			[...document.querySelectorAll('textarea[id^="reply-"]')].map((box) => [box.id, box.value])
 		);
 		const focused = document.activeElement?.id;
 		renderTickets(tickets, counts);
+		claimChanged();
 		for (const [id, value] of drafts) if (el(id)) el(id).value = value;
 		if (focused?.startsWith("reply-")) el(focused)?.focus();
 		const thread = expandedTicketId && el(`thread-${expandedTicketId}`);
 		if (thread) thread.scrollTop = thread.scrollHeight;
 
 		if (autoOpenId) {
-			setTimeout(() => el(`ticket-${autoOpenId}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+			setTimeout(
+				() => el(`ticket-${autoOpenId}`)?.scrollIntoView({ behavior: scrollBehavior(), block: "start" }),
+				100
+			);
 		}
 	} catch (err) {
 		if (!quiet) el("tab-content").innerHTML = `<div class="text-red-400">${escHtml(err.message)}</div>`;
 	}
-	// New tickets and replies show up by themselves while this tab is open.
 	_stopTicketPolling ??= pollWhile(
 		() => currentTab === "tickets",
 		() => loadTickets(false, null, { quiet: true })
@@ -179,6 +178,7 @@ function renderTicketCard(t) {
 				? '<span class="m-tag info">Needs reply</span>'
 				: "",
 		t.is_banned ? '<span class="m-tag danger">Banned</span>' : "",
+		`<span data-claim="ticket:${t.id}" class="empty:hidden"></span>`,
 	].join("");
 
 	return `
@@ -215,7 +215,11 @@ function renderTicketBody(t, isOpen) {
 		${closeRequestBanner}
 		${
 			isOpen
-				? `<div class="flex gap-2 items-end">
+				? `<select onchange="useSavedReply(${t.id}, this)" class="m-field" aria-label="Saved replies">
+					<option value="">Start from a saved reply...</option>
+					${SAVED_REPLIES.map(([label], i) => `<option value="${i}">${label}</option>`).join("")}
+				</select>
+				<div class="flex gap-2 items-end">
 					<textarea id="reply-${t.id}" rows="2" maxlength="2000" placeholder="Write a reply"
 						onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();replyTicket(${t.id},false);}"
 						class="m-field flex-1"></textarea>
@@ -241,7 +245,7 @@ function toggleTicket(id) {
 		setTimeout(() => {
 			document
 				.getElementById(`ticket-${expandedTicketId}`)
-				?.scrollIntoView({ behavior: "smooth", block: "start" });
+				?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
 		}, 100);
 	}
 }
@@ -255,6 +259,39 @@ function setTicketStatus(s) {
 function setTicketCategory(c) {
 	supportCategory = c;
 	loadTickets(true);
+}
+
+/** Starting points for common replies. Picking one fills the box; nothing is sent until staff press Send. */
+const SAVED_REPLIES = [
+	["Looking into it", "Thanks for getting in touch. We're looking into this and will reply here once we know more."],
+	[
+		"Need more detail",
+		"Thanks for the report. Could you add a bit more detail: what happened, when, and any IDs or links you have?",
+	],
+	["Fixed", "This should now be fixed. Reload the page, and reply here if it still isn't right."],
+	[
+		"Report: action taken",
+		"Thanks for the report. We looked into it and took action. We can't share details about another player's account.",
+	],
+	[
+		"Report: no action",
+		"Thanks for the report. We looked into it and found nothing that breaks the rules, so no action was taken.",
+	],
+	["Appeal accepted", "We reviewed your appeal and overturned the action. Sorry for the trouble."],
+	["Appeal declined", "We reviewed your appeal and the action stands. The reason given at the time still applies."],
+	[
+		"Belongs on GitHub",
+		"Bugs and feature requests are tracked on GitHub Issues, not in tickets. Please post it there so it doesn't get lost.",
+	],
+];
+
+function useSavedReply(id, select) {
+	const reply = SAVED_REPLIES[select.value];
+	select.value = "";
+	if (!reply) return;
+	const box = el(`reply-${id}`);
+	box.value = reply[1];
+	box.focus();
 }
 
 async function replyTicket(id, close) {

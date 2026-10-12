@@ -1,7 +1,5 @@
 /**
- * Team Duels (Specials): two teams of up to two. The server runs the game on its own
- * clock; this page asks for the room's state about once a second and draws whatever
- * it says, so a dropped connection just picks up where the game is now.
+ * Team Duels (Specials): two teams of up to two. The page polls the room's state about once a second and draws it.
  */
 
 const TEAM_INFO = {
@@ -53,7 +51,7 @@ async function poll() {
 	try {
 		room = await teamApi("");
 	} catch (err) {
-		// The room is gone (closed, or the server restarted): back to the start.
+		/** The room is gone (closed, or the server restarted): back to the start. */
 		if (err.status === 404 || err.status === 403) return leaveLocally(err.message);
 		return;
 	}
@@ -279,7 +277,7 @@ function render() {
 		if (changed) startRoundOnScreen();
 		el("click-hint").textContent = `Get ready... ${room.round.starts_in}`;
 	} else if (room.phase === "guessing") {
-		// Joined or reloaded mid-round: put the round up first.
+		/** Joined or reloaded mid-round: put the round up first. */
 		if (changed && (was.phase !== "ready" || was.round !== room.round_number)) startRoundOnScreen();
 		if (changed) {
 			view.go(room.round);
@@ -301,7 +299,7 @@ async function submitGuess(pin) {
 	try {
 		await teamApi("/guess", pin ?? {});
 	} catch (err) {
-		// 409 means the round moved on without us, which the next poll will show.
+		/** 409 means the round moved on without us, which the next poll will show. */
 		if (err.status !== 409) showToast(err.message, "error");
 	}
 	poll();

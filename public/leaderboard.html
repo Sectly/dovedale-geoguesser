@@ -21,6 +21,7 @@
     <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
     <link rel="stylesheet" href="/css/shared.css" />
+    <script src="/js/transitions.js"></script>
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
     <nav id="site-nav"></nav>
@@ -28,10 +29,11 @@
     <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-8">
       <h1 class="text-3xl font-bold mb-6">Leaderboard</h1>
 
-      <div class="flex gap-1 bg-zinc-900 rounded-xl p-1 mb-6">
-        <button id="tab-solo" class="flex-1 py-2 rounded-lg text-sm font-semibold transition bg-zinc-700 text-white">Solo</button>
-        <button id="tab-duels" class="flex-1 py-2 rounded-lg text-sm font-semibold transition text-zinc-400 hover:text-white">Duels</button>
-        <button id="tab-daily" class="flex-1 py-2 rounded-lg text-sm font-semibold transition text-zinc-400 hover:text-white">Daily</button>
+      <div class="relative flex gap-1 bg-zinc-900 rounded-xl p-1 mb-6">
+        <span id="tab-pill" class="tab-pill"></span>
+        <button id="tab-solo" class="relative flex-1 py-2 rounded-lg text-sm font-semibold transition text-white">Solo</button>
+        <button id="tab-duels" class="relative flex-1 py-2 rounded-lg text-sm font-semibold transition text-zinc-400 hover:text-white">Duels</button>
+        <button id="tab-daily" class="relative flex-1 py-2 rounded-lg text-sm font-semibold transition text-zinc-400 hover:text-white">Daily</button>
       </div>
 
       <div id="leaderboard-content" class="stagger">
@@ -40,6 +42,9 @@
         <div class="skeleton h-16 rounded-2xl mb-2"></div>
         <div class="skeleton h-16 rounded-2xl mb-2"></div>
         <div class="skeleton h-16 rounded-2xl mb-2"></div>
+      </div>
+      <div id="load-more-wrap" class="hidden text-center mt-4">
+        <button id="load-more" class="m-btn m-btn-tonal">Load more</button>
       </div>
     </main>
     <footer id="site-footer"></footer>

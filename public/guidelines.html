@@ -12,6 +12,7 @@
     <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
     <link rel="stylesheet" href="/css/shared.css" />
+    <script src="/js/transitions.js"></script>
     <style>
       .do {
         color: #86efac;
@@ -25,19 +26,19 @@
     <nav id="site-nav"></nav>
     <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-10 prose">
       <h1 class="text-2xl font-bold mb-2 text-white">Upload Guidelines</h1>
-      <p class="text-zinc-600 text-xs mb-6">Last updated: 11 October 2026</p>
+      <p class="text-zinc-600 text-xs mb-6">Last updated: 12 October 2026</p>
       <div class="summary">
         <div class="summary-title">In short</div>
         <ul>
           <li>Submit clear screenshots from inside Dovedale Railway, with the pin where the picture was taken.</li>
-          <li>No player names, chat or game UI in the picture.</li>
-          <li>If a submission is denied, the reason will quote one of the numbered rules below (U1 to U12).</li>
+          <li>No player names, chat or game menus in the picture, and no edited or AI-made images.</li>
+          <li>If a submission is denied, the reason will quote one of the numbered rules below (U1 to U14).</li>
         </ul>
       </div>
 
       <p>
-        These guidelines cover new location submissions and suggested changes to existing ones. They keep the game fair, varied and enjoyable. Submissions that
-        break them are denied; repeated problems can lead to an upload limit.
+        These guidelines cover new location submissions and suggested changes to existing ones. They keep Dovedale GeoGuesser fair, varied and enjoyable.
+        Submissions that break them are denied; repeated problems can lead to an upload limit.
       </p>
 
       <h2>
@@ -46,6 +47,7 @@
       </h2>
       <ul>
         <li class="do">Taken inside the Dovedale Railway Roblox game world.</li>
+        <li class="do">Up to date: it shows the place as it looks in the game today.</li>
         <li class="do">Identifiable: landmarks, track features or structures give players something to reason from.</li>
         <li class="do">Clear and well lit, not blurry, heavily compressed or hidden by fog and effects.</li>
         <li class="do">Reasonably difficult: not instantly obvious, not impossible.</li>
@@ -67,7 +69,8 @@
         </li>
         <li id="U3" class="rule">
           <a href="#U3" class="rule-code">U3</a> <strong class="text-zinc-200">Chat or interface visible.</strong> Chat messages, menus, HUD elements or other
-          overlays are in the picture.
+          overlays are in the picture. The one exception is Roblox's own top bar (the menu, chat and inventory buttons), which some devices cannot hide. Crop it
+          out where you can do so without breaking another rule.
         </li>
         <li id="U4" class="rule">
           <a href="#U4" class="rule-code">U4</a> <strong class="text-zinc-200">Duplicate.</strong> The same view, or nearly the same view, is already in the
@@ -86,8 +89,8 @@
           close-up of a wall, the inside of a vehicle, or open sky.
         </li>
         <li id="U8" class="rule">
-          <a href="#U8" class="rule-code">U8</a> <strong class="text-zinc-200">Filters or edits.</strong> Freecam filters, visual effects or edits that change
-          how the place looks. Cropping out the interface is allowed.
+          <a href="#U8" class="rule-code">U8</a> <strong class="text-zinc-200">Filters or edits.</strong> Freecam filters, visual effects, or any editing of the
+          picture. Cropping and resizing are the only changes allowed.
         </li>
         <li id="U9" class="rule">
           <a href="#U9" class="rule-code">U9</a> <strong class="text-zinc-200">Inappropriate content.</strong> Offensive, sexual, hateful or unrelated content,
@@ -105,14 +108,22 @@
           <a href="#U12" class="rule-code">U12</a> <strong class="text-zinc-200">Not yours to share.</strong> A screenshot taken by someone else without their
           permission, or one showing another person's personal information.
         </li>
+        <li id="U13" class="rule">
+          <a href="#U13" class="rule-code">U13</a> <strong class="text-zinc-200">AI-generated or AI-altered.</strong> An image made, extended, upscaled or
+          otherwise changed by an AI tool. Submit the screenshot exactly as it looked in the game.
+        </li>
+        <li id="U14" class="rule">
+          <a href="#U14" class="rule-code">U14</a> <strong class="text-zinc-200">Out of date.</strong> A screenshot from an older version of Dovedale Railway
+          that no longer matches how the place looks in the game now.
+        </li>
       </ul>
 
       <h2>Tips for a great screenshot</h2>
       <ul>
         <li><strong class="text-zinc-200">Use a private server:</strong> It keeps the area clear of other players.</li>
         <li>
-          <strong class="text-zinc-200">Use freecam (Shift + P)</strong> to position the camera. First-person view also works as long as the interface is
-          hidden.
+          <strong class="text-zinc-200">Use freecam (Shift + P)</strong> to position the camera. First-person view also works as long as the game's own
+          interface is hidden.
         </li>
         <li><strong class="text-zinc-200">Hide the interface and overhead names:</strong> Freecam can switch both off, which is the easiest way.</li>
         <li>Players and trains may appear but are not preferred: they distract and date the image.</li>
@@ -123,7 +134,7 @@
       <h2>Suggesting changes</h2>
       <p>
         From the <a href="/submit" class="text-blue-400 hover:text-blue-300">Submit page</a> you can suggest a new screenshot, a corrected pin, a hint, a full
-        edit, or the removal of an existing location. The same rules apply. Because this tool shows where locations are, it is only open to accounts at least 30
+        edit, or the removal of an existing location. The same rules apply. Because this tool shows where locations are, it is only open to accounts at least 7
         days old that have played at least five games, and using it to learn answers breaks Fair Play rule
         <a href="/fairplay#F6" class="text-blue-400 hover:text-blue-300">F6</a>.
       </p>
@@ -137,8 +148,8 @@
         <li>Staff may adjust the label or hints when approving.</li>
         <li>If it is denied, the screenshot is deleted straight away and the record is removed after 30 days.</li>
         <li>
-          Approved screenshots become part of the game. See the <a href="/tos" class="text-blue-400 hover:text-blue-300">Terms of Service</a> for the permission
-          you give us and how to ask for removal.
+          Approved screenshots become part of Dovedale GeoGuesser. See the <a href="/tos" class="text-blue-400 hover:text-blue-300">Terms of Service</a> for the
+          permission you give us and how to ask for removal.
         </li>
       </ul>
 

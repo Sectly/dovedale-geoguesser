@@ -17,6 +17,7 @@ import {
 	teamRoomState,
 } from "../game/teams";
 import { clampInt, fail, readJson } from "../lib/http";
+import { requireFeature } from "../system/features";
 import { checkUserRateLimit } from "../lib/rate-limit";
 import { HOUR } from "../lib/time";
 import { liveSpecial } from "../specials";
@@ -36,6 +37,7 @@ const done = (c: Context) => c.json({ success: true });
 
 teamRoutes.post("/rooms", async (c) => {
 	const user = requireTeamPlayer(c);
+	requireFeature("new_duels", user, "New team games are paused for now. Please try again later.");
 	if (!checkUserRateLimit(user, "team-room", 10, HOUR * 1000)) fail(429, "Too many rooms created. Try again later.");
 	const body = await readJson<{ rounds: number }>(c);
 	const rounds = clampInt(body.rounds, TEAM_ROUNDS.default, TEAM_ROUNDS.min, TEAM_ROUNDS.max);

@@ -5,11 +5,7 @@ import { SUPERVISED } from "../lib/lifecycle";
 import { logInfo } from "../lib/logs";
 import { cancelRestart, restartIn, scheduleRestart } from "./restart";
 
-/**
- * Installing updates from the staff panel. The server only ever fast-forwards to what
- * is on the configured branch of its own git remote: nothing here takes a URL, a
- * branch name or a command from the request.
- */
+/** Updates from the staff panel. Only fast-forwards to the configured branch; takes nothing from the request. */
 
 const BRANCH = /^[\w./-]{1,80}$/.test(process.env.UPDATE_BRANCH ?? "") ? process.env.UPDATE_BRANCH! : "main";
 const REMOTE = "origin";
@@ -113,9 +109,8 @@ function note(line: string) {
 }
 
 /**
- * Backs up the database, fast-forwards to the remote branch, installs dependencies and
- * rebuilds the stylesheet, then restarts once players have had their warning. Stops at
- * the first step that fails, leaving the running server as it was.
+ * Backs up, fast-forwards, installs dependencies, rebuilds the stylesheet, then restarts.
+ * Stops at the first failed step.
  */
 export async function runUpdate(startedBy: string): Promise<string | null> {
 	if (!UPDATES_ENABLED) return "Updates from the panel are switched off on this server.";

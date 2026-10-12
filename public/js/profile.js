@@ -108,6 +108,7 @@ function render(p, me) {
 		${stat("Best Score", p.solo?.best_score !== null ? (p.solo.best_score ?? 0).toLocaleString() : "-")}
 		${stat("Games Played", soloGames.toLocaleString())}
 		${stat("Avg Score", p.solo?.avg_score != null ? Math.round(p.solo.avg_score).toLocaleString() : "-")}
+		${p.rounds?.solo_avg != null ? stat("Avg Per Round", p.rounds.solo_avg.toLocaleString()) : ""}
 	</div>
 
 	<h2 class="font-bold text-zinc-300 mb-3">Daily Challenge</h2>
@@ -115,6 +116,9 @@ function render(p, me) {
 		${stat("Best Daily Score", p.daily?.best !== null ? (p.daily?.best ?? 0).toLocaleString() : "-")}
 		${stat("Days Played", (p.daily?.played ?? 0).toLocaleString())}
 		${stat("Avg Score", p.daily?.avg != null ? Math.round(p.daily.avg).toLocaleString() : "-")}
+		${p.daily?.avg_distance != null ? stat("Avg Distance", `${p.daily.avg_distance.toLocaleString()} units`) : ""}
+		${p.daily?.avg_time != null ? stat("Avg Time", `${p.daily.avg_time}s`) : ""}
+		${p.daily?.played ? stat("Without Hints", `${p.daily.no_hints} of ${p.daily.played}`) : ""}
 	</div>
 
 	<h2 class="font-bold text-zinc-300 mb-3">Duels</h2>
@@ -125,6 +129,8 @@ function render(p, me) {
 		${stat("Rating", p.rating?.games ? p.rating.value.toLocaleString() : "Unranked")}
 		${stat("Ranked Duels", (p.rating?.games ?? 0).toLocaleString())}
 		${stat("Total Score", (p.duels?.total_score ?? 0).toLocaleString())}
+		${p.rounds?.duel_avg != null ? stat("Avg Per Round", p.rounds.duel_avg.toLocaleString()) : ""}
+		${p.rounds?.duel_avg_time != null ? stat("Avg Guess Time", `${p.rounds.duel_avg_time}s`) : ""}
 	</div>
 
 	${achievementsHtml(p.achievements)}
@@ -153,21 +159,22 @@ function achievementsHtml(achievements) {
 	if (!achievements?.length) return "";
 	const earned = achievements.filter((a) => a.earned_at).length;
 	const tile = (
-		a
+		a,
+		i
 	) => `<div class="rounded-2xl px-3 py-3 flex items-center gap-3 ${a.earned_at ? "bg-zinc-900" : "bg-zinc-900/40"}" title="${escHtml(a.description)}">
-		<span class="material-symbols-outlined text-2xl flex-shrink-0 ${a.earned_at ? "text-yellow-400" : "text-zinc-700"}" ${a.earned_at ? "style=\"font-variation-settings:'FILL' 1\"" : ""}>${a.earned_at ? escHtml(a.icon) : "lock"}</span>
+		<span class="material-symbols-outlined text-2xl flex-shrink-0 ${a.earned_at ? "achievement-lit text-yellow-400" : "text-zinc-700"}" ${a.earned_at ? `style="font-variation-settings:'FILL' 1;animation-delay:${200 + Math.min(i, 12) * 70}ms"` : ""}>${a.earned_at ? escHtml(a.icon) : "lock"}</span>
 		<div class="min-w-0">
 			<div class="text-sm font-semibold truncate ${a.earned_at ? "" : "text-zinc-500"}">${escHtml(a.title)}</div>
 			<div class="text-xs ${a.earned_at ? "text-zinc-500" : "text-zinc-600"}">${escHtml(a.description)}</div>
 		</div>
 	</div>`;
-	// Earned first, newest at the front; the ones still to get keep their usual order.
+	/** Earned first, newest at the front; the ones still to get keep their usual order. */
 	const sorted = [...achievements].sort((a, b) => (b.earned_at || 0) - (a.earned_at || 0));
 	return `<div class="flex items-center justify-between mb-3" id="achievements">
 		<h2 class="font-bold text-zinc-300">Achievements</h2>
 		<span class="text-xs text-zinc-500">${earned} of ${achievements.length}</span>
 	</div>
-	<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">${sorted.map(tile).join("")}</div>`;
+	<div class="stagger grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">${sorted.map(tile).join("")}</div>`;
 }
 
 const shortDate = (seconds) =>
@@ -241,7 +248,7 @@ async function toggleDuelRounds(gameId, button) {
 						</div>`
 					)
 					.join("")
-			: '<p class="text-xs text-zinc-600">This duel ended before any round finished.</p>';
+			: '<p class="text-xs text-zinc-600">No round details: they are kept for 180 days.</p>';
 	} catch (err) {
 		box.innerHTML = `<p class="text-xs text-red-400">${escHtml(err.message)}</p>`;
 	}

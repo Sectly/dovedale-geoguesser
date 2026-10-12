@@ -24,18 +24,13 @@ miscRoutes.get("/meta", (c) =>
 	})
 );
 
-/**
- * Records the signals used to spot ban evasion for the logged-in user: the device
- * cookie and, when the page sent one, the browser fingerprint. A match with a
- * banned account is flagged for staff; nobody is banned automatically. Always
- * answers 204 so the page learns nothing from it.
- */
+/** Records the device cookie and browser fingerprint used to spot ban evasion. Always answers 204. */
 miscRoutes.post("/fp", async (c) => {
 	const user = currentUser(c);
 	if (!user || !checkRateLimit(`fp:${user.id}`, 5, 60 * 1000)) return c.body(null, 204);
 
 	const device = deviceId(getCookie(c.req.header("Cookie"), DEVICE_COOKIE));
-	// Sent every time so the cookie's year starts over while the browser is in use.
+	/** Sent every time so the cookie's year starts over while the browser is in use. */
 	c.header("Set-Cookie", deviceCookie(device.id));
 	recordSignal(user.id, "device", hashIdentity(device.id));
 

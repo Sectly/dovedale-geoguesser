@@ -3,11 +3,7 @@ import { GAME } from "../config";
 import { uploadUrl } from "../lib/uploads";
 import { difficultyOf, parseHints, recordLocationPlay } from "./locations";
 
-/**
- * One guessable round: a location, a clock, hints and scoring.
- * Solo, daily and duels all run on this; they differ only in their rules and in
- * what they wrap around it (a sequence of rounds, persistence, several players).
- */
+/** One guessable round: a location, a clock, hints and scoring. Shared by solo, daily and duels. */
 
 export type RoundRules = {
 	/** Seconds per round, 0 for no limit. */
@@ -67,11 +63,7 @@ export class Round {
 		this.hintsRevealed = Math.min(this.hintsRevealed, this.hints.length);
 	}
 
-	/**
-	 * A round made with `Round.loading` has its start set slightly in the future so
-	 * players can load the screenshot first. `begin` starts the clock now instead;
-	 * if nobody calls it, the clock starts when the loading window ends.
-	 */
+	/** `Round.loading` starts slightly in the future so the screenshot can load. `begin` starts the clock now. */
 	static loading(location: Location, rules: RoundRules): Round {
 		return new Round(location, rules, Date.now() + GAME.loadingWindow * 1000);
 	}
@@ -170,7 +162,7 @@ export class Round {
 	}
 }
 
-/** Counts a real guess towards its location's difficulty. A round nobody answered says nothing about it. */
+/** Counts a real guess towards its location's difficulty. */
 export function recordOutcome(location: Location, outcome: RoundOutcome) {
 	if (outcome.distance !== null) recordLocationPlay(location.id, distanceScore(outcome.distance));
 }

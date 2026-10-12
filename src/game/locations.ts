@@ -50,19 +50,25 @@ function recentIds(sql: string): Set<number> {
 export const DIFFICULTIES = ["easy", "medium", "hard"] as const;
 export type Difficulty = (typeof DIFFICULTIES)[number];
 
-function grade(plays: number, scoreSum: number): Difficulty | null {
+/**
+ * `recentSum` holds at most `window` guesses' worth of scores: each new guess pushes out one guess of the old
+ * average.
+ */
+function grade(plays: number, recentSum: number): Difficulty | null {
 	if (plays < GAME.difficulty.minPlays) return null;
-	const average = scoreSum / plays;
+	const average = recentSum / Math.min(plays, GAME.difficulty.window);
 	return average >= GAME.difficulty.easyFrom ? "easy" : average < GAME.difficulty.hardBelow ? "hard" : "medium";
 }
 
-/** Adds one real guess to a location's record. `score` is the distance score alone, with no bonus or penalty. */
+/** Adds one real guess to a location's record. `score` is the distance score alone. */
 export function recordLocationPlay(locationId: number, score: number) {
 	try {
 		db.run(
-			`INSERT INTO location_stats (location_id, plays, score_sum) VALUES (?, 1, ?)
-			ON CONFLICT(location_id) DO UPDATE SET plays = plays + 1, score_sum = score_sum + excluded.score_sum, updated_at = unixepoch()`,
-			[locationId, score]
+			`INSERT INTO location_stats (location_id, plays, score_sum, recent_sum) VALUES (?1, 1, ?2, ?2)
+			ON CONFLICT(location_id) DO UPDATE SET
+				recent_sum = CASE WHEN plays >= ?3 THEN recent_sum * (?3 - 1.0) / ?3 ELSE recent_sum END + excluded.score_sum,
+				plays = plays + 1, score_sum = score_sum + excluded.score_sum, updated_at = unixepoch()`,
+			[locationId, score, GAME.difficulty.window]
 		);
 	} catch (err) {
 		console.error("[locations] Could not record a play:", err);
@@ -72,22 +78,22 @@ export function recordLocationPlay(locationId: number, score: number) {
 /** How hard a location has proved to be, or null until enough people have guessed it. */
 export function difficultyOf(locationId: number): Difficulty | null {
 	const row = db
-		.query<{ plays: number; score_sum: number }, [number]>(
-			"SELECT plays, score_sum FROM location_stats WHERE location_id = ?"
+		.query<{ plays: number; recent_sum: number }, [number]>(
+			"SELECT plays, recent_sum FROM location_stats WHERE location_id = ?"
 		)
 		.get(locationId);
-	return row ? grade(row.plays, row.score_sum) : null;
+	return row ? grade(row.plays, row.recent_sum) : null;
 }
 
 /** The grade of every location that has one. */
 function gradedLocations(): Map<number, Difficulty> {
 	const graded = new Map<number, Difficulty>();
 	for (const row of db
-		.query<{ location_id: number; plays: number; score_sum: number }, []>(
-			"SELECT s.location_id, s.plays, s.score_sum FROM location_stats s JOIN locations l ON l.id = s.location_id WHERE l.is_active = 1"
+		.query<{ location_id: number; plays: number; recent_sum: number }, []>(
+			"SELECT s.location_id, s.plays, s.recent_sum FROM location_stats s JOIN locations l ON l.id = s.location_id WHERE l.is_active = 1"
 		)
 		.all()) {
-		const difficulty = grade(row.plays, row.score_sum);
+		const difficulty = grade(row.plays, row.recent_sum);
 		if (difficulty) graded.set(row.location_id, difficulty);
 	}
 	return graded;
@@ -105,10 +111,8 @@ export function resetLocationStats(locationId: number) {
 }
 
 /**
- * Picks up to `count` active locations for a game. Picks are spread out across the map
- * (each new pick favours spots far from the ones already chosen) and locations seen
- * recently in dailies or duels are less likely to come up. With a `difficulty`, only
- * locations of that grade are considered, so fewer than `count` may come back.
+ * Picks up to `count` active locations, spread across the map and avoiding recently used ones.
+ * With a `difficulty`, fewer may come back.
  */
 export function pickLocations(count: number, difficulty: Difficulty | null = null): Location[] {
 	let pool = db.query<Location, []>("SELECT * FROM locations WHERE is_active = 1").all();

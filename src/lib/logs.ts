@@ -2,10 +2,8 @@ import { inspect } from "util";
 import { db } from "../db";
 
 /**
- * A copy of the server's log kept in the database, so an operator can read it from
- * the staff panel instead of the host. Warnings and errors are captured from the
- * console automatically; anything else worth keeping is written with `logInfo`.
- * The table is trimmed as it grows, so it stays small however long the server runs.
+ * A copy of the server log in the database, for the staff panel.
+ * Warnings and errors are captured automatically; `logInfo` adds the rest.
  */
 
 export type LogLevel = "info" | "warn" | "error";
@@ -25,11 +23,11 @@ function text(value: unknown): string {
 }
 
 export function writeLog(level: LogLevel, args: unknown[]) {
-	// A failure while logging must not log itself for ever.
+	/** A failure while logging must not log itself for ever. */
 	if (writing) return;
 	writing = true;
 	try {
-		// An error goes on its own lines, so the message stays short and the stack lands in the detail.
+		/** An error goes on its own lines, so the message stays short and the stack lands in the detail. */
 		const full = args
 			.map((arg, i) => (i > 0 && arg instanceof Error ? `\n${text(arg)}` : text(arg)))
 			.join(" ")
@@ -44,7 +42,7 @@ export function writeLog(level: LogLevel, args: unknown[]) {
 		]);
 		if (++sinceTrim >= 200) pruneLogs();
 	} catch {
-		// The console still has it.
+		/** The console still has it. */
 	} finally {
 		writing = false;
 	}

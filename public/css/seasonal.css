@@ -1,20 +1,14 @@
-/*
- * Seasonal decoration for the homepage only (home.js adds the elements while an event
- * is running). The layer sits behind all page content and never takes a click or focus.
- */
+/* Seasonal decoration for the homepage (home.js adds the elements). Behind all content; never takes a click. */
 .season-layer {
 	position: fixed;
 	inset: 0;
 	overflow: hidden;
 	pointer-events: none;
-	/* Below everything: page content, buttons, dialogs and toasts all paint on top of it. */
+	/* Below all page content. */
 	z-index: -1;
 }
 
-/*
- * The splash: a short tilted line pinned to the title, so a visitor can tell at a glance
- * why the page looks different today.
- */
+/* The splash: a tilted line pinned to the title that names the occasion. */
 .season-splash {
 	position: absolute;
 	right: -0.25rem;
@@ -94,7 +88,7 @@ body[data-season="easter"] {
 	--season-accent: #fff59d;
 }
 
-/* ---- Halloween: a few bats crossing the sky and a pumpkin in each bottom corner ---- */
+/* ---- Halloween: bats and pumpkins ---- */
 body[data-season="halloween"] .season-tag {
 	background: rgba(255, 167, 38, 0.16);
 	color: #ffcc80;
@@ -175,7 +169,7 @@ body[data-season="halloween"] .season-tag {
 	fill: #1c1205;
 }
 
-/* ---- Christmas: light snowfall ---- */
+/* ---- Christmas: snow ---- */
 body[data-season="christmas"] .season-tag {
 	background: rgba(144, 202, 249, 0.16);
 	color: #bbdefb;
@@ -197,7 +191,7 @@ body[data-season="christmas"] .season-tag {
 	}
 }
 
-/* ---- Easter: painted eggs in the bottom corners ---- */
+/* ---- Easter: eggs ---- */
 .season-egg {
 	width: 54px;
 	bottom: -8px;
@@ -212,7 +206,7 @@ body[data-season="christmas"] .season-tag {
 	transform: rotate(14deg);
 }
 
-/* ---- Valentine's: a few hearts drifting up ---- */
+/* ---- Valentine's: hearts ---- */
 .season-heart {
 	position: absolute;
 	bottom: -40px;
@@ -234,7 +228,7 @@ body[data-season="christmas"] .season-tag {
 	}
 }
 
-/* ---- New Year and Bonfire Night: quiet fireworks in the top of the sky ---- */
+/* ---- New Year and Bonfire Night: fireworks ---- */
 body[data-season="newyear"] .season-accent,
 .season-burst {
 	position: absolute;

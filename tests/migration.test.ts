@@ -4,10 +4,7 @@ import { mkdirSync, mkdtempSync, readdirSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-/**
- * Upgrades a database left by the previous release and checks nothing was lost.
- * The upgrade runs in its own process, exactly as it does when the server starts.
- */
+/** Upgrades a database from the previous release in its own process and checks nothing was lost. */
 
 const ROOT = join(import.meta.dir, "..");
 const count = (db: Database, table: string) =>
@@ -21,7 +18,7 @@ function upgradeOldDatabase() {
 
 	const old = new Database(path, { create: true });
 	old.exec(require("fs").readFileSync(join(import.meta.dir, "fixtures/schema-v0.sql"), "utf8"));
-	// The fixture's bans and limits were relative to the day it was written; make them so again.
+	/** The fixture's bans and limits were relative to the day it was written; make them so again. */
 	old.run("UPDATE users SET ban_expires_at = unixepoch() + 86400 WHERE username = 'carol'");
 	old.run("UPDATE users SET ban_expires_at = unixepoch() - 100 WHERE username = 'dave'");
 	old.run(
@@ -92,6 +89,16 @@ describe("upgrading a database from the previous release", () => {
 		const alice = db.query<Record<string, unknown>, []>("SELECT * FROM users WHERE username = 'alice'").get()!;
 		expect(alice).toMatchObject({ discord_id: "1001", current_streak: 3, longest_streak: 7, prefs: null });
 		expect(db.query("SELECT 1 FROM sessions WHERE id = 'sess-alice'").get()).not.toBeNull();
+	});
+
+	test("tables and columns added since are there, and the database is marked as upgraded", () => {
+		for (const table of ["staff_notes", "guess_log", "fairplay_flags", "location_stats", "announcements"])
+			expect([table, count(db, table) >= 0]).toEqual([table, true]);
+		const columns = db.query<{ name: string }, []>("PRAGMA table_info(location_stats)").all();
+		expect(columns.map((column) => column.name)).toContain("recent_sum");
+		expect(
+			db.query<{ user_version: number }, []>("PRAGMA user_version").get()!.user_version
+		).toBeGreaterThanOrEqual(3);
 	});
 
 	test("old warnings, bans and limits become moderation history", () => {

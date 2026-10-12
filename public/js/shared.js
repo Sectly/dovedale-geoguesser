@@ -18,10 +18,8 @@ function show(id, visible = true) {
 }
 
 /**
- * Restart news rides on the game's own responses, so it is read from every request this
- * page makes, whichever part of it sent it: the staff panel hears of a restart from its
- * own calls just as a game does. A proxy's error page while the server is down carries
- * no "X-App" mark, and must not be mistaken for "the restart is over".
+ * Reads restart news from every response this page gets.
+ * A proxy's error page has no "X-App" mark and must not count as "restart over".
  */
 (function watchResponsesForRestart() {
 	const original = window.fetch.bind(window);
@@ -30,7 +28,7 @@ function show(id, visible = true) {
 		try {
 			if (res.headers.get("X-App")) {
 				noteRestarted(res.headers.get("X-Restarted"));
-				// Only API answers carry the countdown; a page or a script having none says nothing.
+				/** Only API answers carry the countdown; a page or a script having none says nothing. */
 				if (new URL(res.url, location.href).pathname.startsWith("/api/"))
 					noteRestart(res.headers.get("X-Restart-In"));
 			}
@@ -40,9 +38,8 @@ function show(id, visible = true) {
 })();
 
 /**
- * Calls the API and returns the parsed JSON body. On any failure it throws an
- * Error whose message is safe to show the player and whose `status` is the HTTP
- * status (0 when the server could not be reached).
+ * Calls the API and returns the parsed body. Throws an Error with a message safe to show and a `status` (0 when
+ * unreachable).
  */
 async function api(path, { method, json, body } = {}) {
 	let res;
@@ -75,10 +72,7 @@ function fetchUser() {
 	return _userPromise;
 }
 
-/**
- * Asks who is logged in. Being logged out is a proper answer (null); a request that fails
- * is not, so it is tried again before the page decides to show anyone a login screen.
- */
+/** Asks who is logged in. Null means logged out; a failed request is retried first. */
 async function loadUser() {
 	for (let attempt = 0; ; attempt++) {
 		try {
@@ -101,11 +95,7 @@ function avatarHtml(url, sizeClass = "w-7 h-7") {
 		: `<div class="${sizeClass} rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined text-sm">person</span></div>`;
 }
 
-/**
- * The account area: avatar, profile, settings and logout when logged in (plus the
- * staff panel for staff), otherwise a login button that returns to this page.
- * Every element marked with `data-auth-area` gets one.
- */
+/** Fills every `data-auth-area`: avatar, profile, settings and logout, or a login button. */
 function renderAuthAreas(user) {
 	const iconLink = (href, icon, label, badge = "") =>
 		`<a href="${href}" title="${label}" aria-label="${label}" ${badge ? `data-badge="${badge}"` : ""} class="relative w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition">
@@ -170,7 +160,7 @@ function renderAttentionBadges() {
 	}
 }
 
-/** Announces a notification the first time this browser sees it: a chime, a toast and, if enabled, a desktop notification. */
+/** Announces a notification once per browser: a chime, a toast and, if enabled, a desktop notification. */
 function announceNotification(latest, user) {
 	if (!latest) return;
 	let lastSeen = 0;
@@ -179,14 +169,17 @@ function announceNotification(latest, user) {
 		localStorage.setItem(LAST_ANNOUNCED_KEY, String(Math.max(lastSeen, latest.id)));
 	} catch {}
 	if (latest.id <= lastSeen) return;
-	// An achievement announces itself with its own animation, not a plain toast.
+	/** An achievement announces itself with its own animation, not a plain toast. */
 	if (latest.category === "achievements") return void checkAchievements();
 
 	Sounds.play("notify");
 	if (user.prefs?.toasts !== false)
 		showToast(latest.title, "info", { href: latest.link || "/settings#notifications" });
 	/** With push set up the service worker shows the desktop notification; otherwise do it from here. */
-	const pushed = localStorage.getItem(PUSH_ON_KEY) === "1";
+	let pushed = false;
+	try {
+		pushed = localStorage.getItem(PUSH_ON_KEY) === "1";
+	} catch {}
 	if (
 		user.prefs?.desktop &&
 		!pushed &&
@@ -213,10 +206,7 @@ function isMidRound() {
 	return ["round-screen", "game-screen"].some((id) => el(id) && !el(id).classList.contains("hidden"));
 }
 
-/**
- * For staff: a toast when something new lands in a review queue, on whatever page
- * they happen to be on. Each new item is announced once per browser.
- */
+/** For staff: a toast when something new lands in a review queue. Once per item per browser. */
 function announceStaffQueue(staff, user) {
 	if (!staff || !user.prefs?.staff_alerts || user.prefs?.toasts === false || isMidRound()) return;
 	let seen = null;
@@ -224,7 +214,7 @@ function announceStaffQueue(staff, user) {
 		seen = JSON.parse(localStorage.getItem(STAFF_QUEUE_SEEN_KEY) || "null");
 		localStorage.setItem(STAFF_QUEUE_SEEN_KEY, JSON.stringify(staff));
 	} catch {}
-	// On the staff panel itself the sidebar counts already say it.
+	/** On the staff panel itself the sidebar counts already say it. */
 	if (location.pathname === "/admin") return;
 
 	const fresh = STAFF_QUEUES.map(([key, noun, href]) => ({
@@ -270,11 +260,7 @@ function pushKeyBytes(base64) {
 	return Uint8Array.from(atob(padded), (ch) => ch.charCodeAt(0));
 }
 
-/**
- * Subscribes this browser to push notifications. Returns false when the server
- * has no push keys or the browser does not support it, in which case desktop
- * notifications still work while a tab is open.
- */
+/** Subscribes this browser to push. Returns false when the server or browser does not support it. */
 async function enablePush() {
 	try {
 		const registration = await registerServiceWorker();
@@ -295,8 +281,8 @@ async function enablePush() {
 }
 
 async function disablePush() {
-	localStorage.removeItem(PUSH_ON_KEY);
 	try {
+		localStorage.removeItem(PUSH_ON_KEY);
 		const registration = await navigator.serviceWorker?.getRegistration();
 		const subscription = await registration?.pushManager?.getSubscription();
 		if (!subscription) return;
@@ -319,20 +305,23 @@ const NAV_LINKS = [
 	["/submit", "Submit", "add_photo_alternate"],
 ];
 
-/**
- * The site header, the same on every page that is not a full-screen game:
- * home, the main sections, then the account area. Fills `<nav id="site-nav">`.
- */
+/** The site header. Fills `<nav id="site-nav">`. */
 function renderSiteNav() {
 	const nav = el("site-nav");
 	if (!nav) return;
 	const here = location.pathname;
 	const link = ([href, label, icon], mobile) => {
 		const active = here === href || (href === "/duels" && here.startsWith("/duel/"));
+		/** On desktop the highlight is its own layer, so it can slide between sections (shared.css). */
+		const tone = !active
+			? "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60"
+			: mobile
+				? "text-white bg-zinc-800 font-semibold"
+				: "relative text-white font-semibold";
 		return `<a href="${href}" ${active ? 'aria-current="page"' : ""} class="flex items-center gap-2 rounded-lg text-sm transition ${
 			mobile ? "px-3 py-2.5" : "px-2.5 py-1.5"
-		} ${active ? "text-white bg-zinc-800 font-semibold" : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60"}">
-			${mobile ? `<span class="material-symbols-outlined text-lg leading-none">${icon}</span>` : ""}${label}
+		} ${tone}">
+			${mobile ? `<span class="material-symbols-outlined text-lg leading-none">${icon}</span>` : ""}${active && !mobile ? '<span class="nav-active-pill"></span>' : ""}${label}
 		</a>`;
 	};
 	const keep = [...nav.querySelectorAll("[data-keep]")];
@@ -398,10 +387,10 @@ for (const area of document.querySelectorAll("[data-auth-area]")) {
 }
 fetchUser().then((user) => {
 	renderAuthAreas(user);
-	// For everyone, logged in or not: it also stands in for the site while the server restarts.
+	/** For everyone, logged in or not: it also stands in for the site while the server restarts. */
 	whenIdle(registerServiceWorker);
 	if (!user) return;
-	// The account's sound preference wins over whatever this browser remembered.
+	/** The account's sound preference wins over whatever this browser remembered. */
 	if (typeof user.prefs?.sounds === "boolean") Sounds.setEnabled(user.prefs.sounds);
 	startAttentionPolling();
 	whenIdle(() => checkAchievements());
@@ -425,24 +414,34 @@ function showToast(message, type = "info", { href = "" } = {}) {
 	/** A toast with somewhere to go is a link; otherwise it is just a message. */
 	const toast = document.createElement(href ? "a" : "div");
 	if (href) toast.href = href;
-	toast.className = `pointer-events-auto px-4 py-2.5 rounded-xl text-sm shadow-lg ${colors[type] || colors.info} opacity-0 transition-opacity duration-200 ${href ? "underline-offset-2 hover:underline" : ""}`;
-	toast.textContent = message;
+	toast.className = `pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm shadow-lg ${colors[type] || colors.info} opacity-0 transition-opacity duration-200 ${href ? "underline-offset-2 hover:underline" : ""}`;
+	toast.dataset.type = type;
+	const icon = { success: "check_circle", error: "error" }[type];
+	if (icon) toast.innerHTML = `<span class="toast-icon material-symbols-outlined" aria-hidden="true">${icon}</span>`;
+	toast.append(message);
 	container.appendChild(toast);
 	requestAnimationFrame(() => toast.classList.remove("opacity-0"));
 	setTimeout(
 		() => {
-			toast.classList.add("opacity-0");
+			/** It closes the gap it leaves as it goes, so the toasts around it do not jump. */
+			toast.style.setProperty("--toast-height", `${toast.offsetHeight}px`);
+			toast.classList.add("leaving");
 			setTimeout(() => toast.remove(), 250);
 		},
 		type === "error" || href ? 6000 : 3500
 	);
 }
 
-/**
- * Copies text to the clipboard. Where the modern API is blocked it falls back to
- * the old selection trick, and if even that fails it says so rather than opening
- * a browser dialog.
- */
+/** A failed load, shown in place of the content. `retry` is the code its "Try again" button runs. */
+function errorStateHtml(message, retry = "") {
+	return `<div class="error-state" role="alert">
+		<span class="error-state-icon" aria-hidden="true"><span class="material-symbols-outlined">cloud_off</span></span>
+		<p>${escHtml(message)}</p>
+		${retry ? `<button class="m-btn m-btn-tonal m-btn-sm" onclick="${escHtml(retry)}"><span class="err-retry material-symbols-outlined">refresh</span>Try again</button>` : ""}
+	</div>`;
+}
+
+/** Copies text to the clipboard, falling back to the selection trick. Says so if both fail. */
 async function copyText(text) {
 	try {
 		await navigator.clipboard.writeText(text);
@@ -476,6 +475,12 @@ function whenIdle(fn) {
 
 const prefersReducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** For scrollIntoView and scrollTo: smooth, unless the visitor asked for less motion. */
+const scrollBehavior = () => (prefersReducedMotion() ? "auto" : "smooth");
+
+/** How long a dialog takes to close (.modal-fade in shared.css). */
+const DIALOG_CLOSE_MS = 200;
+
 /** Rolls a number up to its final value. `format` turns the running number into text. */
 function countUp(target, to, { from = 0, duration = 700, format = (n) => n.toLocaleString() } = {}) {
 	if (!target) return;
@@ -495,7 +500,8 @@ function celebrate({ duration = 2600, count = 110 } = {}) {
 	const canvas = document.createElement("canvas");
 	canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:150";
 	document.body.appendChild(canvas);
-	const dpr = window.devicePixelRatio || 1;
+	/** Capped: at a phone's 3x a full-screen canvas is nine times the pixels to fill every frame. */
+	const dpr = Math.min(window.devicePixelRatio || 1, 2);
 	canvas.width = innerWidth * dpr;
 	canvas.height = innerHeight * dpr;
 	const ctx = canvas.getContext("2d");
@@ -551,14 +557,9 @@ function streakBadgeHtml(streak, { best = false } = {}) {
 	</div>`;
 }
 
-/**
- * Buttons answer a press with a faint ripple from the point that was touched.
- * The ripple lives in its own layer placed over the button, so the button itself
- * is never changed: scripts that rewrite a button's classes or contents mid-press
- * cannot leave a stray circle behind, and nothing inside the button gets clipped.
- */
+/** A ripple from where a button was pressed, in its own layer so rewriting the button cannot leave it behind. */
 document.addEventListener("pointerdown", (e) => {
-	if (e.button > 0 || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+	if (e.button > 0 || prefersReducedMotion()) return;
 	/** Buttons, plus links that are styled as buttons (pills, round icon links, cards). */
 	const target = e.target.closest?.('button:not(:disabled), a.md-card, a[class*="rounded"]');
 	if (!target) return;
@@ -577,8 +578,17 @@ document.addEventListener("pointerdown", (e) => {
 	ripple.style.cssText = `width:${radius * 2}px;height:${radius * 2}px;left:${x - radius}px;top:${y - radius}px`;
 	layer.appendChild(ripple);
 	document.body.appendChild(layer);
+	/** Keeps the layer on its button if anything scrolls mid-ripple. */
+	const follow = () => {
+		if (!layer.isConnected) return;
+		const now = target.getBoundingClientRect();
+		layer.style.left = `${now.left}px`;
+		layer.style.top = `${now.top}px`;
+		requestAnimationFrame(follow);
+	};
+	requestAnimationFrame(follow);
 	ripple.addEventListener("animationend", () => layer.remove());
-	// A safety net in case the animation never runs (e.g. the tab is hidden).
+	/** A safety net in case the animation never runs (e.g. the tab is hidden). */
 	setTimeout(() => layer.remove(), 1000);
 });
 
@@ -613,7 +623,7 @@ const _pageKeys = new Map();
 function addKeybinds(title, binds) {
 	KEYBIND_GROUPS.push({ title, keys: binds.map(([keys, label]) => [keys, label]) });
 	for (const [keys, , handler] of binds) {
-		// Handlers sharing a key each say whether they applied; the first that does wins.
+		/** Handlers sharing a key each say whether they applied; the first that does wins. */
 		for (const key of keys)
 			_pageKeys.set(key.toLowerCase(), [...(_pageKeys.get(key.toLowerCase()) || []), handler]);
 	}
@@ -697,7 +707,6 @@ async function toggleSoundsShortcut() {
 	Sounds.setEnabled(on);
 	if (on) Sounds.play("good");
 	showToast(on ? "Sound effects on" : "Sound effects off");
-	// Keep the account's setting in step when logged in.
 	if (await fetchUser()) api("/api/settings", { json: { prefs: { sounds: on } } }).catch(() => {});
 }
 
@@ -713,7 +722,7 @@ document.addEventListener("keydown", (e) => {
 		e.preventDefault();
 		return toggleShortcuts();
 	}
-	// While the help is open, keys belong to it.
+	/** While the help is open, keys belong to it. */
 	if (el("shortcuts-dialog") && !el("shortcuts-dialog").classList.contains("hidden")) return;
 
 	const key = e.key.toLowerCase();
@@ -724,13 +733,28 @@ document.addEventListener("keydown", (e) => {
 	if (key in QUICK_LINKS && !isMidRound() && location.pathname !== QUICK_LINKS[key]) location.href = QUICK_LINKS[key];
 });
 
-/** A brief greeting right after logging in. The server leaves a short-lived cookie to say it just happened. */
+const BETA_KEY = "beta_acknowledged";
+/** Whether the beta notice is still to come on this page. It then carries the greeting itself. */
+const betaNoticeDue = (() => {
+	if (["/tos", "/privacy", "/fairplay", "/guidelines"].includes(location.pathname)) return false;
+	try {
+		return !localStorage.getItem(BETA_KEY);
+	} catch {
+		return false;
+	}
+})();
+/** Set by the server right after a login: "new" for a first one, "back" otherwise. */
+const welcomeKind = document.cookie.match(/(?:^|; )welcome=(new|back)/)?.[1];
+if (welcomeKind) document.cookie = "welcome=; Path=/; Max-Age=0";
+
+/** A brief greeting right after logging in. */
 (async function welcome() {
-	const kind = document.cookie.match(/(?:^|; )welcome=(new|back)/)?.[1];
-	if (!kind) return;
-	document.cookie = "welcome=; Path=/; Max-Age=0";
+	const kind = welcomeKind;
+	if (!kind || betaNoticeDue) return;
 	const user = await fetchUser();
 	if (!user || user.is_banned) return;
+	/** Not under the title screen (intro.js), where it would come and go unseen. */
+	await window.introDone;
 
 	const card = document.createElement("div");
 	card.className = "welcome-card";
@@ -748,20 +772,14 @@ document.addEventListener("keydown", (e) => {
 
 /** One-time notice that the site is in beta. */
 (function betaNotice() {
-	const KEY = "beta_acknowledged";
-	// Not over the documents people are sent to read.
-	if (["/tos", "/privacy", "/fairplay", "/guidelines"].includes(location.pathname)) return;
-	try {
-		if (localStorage.getItem(KEY)) return;
-	} catch {
-		return;
-	}
+	const KEY = BETA_KEY;
+	if (!betaNoticeDue) return;
 	const modal = document.createElement("div");
-	modal.innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+	modal.innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 modal-fade">
 		<div class="bg-zinc-900 border border-zinc-700 rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl" role="dialog" aria-modal="true" aria-label="Early beta">
 			<div class="flex items-center gap-3 mb-4">
 				<span class="material-symbols-outlined text-yellow-500 text-3xl" style="font-variation-settings:'FILL' 1">science</span>
-				<h2 class="text-xl font-bold">Early Beta</h2>
+				<h2 class="text-xl font-bold" id="beta-title">Early Beta</h2>
 			</div>
 			<p class="text-zinc-400 text-sm mb-3">Dovedale GeoGuesser is in beta, so some things may break or change.</p>
 			<p class="text-zinc-500 text-sm mb-6">Found a problem? Open a ticket in <a href="/settings" class="text-blue-400 hover:text-blue-300 underline">Settings</a>.</p>
@@ -770,14 +788,23 @@ document.addEventListener("keydown", (e) => {
 	</div>`;
 	modal.querySelector("button").addEventListener("click", () => {
 		localStorage.setItem(KEY, "1");
-		modal.remove();
+		modal.firstElementChild.classList.add("hidden");
+		setTimeout(() => modal.remove(), DIALOG_CLOSE_MS);
 	});
-	const mount = () => document.body.appendChild(modal);
+	/** Someone who has just logged in is greeted here instead of by a card of its own. */
+	if (welcomeKind)
+		fetchUser().then((user) => {
+			if (!user || user.is_banned) return;
+			modal.querySelector("#beta-title").textContent =
+				`${welcomeKind === "new" ? "Welcome" : "Welcome back"}, ${user.display_name || user.username}`;
+		});
+	/** Waits for the title screen (intro.js) when that is playing. */
+	const mount = () => (window.introDone || Promise.resolve()).then(() => document.body.appendChild(modal));
 	if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount);
 	else mount();
 })();
 
-/** Banned accounts see only the ban notice, except where they appeal and on the documents the ban refers to. */
+/** Banned accounts see only the ban notice, except on Settings and the documents. */
 (async function banNotice() {
 	const user = await fetchUser();
 	const open = ["/settings", "/tos", "/privacy", "/guidelines", "/fairplay"];
@@ -833,7 +860,7 @@ const ANNOUNCEMENT_POLL_MS = 5 * 60 * 1000;
 /** Shows the pinned announcement, unless there is none or this visitor has closed it. */
 async function checkAnnouncement() {
 	const announcement = await api("/api/announcement").catch(() => undefined);
-	// A failed request says nothing either way; leave whatever is on screen alone.
+	/** A failed request says nothing either way; leave whatever is on screen alone. */
 	if (announcement === undefined) return;
 	const shown = document.getElementById("site-announcement");
 	let dismissed = "";
@@ -874,10 +901,7 @@ let _achievementQueue = [];
 let _achievementShowing = false;
 let _achievementCheck = null;
 
-/**
- * Asks the server for achievements earned since it was last asked and plays the unlock
- * animation for each. Pages call this after a result; `delay` lets the result land first.
- */
+/** Plays the unlock animation for achievements earned since last asked. `delay` lets a result land first. */
 function checkAchievements(delay = 0) {
 	clearTimeout(_achievementCheck);
 	_achievementCheck = setTimeout(async () => {
@@ -908,7 +932,7 @@ async function showNextAchievement() {
 		</span>`;
 	document.body.appendChild(card);
 	Sounds.play("good");
-	// Same pacing as the welcome card, held a little longer because there is more to read.
+	/** Same pacing as the welcome card, held a little longer because there is more to read. */
 	setTimeout(() => card.classList.add("leaving"), ACHIEVEMENT_SHOWN_MS - 500);
 	setTimeout(() => {
 		card.remove();
@@ -923,15 +947,12 @@ const RESTART_POLL_MS = 20_000;
 let _restartAt = 0;
 let _restartTimer = null;
 
-/**
- * Called with what the server last said about a restart: the seconds left, or nothing at
- * all. Hearing nothing while a restart is on screen means it was called off or is over.
- */
+/** Takes the server's restart countdown in seconds. Nothing means it was called off or is over. */
 function noteRestart(seconds) {
 	if (seconds === null || seconds === undefined || seconds === "") return clearRestartBanner();
 	if (!Number.isFinite(Number(seconds))) return;
 	const at = Date.now() + Number(seconds) * 1000;
-	// Keep the earliest deadline heard, so the countdown never jumps backwards.
+	/** Keep the earliest deadline heard, so the countdown never jumps backwards. */
 	showRestartBanner(_restartAt ? Math.min(_restartAt, at) : at, true);
 }
 
@@ -951,11 +972,7 @@ function showRestartBanner(at, announce) {
 const RESTART_SEEN_KEY = "restart_seen";
 const RESTART_AT_KEY = "restart_at";
 
-/**
- * The server says it came back from a restart a moment ago. Anyone who watched the
- * countdown is told by the banner going away; this is for whoever reloaded during it
- * or arrived just after, and it says so once per restart.
- */
+/** Tells whoever reloaded during a restart, or arrived just after, that it happened. Once per restart. */
 function noteRestarted(id) {
 	if (!id) return;
 	try {
@@ -965,12 +982,12 @@ function noteRestarted(id) {
 		return;
 	}
 	if (_restartTimer) return;
-	showToast("The server was just restarted for an update. Duels and team games that were open have ended.");
+	showToast("The server just restarted. Open duels and team games have ended.");
 }
 
 function clearRestartBanner() {
 	if (!_restartTimer) return;
-	// With time still on the clock the server cannot have restarted yet, so it was called off.
+	/** With time still on the clock the server cannot have restarted yet, so it was called off. */
 	const calledOff = Date.now() < _restartAt - 2000;
 	clearInterval(_restartTimer);
 	_restartTimer = null;
@@ -979,11 +996,75 @@ function clearRestartBanner() {
 		sessionStorage.removeItem(RESTART_AT_KEY);
 	} catch {}
 	document.getElementById("restart-banner")?.remove();
-	showToast(
-		calledOff ? "The restart was called off." : "The server is back. Reload the page if anything looks off.",
-		"success"
-	);
+	if (!document.getElementById("restart-overlay")) {
+		return showToast(
+			calledOff ? "The restart was called off." : "The server is back. Reload the page if anything looks off.",
+			"success"
+		);
+	}
+	restartOverlay("back");
+	setTimeout(() => {
+		/** A reload would throw away something half-written, so that page is left as it is. */
+		if ([...document.querySelectorAll("textarea, input[type=text]")].some((field) => field.value.trim())) {
+			dismissRestartOverlay();
+			return showToast("The server is back. Reload the page if anything looks off.", "success");
+		}
+		try {
+			sessionStorage.setItem(RESTART_RELOADED_KEY, "1");
+		} catch {}
+		location.reload();
+	}, RESTART_BACK_MS);
 }
+
+/* ---- The restart itself: a screen over the page while the server is away ---- */
+
+/** Set just before the page reloads itself after a restart, so the next page can fade in from the same screen. */
+const RESTART_RELOADED_KEY = "restart_reloaded";
+/** How long "Back online" shows before the page reloads or the screen clears. */
+const RESTART_BACK_MS = 1200;
+
+/** Puts the restart screen up, or moves it on: "down" while the server is away, "back" once it answers. */
+function restartOverlay(state) {
+	let overlay = document.getElementById("restart-overlay");
+	if (!overlay) {
+		overlay = document.createElement("div");
+		overlay.id = "restart-overlay";
+		overlay.className = "restart-overlay";
+		overlay.setAttribute("role", "status");
+		overlay.innerHTML = `<svg class="restart-rack" viewBox="0 0 96 96" aria-hidden="true">
+			<rect x="16" y="14" width="64" height="20" rx="5" /><circle cx="27" cy="24" r="3" /><path d="M44 24h26" />
+			<rect x="16" y="38" width="64" height="20" rx="5" /><circle cx="27" cy="48" r="3" /><path d="M44 48h26" />
+			<rect x="16" y="62" width="64" height="20" rx="5" /><circle cx="27" cy="72" r="3" /><path d="M44 72h26" />
+		</svg>
+		<div class="restart-overlay-title"></div>
+		<p></p>
+		<button class="m-btn m-btn-tonal m-btn-sm" onclick="location.reload()">Reload now</button>`;
+		document.body.appendChild(overlay);
+	}
+	const back = state === "back";
+	overlay.dataset.state = state;
+	overlay.querySelector(".restart-overlay-title").textContent = back ? "Back online" : "Restarting the server";
+	overlay.querySelector("p").textContent = back ? "" : "Back in a moment.";
+	return overlay;
+}
+
+function dismissRestartOverlay() {
+	const overlay = document.getElementById("restart-overlay");
+	overlay?.classList.add("leaving");
+	setTimeout(() => overlay?.remove(), 400);
+}
+
+/** A page that reloaded itself after a restart opens on the same screen and fades out of it. */
+(function arriveFromRestart() {
+	try {
+		if (sessionStorage.getItem(RESTART_RELOADED_KEY) !== "1") return;
+		sessionStorage.removeItem(RESTART_RELOADED_KEY);
+	} catch {
+		return;
+	}
+	restartOverlay("back").classList.add("arrived");
+	setTimeout(dismissRestartOverlay, 700);
+})();
 
 function tickRestartBanner() {
 	let banner = document.getElementById("restart-banner");
@@ -998,9 +1079,12 @@ function tickRestartBanner() {
 	const left = Math.ceil((_restartAt - Date.now()) / 1000);
 	banner.lastElementChild.textContent =
 		left > 0
-			? `Server restarting in ${left >= 60 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : `${left}s`}. Finish your game: duels and team games still open will be closed.`
+			? `Server restarting in ${left >= 60 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : `${left}s`}. Open duels and team games will be closed.`
 			: "Server restarting... back in a moment.";
-	// Past the deadline, keep knocking until the new server answers without mentioning a restart.
+	/** Not over a round, where a solo game carries on afterwards, nor over the staff panel's own progress view. */
+	if (left <= 0 && !isMidRound() && location.pathname !== "/admin" && !document.getElementById("restart-overlay"))
+		restartOverlay("down");
+	/** Past the deadline, keep knocking until the new server answers without mentioning a restart. */
 	if (left <= 0 && left % 2 === 0) api("/api/status").catch(() => {});
 }
 
@@ -1010,13 +1094,13 @@ function tickRestartBanner() {
 	try {
 		at = Number(sessionStorage.getItem(RESTART_AT_KEY)) || 0;
 	} catch {}
-	// Long past its deadline it is stale: the restart came and went while this tab was elsewhere.
+	/** Long past its deadline it is stale: the restart came and went while this tab was elsewhere. */
 	if (at && Date.now() - at < 60_000) showRestartBanner(at, false);
 })();
 
 const checkForRestart = () => document.hidden || api("/api/status").catch(() => {});
 setInterval(checkForRestart, RESTART_POLL_MS);
-// A tab coming back to the front asks at once rather than waiting out the interval.
+/** A tab coming back to the front asks at once rather than waiting out the interval. */
 document.addEventListener("visibilitychange", checkForRestart);
 
 /** A script of ours failing should not leave the page silently half-working. Said once per page. */
@@ -1031,7 +1115,7 @@ document.addEventListener("visibilitychange", checkForRestart);
 	window.addEventListener("unhandledrejection", (e) => tell(/https?:\/\/[^\s)]+/.exec(e.reason?.stack || "")?.[0]));
 })();
 
-/** Browser details for logged-in users, used to flag possible ban evasion for staff (see the privacy policy). */
+/** Browser details for logged-in users, used to flag possible ban evasion. */
 whenIdle(async function fingerprint() {
 	if (!(await fetchUser())) return;
 	try {

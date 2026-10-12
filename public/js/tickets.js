@@ -22,9 +22,8 @@ function ticketBubbleHtml({ mine, who, when, bodyHtml }) {
 }
 
 /**
- * The whole conversation: the opening message, then every reply in order.
- * `viewer` is "user" or "staff" and decides whose messages sit on the right.
- * `openingHtml` lets staff show the ticket's form fields in a richer layout.
+ * The whole conversation. `viewer` ("user" or "staff") decides whose messages sit on the right.
+ * `openingHtml` replaces the opening message's layout.
  */
 function ticketThreadHtml(ticket, viewer, openingHtml) {
 	const replies = Array.isArray(ticket.replies) ? ticket.replies : [];
@@ -59,8 +58,7 @@ function ticketFollowUps(ticket) {
 }
 
 /**
- * Calls `load` every few seconds while `isActive()` is true and the tab is visible,
- * so an open conversation updates by itself. Returns a function that stops it.
+ * Calls `load` every few seconds while `isActive()` is true and the tab is visible. Returns a function that stops it.
  */
 function pollWhile(isActive, load, everyMs = 5000) {
 	const timer = setInterval(() => {

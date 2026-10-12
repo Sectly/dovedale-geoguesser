@@ -12,18 +12,20 @@
     <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
     <link rel="stylesheet" href="/css/shared.css" />
+    <script src="/js/transitions.js"></script>
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
     <nav id="site-nav"></nav>
     <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-10 prose">
       <h1 class="text-2xl font-bold mb-2 text-white">Privacy Policy</h1>
-      <p class="text-zinc-600 text-xs mb-6">Last updated: 11 October 2026</p>
+      <p class="text-zinc-600 text-xs mb-6">Last updated: 12 October 2026</p>
       <div class="summary">
         <div class="summary-title">In short</div>
         <ul>
           <li>
             We store your Discord username, display name and avatar, your scores, and what you submit. We never receive your Discord password or email address.
           </li>
+          <li>We are volunteers, not a business. We never make money from your data.</li>
           <li>We do not sell your data, show adverts, or use tracking cookies.</li>
           <li>Your scores and leaderboard entries are public. You can make your profile page private.</li>
           <li>You can download everything we hold about you, or delete your account, from Settings at any time.</li>
@@ -37,10 +39,11 @@
 
       <h2 id="controller">1. Who is responsible for your data</h2>
       <p>
-        The Service is run by an individual operator, who is the data controller. You can reach them through a
+        The Service is run by Sectly, an individual, who is the data controller. It is a volunteer project, not a business. You can reach them through a
         <a href="/settings?ticket=other#support" class="text-blue-400 hover:text-blue-300">support ticket</a>, or, if you cannot use the ticket system, at
         <a href="https://www.sectly.online/#contact" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">sectly.online</a>.
       </p>
+      <p>The Service's own servers are in the European Union.</p>
 
       <h2 id="collect">2. What we collect</h2>
       <p><strong class="text-zinc-200">When you log in with Discord</strong></p>
@@ -57,6 +60,7 @@
       <ul>
         <li>Screenshots, labels, hints and map positions you submit, and changes you suggest.</li>
         <li>Support tickets and replies.</li>
+        <li>Achievements you have earned.</li>
       </ul>
       <p><strong class="text-zinc-200">Collected automatically</strong></p>
       <ul>
@@ -74,10 +78,16 @@
           providers may keep standard access logs.
         </li>
         <li>A record of logins and of actions taken by staff (the audit log).</li>
+        <li>
+          Your 60 most recent guesses: how close each was and how long it took. They are checked for patterns that point to cheating, such as answers too exact
+          or too fast for a person. A match only leaves a note for staff. See
+          <a href="#automated" class="text-blue-400 hover:text-blue-300">section 4</a>.
+        </li>
+        <li>If you switch on desktop notifications: the address your browser's notification service gives us for your device, so we can send them.</li>
       </ul>
       <p><strong class="text-zinc-200">Created about you</strong></p>
       <ul>
-        <li>Moderation records: warnings, limits and bans, with the reason and who issued them.</li>
+        <li>Moderation records: warnings, limits and bans, with the reason and who issued them, and any notes staff have written about your account.</li>
         <li>
           Notifications about your own submissions, suggestions, tickets and moderation actions, and the preferences you set in
           <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>.
@@ -120,7 +130,9 @@
             </tr>
             <tr>
               <td>Keeping the game fair and safe: moderation, detecting cheating and ban evasion, limiting abuse</td>
-              <td>Moderation records, device cookie, browser fingerprint, ban-evasion flags, IP address (briefly), audit log</td>
+              <td>
+                Moderation records, device cookie, browser fingerprint, ban-evasion flags, recent guesses and fair-play flags, IP address (briefly), audit log
+              </td>
               <td>Legitimate interest in protecting the Service and its players</td>
             </tr>
           </tbody>
@@ -131,7 +143,7 @@
         allow them in your browser.
       </p>
 
-      <h2 id="automated">4. Ban-evasion checks</h2>
+      <h2 id="automated">4. Ban-evasion and fair-play checks</h2>
       <p>
         When you are logged in we compare your device cookie and browser fingerprint with those of accounts that are currently banned. If they match, your
         account is flagged for staff to look at. <strong class="text-zinc-200">Nothing happens to your account automatically:</strong> the Service never bans or
@@ -142,6 +154,12 @@
         fingerprint. Staff are told how strong each match is and can dismiss it. If you are banned for evasion and believe that is wrong, open a
         <a href="/settings?ticket=ban_appeal#support" class="text-blue-400 hover:text-blue-300">Ban Appeal ticket</a>: banned accounts can still log in, open
         tickets, read their moderation history and export their data.
+      </p>
+      <p>
+        <strong class="text-zinc-200">Fair-play checks</strong> work the same way. Your recent guesses are compared against what a person can do: landing on the
+        exact spot again and again, answering accurately faster than anyone could look at the picture, or taking the identical time on every round. A match is
+        shown to staff on your profile as something to look at. It is not proof, it never changes your scores or your account by itself, and a member of staff
+        must review your games before anything is done. You can appeal any action that follows.
       </p>
       <p>
         If you delete your account while it has a moderation history, we keep a one-way hash of your Discord ID so that the history, including any active ban,
@@ -175,7 +193,16 @@
           <strong class="text-zinc-200">Google Fonts</strong> delivers the icon font. Your browser contacts Google directly when a page loads, which shares your
           IP address with them. They do not receive anything about your account.
         </li>
+        <li>
+          <strong class="text-zinc-200">Your browser's notification service</strong> (run by Google, Mozilla, Apple or Microsoft, depending on your browser)
+          delivers desktop notifications, and only if you switch them on. It receives the notification's title and text.
+        </li>
         <li><strong class="text-zinc-200">Hosting and network providers</strong> store and deliver the Service on our behalf.</li>
+        <li hidden>
+          <strong class="text-zinc-200">Donation services</strong>, if we ever accept donations, such as GitHub Sponsors. You would give your payment details to
+          that service, not to us. We would see only what it shows us, typically the name you use there and the amount, and would not link it to your game
+          account unless you asked us to.
+        </li>
       </ul>
       <p>
         Some of these providers are based outside the UK and EU, including in the United States. Where data is transferred, it is covered by the safeguards
@@ -198,7 +225,11 @@
             </tr>
             <tr>
               <td>Solo scores</td>
-              <td>Your most recent 200 games</td>
+              <td>Your most recent 200 games, plus your best for each game length and time limit</td>
+            </tr>
+            <tr>
+              <td>Round-by-round detail of duels</td>
+              <td>180 days (the result of each duel is kept with your account)</td>
             </tr>
             <tr>
               <td>Login session</td>
@@ -213,12 +244,32 @@
               <td>Until the account is deleted</td>
             </tr>
             <tr>
+              <td>Recent guesses kept for fair-play checks</td>
+              <td>Your newest 60; older ones are deleted as you play</td>
+            </tr>
+            <tr>
+              <td>Fair-play flags</td>
+              <td>Until the account is deleted</td>
+            </tr>
+            <tr>
               <td>Hash of your Discord ID after deletion</td>
               <td>Only if the account had a moderation history; kept until you sign up again or ask us to remove it</td>
             </tr>
             <tr>
               <td>Notifications</td>
-              <td>90 days</td>
+              <td>90 days, and at most your newest 200</td>
+            </tr>
+            <tr>
+              <td>Desktop notification address</td>
+              <td>Until you switch desktop notifications off, or your browser retires it</td>
+            </tr>
+            <tr>
+              <td>Server error log</td>
+              <td>30 days</td>
+            </tr>
+            <tr>
+              <td>Database backups</td>
+              <td>Up to 7 daily copies and a few made before updates. Deleted data stays in a backup until that backup is replaced</td>
             </tr>
             <tr>
               <td>Denied submissions</td>
@@ -238,7 +289,7 @@
             </tr>
             <tr>
               <td>Approved locations</td>
-              <td>For as long as they are in the game</td>
+              <td>For as long as they are in Dovedale GeoGuesser, including after you delete your account</td>
             </tr>
             <tr>
               <td>Moderation records</td>
@@ -256,16 +307,16 @@
       <ul>
         <li>removes your Discord ID, username, display name and avatar, and replaces your name with "[deleted]" everywhere it appeared;</li>
         <li>
-          deletes your scores, streak, duel history, tickets, suggestions, notifications, preferences, sessions, device and fingerprint records and any
-          ban-evasion flags;
+          deletes your scores, streak, duel history, recent guesses, tickets, suggestions, notifications, preferences, sessions, device and fingerprint records
+          and any ban-evasion or fair-play flags;
         </li>
         <li>deletes submissions that were pending or denied, and their screenshots.</li>
       </ul>
       <p>Two things are kept, no longer linked to your Discord identity:</p>
       <ul>
         <li>
-          <strong class="text-zinc-200">Approved locations</strong> you submitted stay in the game. Ask us through the operator contact above if you want one
-          removed.
+          <strong class="text-zinc-200">Approved locations</strong> you submitted stay in Dovedale GeoGuesser, with your name taken off them. You can ask us to
+          remove one, through a ticket or the operator contact above, and we will where we can, and always where the law requires it, within a reasonable time.
         </li>
         <li>
           <strong class="text-zinc-200">Moderation records</strong> stay against the anonymised account, so that the history of how the rules were applied
@@ -275,7 +326,10 @@
           there is a strong reason not to, such as an active ban.
         </li>
       </ul>
-      <p>Deleting your account does not delete your Discord account, and we cannot remove data held by Discord.</p>
+      <p>
+        Deleted data can remain in database backups for up to a week, until those backups are replaced. Deleting your account does not delete your Discord
+        account, and we cannot remove data held by Discord, including alerts already sent to our staff channel there.
+      </p>
 
       <h2 id="cookies">9. Cookies and browser storage</h2>
       <p>We use only what the Service needs to work. There are no advertising or analytics cookies, so there is no cookie banner.</p>
@@ -286,10 +340,14 @@
           log out. It is used only for the ban-evasion checks in <a href="#automated" class="text-blue-400 hover:text-blue-300">section 4</a> and cannot be read
           by scripts.
         </li>
-        <li><strong class="text-zinc-200">Login redirect cookie:</strong> Remembers which page to return you to after logging in; lasts 10 minutes.</li>
         <li>
-          <strong class="text-zinc-200">Local storage:</strong> Remembers choices on your device: map quality, sound on or off, that you dismissed the beta
-          notice, that you accepted the suggestions policy, and which notification you last saw. It never leaves your browser.
+          <strong class="text-zinc-200">Login cookies:</strong> Two that last 10 minutes while you log in: one remembers which page to return you to, the other
+          makes sure the login finishes in the browser that started it. A third, lasting one minute, lets the next page greet you.
+        </li>
+        <li>
+          <strong class="text-zinc-200">Local and session storage:</strong> Remembers things on your device: map quality, sound on or off, notices and
+          announcements you dismissed, that you accepted the suggestions policy, which notification you last saw, your best scores in the mini-games, and
+          whether you have seen the title screen this visit. It never leaves your browser.
         </li>
       </ul>
 
@@ -327,6 +385,10 @@
         log in. We reply within one month. We may need to confirm you own the account first.
       </p>
       <p>
+        Desktop notifications are the one thing we do only with your consent. You can withdraw it at any time by switching them off in
+        <a href="/settings" class="text-blue-400 hover:text-blue-300">Settings</a>.
+      </p>
+      <p>
         If you are unhappy with how we handle your data, please tell us first so we can put it right. You also have the right to complain to your data
         protection authority: in the UK, the
         <a href="https://ico.org.uk/make-a-complaint/" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener"
@@ -334,14 +396,25 @@
         >; in the EU, the
         <a href="https://www.edpb.europa.eu/about-edpb/about-edpb/members_en" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener"
           >authority for your country</a
-        >.
+        >. As the operator is in the Netherlands, the
+        <a href="https://www.autoriteitpersoonsgegevens.nl/en" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener"
+          >Autoriteit Persoonsgegevens</a
+        >
+        is the authority that supervises the Service.
       </p>
 
       <h2 id="children">11. Children</h2>
       <p>
-        The Service is not aimed at children under 13, and you need a Discord account, which has its own minimum age. We do not knowingly collect data from
-        anyone below that age. If you believe a child has an account, contact us and we will delete it.
+        You need a Discord account to log in, and Discord sets a minimum age: 13 in most countries, higher in some. The Service is not for anyone younger than
+        that, and we do not knowingly collect their data. If you believe a child below that age has an account, contact us and we will delete it.
       </p>
+      <p>We expect many players to be teenagers, so the Service is built with that in mind:</p>
+      <ul>
+        <li>There is no free-text chat between players. Duel reactions are a fixed set of icons.</li>
+        <li>Every screenshot, label and hint is checked by staff before other players can see it.</li>
+        <li>There are no adverts, no tracking for advertising, and nothing to buy.</li>
+        <li>Your location is never collected, and your profile page can be made private in Settings.</li>
+      </ul>
 
       <h2 id="security">12. Security</h2>
       <p>

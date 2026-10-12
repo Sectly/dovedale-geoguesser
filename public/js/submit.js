@@ -176,7 +176,14 @@ async function init() {
 	loadLocations();
 }
 
-const _policyTs = parseInt(localStorage.getItem("suggest_policy_agreed") || "0");
+/** When the policy was last agreed to on this device; 0 when never, or when storage is blocked. */
+const _policyTs = (() => {
+	try {
+		return parseInt(localStorage.getItem("suggest_policy_agreed") || "0");
+	} catch {
+		return 0;
+	}
+})();
 let _policyAgreed = !!_policyTs && Date.now() - _policyTs < 24 * 60 * 60 * 1000;
 
 /** Draws a line from where the location is now to where the suggested pin puts it. */
@@ -214,6 +221,22 @@ function switchMode(m) {
 
 let _eligibility = null;
 
+/** What is still needed before suggestions open, as two bars. */
+function suggestProgressHtml(progress) {
+	if (!progress) return "";
+	const bar = (label, { have, need }, unit) => {
+		const done = have >= need;
+		return `<div>
+			<div class="flex items-baseline justify-between text-xs mb-1">
+				<span class="${done ? "text-green-400" : "text-zinc-300"}">${label}</span>
+				<span class="text-zinc-500">${done ? "Done" : `${have} of ${need} ${unit}`}</span>
+			</div>
+			<div class="h-1.5 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full rounded-full ${done ? "bg-green-500" : "bg-blue-500"}" style="width:${Math.min(100, (have / need) * 100)}%"></div></div>
+		</div>`;
+	};
+	return bar("Account age", progress.days, "days") + bar("Solo or daily games played", progress.games, "games");
+}
+
 /** Suggesting changes shows where every location is, so it is only open to established players. */
 async function showSuggestGateOrPick() {
 	for (const id of ["suggest-policy-gate", "suggest-pick", "suggest-form", "suggest-locked"])
@@ -225,11 +248,12 @@ async function showSuggestGateOrPick() {
 	}
 	if (mode !== "suggest") return;
 	if (!_eligibility.eligible) {
-		el("suggest-locked-reason").textContent = _eligibility.reason;
+		el("suggest-locked-reason").textContent = _eligibility.progress ? "" : _eligibility.reason;
+		el("suggest-locked-progress").innerHTML = suggestProgressHtml(_eligibility.progress);
 		el("suggest-locked").style.display = "flex";
 		return;
 	}
-	// The policy has to be accepted on the account; the 24-hour reminder is on top of that.
+	/** The policy has to be accepted on the account; the 24-hour reminder is on top of that. */
 	if (!_eligibility.agreed) _policyAgreed = false;
 	if (_policyAgreed) {
 		el("suggest-policy-gate").style.display = "none";
@@ -245,7 +269,9 @@ async function showSuggestGateOrPick() {
 
 async function onPolicyAgree() {
 	_policyAgreed = true;
-	localStorage.setItem("suggest_policy_agreed", String(Date.now()));
+	try {
+		localStorage.setItem("suggest_policy_agreed", String(Date.now()));
+	} catch {}
 	try {
 		await api("/api/suggestions/agree", { method: "POST" });
 		if (_eligibility) _eligibility.agreed = true;
@@ -437,7 +463,7 @@ async function loadLocations() {
 		allLocations = await api("/api/locations");
 		renderLocGrid(allLocations);
 	} catch {
-		el("loc-grid").innerHTML = '<div class="text-red-400 text-sm">Failed to load locations.</div>';
+		el("loc-grid").innerHTML = errorStateHtml("Couldn't load the locations.");
 	}
 }
 
@@ -743,7 +769,32 @@ function redrawPins() {
 el("panel-new").style.display = "flex";
 el("panel-suggest").style.display = "none";
 
-init();
+/** Fills the form back in when arriving from "Fix and send again" on a denied submission. */
+function prefillResend() {
+	const params = new URLSearchParams(location.search);
+	if (!mapCanvas || !params.has("label")) return;
+	el("label-input").value = params.get("label").slice(0, 128);
+	for (const hint of params.getAll("hint").slice(0, 3)) {
+		addHintField();
+		const input = el("hints-list").lastElementChild?.querySelector("input");
+		if (input) input.value = hint.slice(0, 150);
+	}
+	const x = parseFloat(params.get("x"));
+	const y = parseFloat(params.get("y"));
+	if (Number.isFinite(x) && Number.isFinite(y)) {
+		pinWorld = { x, y };
+		mapCanvas.setPin(x, y);
+		mapCanvas.fitTo([{ x, y }]);
+		updateStep3(true);
+		el("fine-controls").classList.remove("hidden");
+		el("map-hint").textContent = "Pin placed. Click to move";
+	}
+	checkReady();
+	showToast("Choose a new screenshot, then send it again.");
+	history.replaceState(null, "", location.pathname);
+}
+
+init().then(prefillResend);
 
 function nudgePin(dx, dy) {
 	if (!pinWorld) return;

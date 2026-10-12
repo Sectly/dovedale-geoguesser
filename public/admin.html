@@ -12,6 +12,7 @@
     <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
     <link rel="stylesheet" href="/css/shared.css" />
+    <script src="/js/transitions.js"></script>
     <style>
       #map-canvas {
         cursor: crosshair;
@@ -45,40 +46,104 @@
         id="admin-sidebar"
         class="w-52 flex-shrink-0 bg-zinc-900 border-r border-zinc-800 flex-col py-4 gap-1 px-2 hidden md:flex fixed md:static inset-y-0 left-0 z-50 overflow-y-auto"
       >
-        <button data-tab="submissions" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition bg-zinc-700 text-white">Submissions</button>
-        <button data-tab="suggestions" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white">
-          Suggestions
+        <button
+          data-tab="overview"
+          data-label="Overview"
+          data-icon="dashboard"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition bg-zinc-700 text-white"
+        >
+          <span class="material-symbols-outlined text-lg leading-none">dashboard</span>Overview
         </button>
-        <button data-tab="locations" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white">
-          Locations
+        <div class="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-600">Review</div>
+        <button
+          data-tab="submissions"
+          data-label="Submissions"
+          data-icon="add_photo_alternate"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white"
+        >
+          <span class="material-symbols-outlined text-lg leading-none">add_photo_alternate</span>Submissions
+        </button>
+        <button
+          data-tab="suggestions"
+          data-label="Suggestions"
+          data-icon="lightbulb"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white"
+        >
+          <span class="material-symbols-outlined text-lg leading-none">lightbulb</span>Suggestions
+        </button>
+        <button
+          data-tab="locations"
+          data-label="Locations"
+          data-icon="location_on"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white"
+        >
+          <span class="material-symbols-outlined text-lg leading-none">location_on</span>Locations
         </button>
         <a
           href="/submit"
-          class="text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white flex items-center gap-1.5"
+          class="flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white"
           title="Opens the Submit page. Locations added there go through the normal review queue."
         >
-          Submit a Location <span class="material-symbols-outlined text-sm leading-none opacity-50">open_in_new</span>
+          <span class="material-symbols-outlined text-lg leading-none">add_location_alt</span>Submit a Location
+          <span class="material-symbols-outlined text-sm leading-none opacity-50 ml-auto">open_in_new</span>
         </a>
-        <button data-tab="users" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white">Users</button>
-        <button data-tab="tickets" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white">Tickets</button>
-        <button data-tab="staff" class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white">Staff</button>
+        <div class="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-600 moderator-up">Community</div>
+        <button
+          data-tab="users"
+          data-label="Users"
+          data-icon="group"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white"
+        >
+          <span class="material-symbols-outlined text-lg leading-none">group</span>Users
+        </button>
+        <button
+          data-tab="tickets"
+          data-label="Tickets"
+          data-icon="support_agent"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white"
+        >
+          <span class="material-symbols-outlined text-lg leading-none">support_agent</span>Tickets
+        </button>
+        <button
+          data-tab="duels"
+          data-label="Duels"
+          data-icon="swords"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white"
+        >
+          <span class="material-symbols-outlined text-lg leading-none">swords</span>Duels
+        </button>
+        <button
+          data-tab="staff"
+          data-label="Staff"
+          data-icon="shield_person"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white"
+        >
+          <span class="material-symbols-outlined text-lg leading-none">shield_person</span>Staff
+        </button>
+        <div class="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-600 senior-only hidden">Insight</div>
         <button
           data-tab="stats"
-          class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white senior-only hidden"
+          data-label="Stats"
+          data-icon="monitoring"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white senior-only hidden"
         >
-          Stats
+          <span class="material-symbols-outlined text-lg leading-none">monitoring</span>Stats
         </button>
         <button
           data-tab="audit"
-          class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white senior-only hidden"
+          data-label="Audit Log"
+          data-icon="history"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white senior-only hidden"
         >
-          Audit Log
+          <span class="material-symbols-outlined text-lg leading-none">history</span>Audit Log
         </button>
         <button
           data-tab="system"
-          class="tab-btn text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white operator-only hidden"
+          data-label="System"
+          data-icon="dns"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white operator-only hidden"
         >
-          System
+          <span class="material-symbols-outlined text-lg leading-none">dns</span>System
         </button>
       </div>
 
@@ -210,10 +275,13 @@
     <script src="/js/rules.js"></script>
     <script src="/js/tickets.js"></script>
     <script src="/js/admin/core.js"></script>
+    <script src="/js/admin/overview.js"></script>
+    <script src="/js/admin/palette.js"></script>
     <script src="/js/admin/submissions.js"></script>
     <script src="/js/admin/suggestions.js"></script>
     <script src="/js/admin/locations.js"></script>
     <script src="/js/admin/tickets.js"></script>
+    <script src="/js/admin/duels.js"></script>
     <script src="/js/admin/users.js"></script>
     <script src="/js/admin/audit.js"></script>
     <script src="/js/admin/system.js"></script>

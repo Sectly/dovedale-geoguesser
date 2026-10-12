@@ -169,7 +169,7 @@ describe("duel game flow", () => {
 			expect(start).toMatchObject({ loading: false, time_remaining: 60 });
 			abandonDuel(room, b.id);
 
-			// A player who never reports in only holds things up for the loading window.
+			/** A player who never reports in only holds things up for the loading window. */
 			const slow = createRoom(a.id, 1);
 			joinRoom(slow.code, b.id);
 			const connSlow = seat(slow, a);
@@ -207,7 +207,7 @@ describe("duel game flow", () => {
 			submitGuess(room, a.id, { x: 0, y: 0 });
 			expect(room.outcomes.size).toBe(0); // no guessing while paused
 
-			// Twenty seconds away costs nobody any time on the clock.
+			/** Twenty seconds away costs nobody any time on the clock. */
 			jest.advanceTimersByTime(20_000);
 			expect(room.status).toBe("in_progress");
 			room.players[1].connected = true;
@@ -307,7 +307,7 @@ describe("quick play", () => {
 		const [a, b, c] = [createUser(), createUser(), createUser()].map(fullUser);
 		const first = quickplay(a, 5, () => true)!;
 		expect(first.status).toBe("waiting");
-		// Nobody is matched into a room whose host has not connected yet.
+		/** Nobody is matched into a room whose host has not connected yet. */
 		expect(quickplay(b, 5, () => true)!.code).not.toBe(first.code);
 		cancelQuickplay(b.id);
 
@@ -318,7 +318,7 @@ describe("quick play", () => {
 		cancelQuickplay(c.id);
 		expect(quickplay(b, 5, () => true)).toEqual({ status: "matched", code: first.code });
 
-		// If the matched player backs out, the host goes back to waiting for someone else.
+		/** If the matched player backs out, the host goes back to waiting for someone else. */
 		cancelQuickplay(b.id);
 		expect(duelRooms.has(first.code)).toBe(true);
 		expect(quickplay(c, 5, () => true)).toEqual({ status: "matched", code: first.code });

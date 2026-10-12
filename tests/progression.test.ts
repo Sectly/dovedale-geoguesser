@@ -157,7 +157,7 @@ describe("small touches", () => {
 		const [a, b] = [createUser(), createUser()];
 		const first = playDuel(a, b, false);
 		expect(first.end.series).toEqual({ wins: { [a.id]: 1 }, games: 1 });
-		// A rematch starts from the score so far (the socket handler copies it across).
+		/** A rematch starts from the score so far (the socket handler copies it across). */
 		const rematch = createRoom(a.id, 1);
 		rematch.series = { wins: { ...first.room.series.wins }, games: first.room.series.games };
 		duelRooms.delete(rematch.code);
@@ -175,7 +175,7 @@ describe("small touches", () => {
 			}
 			return last.data.summary;
 		};
-		// A first game is not a "new best"; there was nothing to beat.
+		/** A first game is not a "new best"; there was nothing to beat. */
 		const far = await play(900000);
 		expect(far).toMatchObject({ personal_best: false, previous_best: null });
 		const near = await play(0);
@@ -242,7 +242,7 @@ describe("achievements", () => {
 		);
 		expect(achievements(veteran)).not.toContain("streak_30");
 		expect((await call("/api/achievements/unseen", { as: veteran })).data).toEqual([]);
-		// Running it again gives nothing twice.
+		/** Running it again gives nothing twice. */
 		const before = achievements(veteran).length;
 		backfillAchievements();
 		expect(achievements(veteran).length).toBe(before);
@@ -271,7 +271,7 @@ describe("achievements", () => {
 		const exported = (await call("/api/gdpr/export", { as: player })).data;
 		expect(exported.achievements.map((a: any) => a.key)).toEqual(["duel_wins_10"]);
 		expect(exported.account).toMatchObject({ duel_rating: 1000, duel_rated_games: 0 });
-		expect(exported.export_version).toBe(8);
+		expect(exported.export_version).toBe(11);
 
 		expect((await give(false)).status).toBe(200);
 		expect(achievements(player)).toEqual([]);
@@ -320,8 +320,10 @@ describe("duel reactions", () => {
 	});
 
 	test("no event has the same name going in as coming out", async () => {
-		// The socket library fires an event's own handlers on any connection the server sends that
-		// event to. A name used in both directions would make every recipient act as if they sent it.
+		/**
+		 * The socket library fires an event's own handlers on any connection the server sends that event to. A name
+		 * used in both directions would make every recipient act as if they sent it.
+		 */
 		const source = async (file: string) => Bun.file(new URL(`../src/${file}`, import.meta.url)).text();
 		const wire = await source("game/duels/wire.ts");
 		const sent = wire + (await source("game/duels/rooms.ts")) + (await source("system/restart.ts"));
@@ -384,6 +386,19 @@ describe("location difficulty", () => {
 
 		const counts = (await call("/api/solo/difficulties")).data;
 		expect(counts).toMatchObject({ easy: 1, hard: 1 });
+	});
+
+	test("the grade follows recent guesses, so a much-played location can still change", () => {
+		const location = createLocation();
+		for (let i = 0; i < 500; i++) recordLocationPlay(location, 4800);
+		expect(difficultyOf(location)).toBe("easy");
+		/** Under a lifetime average, 500 easy guesses would take about 900 poor ones to outweigh. */
+		for (let i = 0; i < 40; i++) recordLocationPlay(location, 300);
+		expect(difficultyOf(location)).toBe("medium");
+		for (let i = 0; i < 80; i++) recordLocationPlay(location, 300);
+		expect(difficultyOf(location)).toBe("hard");
+		for (let i = 0; i < 150; i++) recordLocationPlay(location, 4800);
+		expect(difficultyOf(location)).toBe("easy");
 	});
 
 	test("a solo game on one difficulty is practice, and needs enough locations", async () => {

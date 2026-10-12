@@ -1,10 +1,6 @@
 import { db } from "../db";
 
-/**
- * Maintenance mode: while it is on, only staff can use the site. Everyone else gets
- * the maintenance screen. The switch is kept in the database, so it survives restarts
- * (which is usually the point of turning it on).
- */
+/** Maintenance mode: only staff can use the site. Stored in the database, so it survives restarts. */
 
 export type Maintenance = { enabled: boolean; message: string; since: number | null; by: string | null };
 

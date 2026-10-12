@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync, existsSync } from "fs";
 import { join } from "path";
 import { BACKUP_DIR, createBackup, ensureDailyBackup } from "./backups";
-import { DATA_DIR, UPLOADS_DIR } from "./config";
+import { DATA_DIR, GAME, UPLOADS_DIR } from "./config";
 
 mkdirSync(DATA_DIR, { recursive: true });
 mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -28,7 +28,7 @@ function openDatabase(): Database {
 					probe.close();
 				} catch {}
 			}
-			// Never start empty on a damaged database: it would look like every account had vanished.
+			/** Never start empty on a damaged database: it would look like every account had vanished. */
 			throw new Error(
 				`[db] ${DB_PATH} failed its integrity check (${err instanceof Error ? err.message : err}). ` +
 					`The server will not start on a damaged database. Restore the newest file from ${BACKUP_DIR}, ` +
@@ -45,11 +45,8 @@ function openDatabase(): Database {
 
 export const db = openDatabase();
 
-/**
- * Bumped whenever a release changes existing data rather than only adding to it.
- * A database from an older release is copied aside before anything touches it.
- */
-const SCHEMA_VERSION = 2;
+/** Bumped when a release changes existing data. An older database is copied aside first. */
+const SCHEMA_VERSION = 3;
 
 function backupBeforeUpgrade() {
 	const version = db.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version ?? 0;
@@ -60,7 +57,7 @@ function backupBeforeUpgrade() {
 	try {
 		backup = createBackup(db, "upgrade", `v${version}-${new Date().toISOString().replace(/[:.]/g, "-")}`);
 	} catch (err) {
-		// Upgrading without a way back is not worth the risk: stop and let a person look.
+		/** Upgrading without a way back is not worth the risk: stop and let a person look. */
 		throw new Error(
 			`[db] Could not back up the database before upgrading it (${err instanceof Error ? err.message : err}). ` +
 				`Nothing was changed. Free up disk space or check permissions on ${BACKUP_DIR}, then start again.`
@@ -332,6 +329,37 @@ const SCHEMA_STATEMENTS = [
   created_by TEXT,
   created_at INTEGER DEFAULT (unixepoch())
 )`,
+	`CREATE TABLE IF NOT EXISTS staff_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  author_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  author_username TEXT,
+  body TEXT NOT NULL,
+  created_at INTEGER DEFAULT (unixepoch())
+)`,
+	`CREATE INDEX IF NOT EXISTS idx_staff_notes_user ON staff_notes(user_id, id DESC)`,
+	`CREATE TABLE IF NOT EXISTS guess_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  mode TEXT NOT NULL,
+  location_id INTEGER,
+  distance REAL NOT NULL,
+  time_taken REAL NOT NULL,
+  points INTEGER NOT NULL,
+  created_at INTEGER DEFAULT (unixepoch())
+)`,
+	`CREATE INDEX IF NOT EXISTS idx_guess_log_user ON guess_log(user_id, id DESC)`,
+	`CREATE TABLE IF NOT EXISTS fairplay_flags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  signal TEXT NOT NULL,
+  evidence TEXT NOT NULL,
+  upto_guess INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER DEFAULT (unixepoch()),
+  dismissed_at INTEGER,
+  dismissed_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+)`,
+	`CREATE INDEX IF NOT EXISTS idx_fairplay_flags_user ON fairplay_flags(user_id, dismissed_at)`,
 	`CREATE TABLE IF NOT EXISTS location_stats (
   location_id INTEGER PRIMARY KEY REFERENCES locations(id) ON DELETE CASCADE,
   plays INTEGER NOT NULL DEFAULT 0,
@@ -378,18 +406,25 @@ const MIGRATIONS: string[] = [
 	"ALTER TABLE users ADD COLUMN duel_rating INTEGER DEFAULT 1000",
 	"ALTER TABLE users ADD COLUMN duel_rated_games INTEGER DEFAULT 0",
 	"ALTER TABLE duel_participants ADD COLUMN rating_change INTEGER",
+	"ALTER TABLE location_stats ADD COLUMN recent_sum REAL",
 ];
 
 for (const sql of MIGRATIONS) {
 	try {
 		db.exec(sql);
 	} catch (err: any) {
-		// "duplicate column name" is expected when the column already exists
+		/** "duplicate column name" is expected when the column already exists */
 		if (!err?.message?.includes("duplicate column name")) {
 			console.warn("[db] Migration skipped unexpectedly:", err?.message, "-", sql);
 		}
 	}
 }
+
+/** Existing difficulty records start from their lifetime average. Does nothing on a second run. */
+db.run(
+	"UPDATE location_stats SET recent_sum = CAST(score_sum AS REAL) * MIN(plays, ?) / plays WHERE recent_sum IS NULL AND plays > 0",
+	[GAME.difficulty.window]
+);
 
 try {
 	const orphans = db
@@ -446,20 +481,34 @@ try {
 
 db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 
+const pragmaNumber = (name: string) =>
+	Number(Object.values(db.query<Record<string, number>, []>(`PRAGMA ${name}`).get() ?? {})[0]) || 0;
+
+/** The share of the database file that is free pages left behind by deletions. */
+export function freeSpaceShare(): number {
+	const pages = pragmaNumber("page_count");
+	return pages ? pragmaNumber("freelist_count") / pages : 0;
+}
+
 /**
- * Housekeeping for a server that is left running: one backup a day, and the write-ahead
- * log folded back into the main file so it cannot grow.
+ * Rewrites the database file without its free pages once they are a quarter of it and 10 MB.
+ * Blocks while it runs. Returns whether it ran.
  */
+export function reclaimFreeSpace(): boolean {
+	const freeBytes = pragmaNumber("freelist_count") * pragmaNumber("page_size");
+	if (freeBytes < 10 * 1024 * 1024 || freeSpaceShare() < 0.25) return false;
+	db.exec("VACUUM");
+	return true;
+}
+
+/** Hourly upkeep: one backup a day, and the write-ahead log folded back in. */
 export function maintainDatabase() {
 	ensureDailyBackup(db);
 	db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
 	db.exec("PRAGMA optimize");
 }
 
-/**
- * Staff roles, lowest first. A helper only reviews submissions and suggestions and can look
- * at the location list; everything else in the staff panel starts at moderator.
- */
+/** Staff roles, lowest first. A helper only reviews submissions and suggestions. */
 export type Role = "helper" | "moderator" | "supervisor" | "operator";
 
 export type User = {

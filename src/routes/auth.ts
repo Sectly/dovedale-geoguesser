@@ -4,11 +4,13 @@ import { consumeState, createAuthUrl, exchangeCode, oauthConfigured } from "../a
 import {
 	clearedSessionCookie,
 	createSession,
+	hasAccount,
 	currentUser,
 	deleteSession,
 	redirectCookie,
 	sessionCookie,
 	sessionIdFromCookies,
+	stateCookie,
 	upsertDevUser,
 	upsertUser,
 	welcomeCookie,
@@ -20,6 +22,7 @@ import { displayName, notify } from "../lib/webhook";
 import { activeBanReason } from "../moderation";
 import { hasRole, isStaff } from "../auth/guards";
 import { publicPreferences } from "../notifications";
+import { features } from "../system/features";
 import { maintenance } from "../system/maintenance";
 import { errorPage } from "./pages";
 
@@ -46,8 +49,10 @@ authRoutes.get("/login", (c) => {
 			message: "Discord login is not set up on this server.",
 		});
 
-	c.header("Set-Cookie", redirectCookie(redirect));
-	return c.redirect(createAuthUrl());
+	const { url, state } = createAuthUrl();
+	c.header("Set-Cookie", redirectCookie(redirect), { append: true });
+	c.header("Set-Cookie", stateCookie(state), { append: true });
+	return c.redirect(url);
 });
 
 authRoutes.get("/callback", async (c) => {
@@ -55,7 +60,7 @@ authRoutes.get("/callback", async (c) => {
 
 	const code = c.req.query("code");
 	const state = c.req.query("state");
-	// Declining on Discord's consent screen lands here; just send the player home.
+	/** Declining on Discord's consent screen lands here; just send the player home. */
 	if (c.req.query("error")) return c.redirect("/");
 	if (!code || !state)
 		return errorPage(c, {
@@ -63,7 +68,10 @@ authRoutes.get("/callback", async (c) => {
 			title: "Login didn't finish",
 			message: "Discord sent you back without the details we need. Please try logging in again.",
 		});
-	if (!consumeState(state))
+	/** The login must come back to the browser it started in, and each state works once. */
+	const started = getCookie(c.req.header("Cookie"), "oauth_state");
+	c.header("Set-Cookie", stateCookie(null), { append: true });
+	if (started !== state || !consumeState(state))
 		return errorPage(c, {
 			status: 400,
 			title: "Login link expired",
@@ -72,6 +80,13 @@ authRoutes.get("/callback", async (c) => {
 
 	try {
 		const profile = await exchangeCode(code);
+		if (!features().signups && !hasAccount(profile.discord_id))
+			return errorPage(c, {
+				status: 403,
+				title: "New accounts are paused",
+				message: "We aren't taking new accounts right now. Please come back later.",
+				help: false,
+			});
 		const { id: userId, isNew } = upsertUser(profile);
 		if (isNew)
 			notify(
@@ -102,7 +117,7 @@ authRoutes.get("/callback", async (c) => {
 
 authRoutes.get("/me", (c) => {
 	const user = currentUser(c);
-	// Being logged out is a normal answer here, not an error.
+	/** Being logged out is a normal answer here, not an error. */
 	if (!user) return c.json(null);
 	return c.json({
 		id: user.id,
@@ -123,7 +138,7 @@ authRoutes.get("/me", (c) => {
 		duel_rated_games: user.duel_rated_games ?? 0,
 		suggestions_agreed: !!user.suggestions_agreed,
 		prefs: publicPreferences(user),
-		// Only staff ever see the site during maintenance, so only they need telling.
+		/** Only staff ever see the site during maintenance, so only they need telling. */
 		maintenance: hasRole(user, "moderator") && maintenance().enabled ? maintenance().message || true : false,
 	});
 });

@@ -7,14 +7,11 @@ const ROLE_BADGE = {
 	moderator: "bg-blue-900/70 text-blue-300",
 	helper: "bg-teal-900/70 text-teal-300",
 };
-/** The roles someone may hand out, highest first: operators any below their own, supervisors the lower two. */
+/** Roles someone may hand out, highest first. */
 const assignableRoles = (role) =>
 	role === "operator" ? ["supervisor", "moderator", "helper"] : role === "supervisor" ? ["moderator", "helper"] : [];
 const ROLE_NAMES = { operator: "Operator", supervisor: "Supervisor", moderator: "Moderator", helper: "Helper" };
-/**
- * What each role is for, lowest first: a one-line summary and what it adds to the role
- * below it. Shown on the Staff tab so nobody has to guess what an appointment hands over.
- */
+/** What each role is for, lowest first. Shown on the Staff tab. */
 const ROLE_INFO = {
 	helper: {
 		summary: "Reviews what players send in. The place to start for someone new.",
@@ -125,10 +122,7 @@ function formatWhen(seconds) {
 	return new Date(seconds * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-/**
- * Asks for the reason every moderation action needs, plus a duration when the
- * action has one. Resolves to { reason, hours } or null if cancelled.
- */
+/** Asks for a reason, and a duration when the action has one. Resolves to { reason, hours }, or null if cancelled. */
 function askReason({
 	title,
 	note = "",
@@ -287,6 +281,7 @@ function userStatusBadges(u) {
 		u.warning_count
 			? badge(`${u.warning_count} warning${u.warning_count === 1 ? "" : "s"}`, "bg-yellow-900/70 text-yellow-300")
 			: "",
+		u.fairplay_flags ? badge("Fair-play flag", "bg-purple-900/70 text-purple-300") : "",
 		u.profile_private ? badge("Private profile", "bg-zinc-700 text-zinc-400") : "",
 	].join("");
 }
@@ -299,6 +294,7 @@ function renderUsers(users) {
 		["restricted", "Banned or limited"],
 		["history", "Has history"],
 		["staff", "Staff"],
+		["flagged", "Fair-play flags"],
 	];
 
 	el("tab-content").innerHTML = `
@@ -333,6 +329,7 @@ function renderUsers(users) {
 						restricted ? "restricted" : "",
 						u.moderation_count ? "history" : "",
 						u.role ? "staff" : "",
+						u.fairplay_flags ? "flagged" : "",
 					].join(" ");
 					return `
 				<div class="bg-zinc-900 rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap" id="user-${u.id}" data-search="${escHtml(searchText)}" data-tags="${tags}">
@@ -399,7 +396,70 @@ function closeUserPanel() {
 	show("user-panel", false);
 }
 
-function renderUserPanel({ user, stats, actions, linked_accounts, can_moderate }) {
+/** Clears a fair-play flag after looking at it, then redraws the panel it was on. */
+async function dismissFairplayFlag(flagId, userId) {
+	try {
+		await api(`/api/admin/users/fairplay/${flagId}/dismiss`, { method: "POST" });
+		showToast("Flag dismissed.", "success");
+		openUserPanel(userId);
+	} catch (err) {
+		showToast(err.message, "error");
+	}
+}
+
+async function addStaffNote(userId) {
+	const body = el("note-input").value.trim();
+	if (body.length < 3) return showToast("Write a note first.", "error");
+	try {
+		await api(`/api/admin/users/${userId}/notes`, { json: { body } });
+		openUserPanel(userId);
+	} catch (err) {
+		showToast(err.message, "error");
+	}
+}
+
+async function removeStaffNote(noteId, userId) {
+	if (!(await showConfirm("Remove this note?", "It is deleted for all staff."))) return;
+	try {
+		await api(`/api/admin/users/notes/${noteId}`, { method: "DELETE" });
+		openUserPanel(userId);
+	} catch (err) {
+		showToast(err.message, "error");
+	}
+}
+
+/** The quieter facts about an account, folded away until they are wanted. */
+function userAccountHtml(a) {
+	const line = (label, value) =>
+		`<div class="flex items-baseline gap-2 py-1 border-b border-zinc-800 last:border-0"><span class="flex-1 text-zinc-500">${label}</span><span class="text-zinc-200 text-right">${value}</span></div>`;
+	const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+	return `<details class="bg-zinc-800/40 rounded-xl px-3 py-2 mb-4 text-xs">
+		<summary class="cursor-pointer text-zinc-300 font-semibold">Account details <span class="font-normal text-zinc-500">${a.last_played_date ? `last played ${escHtml(a.last_played_date)}` : "has not played yet"}</span></summary>
+		<div class="mt-2">
+			${line("Last logged in", a.last_login ? formatWhen(a.last_login) : "No login on record")}
+			${line("Logged in on", count(a.sessions, "browser"))}
+			${line("Devices seen", a.devices)}
+			${line("Push notifications", a.push_devices ? `On, ${count(a.push_devices, "device")}` : "Off")}
+			${line("Profile", a.profile_private ? "Private" : "Public")}
+			${line("Daily streak", `${a.current_streak} now · ${a.longest_streak} best`)}
+			${line("Duel rating", a.duel_rated_games ? `${a.duel_rating} after ${count(a.duel_rated_games, "rated duel")}` : "Unrated")}
+			${line("Achievements", a.achievements)}
+			${line("Suggestions", `${a.suggestions} sent · ${a.suggestions_approved} approved`)}
+			${line("Locations in play", a.locations_live)}
+		</div>
+	</details>`;
+}
+
+function renderUserPanel({
+	user,
+	stats,
+	account,
+	actions,
+	linked_accounts,
+	fairplay_flags = [],
+	notes = [],
+	can_moderate,
+}) {
 	const myRank = ROLE_RANK_JS[currentUser?.role] ?? 0;
 	const isOp = currentUser?.role === "operator";
 	const until = (ts) => (ts ? `until ${formatWhen(ts)}` : "");
@@ -442,6 +502,7 @@ function renderUserPanel({ user, stats, actions, linked_accounts, can_moderate }
 			${stat("Solo games", stats.solo_games)}${stat("Dailies", stats.daily_games)}${stat("Duels", stats.duels)}
 			${stat("Submissions", stats.submissions)}${stat("Denied", stats.submissions_denied)}${stat("Tickets", stats.tickets)}
 		</div>
+		${account ? userAccountHtml(account) : ""}
 
 		${
 			linked_accounts.length
@@ -451,6 +512,42 @@ function renderUserPanel({ user, stats, actions, linked_accounts, can_moderate }
 				</div>`
 				: ""
 		}
+
+		${
+			fairplay_flags.length
+				? `<div class="bg-purple-950/40 border border-purple-800/50 rounded-xl px-3 py-2.5 mb-4 text-xs text-zinc-300">
+					<div class="font-semibold text-purple-200 mb-1">Fair-play flags</div>
+					<p class="text-zinc-400 mb-2">Patterns in recent guesses that a person is unlikely to produce. Not proof: look at their games before deciding anything.</p>
+					${fairplay_flags
+						.map(
+							(flag) => `<div class="flex items-start gap-2 py-1.5 border-t border-purple-900/40">
+								<div class="flex-1 min-w-0"><span class="font-semibold">${escHtml(flag.label)}.</span> ${escHtml(flag.evidence)} <span class="text-zinc-500">${formatWhen(flag.created_at)}</span></div>
+								<button onclick="dismissFairplayFlag(${flag.id}, ${user.id})" class="m-btn m-btn-text m-btn-sm flex-shrink-0">Dismiss</button>
+							</div>`
+						)
+						.join("")}
+				</div>`
+				: ""
+		}
+
+		<div class="mb-5">
+			<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-2">Staff notes <span class="normal-case tracking-normal text-zinc-600">Not shown on the site. Included if the player asks for their data.</span></div>
+			${notes
+				.map(
+					(note) => `<div class="bg-zinc-800/50 rounded-xl px-3 py-2 mb-1.5 text-sm">
+						<div class="whitespace-pre-wrap break-words">${escHtml(note.body)}</div>
+						<div class="flex items-center gap-2 text-xs text-zinc-500 mt-1">
+							<span class="flex-1">@${escHtml(note.author_username || "staff")} · ${formatWhen(note.created_at)}</span>
+							${note.author_id === currentUser.id || myRank >= ROLE_RANK_JS.supervisor ? `<button onclick="removeStaffNote(${note.id}, ${user.id})" class="hover:text-red-300 transition">Remove</button>` : ""}
+						</div>
+					</div>`
+				)
+				.join("")}
+			<div class="flex gap-2 items-end">
+				<textarea id="note-input" rows="2" maxlength="1000" placeholder="Add a note for other staff" class="m-field flex-1"></textarea>
+				<button onclick="addStaffNote(${user.id})" class="m-btn m-btn-tonal m-btn-sm">Add</button>
+			</div>
+		</div>
 
 		<div class="mb-5">
 			<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-2">Take action</div>
@@ -604,7 +701,7 @@ async function loadStaff() {
 		const users = await r.json();
 		renderStaff(users.filter((u) => u.role));
 	} catch {
-		el("tab-content").innerHTML = '<div class="text-red-400">Failed to load staff.</div>';
+		el("tab-content").innerHTML = errorStateHtml("Couldn't load the staff list.");
 	}
 }
 
@@ -630,7 +727,7 @@ function renderStaff(staff) {
                 ${members
 					.map((u) => {
 						const targetRank = ROLE_RANK_JS[u.role] ?? 0;
-						// Anyone ranked below you can be locked out; changing roles takes a supervisor.
+						/** Anyone ranked below you can be locked out; changing roles takes a supervisor. */
 						const canChange = u.id !== currentUser.id && targetRank < myRank;
 						const roleButtons = canChange
 							? [
@@ -685,7 +782,10 @@ function renderStaff(staff) {
                 ${assignableRoles(myRole)
 					.map(
 						(role, i, all) =>
-							// The lowest role is the one picked to begin with: the safe default for a new appointment.
+							/**
+							 * The lowest role is the one picked to begin with: the safe default for a new
+							 * appointment.
+							 */
 							`<option value="${role}" ${i === all.length - 1 ? "selected" : ""}>${ROLE_NAMES[role]}</option>`
 					)
 					.join("")}

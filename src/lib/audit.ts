@@ -8,11 +8,7 @@ export type AuditTarget = {
 	details?: string | null;
 };
 
-/**
- * Audit actions that are also posted to the staff Discord channel, with their heading
- * and the staff panel tab to open. Actions with a richer message of their own (new
- * submissions, bans, new accounts...) call notify() themselves and are left out here.
- */
+/** Audit actions also posted to the staff Discord channel, with a heading and the panel tab to open. */
 const ANNOUNCED: Record<string, [category: WebhookCategory, title: string, path: string]> = {
 	user_warning: ["bans", "Warning issued", "/admin#users"],
 	user_limit_upload: ["bans", "Uploads limited", "/admin#users"],

@@ -3,9 +3,8 @@ import { join } from "path";
 import { PUBLIC_DIR, ROOT_DIR } from "./config";
 
 /**
- * Compiles the Tailwind stylesheet from the classes used in public/. The output
- * is a build product (not committed), so the server builds it when it is missing
- * and keeps it fresh while developing.
+ * Compiles the Tailwind stylesheet from the classes used in public/. Built when missing, and kept fresh in
+ * development.
  */
 
 export const STYLES_OUTPUT = join(PUBLIC_DIR, "css", "tailwind.css");

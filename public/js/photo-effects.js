@@ -1,7 +1,6 @@
 /**
- * Screenshot effects for seasonal specials. Each one covers the photo panel with an
- * overlay that the pointer cuts through, so the player has to explore the picture.
- * They are only for fun: scores from these modes never reach the leaderboards.
+ * Screenshot effects for seasonal specials: an overlay the pointer cuts through. Scores from these never reach the
+ * leaderboards.
  */
 const PhotoEffects = (() => {
 	/** How much of the snow may be wiped away, as a share of the picture. */
@@ -10,6 +9,7 @@ const PhotoEffects = (() => {
 	const TORCH_RADIUS = 120;
 
 	let cleanup = null;
+	let begin = null;
 
 	function overlay(tag) {
 		const node = document.createElement(tag);
@@ -56,7 +56,7 @@ const PhotoEffects = (() => {
 		const ctx = canvas.getContext("2d");
 		ctx.fillStyle = "#e8eef5";
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
-		// A little texture, so it reads as snow and not as a blank panel.
+		/** A little texture, so it reads as snow and not as a blank panel. */
 		for (let i = 0; i < 260; i++) {
 			ctx.fillStyle = i % 2 ? "rgba(255, 255, 255, 0.9)" : "rgba(190, 205, 222, 0.55)";
 			ctx.beginPath();
@@ -79,7 +79,7 @@ const PhotoEffects = (() => {
 		ctx.lineCap = "round";
 		ctx.lineWidth = SNOW_BRUSH * 2;
 		const untrack = track((x, y, box) => {
-			// The canvas keeps its first size, so scale the pointer if the panel has been resized.
+			/** The canvas keeps its first size, so scale the pointer if the panel has been resized. */
 			const point = { x: (x / box.width) * canvas.width, y: (y / box.height) * canvas.height };
 			if (used >= budget) return;
 			const from = last ?? point;
@@ -87,7 +87,7 @@ const PhotoEffects = (() => {
 			ctx.moveTo(from.x, from.y);
 			ctx.lineTo(point.x + 0.01, point.y);
 			ctx.stroke();
-			// Roughly the fresh area swept: a full brush for the first touch, a strip after that.
+			/** Roughly the fresh area swept: a full brush for the first touch, a strip after that. */
 			used += last ? Math.hypot(point.x - from.x, point.y - from.y) * SNOW_BRUSH * 2 : Math.PI * SNOW_BRUSH ** 2;
 			last = point;
 			showMeter();
@@ -102,18 +102,47 @@ const PhotoEffects = (() => {
 		};
 	}
 
-	const EFFECTS = { torch, snow };
+	/** Flash: the picture is covered, shown for a moment once the round starts, then covered for good. */
+	function flash(seconds = 2) {
+		const cover = overlay("div");
+		cover.classList.add("photo-effect-cover");
+		cover.textContent = "Get ready";
+		let timer = null;
+		return {
+			begin() {
+				cover.classList.add("lifted");
+				timer = setTimeout(() => {
+					cover.textContent = "Where was that?";
+					cover.classList.remove("lifted");
+				}, seconds * 1000);
+			},
+			cleanup() {
+				clearTimeout(timer);
+				cover.remove();
+			},
+		};
+	}
+
+	const EFFECTS = { torch, snow, flash };
 
 	return {
 		/** Starts an effect for a new round, replacing any that is still up. Unknown names do nothing. */
-		apply(name) {
+		apply(name, option) {
 			this.clear();
-			if (EFFECTS[name]) cleanup = EFFECTS[name]();
+			if (!EFFECTS[name]) return;
+			const effect = EFFECTS[name](option);
+			cleanup = typeof effect === "function" ? effect : effect.cleanup;
+			begin = effect.begin ?? null;
+		},
+		/** Tells the effect the clock has started, for the ones that are timed. */
+		begin() {
+			begin?.();
 		},
 		/** Takes the effect off so the whole picture shows. */
 		clear() {
 			cleanup?.();
 			cleanup = null;
+			begin = null;
 		},
 	};
 })();

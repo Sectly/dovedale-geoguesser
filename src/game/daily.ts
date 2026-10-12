@@ -3,13 +3,13 @@ import { GAME } from "../config";
 import { fail } from "../lib/http";
 import { nowSec, utcDate } from "../lib/time";
 import { checkDaily, checkRound, checkStreak } from "../achievements";
+import { reviewGuess } from "../fairplay";
 import { DAILY_RULES, Round, outcomeJson, recordOutcome, type Guess } from "./round";
 import { recordPlay } from "./streaks";
 
 /**
- * The daily challenge: one shared location per UTC day, one attempt per player.
- * The attempt's start time and revealed hints are stored, so the clock keeps
- * running across reloads and both are known to the server when scoring.
+ * The daily challenge: one location per UTC day, one attempt per player.
+ * Start time and hints are stored so reloads keep the clock.
  */
 
 type Attempt = { started_at: number; hints_revealed: number };
@@ -100,7 +100,7 @@ export function startDaily(user: User) {
 	const { date, location } = requireChallenge();
 	if (getScore(user.id, date)) fail(409, "Already played today");
 
-	// The clock starts when the screenshot is up (see beginDaily), or once the loading window passes.
+	/** The clock starts when the screenshot is up (see beginDaily), or once the loading window passes. */
 	db.run("INSERT OR IGNORE INTO daily_attempts (user_id, date, started_at) VALUES (?, ?, ?)", [
 		user.id,
 		date,
@@ -163,6 +163,7 @@ export function submitDailyGuess(user: User, guess: Guess | null) {
 	if (inserted.changes === 0) fail(409, "Already played today");
 
 	recordOutcome(location, outcome);
+	reviewGuess(user.id, "daily", location.id, outcome);
 	const streak = recordPlay(user.id);
 	checkRound(user.id, outcome);
 	checkDaily(user.id, outcome.score);

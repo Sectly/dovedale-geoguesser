@@ -16,7 +16,8 @@ export function oauthConfigured(): boolean {
 	return !!(DISCORD.clientId && DISCORD.clientSecret && DISCORD.redirectUri);
 }
 
-export function createAuthUrl(): string {
+/** Where to send the player to log in, and the state to remember in their browser until they come back. */
+export function createAuthUrl(): { url: string; state: string } {
 	const state = randomBytes(16).toString("hex");
 	oauthStates.set(state, Date.now() + STATE_TTL_MS);
 	const params = new URLSearchParams({
@@ -26,7 +27,7 @@ export function createAuthUrl(): string {
 		scope: "identify",
 		state,
 	});
-	return `https://discord.com/oauth2/authorize?${params}`;
+	return { url: `https://discord.com/oauth2/authorize?${params}`, state };
 }
 
 /** States are single use. */

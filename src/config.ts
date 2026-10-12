@@ -111,14 +111,16 @@ export const GAME = {
 	difficulty: {
 		/** Guesses needed before a location is graded at all. */
 		minPlays: 8,
+		/** The grade follows about this many of the latest guesses, so a much-played location can still change. */
+		window: 60,
 		/** An average at or above this is easy; below `hardBelow` is hard; in between is medium. */
 		easyFrom: 3200,
 		hardBelow: 1600,
 	},
 	restart: {
 		/**
-		 * Longest warning before a planned restart while duels or team games are being played, in
-		 * seconds: time to finish the match. The restart goes ahead sooner if they all end first.
+		 * Longest warning before a planned restart while matches are being played, in seconds. Sooner if they all
+		 * end.
 		 */
 		notice: 180,
 		/** The warning when nobody is playing, and the last call once every game has finished. */

@@ -12,12 +12,13 @@
     <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
     <link rel="stylesheet" href="/css/shared.css" />
+    <script src="/js/transitions.js"></script>
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col">
     <nav id="site-nav"></nav>
     <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-10 prose">
       <h1 class="text-2xl font-bold mb-2 text-white">Terms of Service</h1>
-      <p class="text-zinc-600 text-xs mb-6">Last updated: 11 October 2026</p>
+      <p class="text-zinc-600 text-xs mb-6">Last updated: 12 October 2026</p>
       <div class="summary">
         <div class="summary-title">In short</div>
         <ul>
@@ -29,8 +30,8 @@
       </div>
 
       <p>
-        These terms are the agreement between you and the operator of Dovedale GeoGuesser ("the Service", "we", "us"). By using the Service you agree to them.
-        If you do not agree, please do not use it. They should be read together with our
+        These terms are the agreement between you and Sectly, the operator of Dovedale GeoGuesser ("the Service", "we", "us"). By using the Service you agree to
+        them. If you do not agree, please do not use it. They should be read together with our
         <a href="/privacy" class="text-blue-400 hover:text-blue-300">Privacy Policy</a>,
         <a href="/fairplay" class="text-blue-400 hover:text-blue-300">Fair Play Policy</a> and
         <a href="/guidelines" class="text-blue-400 hover:text-blue-300">Upload Guidelines</a>, which form part of these terms.
@@ -40,6 +41,12 @@
       <p>
         Dovedale GeoGuesser is a free, community-run location guessing game based on the Dovedale Railway Roblox game. It is currently in beta: features may
         change, break or be removed, and scores or leaderboards may occasionally be reset or corrected.
+      </p>
+      <p>It is not a business. It is run by volunteers for fun and is free to play.</p>
+      <p hidden>
+        <strong class="text-zinc-200">Donations.</strong> If we ever accept donations, on the site or through a service such as GitHub Sponsors, they are
+        voluntary gifts towards running costs. A donation buys nothing: no advantage in the game, no different treatment by staff, and no say in moderation.
+        Donations are not refunded unless the law requires it, and the service that handles the payment has its own terms.
       </p>
       <p>
         The Service is an unofficial fan project. It is not affiliated with, endorsed by or operated by Dovedale Railway, Roblox Corporation or Discord Inc.
@@ -55,6 +62,10 @@
           log in with it.
         </li>
         <li>You may not use the Service if you are currently banned from it.</li>
+        <li>
+          The Service is mainly for players in the United Kingdom and is open to players anywhere. If you play from somewhere else, it is up to you to check
+          that doing so is allowed where you live.
+        </li>
       </ul>
 
       <h2>3. Your account</h2>
@@ -76,30 +87,45 @@
           <a href="#A4" class="rule-code">A4</a> <strong class="text-zinc-200">Impersonation.</strong> Do not pretend to be staff, or another player, in order
           to mislead people.
         </li>
+        <li id="A5" class="rule">
+          <a href="#A5" class="rule-code">A5</a> <strong class="text-zinc-200">Illegal use.</strong> Do not use the Service to do anything illegal, or to share
+          content that is illegal.
+        </li>
       </ul>
 
       <h2>4. Conduct</h2>
       <p>
-        You must follow the <a href="/fairplay" class="text-blue-400 hover:text-blue-300">Fair Play Policy</a> (rules F1 to F10) whenever you use the Service,
-        and the <a href="/guidelines" class="text-blue-400 hover:text-blue-300">Upload Guidelines</a> (rules U1 to U12) whenever you submit a location or
+        You must follow the <a href="/fairplay" class="text-blue-400 hover:text-blue-300">Fair Play Policy</a> (rules F1 to F12) whenever you use the Service,
+        and the <a href="/guidelines" class="text-blue-400 hover:text-blue-300">Upload Guidelines</a> (rules U1 to U14) whenever you submit a location or
         suggest a change.
       </p>
 
       <h2>5. Content you upload</h2>
       <ul>
-        <li><strong class="text-zinc-200">It stays yours.</strong> You keep whatever rights you have in the screenshots and text you submit.</li>
         <li>
-          <strong class="text-zinc-200">You give us permission to use it in the game.</strong> By submitting content you grant us a free, worldwide,
-          non-exclusive licence to store, resize, convert, display and distribute it as part of the Service, for as long as it is part of the game.
+          <strong class="text-zinc-200">It stays yours.</strong> You keep whatever rights you have in the screenshots and text you submit. You do not hand
+          ownership to us, and we do not hand it to anyone else.
+        </li>
+        <li>
+          <strong class="text-zinc-200">You give us permission to use it in Dovedale GeoGuesser.</strong> By submitting content you give us a free, worldwide,
+          non-exclusive permission to store, copy, crop, resize, convert, display and distribute it, and to edit its label and hints, as far as we need to in
+          order to run, show and promote the Service. That covers Dovedale GeoGuesser itself, its replays, share images and backups, and the providers that host
+          the Service for us. The permission starts when you submit and lasts until the content is removed from Dovedale GeoGuesser. It has nothing to do with
+          whether the place still exists in Dovedale Railway.
         </li>
         <li>
           <strong class="text-zinc-200">You confirm you may share it.</strong> Only submit screenshots you took yourself, or have permission to submit, and that
           do not show other people's personal information.
         </li>
         <li>
-          <strong class="text-zinc-200">Approved locations stay in the game</strong> if you later delete your account, with your name no longer attached. If you
-          want one of your approved screenshots removed, open a
-          <a href="/settings?ticket=other#support" class="text-blue-400 hover:text-blue-300">support ticket</a> or contact the operator.
+          <strong class="text-zinc-200">Asking for removal.</strong> You can ask us at any time to take one of your own approved screenshots out of Dovedale
+          GeoGuesser. We will where we can, and always where the law requires it, within a reasonable time. It may remain in backups until they are replaced,
+          and results from games already played on it are kept. Until it is removed, the permission above continues.
+        </li>
+        <li>
+          <strong class="text-zinc-200">Deleting your account does not remove them.</strong> Approved locations stay in Dovedale GeoGuesser, with your name no
+          longer attached. Submissions still waiting for review, or denied, are deleted with the account. To ask for an approved screenshot to be removed, open
+          a <a href="/settings?ticket=other#support" class="text-blue-400 hover:text-blue-300">support ticket</a> or contact the operator.
         </li>
         <li>We may edit labels and hints, decline, or remove any submitted content at any time.</li>
         <li>
@@ -155,18 +181,65 @@
         country you live in.
       </p>
 
-      <h2>9. Changes to these terms</h2>
+      <h2 id="reporting">9. Reporting content, and illegal content</h2>
+      <p>The only content players add to the Service is screenshots with their labels and hints, and the name and avatar that come from Discord.</p>
+      <ul>
+        <li>
+          <strong class="text-zinc-200">Checked before it is shown.</strong> Every screenshot, label and hint is reviewed by a member of staff against the
+          <a href="/guidelines" class="text-blue-400 hover:text-blue-300">Upload Guidelines</a> before any other player can see it. Content that is illegal, or
+          that breaks rule U9 or U12, is refused.
+        </li>
+        <li>
+          <strong class="text-zinc-200">How to report something.</strong> If you see content or behaviour on the Service that you believe is illegal or breaks
+          our rules, open a <a href="/settings?ticket=report_location#support" class="text-blue-400 hover:text-blue-300">Report a Location</a> or
+          <a href="/settings?ticket=report_user#support" class="text-blue-400 hover:text-blue-300">Report a User</a> ticket. If you have no account, or the
+          content is about you, contact the operator at
+          <a href="https://www.sectly.online/#contact" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">sectly.online</a>. Say what the
+          content is, where it is (a link or a location ID), why you believe it is illegal or against the rules, and give your name and a way to reply. We
+          confirm that we received it.
+        </li>
+        <li>
+          <strong class="text-zinc-200">What we do.</strong> A person reviews every report, without undue delay. Content found to be illegal or against the
+          rules is removed, and the account responsible may be warned, limited or banned as set out in section 6. We tell the person who reported it the
+          outcome, and we tell the person whose content or account is affected what was done, which rule or law it was based on, and how to appeal.
+        </li>
+        <li>
+          <strong class="text-zinc-200">If you disagree.</strong> Whether your own content was removed or your report was turned down, you can ask for the
+          decision to be looked at again by opening a ticket or using the operator contact.
+        </li>
+        <li>
+          <strong class="text-zinc-200">Copyright.</strong> If you own the rights in something on the Service and want it removed, use the operator contact and
+          tell us what it is and where it appears.
+        </li>
+        <li>
+          <strong class="text-zinc-200">No automated moderation.</strong> Software only flags things for staff to look at, such as possible ban evasion.
+          Decisions to remove content or restrict an account are always made by a person.
+        </li>
+        <li>
+          <strong class="text-zinc-200">Serious harm.</strong> If we learn of content suggesting a threat to someone's life or safety, we will tell the police.
+        </li>
+      </ul>
+
+      <h2 id="law">10. The law that applies</h2>
+      <p>
+        These terms are governed by the law of the Netherlands. If you use the Service as a consumer, you also keep the protection of the mandatory laws of the
+        country you live in, and you can bring a claim in the courts there.
+      </p>
+      <p>If part of these terms turns out not to be enforceable, the rest still applies.</p>
+
+      <h2>11. Changes to these terms</h2>
       <p>
         We may update these terms and the policies linked above. The date at the top of each page shows when it last changed. Where a change significantly
         affects your rights or how your data is used, we will aim to announce it on the site before it takes effect. If you keep using the Service after a
         change, the updated terms apply to you; if you do not accept them, you can delete your account.
       </p>
 
-      <h2>10. Contact</h2>
+      <h2>12. Contact</h2>
       <p>
         For questions about these terms, open a <a href="/settings?ticket=other#support" class="text-blue-400 hover:text-blue-300">support ticket</a>. If that
-        is not possible, contact the operator at
-        <a href="https://www.sectly.online/#contact" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">sectly.online</a>.
+        is not possible, contact the operator, Sectly, at
+        <a href="https://www.sectly.online/#contact" class="text-blue-400 hover:text-blue-300" target="_blank" rel="noopener">sectly.online</a>. That contact is
+        also the single point of contact for authorities and for anyone who does not have an account. You can write in English or Dutch.
       </p>
     </main>
     <footer id="site-footer"></footer>

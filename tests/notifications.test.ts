@@ -23,7 +23,7 @@ describe("notifications", () => {
 
 		await post(`/api/admin/submissions/${pendingSubmission(author)}/approve`, mod);
 		const blurry = pendingSubmission(author, "A blurry field");
-		// A denial has to say why.
+		/** A denial has to say why. */
 		expect((await post(`/api/admin/submissions/${blurry}/deny`, mod, {})).status).toBe(400);
 		expect((await post(`/api/admin/submissions/${blurry}/deny`, mod, { reason: "  no " })).status).toBe(400);
 		await post(`/api/admin/submissions/${blurry}/deny`, mod, {
@@ -103,14 +103,14 @@ describe("notifications", () => {
 			title: "Staff replied to your ticket",
 		});
 
-		// With badges and alerts both off, the queue is not even counted.
+		/** With badges and alerts both off, the queue is not even counted. */
 		await post("/api/settings", mod, { prefs: { staff_badges: false } });
 		expect((await call("/api/attention", { as: mod })).data.staff).not.toBeNull();
 		const saved = await post("/api/settings", mod, { prefs: { staff_alerts: false } });
 		expect(saved.data.prefs).toMatchObject({ staff_badges: false, staff_alerts: false });
 		expect((await call("/api/attention", { as: mod })).data.staff).toBeNull();
 
-		// Players never see the staff-only options.
+		/** Players never see the staff-only options. */
 		const prefs = (await call("/api/auth/me", { as: player })).data.prefs;
 		expect(prefs.staff_badges).toBeUndefined();
 		expect(prefs.staff_alerts).toBeUndefined();

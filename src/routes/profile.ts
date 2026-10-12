@@ -42,8 +42,27 @@ export function profileStats(userId: number) {
 			userId,
 			nowSec() - 30 * DAY
 		),
-		daily: one<{ best: number | null; played: number; avg: number | null }>(
-			"SELECT MAX(score) AS best, COUNT(*) AS played, ROUND(AVG(score)) AS avg FROM daily_scores WHERE user_id = ?",
+		daily: one<{
+			best: number | null;
+			played: number;
+			avg: number | null;
+			avg_distance: number | null;
+			avg_time: number | null;
+			no_hints: number;
+		}>(
+			`SELECT MAX(score) AS best, COUNT(*) AS played, ROUND(AVG(score)) AS avg, ROUND(AVG(distance)) AS avg_distance,
+				ROUND(AVG(time_taken), 1) AS avg_time, COALESCE(SUM(hints_used = 0), 0) AS no_hints
+			FROM daily_scores WHERE user_id = ?`,
+			userId
+		),
+		/** Per-round numbers, which the totals hide. Duel rounds only go back as far as their details are kept. */
+		rounds: one<{ solo_avg: number | null; duel_avg: number | null; duel_avg_time: number | null }>(
+			`SELECT
+				(SELECT ROUND(CAST(SUM(total_score) AS REAL) / SUM(rounds)) FROM solo_scores WHERE user_id = ?) AS solo_avg,
+				(SELECT ROUND(AVG(score)) FROM duel_round_scores WHERE user_id = ?) AS duel_avg,
+				(SELECT ROUND(AVG(time_taken), 1) FROM duel_round_scores WHERE user_id = ? AND guessed_x IS NOT NULL) AS duel_avg_time`,
+			userId,
+			userId,
 			userId
 		),
 	};

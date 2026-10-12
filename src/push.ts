@@ -2,13 +2,27 @@ import webpush from "web-push";
 import { db } from "./db";
 import { PUSH } from "./config";
 
-/**
- * Web Push: lets a notification reach a player's device when the site is not
- * open. Entirely optional; without VAPID keys in the environment nothing here runs.
- */
+/** Web Push: reaches a device when the site is closed. Off without VAPID keys. */
 
 export const pushEnabled = !!(PUSH.publicKey && PUSH.privateKey);
 if (pushEnabled) webpush.setVapidDetails(PUSH.subject, PUSH.publicKey, PUSH.privateKey);
+
+/** The push services browsers use. The server posts to whatever a subscription names, so nothing else is accepted. */
+const PUSH_HOSTS = [
+	/^fcm\.googleapis\.com$/,
+	/(^|\.)push\.services\.mozilla\.com$/,
+	/(^|\.)push\.apple\.com$/,
+	/(^|\.)notify\.windows\.com$/,
+];
+
+export function isPushEndpoint(endpoint: string): boolean {
+	try {
+		const url = new URL(endpoint);
+		return url.protocol === "https:" && !url.port && PUSH_HOSTS.some((host) => host.test(url.hostname));
+	} catch {
+		return false;
+	}
+}
 
 type Subscription = { id: number; endpoint: string; p256dh: string; auth: string };
 const MAX_DEVICES = 10;
