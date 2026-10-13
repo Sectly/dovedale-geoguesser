@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, jest, test } from "bun:test";
+import { afterEach, beforeAll, describe, expect, jest, test } from "bun:test";
 import type { WireConnection } from "@webwirejs/server";
 import { db } from "../src/db";
 import { cancelQuickplay, quickplay } from "../src/game/duels/matchmaking";
@@ -12,6 +12,7 @@ import {
 	duelRooms,
 	joinRoom,
 	leaveWaitingRoom,
+	roomState,
 	startDuel,
 	submitGuess,
 	type DuelRoom,
@@ -333,5 +334,178 @@ describe("quick play", () => {
 		expect((await post(`/api/duels/rooms/${code}/join`, createUser())).status).toBe(409);
 		expect((await call("/api/duels/quickplay", { method: "DELETE", as: host })).status).toBe(200);
 		expect(duelRooms.has(code)).toBe(false);
+	});
+});
+
+describe("quick play rounds out of the ordinary", () => {
+	beforeAll(() => {
+		clearLocations();
+		for (let i = 0; i < 6; i++) createLocation();
+	});
+	/** A duel left running here would hold up the restart tests that follow. */
+	afterEach(() => closeAllDuels("Test over"));
+
+	const lastEvent = (conn: FakeConn, name: string) => conn.events.filter(([event]) => event === name).at(-1)?.[1];
+
+	/** Seats two players in a ranked room and runs the countdown, leaving round one loading. */
+	function rankedDuel(rounds = 3) {
+		const [a, b] = [createUser(), createUser()];
+		const room = createRoom(a.id, rounds, true);
+		joinRoom(room.code, b.id);
+		const conns = { [a.id]: seat(room, a), [b.id]: seat(room, b) };
+		expect(startDuel(room)).toBeNull();
+		jest.advanceTimersByTime(3_000);
+		return { room, a, b, conns };
+	}
+
+	/** Plays the round on screen: a named player guesses the exact spot, anyone else places no pin. */
+	function playRound(room: DuelRoom, exact: TestUser[]) {
+		for (const player of room.players) playerLoaded(room, player.userId);
+		const target = room.locations[room.roundNumber - 1];
+		for (const player of room.players)
+			submitGuess(
+				room,
+				player.userId,
+				exact.some((u) => u.id === player.userId) ? { x: target.world_x, y: target.world_y } : null
+			);
+	}
+
+	test("a player far behind scores double in the last round", () => {
+		jest.useFakeTimers();
+		try {
+			const { room, a, b, conns } = rankedDuel();
+			playRound(room, [a]);
+			expect(lastEvent(conns[a.id], "round_result").comeback_next).toBeNull();
+			jest.advanceTimersByTime(7_000);
+			playRound(room, [a]);
+			expect(lastEvent(conns[a.id], "round_result").comeback_next).toBe(b.id);
+			jest.advanceTimersByTime(7_000);
+			expect(lastEvent(conns[b.id], "round_loading")).toMatchObject({
+				round: 3,
+				kind: "comeback",
+				comeback_for: b.id,
+			});
+
+			playRound(room, [b]);
+			const result = lastEvent(conns[b.id], "round_result");
+			const mine = result.results.find((r: { user_id: number }) => r.user_id === b.id);
+			expect(result).toMatchObject({ kind: "comeback", comeback_for: b.id });
+			expect(mine.score).toBeGreaterThan(0);
+			expect(mine).toMatchObject({ bonus: mine.score, total_score: mine.score * 2 });
+			expect(result.results.find((r: { user_id: number }) => r.user_id === a.id).bonus).toBe(0);
+			/** The saved round keeps the score as guessed. */
+			const saved = db
+				.query<{ score: number }, [number, number]>(
+					"SELECT score FROM duel_round_scores WHERE game_id = ? AND user_id = ? AND round_number = 3"
+				)
+				.get(room.dbId, b.id)!;
+			expect(saved.score).toBe(mine.score);
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+
+	test("a duel that ends level goes to sudden death, and that round decides it", () => {
+		jest.useFakeTimers();
+		try {
+			const { room, a, b, conns } = rankedDuel();
+			for (let round = 1; round <= 3; round++) {
+				playRound(room, [a, b]);
+				if (round < 3) jest.advanceTimersByTime(7_000);
+			}
+			const level = lastEvent(conns[a.id], "round_result");
+			expect(level).toMatchObject({ round: 3, is_last: false, sudden_death_next: true });
+			jest.advanceTimersByTime(7_000);
+			expect(lastEvent(conns[a.id], "round_loading")).toMatchObject({
+				round: 4,
+				total_rounds: 3,
+				kind: "sudden_death",
+			});
+
+			/** The round goes to B, and so does the duel, even with A ahead on points. */
+			room.players.find((p) => p.userId === a.id)!.totalScore += 20_000;
+			playRound(room, [b]);
+			expect(lastEvent(conns[a.id], "round_result")).toMatchObject({ kind: "sudden_death", is_last: true });
+			jest.advanceTimersByTime(5_000);
+			const end = lastEvent(conns[b.id], "game_end");
+			expect(end).toMatchObject({ is_tie: false, sudden_death: true, winner: { user_id: b.id } });
+			expect(end.streaks).toEqual({ [a.id]: 0, [b.id]: 1 });
+			expect(end.ratings.find((r: { user_id: number }) => r.user_id === b.id).change).toBeGreaterThan(0);
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+
+	test("a sudden-death round nobody takes leaves a level duel tied, and a clear win needs no extra round", () => {
+		jest.useFakeTimers();
+		try {
+			const tied = rankedDuel();
+			for (let round = 1; round <= 4; round++) {
+				playRound(tied.room, round === 4 ? [] : [tied.a, tied.b]);
+				jest.advanceTimersByTime(7_000);
+			}
+			expect(lastEvent(tied.conns[tied.a.id], "game_end")).toMatchObject({
+				is_tie: true,
+				sudden_death: true,
+				winner: null,
+			});
+
+			const clear = rankedDuel();
+			/** Ahead by more than sudden death allows and less than a comeback round needs. */
+			clear.room.players.find((p) => p.userId === clear.a.id)!.totalScore += 1_000;
+			for (let round = 1; round <= 3; round++) {
+				playRound(clear.room, [clear.a, clear.b]);
+				if (round < 3) jest.advanceTimersByTime(7_000);
+			}
+			expect(lastEvent(clear.conns[clear.a.id], "round_result")).toMatchObject({
+				is_last: true,
+				sudden_death_next: false,
+			});
+			jest.advanceTimersByTime(5_000);
+			expect(lastEvent(clear.conns[clear.a.id], "game_end")).toMatchObject({
+				sudden_death: false,
+				winner: { user_id: clear.a.id },
+			});
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+
+	test("private rooms get neither, and a ranked lobby shows what is at stake", () => {
+		jest.useFakeTimers();
+		try {
+			const [a, b] = [createUser(), createUser()];
+			const room = createRoom(a.id, 2);
+			joinRoom(room.code, b.id);
+			const conn = seat(room, a);
+			seat(room, b);
+			startDuel(room);
+			jest.advanceTimersByTime(3_000);
+			playRound(room, [a, b]);
+			jest.advanceTimersByTime(7_000);
+			playRound(room, [a, b]);
+			expect(lastEvent(conn, "round_result")).toMatchObject({
+				is_last: true,
+				sudden_death_next: false,
+				kind: null,
+			});
+			jest.advanceTimersByTime(5_000);
+			expect(lastEvent(conn, "game_end")).toMatchObject({ is_tie: true, sudden_death: false, streaks: null });
+			expect(lastEvent(conn, "room_state")?.players?.[0]?.stakes).toBeUndefined();
+		} finally {
+			jest.useRealTimers();
+		}
+
+		const [c, d] = [createUser(), createUser()];
+		const ranked = createRoom(c.id, 3, true);
+		joinRoom(ranked.code, d.id);
+		seat(ranked, c);
+		seat(ranked, d);
+		const shown = roomState(ranked).players as any[];
+		expect(shown[0]).toMatchObject({ rating: 1000, rated_games: 0, streak: 0 });
+		expect(shown[0].stakes.win).toBeGreaterThan(0);
+		expect(shown[0].stakes.loss).toBeLessThan(0);
+		leaveWaitingRoom(ranked, c.id);
+		leaveWaitingRoom(ranked, d.id);
 	});
 });

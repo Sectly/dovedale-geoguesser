@@ -30,15 +30,11 @@ const NEW_DUELS_OFF = "New duels are paused for now. Please try again later.";
 
 const canCreateRoom = (user: User) => checkUserRateLimit(user, "room", 10, HOUR * 1000);
 
-async function readRounds(c: Context): Promise<number> {
-	const body = await readJson<{ rounds: number }>(c);
-	return clampInt(body.rounds, GAME.duel.defaultRounds, GAME.duel.minRounds, GAME.duel.maxRounds);
-}
-
-duelRoutes.post("/quickplay", async (c) => {
+/** The server sets the length, so a page loaded before a change cannot queue for one nobody else is in. */
+duelRoutes.post("/quickplay", (c) => {
 	const user = requireDuelist(c);
 	requireFeature("new_duels", user, NEW_DUELS_OFF);
-	const match = quickplay(user, await readRounds(c), () => canCreateRoom(user));
+	const match = quickplay(user, GAME.duel.quickplayRounds, () => canCreateRoom(user));
 	if (!match) fail(429, "Too many rooms created. Try again later.");
 	return c.json(match);
 });

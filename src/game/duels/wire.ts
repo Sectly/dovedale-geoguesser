@@ -4,6 +4,7 @@ import { GAME } from "../../config";
 import { sessionIdFromCookies, userFromSessionId } from "../../auth/sessions";
 import { parseGuess } from "../round";
 import { leaveQuickplayRoom, markConnected } from "./matchmaking";
+import { winStreak } from "./rating";
 import {
 	abandonDuel,
 	broadcast,
@@ -117,6 +118,7 @@ wireServer.on("connection", (conn: WireConnection) => {
 					connected: true,
 					disconnects: 0,
 					totalScore: 0,
+					streak: room.quickplay ? winStreak(userId) : 0,
 				});
 			}
 			rooms.set(conn, room);
@@ -240,6 +242,7 @@ wireServer.on("connection", (conn: WireConnection) => {
 			const rematch = createRoom(host.userId, room.rounds, room.quickplay, room.listed);
 			/** The same two players again, so the running score between them carries on. */
 			rematch.series = { wins: { ...room.series.wins }, games: room.series.games };
+			rematch.previousWinnerId = room.winnerId;
 			joinRoom(rematch.code, guest.userId);
 			send(host.conn, "play_again_match", { code: rematch.code, is_host: true });
 			send(guest.conn, "play_again_match", { code: rematch.code, is_host: false });

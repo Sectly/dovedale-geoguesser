@@ -5,7 +5,7 @@ import { GAME } from "../../config";
 
 export type RatingChange = { user_id: number; rating: number; change: number };
 
-type Rated = { id: number; duel_rating: number | null; duel_rated_games: number | null };
+export type Rated = { id: number; duel_rating: number | null; duel_rated_games: number | null };
 
 export const ratingOf = (user: { duel_rating?: number | null }) => user.duel_rating ?? GAME.rating.start;
 
@@ -14,8 +14,30 @@ export function expectedScore(own: number, other: number): number {
 	return 1 / (1 + 10 ** ((other - own) / 400));
 }
 
-function getRated(userId: number): Rated | null {
+export function getRated(userId: number): Rated | null {
 	return db.query<Rated, [number]>("SELECT id, duel_rating, duel_rated_games FROM users WHERE id = ?").get(userId);
+}
+
+/** How far a player's rating would move against this opponent: up for a win, down for a loss. */
+export function ratingStakes(own: Rated, other: Rated): { win: number; loss: number } {
+	const k = (own.duel_rated_games ?? 0) < GAME.rating.provisionalGames ? GAME.rating.kProvisional : GAME.rating.k;
+	const before = ratingOf(own);
+	const after = (result: number) =>
+		Math.max(GAME.rating.floor, Math.round(before + k * (result - expectedScore(before, ratingOf(other)))));
+	return { win: after(1) - before, loss: after(0) - before };
+}
+
+/** How many Quick Play duels a player has won in a row, newest first. A tie or a loss ends the run. */
+export function winStreak(userId: number): number {
+	const recent = db
+		.query<{ winner_id: number | null }, [number]>(
+			`SELECT g.winner_id FROM duel_games g JOIN duel_participants p ON p.game_id = g.id
+			WHERE p.user_id = ? AND g.quickplay = 1 AND g.status = 'finished'
+			ORDER BY g.finished_at DESC, g.id DESC LIMIT 50`
+		)
+		.all(userId);
+	const ended = recent.findIndex((game) => game.winner_id !== userId);
+	return ended < 0 ? recent.length : ended;
 }
 
 /** Rates one duel (`winnerId` null for a tie). Returns each player's new rating and change, or null. */
