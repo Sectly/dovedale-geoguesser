@@ -91,6 +91,11 @@ const seasonPreview = new URLSearchParams(location.search).get("season");
 api(`/api/meta${seasonPreview ? `?season=${encodeURIComponent(seasonPreview)}` : ""}`)
 	.then((meta) => {
 		applySeason(meta?.season);
+		if (meta?.upcoming) {
+			const { title, days } = meta.upcoming;
+			el("upcoming-tag").textContent = `${title} ${days <= 1 ? "starts tomorrow" : `in ${days} days`}`;
+			show("upcoming-tag");
+		}
 		if (!meta?.repo) return;
 		const link = document.createElement("a");
 		link.href = meta.repo;

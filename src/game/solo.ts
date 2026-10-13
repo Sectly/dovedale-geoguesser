@@ -10,10 +10,7 @@ import { pickLocations, type Difficulty } from "./locations";
 import { Round, SOLO_RULES, outcomeJson, recordOutcome, type Guess, type RoundOutcome, type RoundRules } from "./round";
 import { recordPlay, type Streak } from "./streaks";
 
-/**
- * Solo games live in memory and are scored on the server, so the answer never reaches the browser first.
- * Anonymous games are not saved.
- */
+/** Solo games live in memory and are scored on the server, so the answer never reaches the browser first. */
 
 type SoloGame = {
 	id: string;
@@ -49,7 +46,19 @@ export function dropSoloGames(userId: number) {
 	}
 }
 
+/** A game with no action for this long has most likely been walked away from. */
+const ACTIVE_MS = 10 * 60 * 1000;
+
+/** Solo games being played now. Abandoned ones linger until they expire and do not count. */
 export function activeSoloGames(): number {
+	const cutoff = Date.now() - ACTIVE_MS;
+	let active = 0;
+	for (const game of games.values()) if (game.touchedAt >= cutoff) active++;
+	return active;
+}
+
+/** Every solo game held in memory, abandoned ones included. */
+export function soloGamesHeld(): number {
 	return games.size;
 }
 
@@ -164,7 +173,7 @@ const SNAPSHOT_FILE = join(DATA_DIR, "solo-games.json");
 
 type SavedGame = Omit<SoloGame, "locations" | "round"> & {
 	locationIds: number[];
-	/** The round being guessed: how long its clock had run (null if it had not started) and the hints shown. */
+	/** The round being guessed: how long its clock had run (null if not started) and the hints shown. */
 	round: { elapsedMs: number | null; hintsRevealed: number } | null;
 };
 

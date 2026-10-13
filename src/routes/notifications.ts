@@ -26,7 +26,7 @@ notificationRoutes.post("/notifications/read", async (c) => {
 	return c.json(attentionFor(user));
 });
 
-/** Registers this browser to receive push notifications. Only the browsers' own push services are accepted. */
+/** Registers this browser for push. Only browsers' own push services are accepted. */
 notificationRoutes.post("/push/subscribe", async (c) => {
 	const user = requireUser(c);
 	if (!pushEnabled) fail(503, "Push notifications are not set up on this server");

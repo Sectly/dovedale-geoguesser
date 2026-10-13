@@ -1,10 +1,7 @@
 import { db, type User } from "./db";
 import { distanceScore, type RoundOutcome } from "./game/round";
 
-/**
- * Fair-play review: flags guess patterns a person cannot produce, for staff to judge.
- * Never acts on an account. Every signal needs repetition.
- */
+/** Fair-play review: flags guess patterns a person cannot produce, for staff to judge. Never acts on an account. */
 
 export type FairplaySignal = keyof typeof SIGNALS;
 
@@ -17,7 +14,7 @@ const ACCURATE_POINTS = 4000;
 const SIGNALS = {
 	/** Landing on the exact spot. A screen pixel covers more map than this at most zooms. */
 	exact: { withinUnits: 2, needed: 6, differentLocations: 4 },
-	/** Accurate before a person could have looked at the screenshot, moved to the spot and pressed the button. */
+	/** Accurate before a person could have looked, moved and pressed. */
 	instant: { underSeconds: 0.7, needed: 5 },
 	/** A run of accurate guesses that each took the same time to within a fraction of a second. */
 	clockwork: { run: 12, maxSpreadSeconds: 0.12 },

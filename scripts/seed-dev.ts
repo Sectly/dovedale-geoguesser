@@ -1,4 +1,4 @@
-/** Fills an empty local database with placeholder locations (`bun run seed`). Refuses if locations exist. */
+/** Fills an empty local database with placeholder locations (`bun run seed`). */
 import sharp from "sharp";
 import { join } from "path";
 import { db } from "../src/db";

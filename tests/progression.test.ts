@@ -271,7 +271,8 @@ describe("achievements", () => {
 		const exported = (await call("/api/gdpr/export", { as: player })).data;
 		expect(exported.achievements.map((a: any) => a.key)).toEqual(["duel_wins_10"]);
 		expect(exported.account).toMatchObject({ duel_rating: 1000, duel_rated_games: 0 });
-		expect(exported.export_version).toBe(11);
+		expect(exported.export_version).toBe(12);
+		expect(exported.messages_from_staff).toEqual([]);
 
 		expect((await give(false)).status).toBe(200);
 		expect(achievements(player)).toEqual([]);

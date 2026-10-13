@@ -1,4 +1,4 @@
-/** Signal Reflex: a reaction-time mini-game. Runs in the browser; the best average is kept on this device. */
+/** Signal Reflex: a reaction-time mini-game. The best average is kept on this device. */
 
 const REFLEX_GOES = 5;
 const REFLEX_BEST_KEY = "reflex_best_ms";

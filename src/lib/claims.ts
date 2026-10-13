@@ -1,10 +1,7 @@
 import type { User } from "../db";
 import { displayName } from "./webhook";
 
-/**
- * Who is looking at what in the staff panel, so two people do not review the same thing.
- * Kept in memory only: a claim is a courtesy marker, never a lock, and is gone after a restart.
- */
+/** Who has what open in the staff panel. In memory: a courtesy marker, never a lock. */
 
 export const CLAIM_KINDS = ["submission", "ticket"] as const;
 export type ClaimKind = (typeof CLAIM_KINDS)[number];

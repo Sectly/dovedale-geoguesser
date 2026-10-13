@@ -21,10 +21,7 @@ function ticketBubbleHtml({ mine, who, when, bodyHtml }) {
 	</div>`;
 }
 
-/**
- * The whole conversation. `viewer` ("user" or "staff") decides whose messages sit on the right.
- * `openingHtml` replaces the opening message's layout.
- */
+/** The whole conversation. `viewer` ("user" or "staff") decides whose messages sit on the right. */
 function ticketThreadHtml(ticket, viewer, openingHtml) {
 	const replies = Array.isArray(ticket.replies) ? ticket.replies : [];
 	const name = (reply) => {

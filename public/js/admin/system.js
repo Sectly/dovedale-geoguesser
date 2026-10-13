@@ -41,13 +41,65 @@ async function loadSystem() {
 		<div id="system-features"></div>
 		<div id="system-update"></div>
 		<div id="system-backups"></div>
+		<div id="system-breakdown"></div>
 		<div id="system-logs"></div>`;
+	loadBreakdown();
 	loadSystemInfo();
 	loadMaintenance();
 	loadFeatures();
 	loadUpdate(false);
 	loadBackups();
 	loadSystemLogs();
+}
+
+/** Breakdown: what is wrong, what might be, what is coming up */
+
+const FINDING_LOOK = {
+	problem: ["error", "text-red-400", "Needs attention"],
+	warning: ["warning", "text-amber-300", "Worth a look"],
+	upcoming: ["schedule", "text-blue-400", "Coming up"],
+	info: ["info", "text-zinc-500", "Good to know"],
+};
+
+async function loadBreakdown() {
+	const box = el("system-breakdown");
+	if (!box) return;
+	let findings;
+	try {
+		findings = await api("/api/admin/system/breakdown");
+	} catch {
+		return;
+	}
+	const groups = Object.keys(FINDING_LOOK)
+		.map((level) => [level, findings.filter((finding) => finding.level === level)])
+		.filter(([, list]) => list.length);
+	const row = (f) => {
+		const [icon, tone] = FINDING_LOOK[f.level];
+		return `<div class="flex items-start gap-2.5 py-2 border-b border-zinc-800 last:border-0">
+			<span class="material-symbols-outlined text-lg leading-5 flex-shrink-0 ${tone}">${icon}</span>
+			<div class="flex-1 min-w-0">
+				<div class="text-sm break-words">${escHtml(f.title)}${f.count > 1 ? ` <span class="m-tag ml-1">${f.count.toLocaleString()} times</span>` : ""}</div>
+				${f.detail ? `<div class="text-xs text-zinc-500 break-words">${escHtml(f.detail)}</div>` : ""}
+			</div>
+			${f.at ? `<span class="text-xs text-zinc-600 flex-shrink-0">${f.at > Date.now() / 1000 ? formatWhen(f.at) : `${shortAgo(f.at)} ago`}</span>` : ""}
+			${f.tab ? `<button onclick="switchTab('${f.tab}')" class="m-btn m-btn-text m-btn-sm flex-shrink-0 -my-1">Open</button>` : ""}
+		</div>`;
+	};
+	const urgent = findings.filter((f) => f.level === "problem").length;
+	box.innerHTML = systemCard(
+		"Breakdown",
+		"checklist",
+		groups.length
+			? groups
+					.map(
+						([level, list]) =>
+							`<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-3 first:mt-0">${FINDING_LOOK[level][2]}</div>${list.map(row).join("")}`
+					)
+					.join("")
+			: '<p class="text-sm text-zinc-400">Nothing to report. Everything is running as it should.</p>',
+		`${urgent ? `<span class="m-tag danger">${urgent} to fix</span>` : '<span class="m-tag success">No problems</span>'}
+		<button onclick="loadBreakdown()" class="m-icon-btn" aria-label="Refresh" title="Refresh"><span class="material-symbols-outlined">refresh</span></button>`
+	);
 }
 
 /** Overview */
@@ -69,7 +121,7 @@ async function loadSystemInfo() {
 				${stat("Screenshots", info.uploads.files.toLocaleString(), formatBytes(info.uploads.bytes))}
 				${stat("Duels in memory", info.live.duel_rooms)}
 				${stat("Team rooms", info.live.team_rooms)}
-				${stat("Solo games", info.live.solo_games)}
+				${stat("Solo games held", info.live.solo_games)}
 				${stat("Errors, last 24h", info.logs.errors_24h, info.logs.errors_24h ? "See the log below" : "")}
 			</div>`,
 			`<button onclick="loadSystemInfo()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>`

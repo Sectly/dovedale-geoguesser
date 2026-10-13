@@ -3,10 +3,25 @@ import { readdirSync, statSync } from "fs";
 import { join } from "path";
 import { requireStaff } from "../../auth/guards";
 import { BACKUP_DIR, BACKUP_LIMITS, backupPath, createBackup, deleteBackup, listBackups } from "../../backups";
-import { DATA_DIR, UPLOADS_DIR } from "../../config";
+import { DATA_DIR, SITE_URL, UPLOADS_DIR } from "../../config";
 import { db } from "../../db";
+import {
+	DAILY_MAX,
+	clearSmtpSettings,
+	emailAudience,
+	emailAvailable,
+	emailConfigured,
+	emailReady,
+	emailStats,
+	removeAllEmails,
+	saveSmtpSettings,
+	sendDueDigests,
+	sendTestEmail,
+	smtpReady,
+	smtpSettings,
+} from "../../email";
 import { duelRooms } from "../../game/duels/rooms";
-import { activeSoloGames } from "../../game/solo";
+import { soloGamesHeld } from "../../game/solo";
 import { teamRoomCount } from "../../game/teams";
 import { auditLog } from "../../lib/audit";
 import { fail, intQuery, readJson, text } from "../../lib/http";
@@ -21,6 +36,7 @@ import {
 	setMaintenance,
 } from "../../system/maintenance";
 import { backfillAchievements } from "../../achievements";
+import { systemBreakdown } from "../../system/breakdown";
 import { features, isFeature, setFeature } from "../../system/features";
 import { cancelPendingRestart, restartServer, runUpdate, updateStatus } from "../../system/updater";
 
@@ -63,12 +79,103 @@ adminSystemRoutes.get("/info", (c) => {
 		live: {
 			duel_rooms: duelRooms.size,
 			team_rooms: teamRoomCount(),
-			solo_games: activeSoloGames(),
+			solo_games: soloGamesHeld(),
 			rate_limit_keys: rateLimitKeys(),
 		},
 		logs: logCounts(),
 		maintenance: maintenance(),
 	});
+});
+
+/* ---- Email ---- */
+
+/** How email is going. Mail server details only with `reveal`; the password never. */
+adminSystemRoutes.get("/email", (c) => {
+	requireStaff(c, "operator");
+	const smtp = smtpSettings();
+	const revealed = c.req.query("reveal") === "1";
+	return c.json({
+		configured: emailConfigured(),
+		smtp_ready: smtpReady(),
+		/** On only counts when there is a mail server to send with. */
+		enabled: emailAvailable(),
+		saved: !!smtp.host,
+		revealed,
+		...(revealed ? { host: smtp.host, port: smtp.port, user: smtp.user, from: smtp.from } : {}),
+		has_password: !!smtp.pass,
+		site_url: !!SITE_URL,
+		daily_max: DAILY_MAX,
+		stats: emailStats(),
+		audience: emailAudience(),
+	});
+});
+
+adminSystemRoutes.post("/email/settings", async (c) => {
+	const actor = requireStaff(c, "operator");
+	const body = await readJson<{ host: string; port: number; user: string; pass: string; from: string }>(c);
+	const host = text(body.host, 200);
+	const port = Math.floor(Number(body.port));
+	const user = text(body.user, 200);
+	const from = text(body.from, 200);
+	if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(host))
+		fail(400, "Enter the mail server's host name, e.g. smtp.purelymail.com");
+	if (![25, 465, 587, 2525].includes(port)) fail(400, "The port is usually 465 (TLS) or 587 (STARTTLS)");
+	if (!user) fail(400, "Enter the username the mail server expects, usually the full email address");
+	if (!/@/.test(from)) fail(400, "Enter a From line, e.g. Dovedale GeoGuesser <notifications@example.com>");
+	saveSmtpSettings({ host, port, user, pass: typeof body.pass === "string" ? body.pass.slice(0, 500) : "", from });
+	/** The details are a secret, so the record says only that they changed and where they point. */
+	auditLog(actor, "email_settings", { details: `${host}:${port} as ${user}` });
+	return c.json({ success: true });
+});
+
+adminSystemRoutes.delete("/email/settings", (c) => {
+	const actor = requireStaff(c, "operator");
+	clearSmtpSettings();
+	/** Nothing to send with any more, so email goes off with it. */
+	setFeature("email_digests", false);
+	auditLog(actor, "email_settings", { details: "Mail server removed, email switched off" });
+	return c.json({ success: true });
+});
+
+/** Sends one email with the current details, and reports what the mail server said if it refused. */
+adminSystemRoutes.post("/email/test", async (c) => {
+	const actor = requireStaff(c, "operator");
+	if (!checkUserRateLimit(actor, "email-test", 5, 10 * 60 * 1000))
+		fail(429, "A few tests were just sent. Try again shortly.");
+	const to = text((await readJson<{ to: string }>(c)).to, 254);
+	if (!/^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i.test(to)) fail(400, "Enter the address to send the test to");
+	if (!smtpReady()) fail(409, "Fill in and save the mail server details first");
+	try {
+		await sendTestEmail(to);
+	} catch (err) {
+		fail(502, `The mail server refused: ${err instanceof Error ? err.message : err}`);
+	}
+	auditLog(actor, "email_test", { details: "Test email sent" });
+	return c.json({ success: true });
+});
+
+/** Deletes every email address players have added. They can add one again whenever they like. */
+adminSystemRoutes.post("/email/clear", async (c) => {
+	const actor = requireStaff(c, "operator");
+	if ((await readJson<{ confirm: boolean }>(c)).confirm !== true) fail(400, "Confirmation required");
+	const removed = removeAllEmails();
+	auditLog(actor, "email_clear", { details: `${removed} addresses deleted` });
+	return c.json({ success: true, removed });
+});
+
+/** Sends every summary that is due now, without waiting for the next run. */
+adminSystemRoutes.post("/email/run", async (c) => {
+	const actor = requireStaff(c, "operator");
+	if (!checkUserRateLimit(actor, "email-run", 4, 10 * 60 * 1000)) fail(429, "That was just run. Try again shortly.");
+	const sent = await sendDueDigests();
+	auditLog(actor, "email_run", { details: `${sent} summaries sent` });
+	return c.json({ success: true, sent });
+});
+
+/** Everything worth knowing about the state of the site, without reading the log. */
+adminSystemRoutes.get("/breakdown", async (c) => {
+	requireStaff(c, "operator");
+	return c.json(await systemBreakdown());
 });
 
 /* ---- Maintenance mode ---- */
@@ -190,6 +297,8 @@ adminSystemRoutes.post("/features", async (c) => {
 	const actor = requireStaff(c, "operator");
 	const body = await readJson<{ feature: string; enabled: boolean }>(c);
 	if (!isFeature(body.feature) || typeof body.enabled !== "boolean") fail(400, "Unknown feature");
+	if (body.feature === "email_digests" && body.enabled && !emailReady())
+		fail(409, "Save a mail server on the Email tab before switching email on");
 	const state = setFeature(body.feature, body.enabled);
 	auditLog(actor, "feature_toggle", { details: `${body.feature} switched ${body.enabled ? "on" : "off"}` });
 	return c.json(state);

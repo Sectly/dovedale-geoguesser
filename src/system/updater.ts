@@ -5,7 +5,7 @@ import { SUPERVISED } from "../lib/lifecycle";
 import { logInfo } from "../lib/logs";
 import { cancelRestart, restartIn, scheduleRestart } from "./restart";
 
-/** Updates from the staff panel. Only fast-forwards to the configured branch; takes nothing from the request. */
+/** Updates from the staff panel. Fast-forward only, to the configured branch. */
 
 const BRANCH = /^[\w./-]{1,80}$/.test(process.env.UPDATE_BRANCH ?? "") ? process.env.UPDATE_BRANCH! : "main";
 const REMOTE = "origin";
@@ -108,10 +108,7 @@ function note(line: string) {
 	if (job.log.length > 200) job.log.shift();
 }
 
-/**
- * Backs up, fast-forwards, installs dependencies, rebuilds the stylesheet, then restarts.
- * Stops at the first failed step.
- */
+/** Backs up, fast-forwards, installs, rebuilds styles, restarts. Stops at the first failure. */
 export async function runUpdate(startedBy: string): Promise<string | null> {
 	if (!UPDATES_ENABLED) return "Updates from the panel are switched off on this server.";
 	if (job.state === "running" || job.state === "restarting") return "An update is already running.";

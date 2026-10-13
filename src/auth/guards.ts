@@ -3,15 +3,20 @@ import type { Role, User } from "../db";
 import { fail } from "../lib/http";
 import { currentUser } from "./sessions";
 
-const ROLE_RANK: Record<Role, number> = { helper: 1, moderator: 2, supervisor: 3, operator: 4 };
+const ROLE_RANK: Record<Role, number> = { helper: 1, curator: 2, moderator: 3, supervisor: 4, admin: 5, operator: 6 };
 
 export function roleRank(role: string | null | undefined): number {
 	return ROLE_RANK[role as Role] ?? 0;
 }
 
-/** Staff who may act as staff now. A locked account keeps its role but counts as a player. */
+/** Anyone with a role who may use it now, helpers included. A locked account counts as a player. */
 export function isStaff(user: User | null | undefined): boolean {
 	return roleRank(user?.role) > 0 && !user?.staff_locked;
+}
+
+/** Staff proper: curator and up. A helper is a player with the review queues, so staff allowances stop here. */
+export function isFullStaff(user: User | null | undefined): boolean {
+	return hasRole(user, "curator");
 }
 
 export function hasRole(user: User | null | undefined, min: Role): boolean {
@@ -30,7 +35,7 @@ export function requirePlayer(c: Context): User {
 	return user;
 }
 
-/** A member of staff of at least `min`. Defaults to moderator, so helper access must be asked for by name. */
+/** Staff of at least `min`. Defaults to moderator, so helper access must be asked for by name. */
 export function requireStaff(c: Context, min: Role = "moderator"): User {
 	const user = currentUser(c);
 	if (user?.staff_locked && roleRank(user.role) > 0) fail(403, "Your staff access has been suspended.");

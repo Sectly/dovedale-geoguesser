@@ -2,10 +2,7 @@ import type { User } from "./db";
 import { hasRole } from "./auth/guards";
 import type { RoundRules } from "./game/round";
 
-/**
- * The Specials hub. To add one: add it to SPECIALS and point `href` at its page,
- * or add rules to SPECIAL_MODES and link to /play?special=<id>.
- */
+/** The Specials hub. Add to SPECIALS with an `href`, or add rules to SPECIAL_MODES and link /play?special=<id>. */
 
 export type SpecialKind = "mode" | "minigame" | "experiment" | "event";
 
@@ -55,7 +52,7 @@ export const SPECIALS: Special[] = [
 		icon: "flashlight_on",
 		kind: "event",
 		href: "/play?special=night-shift",
-		season: { from: "10-24", to: "11-02" },
+		season: { from: "10-17", to: "11-07" },
 		theme: "halloween",
 		effect: "torch",
 	},
@@ -66,7 +63,7 @@ export const SPECIALS: Special[] = [
 		icon: "ac_unit",
 		kind: "event",
 		href: "/play?special=snowed-in",
-		season: { from: "12-01", to: "01-05" },
+		season: { from: "11-24", to: "01-10" },
 		theme: "christmas",
 		effect: "snow",
 	},
@@ -177,11 +174,12 @@ type SeasonWindow =
 /** Times of year with a homepage theme. Earlier entries win when two overlap. */
 export const SEASONS: { theme: SeasonTheme; splash: string; when: SeasonWindow }[] = [
 	{ theme: "newyear", splash: "Happy New Year!", when: { from: "12-31", to: "01-02" } },
-	{ theme: "valentines", splash: "Happy Valentine's Day!", when: { from: "02-13", to: "02-15" } },
-	{ theme: "easter", splash: "Happy Easter!", when: { easter: [-2, 1] } },
-	{ theme: "halloween", splash: "Happy Halloween!", when: { from: "10-24", to: "11-02" } },
+	{ theme: "valentines", splash: "Happy Valentine's Day!", when: { from: "02-10", to: "02-16" } },
+	{ theme: "easter", splash: "Happy Easter!", when: { easter: [-5, 2] } },
+	/** Bonfire Night comes first so it still gets its three days inside the longer Halloween run. */
 	{ theme: "bonfire", splash: "Remember, remember!", when: { from: "11-04", to: "11-06" } },
-	{ theme: "christmas", splash: "Merry Christmas!", when: { from: "12-01", to: "01-05" } },
+	{ theme: "halloween", splash: "Happy Halloween!", when: { from: "10-17", to: "11-07" } },
+	{ theme: "christmas", splash: "Merry Christmas!", when: { from: "11-24", to: "01-10" } },
 ];
 
 /** Easter Sunday (Gregorian) for a year, at midnight UTC. */
@@ -209,6 +207,23 @@ function inSeason(when: SeasonWindow, now: number): boolean {
 	}
 	const { start, end } = windowOf({ season: when } as Special, now);
 	return start !== null && end !== null && now >= start && now < end;
+}
+
+/** How far ahead a coming event is announced on the homepage. */
+const UPCOMING_DAYS = 14;
+
+/** The next seasonal event if it starts soon, for a small countdown on the homepage. */
+export function upcomingEvent(now = Date.now()) {
+	let next: { title: string; icon: string; starts_at: string; days: number } | null = null;
+	for (const special of SPECIALS) {
+		if (special.staffOnly || special.kind !== "event") continue;
+		const { start } = windowOf(special, now);
+		if (start === null || start <= now || start - now > UPCOMING_DAYS * DAY_MS) continue;
+		const days = Math.ceil((start - now) / DAY_MS);
+		if (!next || days < next.days)
+			next = { title: special.title, icon: special.icon, starts_at: new Date(start).toISOString(), days };
+	}
+	return next;
 }
 
 /** The homepage's seasonal theme now, if any, and the special to point at. `preview` forces a theme. */

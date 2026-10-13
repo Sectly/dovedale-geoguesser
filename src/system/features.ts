@@ -1,4 +1,4 @@
-import { isStaff } from "../auth/guards";
+import { isFullStaff } from "../auth/guards";
 import { db, type User } from "../db";
 import { fail } from "../lib/http";
 
@@ -15,6 +15,8 @@ const DEFAULTS = {
 	new_duels: true,
 	/** People who have never logged in before making an account. */
 	signups: true,
+	/** Emailed notification summaries. Off until an operator has saved a mail server and switched it on. */
+	email_digests: false,
 };
 
 export type Features = typeof DEFAULTS;
@@ -52,7 +54,7 @@ export function isFeature(name: unknown): name is Feature {
 	return typeof name === "string" && name in DEFAULTS;
 }
 
-/** Refuses a player while a feature is switched off. Staff can still use it, to test before switching it back. */
+/** Refuses players while a feature is off. Staff (not helpers) may still use it. */
 export function requireFeature(name: Feature, user: User, message: string) {
-	if (!current[name] && !isStaff(user)) fail(503, message);
+	if (!current[name] && !isFullStaff(user)) fail(503, message);
 }

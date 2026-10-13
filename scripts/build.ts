@@ -38,6 +38,25 @@ function iconSvg(size: number): string {
 	</svg>`;
 }
 
+/** Wraps PNG images of the given sizes in an .ico file, which every browser reads. */
+function icoFile(images: { size: number; png: Buffer }[]): Buffer {
+	const header = Buffer.alloc(6 + 16 * images.length);
+	header.writeUInt16LE(1, 2);
+	header.writeUInt16LE(images.length, 4);
+	let offset = header.length;
+	images.forEach(({ size, png }, i) => {
+		const entry = 6 + 16 * i;
+		header.writeUInt8(size, entry);
+		header.writeUInt8(size, entry + 1);
+		header.writeUInt16LE(1, entry + 4);
+		header.writeUInt16LE(32, entry + 6);
+		header.writeUInt32LE(png.length, entry + 8);
+		header.writeUInt32LE(offset, entry + 12);
+		offset += png.length;
+	});
+	return Buffer.concat([header, ...images.map((image) => image.png)]);
+}
+
 async function icons() {
 	for (const size of [192, 512]) {
 		const path = join(PUBLIC_DIR, "icons", `icon-${size}.png`);
@@ -45,6 +64,18 @@ async function icons() {
 			await sharp(Buffer.from(iconSvg(size)))
 				.png()
 				.toFile(path);
+	}
+	const favicon = join(PUBLIC_DIR, "favicon.ico");
+	if (!existsSync(favicon)) {
+		const images = await Promise.all(
+			[16, 32, 48].map(async (size) => ({
+				size,
+				png: await sharp(Buffer.from(iconSvg(size)))
+					.png()
+					.toBuffer(),
+			}))
+		);
+		await Bun.write(favicon, icoFile(images));
 	}
 }
 

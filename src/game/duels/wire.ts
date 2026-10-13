@@ -192,11 +192,7 @@ wireServer.on("connection", (conn: WireConnection) => {
 		})
 	);
 
-	/**
-	 * Named differently from the "emote" event sent back out: this library also fires an event's handlers on a
-	 * connection the server sends that event to, so one shared name would make every player who receives a reaction
-	 * appear to send it as well.
-	 */
+	/** Not named "emote" like the event sent back: this library also fires handlers on connections the server sends that event to, so every receiver would appear to send it too. */
 	conn.on(
 		"send_emote",
 		handler("send_emote", (data) => {

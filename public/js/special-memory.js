@@ -1,4 +1,4 @@
-/** Memory Match (Specials): pairs of screenshots. Runs in the browser; the best game is kept on this device. */
+/** Memory Match (Specials): pairs of screenshots. The best game is kept on this device. */
 
 const MEMORY_PAIRS = 8;
 const MEMORY_BEST_KEY = "memory_best_turns";

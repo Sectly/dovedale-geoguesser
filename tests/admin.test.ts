@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { db, type Location } from "../src/db";
+import { closeDuelByStaff, createRoom, joinRoom } from "../src/game/duels/rooms";
 import { utcDate } from "../src/lib/time";
 import { setMaintenance } from "../src/system/maintenance";
 import { call, createLocation, createUser, post, resetReviewQueues, type TestUser } from "./helpers";
@@ -500,7 +501,9 @@ describe("helpers", () => {
 		/** Theirs to do. */
 		expect((await call("/api/admin/submissions", { as: helper })).status).toBe(200);
 		expect((await call("/api/admin/suggestions", { as: helper })).status).toBe(200);
-		expect((await call("/api/admin/locations", { as: helper })).status).toBe(200);
+		/** The whole answer list is for staff; a helper still plays the game. */
+		expect((await call("/api/admin/locations", { as: helper })).status).toBe(403);
+		expect((await call("/api/admin/locations", { as: createUser({ role: "curator" }) })).status).toBe(200);
 		expect((await post(`/api/admin/submissions/${pending(author)}/approve`, helper)).status).toBe(200);
 		expect(
 			(await post(`/api/admin/submissions/${pending(author)}/deny`, helper, { reason: "Not a railway location" }))
@@ -670,9 +673,11 @@ describe("admin claims, history and insight", () => {
 		const location = createLocation();
 		expect((await call("/api/admin/submissions/history", { as: helper })).status).toBe(200);
 		expect((await call("/api/admin/suggestions/history", { as: helper })).status).toBe(200);
-		const breakdown = await call(`/api/admin/locations/${location}/breakdown`, { as: helper });
+		const curator = createUser({ role: "curator" });
+		expect((await call(`/api/admin/locations/${location}/breakdown`, { as: helper })).status).toBe(403);
+		const breakdown = await call(`/api/admin/locations/${location}/breakdown`, { as: curator });
 		expect(breakdown.data.totals.plays).toBe(0);
-		expect((await call("/api/admin/locations/999999/breakdown", { as: helper })).status).toBe(404);
+		expect((await call("/api/admin/locations/999999/breakdown", { as: curator })).status).toBe(404);
 		expect((await call("/api/admin/duels", { as: helper })).status).toBe(403);
 		expect(Array.isArray((await call("/api/admin/duels?kind=quickplay&q=%25", { as: mod })).data.games)).toBe(true);
 		expect(typeof (await call("/api/admin/duels/stats", { as: mod })).data.finished.total).toBe("number");
@@ -691,5 +696,175 @@ describe("admin claims, history and insight", () => {
 			await toggle(true);
 		}
 		expect((await post("/api/duels/rooms", createUser(), { rounds: 1 })).status).toBe(200);
+	});
+});
+
+describe("curators, admins and helpers", () => {
+	test("a curator edits locations but has nothing to do with players", async () => {
+		const curator = createUser({ role: "curator" });
+		const location = createLocation();
+		expect(
+			(await post(`/api/admin/locations/${location}/label`, curator, { label: "Tidied by a curator" })).status
+		).toBe(200);
+		expect((await post(`/api/admin/locations/${location}/toggle`, curator)).status).toBe(200);
+		expect((await call(`/api/admin/locations/${location}`, { method: "DELETE", as: curator })).status).toBe(403);
+		for (const path of ["/api/admin/users", "/api/admin/support", "/api/admin/duels", "/api/admin/stats"])
+			expect([path, (await call(path, { as: curator })).status]).toEqual([path, 403]);
+		expect(
+			(await post(`/api/admin/users/${createUser().id}/warn`, curator, { reason: "Not a curator's job" })).status
+		).toBe(403);
+	});
+
+	test("an admin sits between supervisor and operator", async () => {
+		const admin = createUser({ role: "admin" });
+		const supervisor = createUser({ role: "supervisor" });
+		const operator = createUser({ role: "operator" });
+		const recruit = createUser();
+		const setRole = (as: TestUser, role: string | null) =>
+			post(`/api/admin/users/${recruit.id}/role`, as, { role });
+
+		expect((await setRole(supervisor, "supervisor")).status).toBe(403);
+		expect((await setRole(supervisor, "curator")).status).toBe(200);
+		expect((await setRole(admin, "supervisor")).status).toBe(200);
+		expect((await setRole(admin, "admin")).status).toBe(403);
+		expect((await setRole(operator, "admin")).status).toBe(200);
+		expect((await setRole(admin, null)).status).toBe(403);
+		expect((await setRole(operator, null)).status).toBe(200);
+
+		expect((await call("/api/admin/announcements", { as: supervisor })).status).toBe(403);
+		expect((await call("/api/admin/announcements", { as: admin })).status).toBe(200);
+		expect((await call(`/api/admin/scores/${recruit.id}`, { as: admin })).status).toBe(200);
+		expect((await call("/api/admin/system/info", { as: admin })).status).toBe(403);
+		expect((await call(`/api/admin/users/${recruit.id}/gdpr-export`, { as: admin })).status).toBe(403);
+	});
+
+	test("a helper is a player with review perks, not staff", async () => {
+		const helper = createUser({ role: "helper" });
+		const operator = createUser({ role: "operator" });
+		const toggle = (enabled: boolean) =>
+			post("/api/admin/system/features", operator, { feature: "new_duels", enabled });
+		await toggle(false);
+		try {
+			expect((await post("/api/duels/rooms", helper, { rounds: 1 })).status).toBe(503);
+			expect((await post("/api/duels/rooms", createUser({ role: "curator" }), { rounds: 1 })).status).toBe(200);
+		} finally {
+			await toggle(true);
+		}
+
+		/** Each pending submission carries only the locations near its pin. */
+		const near = createLocation({ x: 71000, y: 71000 });
+		createLocation({ x: 79000, y: 79000 });
+		const author = createUser();
+		db.run(
+			"INSERT INTO submissions (image_path, world_x, world_y, label, submitted_by) VALUES ('near.webp', 71050, 71000, 'Close to one', ?)",
+			[author.id]
+		);
+		const queue = (await call("/api/admin/submissions", { as: helper })).data;
+		const mine = queue.find((s: { label: string }) => s.label === "Close to one");
+		expect(mine.nearby.map((spot: { id: number }) => spot.id)).toEqual([near]);
+		expect(mine.nearby[0].distance).toBe(50);
+
+		/** A helper's reviewed list is their own work only. */
+		await post(`/api/admin/submissions/${mine.id}/deny`, createUser({ role: "moderator" }), {
+			reason: "Someone else reviewed it",
+		});
+		const reviewedIds = async (as: TestUser) =>
+			(await call("/api/admin/submissions/history", { as })).data.map((s: { id: number }) => s.id);
+		expect(await reviewedIds(helper)).not.toContain(mine.id);
+		expect(await reviewedIds(createUser({ role: "curator" }))).toContain(mine.id);
+	});
+});
+
+describe("taking back an announcement", () => {
+	test("wording can be fixed and the announcement recalled while it is new", async () => {
+		const admin = createUser({ role: "admin" });
+		const reader = createUser();
+		const inbox = async () =>
+			(await call("/api/notifications", { as: reader })).data.notifications.filter(
+				(n: { category: string }) => n.category === "announcements"
+			);
+		const sent = await post("/api/admin/announcements", admin, {
+			title: "Servr maintenance",
+			body: "The site will be down for an hour on Friday.",
+			audience: "everyone",
+		});
+		expect(sent.status).toBe(200);
+		const id = sent.data.id;
+		expect((await inbox())[0].title).toBe("Servr maintenance");
+
+		expect(
+			(await post(`/api/admin/announcements/${id}/correct`, createUser({ role: "supervisor" }), {})).status
+		).toBe(403);
+		const fixed = await post(`/api/admin/announcements/${id}/correct`, admin, {
+			title: "Server maintenance",
+			body: "The site will be down for an hour on Friday.",
+		});
+		expect(fixed.status).toBe(200);
+		expect((await inbox())[0].title).toBe("Server maintenance");
+
+		const recalled = await post(`/api/admin/announcements/${id}/recall`, admin);
+		expect(recalled.data.removed).toBeGreaterThan(0);
+		expect(await inbox()).toEqual([]);
+		expect((await post(`/api/admin/announcements/${id}/recall`, admin)).status).toBe(409);
+
+		/** Past the window it stays as sent. */
+		const old = (
+			await post("/api/admin/announcements", admin, { title: "An older note", body: "Sent a while ago now." })
+		).data.id;
+		db.run("UPDATE announcements SET created_at = unixepoch() - 25 * 3600 WHERE id = ?", [old]);
+		expect((await post(`/api/admin/announcements/${old}/recall`, admin)).status).toBe(409);
+	});
+});
+
+describe("closing a duel from the staff panel", () => {
+	test("an administrator sees every open room, private ones too, and can close one with a reason", async () => {
+		const mod = createUser({ role: "admin" });
+		const host = createUser();
+		const code = (await post("/api/duels/rooms", host, { rounds: 1 })).data.code;
+		const open = async () =>
+			(await call("/api/admin/duels/live", { as: mod })).data.map((room: { code: string }) => room.code);
+		expect(await open()).toContain(code);
+		expect((await call("/api/admin/duels/live", { as: createUser({ role: "supervisor" }) })).status).toBe(403);
+		expect(
+			(
+				await post(`/api/admin/duels/live/${code}/close`, createUser({ role: "supervisor" }), {
+					reason: "Not allowed to",
+				})
+			).status
+		).toBe(403);
+		expect((await post(`/api/admin/duels/live/${code}/close`, mod, {})).status).toBe(400);
+		expect(await open()).toContain(code);
+		expect(
+			(await post(`/api/admin/duels/live/${code}/close`, mod, { reason: "Room name was abusive" })).status
+		).toBe(200);
+		expect(await open()).not.toContain(code);
+		expect((await post(`/api/admin/duels/live/${code}/close`, mod, { reason: "Closing it twice" })).status).toBe(
+			404
+		);
+		/** A room nobody had started leaves no record behind. */
+		expect(db.query("SELECT 1 FROM duel_games WHERE room_code = ?").get(code)).toBeNull();
+	});
+
+	test("a duel being played is recorded as abandoned, with no winner and no rating change", () => {
+		const [a, b] = [createUser(), createUser()];
+		for (let i = 0; i < 3; i++) createLocation();
+		const room = createRoom(a.id, 1);
+		joinRoom(room.code, b.id);
+		room.status = "in_progress";
+		db.run("UPDATE duel_games SET status = 'in_progress' WHERE id = ?", [room.dbId]);
+		const before = db
+			.query<{ duel_rating: number | null }, [number]>("SELECT duel_rating FROM users WHERE id = ?")
+			.get(a.id);
+		expect(closeDuelByStaff(room.code)).not.toBeNull();
+		expect(
+			db
+				.query<{ status: string; winner_id: number | null }, [number]>(
+					"SELECT status, winner_id FROM duel_games WHERE id = ?"
+				)
+				.get(room.dbId)
+		).toEqual({ status: "abandoned", winner_id: null });
+		expect(
+			db.query<{ duel_rating: number | null }, [number]>("SELECT duel_rating FROM users WHERE id = ?").get(a.id)
+		).toEqual(before);
 	});
 });

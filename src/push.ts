@@ -7,7 +7,7 @@ import { PUSH } from "./config";
 export const pushEnabled = !!(PUSH.publicKey && PUSH.privateKey);
 if (pushEnabled) webpush.setVapidDetails(PUSH.subject, PUSH.publicKey, PUSH.privateKey);
 
-/** The push services browsers use. The server posts to whatever a subscription names, so nothing else is accepted. */
+/** The push services browsers use. Nothing else is accepted as an endpoint. */
 const PUSH_HOSTS = [
 	/^fcm\.googleapis\.com$/,
 	/(^|\.)push\.services\.mozilla\.com$/,

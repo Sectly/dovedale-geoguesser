@@ -1,7 +1,4 @@
-/**
- * Gives page transitions a direction: sideways between header sections, in or out for depth.
- * Loaded in the <head> so it listens before the page shows.
- */
+/** Gives page transitions a direction. In the <head> so it listens before the page shows. */
 (function pageTransitions() {
 	/** The header's sections in order (see NAV_LINKS in shared.js). */
 	const SECTIONS = ["/play", "/daily", "/duels", "/leaderboard", "/submit"];
@@ -27,7 +24,7 @@
 		if (type) e.viewTransition.types.add(type);
 	});
 
-	/** Grows a home card's icon into the mode page's own (.hero-icon) and back. Only one card is named at a time. */
+	/** Grows a home card's icon into the mode page's own (.hero-icon) and back. */
 	const cardIcon = (url) =>
 		url &&
 		document.querySelector(`a.md-card[href="${CSS.escape(new URL(url).pathname)}"] > .material-symbols-outlined`);

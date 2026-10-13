@@ -145,7 +145,11 @@ function suggestionCardHtml(s) {
 	return `<div class="bg-zinc-900 rounded-2xl p-4 flex flex-col gap-3" id="sug-${s.id}" data-search="${escHtml(searchText)}">
 		<div class="flex items-center gap-2 flex-wrap">
 			<span class="m-tag ${tone}">${typeName}</span>
-			<button onclick="jumpToSearch('locations', '${locId(s.location_id)}')" class="text-sm font-semibold hover:underline truncate" title="Find this location">${escHtml(s.location_label || locId(s.location_id))}</button>
+			${
+				atLeast("curator")
+					? `<button onclick="jumpToSearch('locations', '${locId(s.location_id)}')" class="text-sm font-semibold hover:underline truncate" title="Find this location">${escHtml(s.location_label || locId(s.location_id))}</button>`
+					: `<span class="text-sm font-semibold truncate">${escHtml(s.location_label || locId(s.location_id))}</span>`
+			}
 			<span class="text-xs font-mono text-zinc-600">${locId(s.location_id)}</span>
 			<span class="ml-auto text-xs text-zinc-500 flex-shrink-0">${staffUserLink(s.user_id, s.username)} · ${shortAgo(s.created_at)} ago · <span class="font-mono text-zinc-600">${sugCode(s.id)}</span></span>
 		</div>
@@ -180,7 +184,7 @@ function renderSuggestions() {
 	restorePanelSearch(search);
 }
 
-/** Shows where the location is now and where the suggestion would put it. One map is shared between the cards. */
+/** Shows the current pin and the suggested one, on the shared map. */
 function showSuggestionMap(id) {
 	const s = _suggestions.find((item) => item.id === id);
 	const pin = s && suggestedPin(s, suggestionContent(s));

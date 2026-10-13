@@ -7,10 +7,7 @@ import { reviewGuess } from "../fairplay";
 import { DAILY_RULES, Round, outcomeJson, recordOutcome, type Guess } from "./round";
 import { recordPlay } from "./streaks";
 
-/**
- * The daily challenge: one location per UTC day, one attempt per player.
- * Start time and hints are stored so reloads keep the clock.
- */
+/** The daily challenge: one location per UTC day, one attempt each. Start time and hints are stored so reloads keep the clock. */
 
 type Attempt = { started_at: number; hints_revealed: number };
 type DailyScore = {
@@ -81,7 +78,7 @@ function resultJson(location: Location, score: DailyScore) {
 	};
 }
 
-/** Today's challenge as seen by this visitor. Reveals nothing about the location until they have played. */
+/** Today's challenge for this visitor. Reveals nothing until they have played. */
 export function dailyStatus(user: User | null) {
 	const challenge = getDailyChallenge();
 	if (!challenge) return null;

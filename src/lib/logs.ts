@@ -1,10 +1,7 @@
 import { inspect } from "util";
 import { db } from "../db";
 
-/**
- * A copy of the server log in the database, for the staff panel.
- * Warnings and errors are captured automatically; `logInfo` adds the rest.
- */
+/** A copy of the server log in the database, for the staff panel. */
 
 export type LogLevel = "info" | "warn" | "error";
 

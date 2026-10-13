@@ -360,6 +360,14 @@ const SCHEMA_STATEMENTS = [
   dismissed_by INTEGER REFERENCES users(id) ON DELETE SET NULL
 )`,
 	`CREATE INDEX IF NOT EXISTS idx_fairplay_flags_user ON fairplay_flags(user_id, dismissed_at)`,
+	`CREATE TABLE IF NOT EXISTS changelog (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  released_at INTEGER NOT NULL,
+  created_by TEXT,
+  created_at INTEGER DEFAULT (unixepoch())
+)`,
 	`CREATE TABLE IF NOT EXISTS location_stats (
   location_id INTEGER PRIMARY KEY REFERENCES locations(id) ON DELETE CASCADE,
   plays INTEGER NOT NULL DEFAULT 0,
@@ -407,6 +415,30 @@ const MIGRATIONS: string[] = [
 	"ALTER TABLE users ADD COLUMN duel_rated_games INTEGER DEFAULT 0",
 	"ALTER TABLE duel_participants ADD COLUMN rating_change INTEGER",
 	"ALTER TABLE location_stats ADD COLUMN recent_sum REAL",
+	"ALTER TABLE notifications ADD COLUMN announcement_id INTEGER",
+	"CREATE INDEX IF NOT EXISTS idx_notifications_announcement ON notifications(announcement_id)",
+	"ALTER TABLE announcements ADD COLUMN recalled_at INTEGER",
+	"ALTER TABLE users ADD COLUMN email TEXT",
+	"ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0",
+	"ALTER TABLE users ADD COLUMN email_token TEXT",
+	"ALTER TABLE users ADD COLUMN email_token_at INTEGER",
+	"ALTER TABLE users ADD COLUMN email_digest TEXT",
+	"ALTER TABLE users ADD COLUMN email_digest_at INTEGER",
+	"ALTER TABLE users ADD COLUMN email_digest_upto INTEGER",
+	"CREATE INDEX IF NOT EXISTS idx_users_email_token ON users(email_token)",
+	"ALTER TABLE announcements ADD COLUMN send_at INTEGER",
+	"ALTER TABLE announcements ADD COLUMN banner_hours INTEGER",
+	"ALTER TABLE announcements ADD COLUMN target_user_id INTEGER",
+	"ALTER TABLE announcements ADD COLUMN target_username TEXT",
+	"ALTER TABLE announcements ADD COLUMN style TEXT",
+	"ALTER TABLE announcements ADD COLUMN silent INTEGER NOT NULL DEFAULT 0",
+	"ALTER TABLE announcements ADD COLUMN draft INTEGER NOT NULL DEFAULT 0",
+	"ALTER TABLE announcements ADD COLUMN repeat TEXT",
+	"ALTER TABLE announcements ADD COLUMN clicks INTEGER NOT NULL DEFAULT 0",
+	"ALTER TABLE announcements ADD COLUMN must_ack INTEGER NOT NULL DEFAULT 0",
+	"ALTER TABLE announcements ADD COLUMN expires_at INTEGER",
+	"ALTER TABLE announcements ADD COLUMN expire_days INTEGER",
+	"ALTER TABLE announcements ADD COLUMN no_push INTEGER NOT NULL DEFAULT 0",
 ];
 
 for (const sql of MIGRATIONS) {
@@ -490,10 +522,7 @@ export function freeSpaceShare(): number {
 	return pages ? pragmaNumber("freelist_count") / pages : 0;
 }
 
-/**
- * Rewrites the database file without its free pages once they are a quarter of it and 10 MB.
- * Blocks while it runs. Returns whether it ran.
- */
+/** Rewrites the file without free pages once they are a quarter of it and 10 MB. Blocks. Returns whether it ran. */
 export function reclaimFreeSpace(): boolean {
 	const freeBytes = pragmaNumber("freelist_count") * pragmaNumber("page_size");
 	if (freeBytes < 10 * 1024 * 1024 || freeSpaceShare() < 0.25) return false;
@@ -508,8 +537,8 @@ export function maintainDatabase() {
 	db.exec("PRAGMA optimize");
 }
 
-/** Staff roles, lowest first. A helper only reviews submissions and suggestions. */
-export type Role = "helper" | "moderator" | "supervisor" | "operator";
+/** Staff roles, lowest first. Helpers review; curators also edit locations; dealing with players starts at moderator. */
+export type Role = "helper" | "curator" | "moderator" | "supervisor" | "admin" | "operator";
 
 export type User = {
 	id: number;
@@ -537,6 +566,12 @@ export type User = {
 	/** Set when a senior member of staff has suspended this one's staff access. The role itself is kept. */
 	staff_locked: number;
 	staff_lock_reason: string | null;
+	/** For emailed notification summaries, if the player has asked for them. */
+	email?: string | null;
+	email_verified?: number;
+	email_token?: string | null;
+	email_digest?: string | null;
+	email_digest_at?: number | null;
 	/** JSON; read it with parsePreferences. */
 	prefs: string | null;
 	created_at: number;

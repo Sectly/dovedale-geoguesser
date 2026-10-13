@@ -333,6 +333,8 @@ adminUserRoutes.post("/:id/unban", async (c) => {
 	return c.json({ success: true });
 });
 
+const ASSIGNABLE_ROLES = ["admin", "supervisor", "moderator", "curator", "helper"];
+
 adminUserRoutes.post("/:id/role", async (c) => {
 	const actor = requireStaff(c, "supervisor");
 	const target = getUser(idParam(c));
@@ -340,7 +342,8 @@ adminUserRoutes.post("/:id/role", async (c) => {
 
 	const body = await readJson<{ role: string | null }>(c);
 	const newRole = body.role && body.role !== "none" ? body.role : null;
-	const assignable = hasRole(actor, "operator") ? ["supervisor", "moderator", "helper"] : ["moderator", "helper"];
+	/** Anyone may hand out the roles below their own. Operators come from the server's configuration only. */
+	const assignable = ASSIGNABLE_ROLES.filter((role) => roleRank(role) < roleRank(actor.role));
 	if (newRole !== null && !assignable.includes(newRole)) fail(403, "Insufficient permissions to assign that role");
 	if (OPERATOR_IDS.includes(target.discord_id)) fail(403, "Cannot change env-protected operator");
 	if (roleRank(target.role) >= roleRank(actor.role)) fail(403, "Cannot change a user with equal or higher rank");

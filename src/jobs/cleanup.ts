@@ -1,7 +1,9 @@
 import { readdirSync, statSync } from "fs";
 import { join } from "path";
 import { db, maintainDatabase, reclaimFreeSpace } from "../db";
+import { sendScheduledAnnouncements } from "../announcements";
 import { UPLOADS_DIR } from "../config";
+import { sendDueDigests } from "../email";
 import { logInfo, pruneLogs } from "../lib/logs";
 import { reportProblem } from "../lib/problems";
 import { pruneOauthStates } from "../auth/discord";
@@ -44,7 +46,7 @@ function job(name: string, fn: () => unknown | Promise<unknown>) {
 	};
 }
 
-/** Keeps each player's newest `keep` solo games, plus their best for every rounds and time-limit combination. */
+/** Keeps each player's newest `keep` solo games, plus their best per rounds and time limit. */
 export function trimSoloScores(keep = RETENTION.soloScoresPerUser) {
 	db.run(
 		`DELETE FROM solo_scores WHERE id IN (
@@ -76,7 +78,7 @@ const UPLOAD_NAME = /^[0-9a-f]{32}\.webp$/;
 /** An upload younger than this may still be on its way into the database. */
 const ORPHAN_AGE_MS = DAY * 1000;
 
-/** Deletes screenshots nothing points at. Returns how many. Refuses to remove most of the folder at once. */
+/** Deletes screenshots nothing points at. Refuses to remove most of the folder at once. */
 export async function sweepOrphanedUploads(now = Date.now()): Promise<number> {
 	const used = new Set(
 		db
@@ -151,4 +153,7 @@ export function startCleanupJobs() {
 	setInterval(pruneMemory, 5 * MINUTE_MS);
 	setInterval(() => tickTeamRooms(), 1000);
 	setInterval(() => pruneDatabase().then(maintain).then(checkUp), 60 * MINUTE_MS);
+	/** Summaries go out on a quarter-hour beat, so an hourly one is never much more than an hour apart. */
+	setInterval(() => sendDueDigests().catch((err) => console.error("[email] job failed:", err)), 15 * MINUTE_MS);
+	setInterval(sendScheduledAnnouncements, MINUTE_MS);
 }

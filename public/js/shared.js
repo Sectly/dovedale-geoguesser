@@ -17,10 +17,7 @@ function show(id, visible = true) {
 	el(id)?.classList.toggle("hidden", !visible);
 }
 
-/**
- * Reads restart news from every response this page gets.
- * A proxy's error page has no "X-App" mark and must not count as "restart over".
- */
+/** Reads restart news from every response. A proxy error page has no "X-App" mark and must not count as "restart over". */
 (function watchResponsesForRestart() {
 	const original = window.fetch.bind(window);
 	window.fetch = async (...args) => {
@@ -37,10 +34,7 @@ function show(id, visible = true) {
 	};
 })();
 
-/**
- * Calls the API and returns the parsed body. Throws an Error with a message safe to show and a `status` (0 when
- * unreachable).
- */
+/** Calls the API and returns the parsed body. Throws an Error with a showable message and a `status` (0 when unreachable). */
 async function api(path, { method, json, body } = {}) {
 	let res;
 	try {
@@ -305,6 +299,9 @@ const NAV_LINKS = [
 	["/submit", "Submit", "add_photo_alternate"],
 ];
 
+/** Sits in the header as an icon, and by name in the phone menu and the shortcuts dialog. */
+const NEWS_LINK = ["/news", "News", "newspaper"];
+
 /** The site header. Fills `<nav id="site-nav">`. */
 function renderSiteNav() {
 	const nav = el("site-nav");
@@ -335,13 +332,16 @@ function renderSiteNav() {
 		</a>
 		<div class="hidden md:flex items-center gap-1">${NAV_LINKS.map((l) => link(l, false)).join("")}</div>
 		<div class="ml-auto flex items-center gap-1">
+			<a href="/news" title="News" aria-label="News" ${here === "/news" ? 'aria-current="page"' : ""} class="w-8 h-8 rounded-full flex items-center justify-center transition ${here === "/news" ? "text-white bg-zinc-800" : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"}">
+				<span class="material-symbols-outlined text-xl leading-none">newspaper</span>
+			</a>
 			<div data-auth-area></div>
 			<button id="site-nav-toggle" aria-label="Menu" aria-expanded="false" class="md:hidden w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition">
 				<span class="material-symbols-outlined text-xl leading-none">menu</span>
 			</button>
 		</div>
 		<div id="site-nav-menu" class="hidden md:hidden absolute top-full inset-x-0 bg-zinc-900 border-b border-zinc-800 shadow-xl p-2 flex-col gap-0.5">
-			${NAV_LINKS.map((l) => link(l, true)).join("")}
+			${[...NAV_LINKS, NEWS_LINK].map((l) => link(l, true)).join("")}
 		</div>`;
 	nav.prepend(...keep);
 
@@ -367,6 +367,7 @@ function renderSiteFooter() {
 	footer.innerHTML = `
 		<div class="flex flex-wrap justify-center gap-x-4 gap-y-1">
 			${[
+				["/news", "News"],
 				["/tos", "Terms of Service"],
 				["/privacy", "Privacy Policy"],
 				["/fairplay", "Fair Play"],
@@ -557,7 +558,7 @@ function streakBadgeHtml(streak, { best = false } = {}) {
 	</div>`;
 }
 
-/** A ripple from where a button was pressed, in its own layer so rewriting the button cannot leave it behind. */
+/** A ripple from where a button was pressed, in its own layer so it survives the button being rewritten. */
 document.addEventListener("pointerdown", (e) => {
 	if (e.button > 0 || prefersReducedMotion()) return;
 	/** Buttons, plus links that are styled as buttons (pills, round icon links, cards). */
@@ -612,11 +613,12 @@ const KEYBIND_GROUPS = [
 			[["3"], "Duels"],
 			[["4"], "Leaderboard"],
 			[["5"], "Submit a location"],
+			[["6"], "News"],
 			[["0"], "Home"],
 		],
 	},
 ];
-const QUICK_LINKS = { 1: "/play", 2: "/daily", 3: "/duels", 4: "/leaderboard", 5: "/submit", 0: "/" };
+const QUICK_LINKS = { 1: "/play", 2: "/daily", 3: "/duels", 4: "/leaderboard", 5: "/submit", 6: "/news", 0: "/" };
 const _pageKeys = new Map();
 
 /** Registers shortcuts for the current page: a title for the help dialog and key handlers. */
@@ -653,7 +655,7 @@ async function toggleShortcuts(open) {
 	const key = (k) => `<kbd class="kbd">${escHtml(k)}</kbd>`;
 	const links = [
 		["/", "home", "Home"],
-		...NAV_LINKS.map(([href, label, icon]) => [href, icon, label]),
+		...[...NAV_LINKS, NEWS_LINK].map(([href, label, icon]) => [href, icon, label]),
 		...(user
 			? [
 					[`/u/${encodeURIComponent(user.username)}`, "person", "Profile"],
@@ -858,6 +860,36 @@ const ANNOUNCEMENT_DISMISSED_KEY = "announcement_dismissed";
 const ANNOUNCEMENT_POLL_MS = 5 * 60 * 1000;
 
 /** Shows the pinned announcement, unless there is none or this visitor has closed it. */
+const ANNOUNCEMENT_ICONS = { info: "campaign", success: "celebration", warning: "warning" };
+
+/** An announcement the player must acknowledge: a dialog until they press OK, which marks it read. Never mid-round. */
+(async function acknowledgeAnnouncement() {
+	if (!(await fetchUser()) || isMidRound()) return;
+	const pending = await api("/api/announcement/pending").catch(() => null);
+	if (!pending) return;
+	await (window.introDone || Promise.resolve());
+	const box = document.createElement("div");
+	box.className = "fixed inset-0 z-[96] flex items-center justify-center bg-black/70 modal-fade px-4";
+	box.innerHTML = `<div class="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-sm w-full" role="alertdialog" aria-modal="true" aria-label="Announcement">
+		<div class="flex items-center gap-3 mb-3">
+			<span class="material-symbols-outlined text-3xl text-[var(--md-primary-bright)]" style="font-variation-settings:'FILL' 1">campaign</span>
+			<h2 class="text-lg font-bold break-words">${escHtml(pending.title)}</h2>
+		</div>
+		<p class="text-zinc-300 text-sm mb-5 break-words">${escHtml(pending.body)}</p>
+		<div class="flex gap-2 justify-end">
+			${pending.link && pending.link !== "/settings#notifications" ? `<a href="${escHtml(pending.link)}" data-ok class="m-btn m-btn-tonal">Read more</a>` : ""}
+			<button data-ok class="m-btn m-btn-filled">OK</button>
+		</div>
+	</div>`;
+	box.addEventListener("click", (e) => {
+		if (!e.target.closest("[data-ok]")) return;
+		api("/api/notifications/read", { json: { ids: [pending.notification_id] } }).catch(() => {});
+		box.remove();
+	});
+	document.body.appendChild(box);
+	box.querySelector("button").focus();
+})();
+
 async function checkAnnouncement() {
 	const announcement = await api("/api/announcement").catch(() => undefined);
 	/** A failed request says nothing either way; leave whatever is on screen alone. */
@@ -875,8 +907,9 @@ async function checkAnnouncement() {
 	card.id = "site-announcement";
 	card.className = "site-announcement";
 	card.dataset.id = announcement.id;
+	card.dataset.style = announcement.style || "info";
 	card.setAttribute("aria-label", "Announcement");
-	card.innerHTML = `<span class="site-announcement-icon" aria-hidden="true"><span class="material-symbols-outlined">campaign</span></span>
+	card.innerHTML = `<span class="site-announcement-icon" aria-hidden="true"><span class="material-symbols-outlined">${ANNOUNCEMENT_ICONS[announcement.style] || ANNOUNCEMENT_ICONS.info}</span></span>
 		<div class="site-announcement-text">
 			<div class="site-announcement-title">${escHtml(announcement.title)}</div>
 			<div class="site-announcement-body">${escHtml(announcement.body)}</div>
@@ -901,7 +934,7 @@ let _achievementQueue = [];
 let _achievementShowing = false;
 let _achievementCheck = null;
 
-/** Plays the unlock animation for achievements earned since last asked. `delay` lets a result land first. */
+/** Plays the unlock animation for newly earned achievements. `delay` lets a result land first. */
 function checkAchievements(delay = 0) {
 	clearTimeout(_achievementCheck);
 	_achievementCheck = setTimeout(async () => {
@@ -1018,7 +1051,7 @@ function clearRestartBanner() {
 
 /* ---- The restart itself: a screen over the page while the server is away ---- */
 
-/** Set just before the page reloads itself after a restart, so the next page can fade in from the same screen. */
+/** Set just before reloading after a restart, so the next page fades in from the same screen. */
 const RESTART_RELOADED_KEY = "restart_reloaded";
 /** How long "Back online" shows before the page reloads or the screen clears. */
 const RESTART_BACK_MS = 1200;
@@ -1081,7 +1114,7 @@ function tickRestartBanner() {
 		left > 0
 			? `Server restarting in ${left >= 60 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : `${left}s`}. Open duels and team games will be closed.`
 			: "Server restarting... back in a moment.";
-	/** Not over a round, where a solo game carries on afterwards, nor over the staff panel's own progress view. */
+	/** Not over a round or the staff panel's own progress view. */
 	if (left <= 0 && !isMidRound() && location.pathname !== "/admin" && !document.getElementById("restart-overlay"))
 		restartOverlay("down");
 	/** Past the deadline, keep knocking until the new server answers without mentioning a restart. */
@@ -1151,3 +1184,59 @@ whenIdle(async function fingerprint() {
 		navigator.sendBeacon("/api/fp", new Blob([JSON.stringify({ h: hash })], { type: "application/json" }));
 	} catch {}
 });
+
+/** A magnifying lens that follows the mouse over the screenshot; scroll to resize it. */
+function setupPhotoLens(img) {
+	if (!img) return;
+	const lens = document.createElement("div");
+	lens.style.cssText =
+		"position:absolute;width:200px;height:200px;border-radius:50%;border:2px solid rgba(255,255,255,0.35);box-shadow:0 4px 24px rgba(0,0,0,0.6);pointer-events:none;display:none;background-repeat:no-repeat;z-index:20;transform:translate(-50%,-50%);";
+	img.parentElement.appendChild(lens);
+
+	let size = 200;
+	let zoom = 3;
+	let last = null;
+
+	const hide = () => {
+		last = null;
+		lens.style.display = "none";
+	};
+	const update = (clientX, clientY) => {
+		const rect = img.getBoundingClientRect();
+		const naturalW = img.naturalWidth || rect.width;
+		const naturalH = img.naturalHeight || rect.height;
+		const scale = Math.min(rect.width / naturalW, rect.height / naturalH);
+		const w = naturalW * scale;
+		const h = naturalH * scale;
+		const left = (rect.width - w) / 2;
+		const top = (rect.height - h) / 2;
+		const x = clientX - rect.left;
+		const y = clientY - rect.top;
+		/** The image is letterboxed inside its box; only magnify the picture itself. */
+		if (!img.naturalWidth || x < left || x > left + w || y < top || y > top + h) return hide();
+
+		last = { clientX, clientY };
+		lens.style.width = lens.style.height = `${size}px`;
+		lens.style.backgroundImage = `url("${img.currentSrc || img.src}")`;
+		lens.style.backgroundSize = `${w * zoom}px ${h * zoom}px`;
+		lens.style.backgroundPosition = `-${((x - left) / w) * w * zoom - size / 2}px -${((y - top) / h) * h * zoom - size / 2}px`;
+		lens.style.left = `${x}px`;
+		lens.style.top = `${y}px`;
+		lens.style.display = "block";
+	};
+
+	img.addEventListener("mousemove", (e) => update(e.clientX, e.clientY));
+	img.addEventListener("mouseleave", hide);
+	img.addEventListener(
+		"wheel",
+		(e) => {
+			if (!last) return;
+			e.preventDefault();
+			const step = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+			size = Math.min(360, Math.max(80, size * step));
+			zoom = Math.min(8, Math.max(1.5, zoom * step));
+			update(last.clientX, last.clientY);
+		},
+		{ passive: false }
+	);
+}

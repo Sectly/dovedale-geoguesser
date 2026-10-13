@@ -5,10 +5,7 @@ let _openSubmission = null;
 let _submissionUser = "";
 let _submissionView = "waiting";
 let _submissionHistory = [];
-let _knownLocations = [];
 
-/** How close an existing location has to be to a submitted pin to be shown beside it, in map units. */
-const NEARBY_UNITS = 600;
 /** Closer than this and the row is marked as a possible duplicate before it is even opened. */
 const DUPLICATE_UNITS = 150;
 
@@ -16,10 +13,7 @@ const subCode = (id) => `SUB-${String(id).padStart(4, "0")}`;
 
 async function loadSubmissions() {
 	try {
-		[_submissions, _knownLocations] = await Promise.all([
-			api("/api/admin/submissions"),
-			api("/api/admin/locations").catch(() => []),
-		]);
+		_submissions = await api("/api/admin/submissions");
 		/** Open on the oldest, so the queue can be worked from the keyboard straight away. */
 		_openSubmission = _submissions[0]?.id ?? null;
 		if (_submissionView === "reviewed") return setSubmissionView("reviewed");
@@ -94,14 +88,8 @@ function renderSubmissions() {
 	claimChanged();
 }
 
-/** Locations already in the game near a submitted pin, nearest first. */
-function nearbyLocations(s) {
-	return _knownLocations
-		.map((loc) => ({ loc, distance: Math.hypot(loc.world_x - s.world_x, loc.world_y - s.world_y) }))
-		.filter((near) => near.distance <= NEARBY_UNITS)
-		.sort((a, b) => a.distance - b.distance)
-		.slice(0, 4);
-}
+/** Locations already in the game near a submitted pin, nearest first. The server sends only these few. */
+const nearbyLocations = (s) => (s.nearby ?? []).map((loc) => ({ loc, distance: loc.distance }));
 
 function nearbyHtml(near) {
 	if (!near.length) return "";

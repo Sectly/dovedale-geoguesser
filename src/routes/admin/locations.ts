@@ -27,9 +27,9 @@ export async function deleteLocation(id: number) {
 	return location;
 }
 
-/** The list is open to helpers, who need it to judge suggestions; changing a location is not. */
+/** Every location with its answer, so not for helpers: they play the game like anyone else. */
 adminLocationRoutes.get("/", (c) => {
-	requireStaff(c, "helper");
+	requireStaff(c, "curator");
 	return c.json(
 		db
 			.query(
@@ -48,13 +48,9 @@ adminLocationRoutes.get("/", (c) => {
 	);
 });
 
-/**
- * How a location has played: how often it came up and how players did on it, by mode.
- * Totals only, no names, so helpers may see it. Guesses come from the recent-guess log, which keeps
- * each player's latest ones, so they are a recent sample rather than all-time.
- */
+/** How a location has played, by mode. From the recent-guess log, so a recent sample, not all-time. */
 adminLocationRoutes.get("/:id/breakdown", (c) => {
-	requireStaff(c, "helper");
+	requireStaff(c, "curator");
 	const id = idParam(c);
 	if (!db.query("SELECT 1 FROM locations WHERE id = ?").get(id)) fail(404, "Location not found");
 	return c.json({
@@ -98,7 +94,7 @@ adminLocationRoutes.get("/:id/breakdown", (c) => {
 
 /** Forgets how players have done on a location, e.g. after its screenshot or pin was corrected. */
 adminLocationRoutes.post("/:id/stats/reset", (c) => {
-	const staff = requireStaff(c);
+	const staff = requireStaff(c, "curator");
 	const location = getLocation(idParam(c));
 	resetLocationStats(location.id);
 	auditLog(staff, "location_stats_reset", {
@@ -110,7 +106,7 @@ adminLocationRoutes.post("/:id/stats/reset", (c) => {
 });
 
 adminLocationRoutes.post("/:id/toggle", (c) => {
-	const staff = requireStaff(c);
+	const staff = requireStaff(c, "curator");
 	const location = getLocation(idParam(c));
 	db.run("UPDATE locations SET is_active = ? WHERE id = ?", [location.is_active ? 0 : 1, location.id]);
 	auditLog(staff, location.is_active ? "location_deactivate" : "location_activate", {
@@ -122,7 +118,7 @@ adminLocationRoutes.post("/:id/toggle", (c) => {
 });
 
 adminLocationRoutes.post("/:id/label", async (c) => {
-	const staff = requireStaff(c);
+	const staff = requireStaff(c, "curator");
 	const location = getLocation(idParam(c));
 	const label = text((await readJson<{ label: string }>(c)).label, LIMITS.labelMax + 1);
 	if (label.length < LIMITS.labelEditMin || label.length > LIMITS.labelMax)
@@ -137,7 +133,7 @@ adminLocationRoutes.post("/:id/label", async (c) => {
 });
 
 adminLocationRoutes.post("/:id/hints", async (c) => {
-	const staff = requireStaff(c);
+	const staff = requireStaff(c, "curator");
 	const location = getLocation(idParam(c));
 	const hints = cleanHints((await readJson<{ hints: string[] }>(c)).hints);
 	db.run("UPDATE locations SET hints = ? WHERE id = ?", [JSON.stringify(hints), location.id]);
@@ -154,7 +150,7 @@ adminLocationRoutes.post("/:id/hints", async (c) => {
 });
 
 adminLocationRoutes.delete("/:id", async (c) => {
-	const staff = requireStaff(c, "operator");
+	const staff = requireStaff(c, "admin");
 	const location = await deleteLocation(idParam(c));
 	auditLog(staff, "location_delete", { targetType: "location", targetId: location.id, details: location.label });
 	return c.json({ success: true });

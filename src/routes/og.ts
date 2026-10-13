@@ -35,7 +35,7 @@ const AVATAR_HOST = "cdn.discordapp.com";
 const AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 
-/** Fetches a Discord avatar for embedding. Anything that is not a small image from Discord's CDN is skipped. */
+/** Fetches a Discord avatar for embedding. Only a small image from Discord's CDN. */
 async function avatarDataUri(url: string | null): Promise<string> {
 	if (!url) return "";
 	try {

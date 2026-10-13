@@ -23,6 +23,20 @@ const AUDIT_ACTION_LABELS = {
 	location_hints_edit: { label: "Edited location hints", color: "text-blue-400" },
 	announcement: { label: "Sent announcement", color: "text-purple-400" },
 	announcement_banner_end: { label: "Took down a banner", color: "text-purple-400" },
+	announcement_banner: { label: "Put up a banner", color: "text-purple-400" },
+	duel_force_close: { label: "Closed a duel", color: "text-red-400" },
+	announcement_draft: { label: "Saved an announcement draft", color: "text-zinc-400" },
+	announcement_delete: { label: "Removed an announcement from history", color: "text-zinc-400" },
+	changelog_add: { label: "Added a changelog entry", color: "text-green-400" },
+	changelog_edit: { label: "Edited a changelog entry", color: "text-zinc-400" },
+	changelog_delete: { label: "Removed a changelog entry", color: "text-red-400" },
+	announcement_schedule: { label: "Scheduled an announcement", color: "text-purple-400" },
+	email_settings: { label: "Changed the mail server", color: "text-orange-400" },
+	email_test: { label: "Sent a test email", color: "text-zinc-400" },
+	email_clear: { label: "Deleted every player's email", color: "text-red-400" },
+	email_run: { label: "Sent due email summaries", color: "text-zinc-400" },
+	announcement_recall: { label: "Took back an announcement", color: "text-purple-400" },
+	announcement_correct: { label: "Fixed an announcement's wording", color: "text-purple-400" },
 	maintenance_on: { label: "Maintenance mode on", color: "text-amber-300" },
 	maintenance_off: { label: "Maintenance mode off", color: "text-green-400" },
 	backup_create: { label: "Made a backup", color: "text-zinc-400" },
@@ -169,6 +183,19 @@ const AUDIT_CATEGORIES = [
 			"achievements_backfill",
 			"announcement",
 			"announcement_banner_end",
+			"announcement_banner",
+			"announcement_draft",
+			"announcement_delete",
+			"changelog_add",
+			"changelog_edit",
+			"changelog_delete",
+			"announcement_schedule",
+			"email_settings",
+			"email_test",
+			"email_clear",
+			"email_run",
+			"announcement_recall",
+			"announcement_correct",
 		],
 	},
 ];
@@ -196,6 +223,12 @@ let auditShowRoutine = false;
 let auditSearchTimer = null;
 let expandedAuditGroupId = null;
 let _lastAuditData = null;
+
+/** A role change is stored as "moderator to helper"; shown with the roles' proper names. */
+const roleChangeText = (details) =>
+	details.replace(/(none|helper|curator|moderator|supervisor|admin|operator)/g, (role) =>
+		role === "none" ? "no role" : ROLE_NAMES[role]
+	);
 
 async function loadAudit(reset = true) {
 	if (reset) auditOffset = 0;
@@ -228,7 +261,7 @@ function auditEntryHtml(e, compact = false) {
         <span class="text-zinc-300 flex-1">
             ${e.actor_username ? `<span class="text-zinc-400">by</span> <a href="/u/${encodeURIComponent(e.actor_username)}" class="hover:underline text-zinc-200">${escHtml(e.actor_username)}</a>` : '<span class="text-zinc-600">system</span>'}
             ${e.target_type !== "ticket" ? (e.target_username ? ` <span class="text-zinc-600">on</span> <a href="/u/${encodeURIComponent(e.target_username)}" class="hover:underline">${escHtml(e.target_username)}</a>` : e.target_id ? ` <span class="text-zinc-600">#${e.target_id}</span>` : "") : e.target_id ? ` <span class="text-zinc-600">on Ticket #${e.target_id}</span>` : ""}
-            ${e.details ? ` <span class="text-zinc-600 text-xs ml-1">${escHtml(e.details)}</span>` : ""}
+            ${e.details ? ` <span class="text-zinc-600 text-xs ml-1">${escHtml(e.action === "user_role_change" ? roleChangeText(e.details) : e.details)}</span>` : ""}
         </span>
     </div>`;
 }
@@ -236,6 +269,8 @@ function auditEntryHtml(e, compact = false) {
 function renderAudit({ rows, total, offset }, reset) {
 	const container = el("tab-content");
 	if (reset) {
+		/** Redrawing replaces the search box, so remember that it was being typed in. */
+		const typing = document.activeElement?.id === "audit-search" ? document.activeElement.selectionStart : null;
 		expandedAuditGroupId = null;
 		const cat = AUDIT_CATEGORIES.find((c) => c.key === auditCategory);
 		const catActions = cat?.actions ?? Object.keys(AUDIT_ACTION_LABELS);
@@ -262,6 +297,11 @@ function renderAudit({ rows, total, offset }, reset) {
             <div id="audit-rows" class="flex flex-col gap-1.5"></div>
             <div id="audit-empty" class="${total ? "hidden" : ""} text-zinc-500 text-center py-8">No audit entries match your filters.</div>
             <div id="audit-pagination" class="mt-4 flex gap-3 justify-center"></div>`;
+		if (typing !== null) {
+			const box = document.getElementById("audit-search");
+			box.focus();
+			box.setSelectionRange(typing, typing);
+		}
 		document.getElementById("audit-search").addEventListener("input", (e) => {
 			auditSearch = e.target.value.trim();
 			clearTimeout(auditSearchTimer);

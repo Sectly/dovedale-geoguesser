@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db, type Submission } from "../../db";
 import { LIMITS } from "../../config";
-import { requireStaff } from "../../auth/guards";
+import { isFullStaff, requireStaff } from "../../auth/guards";
 import { auditLog } from "../../lib/audit";
 import { fail, idParam, readJson } from "../../lib/http";
 import { deleteUpload } from "../../lib/uploads";
@@ -27,23 +27,55 @@ function pendingSubmission(id: number): PendingSubmission {
 	);
 }
 
+/** How close an existing location has to be to a submitted pin to be shown beside it, in map units. */
+const NEARBY_UNITS = 600;
+const NEARBY_MAX = 4;
+
+type Spot = {
+	id: number;
+	label: string | null;
+	image_path: string;
+	world_x: number;
+	world_y: number;
+	is_active: number;
+};
+
+/** The queue. Each submission carries only the few locations near its pin, so reviewing never hands out the answer list. */
 adminSubmissionRoutes.get("/", (c) => {
 	requireStaff(c, "helper");
+	const pending = db
+		.query<Submission & { username: string | null; display_name: string | null }, []>(
+			`SELECT s.*, u.username, u.display_name
+			FROM submissions s LEFT JOIN users u ON u.id = s.submitted_by
+			WHERE s.status = 'pending'
+			ORDER BY s.created_at ASC`
+		)
+		.all();
+	const spots = pending.length
+		? db.query<Spot, []>("SELECT id, label, image_path, world_x, world_y, is_active FROM locations").all()
+		: [];
 	return c.json(
-		db
-			.query(
-				`SELECT s.*, u.username, u.display_name
-				FROM submissions s LEFT JOIN users u ON u.id = s.submitted_by
-				WHERE s.status = 'pending'
-				ORDER BY s.created_at ASC`
-			)
-			.all()
+		pending.map((submission) => ({
+			...submission,
+			nearby: spots
+				.map((spot) => ({
+					...spot,
+					distance: Math.round(
+						Math.hypot(spot.world_x - submission.world_x, spot.world_y - submission.world_y)
+					),
+				}))
+				.filter((spot) => spot.distance <= NEARBY_UNITS)
+				.sort((a, b) => a.distance - b.distance)
+				.slice(0, NEARBY_MAX),
+		}))
 	);
 });
 
 /** The latest reviewed submissions, with who reviewed each and why any was denied. */
 adminSubmissionRoutes.get("/history", (c) => {
-	requireStaff(c, "helper");
+	const staff = requireStaff(c, "helper");
+	/** A helper sees their own reviews; what the rest of the team decided is for staff. */
+	const mine = isFullStaff(staff) ? "" : `AND s.reviewed_by = ${staff.id}`;
 	return c.json(
 		db
 			.query(
@@ -52,7 +84,7 @@ adminSubmissionRoutes.get("/history", (c) => {
 				FROM submissions s
 				LEFT JOIN users u ON u.id = s.submitted_by
 				LEFT JOIN users r ON r.id = s.reviewed_by
-				WHERE s.status != 'pending'
+				WHERE s.status != 'pending' ${mine}
 				ORDER BY s.reviewed_at DESC, s.id DESC LIMIT ${HISTORY_LIMIT}`
 			)
 			.all()

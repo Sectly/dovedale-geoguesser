@@ -3,10 +3,7 @@ import { db, type User } from "../../db";
 import { ratingOf } from "./rating";
 import { createRoom, duelRooms, joinRoom, leaveWaitingRoom, type DuelRoom } from "./rooms";
 
-/**
- * Quick Play: the first player waits in a room; the next asking for the same rounds joins the waiting player closest
- * in rating.
- */
+/** Quick Play: the first player waits; the next with the same rounds joins the closest in rating. */
 
 type QueueEntry = { code: string; rounds: number; rating: number };
 

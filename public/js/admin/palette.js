@@ -6,12 +6,12 @@ let _paletteData = null;
 let _paletteResults = [];
 let _paletteIndex = 0;
 
-/** Players and locations to search, fetched once a minute at most. Helpers get no player list. */
+/** Players and locations to search, cached for a minute. Each list only for roles that may see it. */
 async function paletteData() {
 	if (_paletteData && Date.now() - _paletteData.at < PALETTE_CACHE_MS) return _paletteData;
 	const [users, locations] = await Promise.all([
-		isHelper() ? [] : api("/api/admin/users").catch(() => []),
-		api("/api/admin/locations").catch(() => []),
+		atLeast("moderator") ? api("/api/admin/users").catch(() => []) : [],
+		atLeast("curator") ? api("/api/admin/locations").catch(() => []) : [],
 	]);
 	_paletteData = { users, locations, at: Date.now() };
 	return _paletteData;
@@ -52,7 +52,7 @@ function paletteResults(query, { users, locations }) {
 	if (!q) return results;
 
 	const number = /^#?(\d+)$/.exec(q)?.[1];
-	if (number && !isHelper())
+	if (number && atLeast("moderator"))
 		results.unshift({
 			icon: "support_agent",
 			title: `Ticket #${number}`,

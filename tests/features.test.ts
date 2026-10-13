@@ -4,7 +4,7 @@ import { createRoom, duelRooms, joinRoom, liveDuels } from "../src/game/duels/ro
 import { utcDate } from "../src/lib/time";
 import type { User } from "../src/db";
 import { sendStreakReminders } from "../src/notifications";
-import { SPECIALS, currentSeason, easterSunday, specialsFor } from "../src/specials";
+import { SPECIALS, currentSeason, easterSunday, specialsFor, upcomingEvent } from "../src/specials";
 import { call, clearLocations, createLocation, createUser, post, resetReviewQueues } from "./helpers";
 
 beforeAll(resetReviewQueues);
@@ -99,25 +99,42 @@ describe("announcements and reminders", () => {
 		/** Everyone, with a link and a banner that logged-out visitors see too. */
 		const sent = await post("/api/admin/announcements", op, { ...draft, link: "/duels", banner_hours: 1 });
 		expect(sent.status).toBe(200);
+		/** The link goes through a counter on its way to the page. */
+		const counted = `/api/announcement/${sent.data.id}/go`;
 		expect((await call("/api/notifications", { as: player })).data.notifications[0]).toMatchObject({
 			title: draft.title,
-			link: "/duels",
+			link: counted,
 		});
 		expect((await call("/api/announcement")).data).toMatchObject({
 			id: sent.data.id,
 			title: draft.title,
-			link: "/duels",
+			link: counted,
+			style: "info",
 		});
+		const followed = await call(counted);
+		expect(followed.status).toBe(302);
+		expect(followed.headers.get("Location")).toBe("/duels");
 		const history = (await call("/api/admin/announcements", { as: op })).data;
-		expect(history.history[0]).toMatchObject({ id: sent.data.id, audience: "everyone", banner_live: true });
+		expect(history.history[0]).toMatchObject({
+			id: sent.data.id,
+			audience: "everyone",
+			banner_live: true,
+			clicks: 1,
+		});
 		expect(history.audiences.staff).toBeLessThan(history.audiences.everyone);
 		expect((await call("/api/admin/announcements", { as: mod })).status).toBe(403);
 
 		/** Taken down early. */
-		expect((await post(`/api/admin/announcements/${sent.data.id}/end-banner`, mod)).status).toBe(403);
-		expect((await post(`/api/admin/announcements/${sent.data.id}/end-banner`, op)).status).toBe(200);
-		expect((await post(`/api/admin/announcements/${sent.data.id}/end-banner`, op)).status).toBe(409);
+		const banner = (as: typeof op, hours: number) =>
+			post(`/api/admin/announcements/${sent.data.id}/banner`, as, { hours });
+		expect((await banner(mod, 0)).status).toBe(403);
+		expect((await banner(op, 0)).status).toBe(200);
 		expect((await call("/api/announcement")).data).toBeNull();
+		/** And put back up for longer. */
+		expect((await banner(op, 24)).status).toBe(200);
+		expect((await call("/api/announcement")).data).toMatchObject({ id: sent.data.id });
+		expect((await banner(op, 5)).status).toBe(400);
+		await banner(op, 0);
 	});
 
 	test("staff stats cover what is live, what is waiting and the last two weeks", async () => {
@@ -312,13 +329,13 @@ describe("seasonal specials", () => {
 		expect(statusOf("night-shift", player, "2026-10-31T12:00:00Z")).toMatchObject({ status: "live" });
 		expect(statusOf("night-shift", player, "2027-10-31T12:00:00Z")).toMatchObject({ status: "live" });
 		/** The day after it ends it is already counting down to next year. */
-		expect(statusOf("night-shift", player, "2026-11-03T12:00:00Z")?.startsAt).toBe("2027-10-24T00:00:00.000Z");
+		expect(statusOf("night-shift", player, "2026-11-09T12:00:00Z")?.startsAt).toBe("2027-10-17T00:00:00.000Z");
 	});
 
 	test("a season can run over New Year", () => {
 		expect(statusOf("snowed-in", player, "2026-12-25T12:00:00Z")).toMatchObject({ status: "live" });
 		expect(statusOf("snowed-in", player, "2027-01-04T12:00:00Z")).toMatchObject({ status: "live" });
-		expect(statusOf("snowed-in", player, "2027-01-07T12:00:00Z")).toMatchObject({ status: "upcoming" });
+		expect(statusOf("snowed-in", player, "2027-01-12T12:00:00Z")).toMatchObject({ status: "upcoming" });
 	});
 
 	test("staff can try one early, players cannot", async () => {
@@ -357,13 +374,13 @@ describe("the homepage season", () => {
 		expect(on("2026-10-11T12:00:00Z")).toBeNull();
 		expect(on("2026-10-31T12:00:00Z")).toMatchObject({
 			theme: "halloween",
-			event: { title: "Night Shift", ends_at: "2026-11-03T00:00:00.000Z" },
+			event: { title: "Night Shift", ends_at: "2026-11-08T00:00:00.000Z" },
 		});
 		expect(on("2026-12-25T12:00:00Z")).toMatchObject({ theme: "christmas", event: { title: "Snowed In" } });
 		/** New Year sits inside the Christmas season and takes over for its few days. */
 		expect(on("2026-12-31T23:00:00Z")).toMatchObject({ theme: "newyear", splash: "Happy New Year!", event: null });
 		expect(on("2027-01-03T12:00:00Z")).toMatchObject({ theme: "christmas" });
-		expect(on("2027-01-06T12:00:00Z")).toBeNull();
+		expect(on("2027-01-12T12:00:00Z")).toBeNull();
 		expect(on("2027-02-14T12:00:00Z")).toMatchObject({ theme: "valentines", event: null });
 		expect(on("2026-11-05T20:00:00Z")).toMatchObject({ theme: "bonfire" });
 		/** Logged-out visitors get it with the rest of the public page details. */
@@ -376,13 +393,19 @@ describe("the homepage season", () => {
 		expect((await call("/api/meta?season=nonsense")).data.season).toBeNull();
 	});
 
+	test("an event starting within two weeks is counted down to", () => {
+		expect(upcomingEvent(Date.parse("2026-10-11T12:00:00Z"))).toMatchObject({ title: "Night Shift", days: 6 });
+		expect(upcomingEvent(Date.parse("2026-09-01T12:00:00Z"))).toBeNull();
+		expect(upcomingEvent(Date.parse("2026-10-20T12:00:00Z"))).toBeNull();
+	});
+
 	test("Easter moves with the year", () => {
 		expect(new Date(easterSunday(2026)).toISOString().slice(0, 10)).toBe("2026-04-05");
 		expect(new Date(easterSunday(2027)).toISOString().slice(0, 10)).toBe("2027-03-28");
 		expect(new Date(easterSunday(2038)).toISOString().slice(0, 10)).toBe("2038-04-25");
 		expect(on("2026-04-03T12:00:00Z")).toMatchObject({ theme: "easter" });
 		expect(on("2026-04-06T12:00:00Z")).toMatchObject({ theme: "easter" });
-		expect(on("2026-04-07T12:00:00Z")).toBeNull();
+		expect(on("2026-04-08T12:00:00Z")).toBeNull();
 		expect(on("2027-04-05T12:00:00Z")).toBeNull();
 	});
 });

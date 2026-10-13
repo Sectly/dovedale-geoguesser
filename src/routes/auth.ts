@@ -22,6 +22,7 @@ import { displayName, notify } from "../lib/webhook";
 import { activeBanReason } from "../moderation";
 import { hasRole, isStaff } from "../auth/guards";
 import { publicPreferences } from "../notifications";
+import { emailState } from "../email";
 import { features } from "../system/features";
 import { maintenance } from "../system/maintenance";
 import { errorPage } from "./pages";
@@ -138,8 +139,9 @@ authRoutes.get("/me", (c) => {
 		duel_rated_games: user.duel_rated_games ?? 0,
 		suggestions_agreed: !!user.suggestions_agreed,
 		prefs: publicPreferences(user),
+		email: emailState(user),
 		/** Only staff ever see the site during maintenance, so only they need telling. */
-		maintenance: hasRole(user, "moderator") && maintenance().enabled ? maintenance().message || true : false,
+		maintenance: hasRole(user, "curator") && maintenance().enabled ? maintenance().message || true : false,
 	});
 });
 

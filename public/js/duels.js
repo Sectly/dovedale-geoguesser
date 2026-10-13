@@ -94,6 +94,32 @@ function closeLiveDuels() {
 	clearInterval(liveDuelsTimer);
 }
 
+/** Tells a player their duel was ended by staff, that it cost them nothing, and where to ask about it. */
+function closedByStaffNotice() {
+	if (el("duel-closed-notice")) return;
+	const box = document.createElement("div");
+	box.id = "duel-closed-notice";
+	box.className = "fixed inset-0 z-[90] flex items-center justify-center bg-black/70 modal-fade px-4";
+	box.innerHTML = `<div class="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-sm w-full text-center" role="alertdialog" aria-modal="true" aria-labelledby="duel-closed-title">
+		<span class="material-symbols-outlined text-4xl text-amber-300" style="font-variation-settings:'FILL' 1">gavel</span>
+		<h2 id="duel-closed-title" class="text-lg font-bold mt-2">This duel was closed by staff</h2>
+		<p class="text-zinc-400 text-sm mt-2">Nobody won or lost. Your score, rating and place on the leaderboard are unchanged.</p>
+		<div class="flex flex-col gap-2 mt-5">
+			<button class="m-btn m-btn-filled w-full" data-close>OK</button>
+			<a href="/settings?ticket=other#support" class="m-btn m-btn-text w-full">Ask staff about it</a>
+		</div>
+	</div>`;
+	box.addEventListener("click", (e) => e.target.closest("[data-close]") && box.remove());
+	/** Keys pressed here must not start a new duel underneath. */
+	box.addEventListener("keydown", (e) => {
+		e.stopPropagation();
+		if (e.key === "Escape") box.remove();
+	});
+	document.body.appendChild(box);
+	Sounds.play("lose");
+	box.querySelector("button").focus();
+}
+
 /** Tears down the current room and returns to the lobby, optionally explaining why. */
 function backToLobby(message = "") {
 	closeWire();
@@ -286,7 +312,7 @@ function inviteIntro(code, watching) {
 	}, INVITE_INTRO_MS + 400);
 }
 
-/** Switches the card to "Spectating" when the invite turns out to be watch-only (Quick Play, full, or under way). */
+/** Switches the card to "Spectating" when the invite is watch-only. */
 function inviteIntroWatching() {
 	if (!inviteCard?.querySelector(".invite-swords")) return;
 	inviteCard.querySelector("svg").outerHTML = INVITE_ART.watch;
@@ -458,6 +484,18 @@ async function connect(joinEvent) {
 		}
 		noteRestart(0);
 		backToLobby(data.message || "The server is restarting.");
+	});
+	on("closed_by_staff", () => {
+		const onEndScreen = !el("end-screen").classList.contains("hidden");
+		/** A finished duel keeps its result on screen; the room behind it is gone. */
+		if (onEndScreen) {
+			closeWire();
+			return rematchUnavailable("Room closed");
+		}
+		backToLobby();
+		/** The code in the Join box now leads nowhere. */
+		el("join-code").value = "";
+		closedByStaffNotice();
 	});
 	on("rejected", (data) => {
 		if (!el("end-screen").classList.contains("hidden")) return closeWire();

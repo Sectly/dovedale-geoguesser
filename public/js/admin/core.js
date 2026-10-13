@@ -4,12 +4,28 @@ let currentUser = null;
 let currentTab = "";
 let denyTargetId = null;
 let denyCallback = null;
-const STAFF_ROLES = ["helper", "moderator", "supervisor", "operator"];
-/** A helper reviews what players send in and can look at the locations; nothing else is theirs. */
-const HELPER_TABS = ["overview", "submissions", "suggestions", "locations"];
-const isHelper = () => currentUser?.role === "helper";
-/** Whether the logged-in member of staff may open a tab. */
-const canOpenTab = (tab) => !isHelper() || HELPER_TABS.includes(tab);
+/** Roles, lowest first. The server decides what each may do; this only decides what to show. */
+const ROLE_RANK_JS = { helper: 1, curator: 2, moderator: 3, supervisor: 4, admin: 5, operator: 6 };
+const STAFF_ROLES = Object.keys(ROLE_RANK_JS);
+/** Whether whoever is logged in holds at least this role. */
+const atLeast = (role) => (ROLE_RANK_JS[currentUser?.role] ?? 0) >= ROLE_RANK_JS[role];
+/** The lowest role that may open each tab. */
+const TAB_MIN_ROLE = {
+	overview: "helper",
+	submissions: "helper",
+	suggestions: "helper",
+	locations: "curator",
+	users: "moderator",
+	tickets: "moderator",
+	duels: "moderator",
+	staff: "moderator",
+	announcements: "admin",
+	stats: "supervisor",
+	audit: "supervisor",
+	email: "operator",
+	system: "operator",
+};
+const canOpenTab = (tab) => atLeast(TAB_MIN_ROLE[tab] ?? "operator");
 /** Shortest reason the server accepts for denying a submission or a suggestion. */
 const DENY_REASON_MIN = 5;
 
@@ -43,12 +59,12 @@ function emptyQueueHtml(text) {
 /** A player's name that opens their staff panel. Helpers cannot open it, so they get plain text. */
 function staffUserLink(userId, username) {
 	const name = `@${escHtml(username || "unknown")}`;
-	return userId && !isHelper()
+	return userId && atLeast("moderator")
 		? `<button onclick="openUserPanel(${userId})" class="text-blue-400 hover:underline">${name}</button>`
 		: `<span class="text-zinc-300">${name}</span>`;
 }
 
-/** A picker of everyone with something in the list, busiest first. Empty when there is nobody to choose between. */
+/** A picker of everyone with something in the list, busiest first. */
 function userFilterSelect(items, nameOf, current, setter) {
 	const counts = new Map();
 	for (const item of items) {
@@ -116,6 +132,36 @@ function reviewedRowHtml({
 	</div>`;
 }
 
+/** Shows a screenshot large, with the in-game magnifier. */
+function viewImage(src) {
+	el("image-viewer")?.remove();
+	const box = document.createElement("div");
+	box.id = "image-viewer";
+	box.className = "fixed inset-0 z-[90] bg-black/90 flex items-center justify-center p-4 modal-fade";
+	box.setAttribute("role", "dialog");
+	box.setAttribute("aria-modal", "true");
+	box.setAttribute("aria-label", "Screenshot");
+	box.tabIndex = -1;
+	box.innerHTML = `<div class="relative inline-block overflow-hidden rounded-xl">
+			<img src="${escHtml(src)}" alt="" class="block max-w-[92vw] max-h-[86vh] object-contain cursor-crosshair" />
+		</div>
+		<div class="absolute top-4 right-4 flex gap-2">
+			<a href="${escHtml(src)}" target="_blank" rel="noopener" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">open_in_new</span>New tab</a>
+			<button class="m-icon-btn" aria-label="Close" data-close><span class="material-symbols-outlined">close</span></button>
+		</div>
+		<p class="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-zinc-400 bg-black/60 rounded-full px-3 py-1 pointer-events-none">Hover to magnify, as players can. Scroll to change the zoom.</p>`;
+	/** The same magnifier players get in a round, so staff see what they will see. */
+	setupPhotoLens(box.querySelector("img"));
+	box.addEventListener("click", (e) => (e.target === box || e.target.closest("[data-close]")) && box.remove());
+	/** Keys pressed here must not reach the review shortcuts underneath. */
+	box.addEventListener("keydown", (e) => {
+		e.stopPropagation();
+		if (e.key === "Escape") box.remove();
+	});
+	document.body.appendChild(box);
+	box.focus();
+}
+
 /* ---- Claims: who else has an item open ---- */
 
 const CLAIM_REFRESH_MS = 20_000;
@@ -150,7 +196,7 @@ async function syncClaims() {
 	paintClaims();
 }
 
-/** Called after a list is drawn: repaints the markers, and reports in only when something else was opened. */
+/** After a list is drawn: repaints the markers, and reports in if something else was opened. */
 function claimChanged() {
 	const mine = openClaim();
 	if (`${mine.kind}:${mine.id}` !== _claimKey) syncClaims();
@@ -168,7 +214,7 @@ setInterval(() => {
 
 let _reviewMap = null;
 
-/** The one map the review tabs share, moved into whichever slot is showing it. A map per row would never be let go. */
+/** The one map the review tabs share, moved to whichever slot shows it. */
 function mountReviewMap(slot) {
 	const canvas =
 		_reviewMap?.canvas ??
@@ -275,16 +321,13 @@ async function init() {
 	el("access-denied").classList.add("hidden");
 	el("admin-panel").classList.remove("hidden");
 
-	if (currentUser.role === "operator") {
-		document.querySelectorAll(".operator-only").forEach((el) => el.classList.remove("hidden"));
-	}
-	if (currentUser.role === "operator" || currentUser.role === "supervisor") {
-		document.querySelectorAll(".senior-only").forEach((el) => el.classList.remove("hidden"));
-	}
-	for (const btn of document.querySelectorAll(".tab-btn")) {
-		if (!canOpenTab(btn.dataset.tab)) btn.classList.add("hidden");
-	}
-	if (isHelper()) document.querySelectorAll(".moderator-up").forEach((label) => label.classList.add("hidden"));
+	for (const btn of document.querySelectorAll(".tab-btn"))
+		btn.classList.toggle("hidden", !canOpenTab(btn.dataset.tab));
+	/** The group headings follow the tabs under them. */
+	for (const label of document.querySelectorAll("div.moderator-up"))
+		label.classList.toggle("hidden", !atLeast("moderator"));
+	for (const label of document.querySelectorAll("div.senior-only"))
+		label.classList.toggle("hidden", !atLeast("supervisor"));
 
 	document.querySelectorAll(".tab-btn").forEach((btn) => {
 		btn.addEventListener("click", () => {
@@ -344,11 +387,11 @@ function renderQueueCounts(queue) {
 }
 
 function handleHashNav() {
-	/** Old links still work: "#support" was the tickets tab, and game events now live in the audit log. */
+	/** Old links still work: "#support" was the tickets tab, and "#games" is now part of the audit log. */
 	const hash = location.hash
 		.replace("#", "")
 		.replace(/^support/, "tickets")
-		.replace(/^(games|duels)$/, "audit");
+		.replace(/^games$/, "audit");
 	if (!hash) {
 		switchTab("overview", true);
 		return;
@@ -363,18 +406,14 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 		return;
 	}
 	/** A link or an old bookmark to a tab this role cannot open lands on the first one it can. */
-	if (!canOpenTab(tab)) tab = HELPER_TABS[0];
+	if (!canOpenTab(tab)) tab = "overview";
 	currentTab = tab;
 	if (!fromHash) location.hash = tab;
 
 	document.querySelectorAll(".tab-btn").forEach((btn) => {
-		const isOpOnly = btn.classList.contains("operator-only");
-		const isSeniorOnly = btn.classList.contains("senior-only");
 		const active = btn.dataset.tab === tab;
-		btn.className = `tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition${isOpOnly ? " operator-only" : ""}${isSeniorOnly ? " senior-only" : ""} ${active ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}`;
-		if (isOpOnly && currentUser?.role !== "operator") btn.classList.add("hidden");
-		if (isSeniorOnly && !["operator", "supervisor"].includes(currentUser?.role)) btn.classList.add("hidden");
-		if (!canOpenTab(btn.dataset.tab)) btn.classList.add("hidden");
+		btn.className = `tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition ${active ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}`;
+		btn.classList.toggle("hidden", !canOpenTab(btn.dataset.tab));
 	});
 
 	const content = el("tab-content");
@@ -388,9 +427,11 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 	else if (tab === "users") loadUsers();
 	else if (tab === "tickets") loadTickets(true, autoOpenId);
 	else if (tab === "duels") loadDuels();
+	else if (tab === "announcements") loadAnnouncementsTab();
 	else if (tab === "staff") loadStaff();
 	else if (tab === "stats") loadStats();
 	else if (tab === "audit") loadAudit();
+	else if (tab === "email") loadEmail();
 	else if (tab === "system") loadSystem();
 	claimChanged();
 }

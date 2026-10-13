@@ -152,10 +152,7 @@ export function welcomeCookie(kind: "new" | "back"): string {
 	return `welcome=${kind}; Path=/; Max-Age=60; SameSite=Lax${SECURE_FLAG}`;
 }
 
-/**
- * The login's state, kept in the browser that started it, so a login finished elsewhere cannot be handed to someone
- * as a link.
- */
+/** The login's state, kept in the browser that started it, so a finished login cannot be passed on as a link. */
 export function stateCookie(state: string | null): string {
 	return state
 		? `oauth_state=${state}; HttpOnly; Path=/; Max-Age=600; SameSite=Lax${SECURE_FLAG}`
@@ -168,7 +165,7 @@ export function redirectCookie(target: string | null): string {
 		: `oauth_redirect=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${SECURE_FLAG}`;
 }
 
-/** Clears bans and limits that ran out for users who have not been back since, so leaderboards stop hiding them. */
+/** Clears expired bans and limits for users who have not been back, so leaderboards stop hiding them. */
 export function liftExpiredRestrictions() {
 	const now = nowSec();
 	const lapsed = db

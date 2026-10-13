@@ -6,6 +6,8 @@ let _duelGames = [];
 let _duelMore = false;
 let _duelDetail = new Map();
 let _openDuel = null;
+/** Rooms waiting or being played right now. */
+let _openDuels = [];
 
 const DUEL_KINDS = { "": "All", quickplay: "Quick Play", private: "Private rooms" };
 
@@ -19,7 +21,12 @@ function duelLength(game) {
 async function loadDuels() {
 	let stats;
 	try {
-		[stats] = await Promise.all([api("/api/admin/duels/stats"), fetchDuels(0)]);
+		[stats, _openDuels] = await Promise.all([
+			api("/api/admin/duels/stats"),
+			/** Who is in which room, private ones included, is for administrators and up. */
+			atLeast("admin") ? api("/api/admin/duels/live") : [],
+			fetchDuels(0),
+		]);
 	} catch (err) {
 		el("tab-content").innerHTML = errorStateHtml(err.message || "Couldn't load the duels.", "loadDuels()");
 		return;
@@ -52,6 +59,13 @@ async function loadDuels() {
 			${people("Same two players, 5 or more duels in 30 days", stats.repeat_pairs, (p) => row(`${player(p.first_id, p.first)} <span class="text-zinc-600">and</span> ${player(p.second_id, p.second)}`, `${p.games} duels · ${p.ranked} Quick Play`), "No pair has met that often.")}
 		</div>
 
+		${
+			atLeast("admin")
+				? `${statHeading("Open now", "Waiting or being played, private rooms included")}
+					<div id="open-duels" class="flex flex-col gap-2">${openDuelsHtml()}</div>`
+				: ""
+		}
+
 		${statHeading("History")}
 		<div class="flex items-center gap-1.5 flex-wrap mb-3">
 			${Object.entries(DUEL_KINDS)
@@ -73,6 +87,47 @@ async function loadDuels() {
 		}, 300);
 	});
 	renderDuelList();
+}
+
+function openDuelsHtml() {
+	if (!_openDuels.length) return '<p class="text-sm text-zinc-500">No duels are open right now.</p>';
+	return _openDuels
+		.map((room) => {
+			const playing = room.status === "in_progress";
+			const players = room.players
+				.map(
+					(p) =>
+						`<button onclick="openUserPanel(${p.user_id})" class="hover:underline ${p.connected ? "" : "text-zinc-500"}">@${escHtml(p.username)}</button>${playing ? ` <span class="font-mono text-xs text-zinc-400">${p.total_score.toLocaleString()}</span>` : ""}${p.connected ? "" : ' <span class="text-xs text-zinc-600">(away)</span>'}`
+				)
+				.join('<span class="text-zinc-600"> vs </span>');
+			return `<div class="bg-zinc-900 rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap">
+				<span class="flex-1 min-w-0">
+					<span class="block text-sm truncate">${players || '<span class="text-zinc-500">Nobody yet</span>'}</span>
+					<span class="block text-xs text-zinc-500 mt-0.5">${playing ? `Round ${room.round} of ${room.rounds}` : "Waiting for a player"} · ${room.spectators} watching · <span class="font-mono">${escHtml(room.code)}</span></span>
+				</span>
+				<span class="m-tag ${room.quickplay ? "info" : ""}">${room.quickplay ? "Quick Play" : room.listed ? "Open room" : "Private"}</span>
+				<a href="/duel/${encodeURIComponent(room.code)}?spectate" target="_blank" rel="noopener" class="m-btn m-btn-tonal m-btn-sm" title="Opens the duel in a new tab. Players see one more person watching"><span class="material-symbols-outlined">visibility</span>Watch</a>
+				<button onclick="closeOpenDuel('${escHtml(room.code)}')" class="m-btn m-btn-text m-btn-sm danger">Close</button>
+			</div>`;
+		})
+		.join("");
+}
+
+/** Ends a duel for everyone in it. Recorded as abandoned: no winner, and no score or rating changes. */
+async function closeOpenDuel(code) {
+	const answer = await askReason({
+		title: `Close duel ${code}`,
+		note: "Everyone in it is sent back to the lobby. Nobody wins or loses: scores, ratings and leaderboards stay as they were.",
+		button: "Close duel",
+	});
+	if (!answer) return;
+	try {
+		await api(`/api/admin/duels/live/${encodeURIComponent(code)}/close`, { json: { reason: answer.reason } });
+		showToast("Duel closed.", "success");
+		loadDuels();
+	} catch (err) {
+		showToast(err.message || "Couldn't close it.", "error");
+	}
 }
 
 /** Fetches a page of past duels. Page 0 replaces the list, later ones add to it. */

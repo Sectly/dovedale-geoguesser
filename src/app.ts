@@ -68,14 +68,14 @@ app.use("*", async (c, next) => {
 	if (SECURE_COOKIES) c.header("Strict-Transport-Security", "max-age=31536000");
 });
 
-/** Refuses state changes and sockets from other sites. A second lock behind the SameSite=Lax session cookie. */
+/** Refuses state changes and sockets from other sites, behind the SameSite=Lax cookie. */
 app.use("*", async (c, next) => {
 	const unsafe = !["GET", "HEAD", "OPTIONS"].includes(c.req.method) || !!c.req.header("Upgrade");
 	if (unsafe && c.req.header("Sec-Fetch-Site") === "cross-site") return c.text("Cross-site request refused.", 403);
 	await next();
 });
 
-/** Puts a planned restart on every API response so open pages learn of it. New multiplayer games are refused. */
+/** Puts a planned restart on every API response. New multiplayer games are refused. */
 app.use("/api/*", async (c, next) => {
 	if (restartIn() === null) {
 		await next();
@@ -95,18 +95,14 @@ app.use("/api/*", async (c, next) => {
 	if (seconds !== null) c.header("X-Restart-In", String(seconds));
 });
 
-/**
- * Maintenance mode. Staff carry on as normal (and are told it is on); everyone else gets
- * the maintenance screen for pages and a 503 for API calls. Logging in stays open so that
- * staff can get in, and scripts, styles and images still load so the screen can be drawn.
- */
+/** Maintenance mode: staff carry on; everyone else gets the maintenance screen or a 503. Logins and assets stay open. */
 app.use("*", async (c, next) => {
 	const state = maintenance();
 	if (!state.enabled) return next();
 	const path = c.req.path;
 	const open = path.startsWith("/api/auth/") || path === "/api/status" || path === "/api/meta";
 	const asset = !path.startsWith("/api/") && /\.[a-z0-9]+$/i.test(path) && !path.endsWith(".html");
-	if (open || asset || hasRole(currentUser(c), "moderator")) return next();
+	if (open || asset || hasRole(currentUser(c), "curator")) return next();
 
 	const message = state.message || DEFAULT_MAINTENANCE_MESSAGE;
 	c.header("Retry-After", "600");

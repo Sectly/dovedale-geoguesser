@@ -50,10 +50,7 @@ function recentIds(sql: string): Set<number> {
 export const DIFFICULTIES = ["easy", "medium", "hard"] as const;
 export type Difficulty = (typeof DIFFICULTIES)[number];
 
-/**
- * `recentSum` holds at most `window` guesses' worth of scores: each new guess pushes out one guess of the old
- * average.
- */
+/** `recentSum` holds at most `window` guesses of scores: each new guess pushes out one of the old average. */
 function grade(plays: number, recentSum: number): Difficulty | null {
 	if (plays < GAME.difficulty.minPlays) return null;
 	const average = recentSum / Math.min(plays, GAME.difficulty.window);
@@ -110,10 +107,7 @@ export function resetLocationStats(locationId: number) {
 	db.run("DELETE FROM location_stats WHERE location_id = ?", [locationId]);
 }
 
-/**
- * Picks up to `count` active locations, spread across the map and avoiding recently used ones.
- * With a `difficulty`, fewer may come back.
- */
+/** Picks up to `count` active locations, spread across the map, avoiding recent ones. */
 export function pickLocations(count: number, difficulty: Difficulty | null = null): Location[] {
 	let pool = db.query<Location, []>("SELECT * FROM locations WHERE is_active = 1").all();
 	if (difficulty) {

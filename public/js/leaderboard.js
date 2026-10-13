@@ -27,7 +27,7 @@ function moveTabPill(slide = true) {
 	const pill = el("tab-pill");
 	const track = tab.parentElement.clientWidth;
 	pill.style.transition = slide ? "" : "none";
-	/** As shares of the track, so it stays on its tab when the page's width changes (a scrollbar appearing, say). */
+	/** As shares of the track, so it stays on its tab when the page width changes. */
 	pill.style.left = `${(tab.offsetLeft / track) * 100}%`;
 	pill.style.width = `${(tab.offsetWidth / track) * 100}%`;
 }

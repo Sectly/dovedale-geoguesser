@@ -1,53 +1,87 @@
 /* ---- Users: the list, each user's moderation history, and the actions staff can take ---- */
 
-const ROLE_RANK_JS = { operator: 4, supervisor: 3, moderator: 2, helper: 1 };
 const ROLE_BADGE = {
 	operator: "bg-yellow-900/70 text-yellow-300",
+	admin: "bg-orange-900/70 text-orange-300",
 	supervisor: "bg-purple-900/70 text-purple-300",
 	moderator: "bg-blue-900/70 text-blue-300",
+	curator: "bg-green-900/70 text-green-300",
 	helper: "bg-teal-900/70 text-teal-300",
 };
-/** Roles someone may hand out, highest first. */
+/** Roles someone may hand out, highest first: every role below their own, from supervisor up. */
 const assignableRoles = (role) =>
-	role === "operator" ? ["supervisor", "moderator", "helper"] : role === "supervisor" ? ["moderator", "helper"] : [];
-const ROLE_NAMES = { operator: "Operator", supervisor: "Supervisor", moderator: "Moderator", helper: "Helper" };
+	(ROLE_RANK_JS[role] ?? 0) >= ROLE_RANK_JS.supervisor
+		? ["admin", "supervisor", "moderator", "curator", "helper"].filter((r) => ROLE_RANK_JS[r] < ROLE_RANK_JS[role])
+		: [];
+const ROLE_NAMES = {
+	operator: "Operator",
+	admin: "Administrator",
+	supervisor: "Supervisor",
+	moderator: "Moderator",
+	curator: "Curator",
+	helper: "Helper",
+};
+/** A role's proper name: "Operator", not "operator". */
+const roleName = (role) => ROLE_NAMES[role] ?? escHtml(String(role ?? ""));
 /** What each role is for, lowest first. Shown on the Staff tab. */
 const ROLE_INFO = {
 	helper: {
-		summary: "Reviews what players send in. The place to start for someone new.",
+		summary: "A player trusted with the review queues. Not counted as staff.",
 		can: [
 			"Approve or deny location submissions",
 			"Approve or deny suggested changes to locations (an approved one is applied)",
-			"Look through the location list, without editing it directly",
+			"See their own past reviews",
 		],
+		note: "Helpers still play the game, so they cannot browse the location list, and they are limited like any player.",
+	},
+	curator: {
+		summary: "The first staff role. Everything a helper can do, and:",
+		can: [
+			"Browse every location and how it has played",
+			"Edit locations: labels, hints, switching them on or off, resetting difficulty",
+			"See everything that has been reviewed, and by whom",
+			"Get in during maintenance, and receive staff announcements",
+		],
+		note: "Curators do not deal with players: no tickets, warnings or bans.",
 	},
 	moderator: {
-		summary: "Keeps the community in order. Everything a helper can do, and:",
+		summary: "Keeps the community in order. Everything a curator can do, and:",
 		can: [
-			"Edit locations: labels, hints, and switching them on or off",
 			"Warn players, limit uploads or duels, and ban for a set time",
 			"Answer and close support tickets",
-			"Review ban-evasion flags",
-			"Suspend a helper's staff access",
+			"Review ban-evasion and fair-play flags",
+			"Leave notes on a player for other staff",
+			"See duel history and stats",
+			"Suspend a helper's or curator's access",
 		],
 	},
 	supervisor: {
 		summary: "Oversees the moderators. Everything a moderator can do, and:",
 		can: [
 			"Ban permanently, and overturn limits, warnings and timed bans",
-			"Appoint, change or remove helpers and moderators",
+			"Appoint, change or remove helpers, curators and moderators",
 			"Suspend a moderator's staff access",
+			"Remove another member of staff's note",
 			"See site stats and the audit log",
 		],
 	},
-	operator: {
-		summary: "Runs the site. Everything a supervisor can do, and:",
+	admin: {
+		summary: "Runs the community day to day. Everything a supervisor can do, and:",
 		can: [
 			"Appoint supervisors, and overturn permanent bans",
 			"Correct or reset scores, ratings, streaks and achievements",
-			"Send announcements, delete locations and tickets",
-			"Export or delete a player's data",
-			"Maintenance mode, updates, restarts, backups and the server log",
+			"Send, correct and take back announcements",
+			"Delete locations and tickets",
+			"See every open duel, private rooms included, and watch or close one",
+		],
+		note: "Administrators have no access to the server itself or to exporting and deleting player data.",
+	},
+	operator: {
+		summary: "Runs the site. Everything an administrator can do, and:",
+		can: [
+			"Appoint administrators",
+			"Export or delete a player's data, and erase moderation records",
+			"Maintenance mode, feature switches, updates, restarts, backups and the server log",
 		],
 		note: "Operators are set in the server's configuration, not from this page.",
 	},
@@ -122,7 +156,7 @@ function formatWhen(seconds) {
 	return new Date(seconds * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-/** Asks for a reason, and a duration when the action has one. Resolves to { reason, hours }, or null if cancelled. */
+/** Asks for a reason, and a duration if the action has one. Resolves to { reason, hours } or null. */
 function askReason({
 	title,
 	note = "",
@@ -273,7 +307,7 @@ async function loadUsers() {
 function userStatusBadges(u) {
 	const badge = (text, tone) => `<span class="text-xs px-1.5 py-0.5 rounded ${tone}">${text}</span>`;
 	return [
-		u.role ? badge(u.role, ROLE_BADGE[u.role] || "bg-zinc-700 text-zinc-300") : "",
+		u.role ? badge(roleName(u.role), ROLE_BADGE[u.role] || "bg-zinc-700 text-zinc-300") : "",
 		u.role && u.staff_locked ? badge("Staff access suspended", "bg-red-900 text-red-300") : "",
 		u.is_banned ? badge(u.ban_type === "perm" ? "Banned" : "Temp banned", "bg-red-900 text-red-300") : "",
 		u.upload_limited ? badge("Upload limited", "bg-orange-900 text-orange-300") : "",
@@ -345,7 +379,7 @@ function renderUsers(users) {
 								? assignable
 										.map(
 											(r) =>
-												`<button onclick="setUserRole(${u.id}, '${r}')" class="bg-purple-900/60 hover:bg-purple-800 transition px-2.5 py-1.5 rounded-lg text-xs">Make ${r}</button>`
+												`<button onclick="setUserRole(${u.id}, '${r}')" class="bg-purple-900/60 hover:bg-purple-800 transition px-2.5 py-1.5 rounded-lg text-xs">Make ${roleName(r)}</button>`
 										)
 										.join("") +
 									(u.role
@@ -485,7 +519,7 @@ function renderUserPanel({
 		<div class="flex items-center gap-3 mb-4">
 			${avatarHtml(user.avatar_url, "w-12 h-12 flex-shrink-0")}
 			<div class="min-w-0">
-				<div class="text-sm text-zinc-400 truncate"><a href="/u/${encodeURIComponent(user.username)}" target="_blank" rel="noopener" class="hover:underline">@${escHtml(user.username)}</a> · User #${user.id}${user.role ? ` · ${escHtml(user.role)}` : ""}</div>
+				<div class="text-sm text-zinc-400 truncate"><a href="/u/${encodeURIComponent(user.username)}" target="_blank" rel="noopener" class="hover:underline">@${escHtml(user.username)}</a> · User #${user.id}${user.role ? ` · ${roleName(user.role)}` : ""}</div>
 				<div class="text-xs text-zinc-500">Joined ${new Date(user.created_at * 1000).toLocaleDateString()}</div>
 				<div class="text-xs text-zinc-500" title="The fair-play notice shown before a player can use Suggest Change">
 					Suggest Change policy: ${
@@ -558,7 +592,7 @@ function renderUserPanel({
 						${actionBtn("limit_upload", "Limit uploads", "bg-zinc-700 hover:bg-zinc-600")}
 						${actionBtn("limit_duel", "Limit duels", "bg-zinc-700 hover:bg-zinc-600")}
 						${actionBtn("ban_temp", "Temp ban", "bg-orange-800 hover:bg-orange-700")}
-						${myRank >= 2 ? actionBtn("ban_perm", "Perm ban", "bg-red-800 hover:bg-red-700") : ""}
+						${myRank >= ROLE_RANK_JS.supervisor ? actionBtn("ban_perm", "Perm ban", "bg-red-800 hover:bg-red-700") : ""}
 					</div>`
 					: '<p class="text-xs text-zinc-500">You can\'t moderate yourself or staff of equal or higher rank.</p>'
 			}
@@ -603,17 +637,21 @@ function renderUserPanel({
 		</div>
 
 		${
-			isOp
+			atLeast("admin")
 				? `<div class="mt-6 pt-4 border-t border-zinc-800">
 					<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-2">Scores and history</div>
 					<div id="score-manager" class="mb-5">
 						<button onclick="loadScoreManager(${user.id})" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">leaderboard</span>View and manage scores</button>
 					</div>
-					<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-2">Account data</div>
-					<div class="flex gap-2 flex-wrap">
-						<button onclick="exportUserData(${user.id})" class="bg-zinc-700 hover:bg-zinc-600 transition px-3 py-1.5 rounded-lg text-xs">Export data</button>
-						${can_moderate ? `<button onclick="deleteUserAccount(${user.id})" class="bg-red-900 hover:bg-red-800 transition px-3 py-1.5 rounded-lg text-xs">Delete account</button>` : ""}
-					</div>
+					${
+						isOp
+							? `<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-2">Account data</div>
+								<div class="flex gap-2 flex-wrap">
+									<button onclick="exportUserData(${user.id})" class="bg-zinc-700 hover:bg-zinc-600 transition px-3 py-1.5 rounded-lg text-xs">Export data</button>
+									${can_moderate ? `<button onclick="deleteUserAccount(${user.id})" class="bg-red-900 hover:bg-red-800 transition px-3 py-1.5 rounded-lg text-xs">Delete account</button>` : ""}
+								</div>`
+							: ""
+					}
 				</div>`
 				: ""
 		}`;
@@ -675,7 +713,7 @@ async function deleteModerationRecord(actionId) {
 }
 
 async function setUserRole(userId, role) {
-	const label = role === "none" ? "remove their role" : `set their role to ${role}`;
+	const label = role === "none" ? "remove their role" : `make them ${roleName(role)}`;
 	const ok = await showConfirm("Change role", `Are you sure you want to ${label}?`, {
 		confirmLabel: "Confirm",
 		confirmClass: "bg-blue-600 hover:bg-blue-500",
@@ -708,7 +746,7 @@ async function loadStaff() {
 function renderStaff(staff) {
 	const myRole = currentUser?.role;
 	const myRank = ROLE_RANK_JS[myRole] ?? 0;
-	const grouped = { operator: [], supervisor: [], moderator: [], helper: [] };
+	const grouped = { operator: [], admin: [], supervisor: [], moderator: [], curator: [], helper: [] };
 	const canAppoint = myRank >= ROLE_RANK_JS.supervisor;
 	for (const u of staff) if (grouped[u.role]) grouped[u.role].push(u);
 
@@ -718,7 +756,7 @@ function renderStaff(staff) {
 		return `
         <div class="mb-6">
             <div class="flex items-center gap-2 mb-3">
-                <span class="text-xs font-semibold px-2 py-0.5 rounded ${badgeClass}">${role}</span>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded ${badgeClass}">${roleName(role)}</span>
                 <span class="text-zinc-500 text-xs">${members.length} member${members.length !== 1 ? "s" : ""}</span>
                 ${role === "operator" ? '<span class="text-xs text-zinc-600">· env-managed</span>' : ""}
             </div>
@@ -735,7 +773,7 @@ function renderStaff(staff) {
 										.filter((r) => r !== u.role)
 										.map(
 											(r) =>
-												`<button onclick="setUserRole(${u.id}, '${r}')" class="bg-purple-900/60 hover:bg-purple-800 transition px-2.5 py-1 rounded-lg text-xs">Set ${r}</button>`
+												`<button onclick="setUserRole(${u.id}, '${r}')" class="bg-purple-900/60 hover:bg-purple-800 transition px-2.5 py-1 rounded-lg text-xs">Make ${roleName(r)}</button>`
 										),
 									canAppoint && u.role !== "operator"
 										? `<button onclick="setUserRole(${u.id}, 'none')" class="bg-zinc-700 hover:bg-zinc-600 transition px-2.5 py-1 rounded-lg text-xs">Remove role</button>`
@@ -770,9 +808,8 @@ function renderStaff(staff) {
         </div>`;
 	};
 
-	const addSection =
-		myRole === "operator" || myRole === "supervisor"
-			? `
+	const addSection = canAppoint
+		? `
     <div class="bg-zinc-900 rounded-xl p-4 mb-6">
         <div class="font-semibold text-sm mb-3">Add staff member</div>
         <div class="flex gap-2">
@@ -782,10 +819,7 @@ function renderStaff(staff) {
                 ${assignableRoles(myRole)
 					.map(
 						(role, i, all) =>
-							/**
-							 * The lowest role is the one picked to begin with: the safe default for a new
-							 * appointment.
-							 */
+							/** The lowest role is preselected: the safe default. */
 							`<option value="${role}" ${i === all.length - 1 ? "selected" : ""}>${ROLE_NAMES[role]}</option>`
 					)
 					.join("")}
@@ -794,7 +828,7 @@ function renderStaff(staff) {
         </div>
         <p id="staff-add-error" class="text-red-400 text-xs mt-2 hidden"></p>
     </div>`
-			: "";
+		: "";
 
 	const roleGuide = `<details class="bg-zinc-900 rounded-xl mb-6 group">
         <summary class="flex items-center gap-2 px-4 py-3 cursor-pointer list-none">
@@ -827,10 +861,9 @@ function renderStaff(staff) {
         ${panelSearchInput("Search staff name, username, ID or role...")}
         ${roleGuide}
         ${addSection}
-        ${roleSection("operator", grouped.operator)}
-        ${roleSection("supervisor", grouped.supervisor)}
-        ${roleSection("moderator", grouped.moderator)}
-        ${roleSection("helper", grouped.helper)}
+        ${Object.keys(grouped)
+			.map((role) => roleSection(role, grouped[role]))
+			.join("")}
         ${!staff.length ? '<div class="text-zinc-500">No staff members found.</div>' : '<div id="panel-search-empty" class="hidden text-zinc-500 text-center py-8">No staff members match your search.</div>'}`;
 	bindPanelSearch("#tab-content [data-search]");
 }
@@ -856,7 +889,7 @@ async function addStaffMember() {
 				String(u.discord_id) === query
 		);
 		if (!target) throw new Error(`No user found matching "${query}"`);
-		if (target.role === role) throw new Error(`${target.username} already has the ${role} role`);
+		if (target.role === role) throw new Error(`${target.username} is already ${roleName(role)}`);
 		const r = await fetch(`/api/admin/users/${target.id}/role`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },

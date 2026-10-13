@@ -99,7 +99,15 @@ export function updatePreferences(user: User, changes: unknown): Preferences {
 	return next;
 }
 
-type NewNotification = { title: string; body?: string | null; link?: string };
+type NewNotification = {
+	title: string;
+	body?: string | null;
+	link?: string;
+	/** Set on an announcement's copies, so they can be corrected or taken back together. */
+	announcementId?: number;
+	/** Put it in the inbox only: no push notification to the player's devices. */
+	noPush?: boolean;
+};
 
 /** Tells a user something happened. Respects their preferences; moderation notices always go through. */
 export function notifyUser(userId: number | null | undefined, category: NotificationCategory, n: NewNotification) {
@@ -112,14 +120,11 @@ export function notifyUser(userId: number | null | undefined, category: Notifica
 		const title = n.title.slice(0, 120);
 		const body = n.body ? n.body.slice(0, 400) : null;
 		const link = n.link ?? "/settings#notifications";
-		db.run("INSERT INTO notifications (user_id, category, title, body, link) VALUES (?, ?, ?, ?, ?)", [
-			userId,
-			category,
-			title,
-			body,
-			link,
-		]);
-		if (prefs.desktop) sendPush(userId, { title, body: body ?? "", link });
+		db.run(
+			"INSERT INTO notifications (user_id, category, title, body, link, announcement_id) VALUES (?, ?, ?, ?, ?, ?)",
+			[userId, category, title, body, link, n.announcementId ?? null]
+		);
+		if (prefs.desktop && !n.noPush) sendPush(userId, { title, body: body ?? "", link });
 	} catch (err) {
 		console.error("[notifications] write failed:", err);
 	}
