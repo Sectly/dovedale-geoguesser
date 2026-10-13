@@ -162,7 +162,7 @@ export function submitDailyGuess(user: User, guess: Guess | null) {
 	recordOutcome(location, outcome);
 	reviewGuess(user.id, "daily", location.id, outcome);
 	const streak = recordPlay(user.id);
-	checkRound(user.id, outcome);
+	checkRound(user.id, outcome, DAILY_RULES.timeLimit);
 	checkDaily(user.id, outcome.score);
 	checkStreak(user.id, streak);
 	return { date, ...outcomeJson(outcome), ...roundFor(location, attempt).answer(), ...streak };

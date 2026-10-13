@@ -79,6 +79,10 @@ export type DuelRoom = {
 	rematchTimer: ReturnType<typeof setTimeout> | null;
 	/** The running score across rematches between the same two players. Gone once either leaves. */
 	series: { wins: Record<number, number>; games: number };
+	/** In a rematch: who won the duel before this one, or null if nobody did. */
+	previousWinnerId: number | null;
+	/** Who won this duel, once it is over. */
+	winnerId: number | null;
 	createdAt: number;
 };
 
@@ -293,6 +297,8 @@ export function createRoom(creatorId: number, rounds: number, quickplay = false,
 		rematchRequests: new Set(),
 		rematchTimer: null,
 		series: { wins: {}, games: 0 },
+		previousWinnerId: null,
+		winnerId: null,
 		createdAt: Date.now(),
 	};
 	db.run("INSERT INTO duel_participants (game_id, user_id) VALUES (?, ?)", [room.dbId, creatorId]);
@@ -445,7 +451,7 @@ function endRound(room: DuelRoom) {
 		const bonus = comebackFor === player.userId ? outcome.score : 0;
 		player.totalScore += outcome.score + bonus;
 		recordOutcome(round.location, outcome);
-		checkRound(player.userId, outcome);
+		checkRound(player.userId, outcome, DUEL_RULES.timeLimit);
 		reviewGuess(player.userId, "duel", round.location.id, outcome);
 		db.run(
 			`INSERT INTO duel_round_scores
@@ -522,6 +528,7 @@ function finish(room: DuelRoom, winnerId: number | null) {
 	clearPause(room);
 	room.status = "finished";
 	room.round = null;
+	room.winnerId = winnerId;
 	room.series.games++;
 	if (winnerId !== null) room.series.wins[winnerId] = (room.series.wins[winnerId] ?? 0) + 1;
 	db.transaction(() => {
@@ -602,12 +609,17 @@ function endGame(room: DuelRoom) {
 
 	finish(room, winner?.user_id ?? null);
 	const ratings = rate(room, winner?.user_id ?? null);
+	const streaks = streaksAfter(room);
+	const loser = scores.find((p) => p.user_id !== winner?.user_id);
 	for (const player of room.players) {
 		const won = winner?.user_id === player.userId;
 		checkDuel(player.userId, {
 			won,
 			sweep: won && tookEveryRound(room, player.userId),
 			rating: ratings?.find((r) => r.user_id === player.userId)?.rating ?? null,
+			margin: (winner?.total_score ?? 0) - (loser?.total_score ?? 0),
+			lostLast: room.previousWinnerId !== null && room.previousWinnerId !== player.userId,
+			streak: streaks?.[player.userId] ?? 0,
 		});
 	}
 	auditLog(null, "duel_end", {
@@ -629,7 +641,7 @@ function endGame(room: DuelRoom) {
 		ratings,
 		series: room.series,
 		sudden_death: !!room.suddenDeath,
-		streaks: streaksAfter(room),
+		streaks,
 	});
 }
 

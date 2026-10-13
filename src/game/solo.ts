@@ -144,7 +144,7 @@ export function submitSoloGuess(id: string, userId: number | null, guess: Guess 
 	/** Specials change the picture or the clock, so they say nothing fair about a location or a player. */
 	if (!game.special) {
 		recordOutcome(round.location, outcome);
-		checkRound(game.userId, outcome);
+		checkRound(game.userId, outcome, round.rules.timeLimit);
 		reviewGuess(game.userId, "solo", round.location.id, outcome);
 	}
 

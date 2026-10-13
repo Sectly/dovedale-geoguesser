@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, jest, test } from "bun:test";
 import type { WireConnection } from "@webwirejs/server";
-import { award, backfillAchievements } from "../src/achievements";
+import { award, backfillAchievements, checkRound } from "../src/achievements";
 import { GAME } from "../src/config";
 import { db } from "../src/db";
 import { expectedScore, rateDuel } from "../src/game/duels/rating";
@@ -48,11 +48,12 @@ const achievements = (u: TestUser) =>
 const operator = () => createUser({ role: "operator" });
 
 /** Plays a one-round duel in which `winner` guesses the spot exactly and the other misses. */
-function playDuel(winner: TestUser, loser: TestUser, quick: boolean) {
+function playDuel(winner: TestUser, loser: TestUser, quick: boolean, prepare?: (room: DuelRoom) => void) {
 	const room = createRoom(winner.id, 1, quick);
 	joinRoom(room.code, loser.id);
 	const conn = seat(room, winner);
 	seat(room, loser);
+	prepare?.(room);
 	room.locations = [location(createLocation({ x: 100, y: 100 }))];
 	room.status = "in_progress";
 	room.roundNumber = 1;
@@ -213,6 +214,42 @@ describe("achievements", () => {
 		playDuel(a, b, false);
 		expect(achievements(a)).toEqual(expect.arrayContaining(["bullseye", "duel_win"]));
 		expect(achievements(b)).not.toContain("duel_win");
+	});
+
+	test("a late good guess, a narrow win, a rematch won back and a run of Quick Play wins each earn theirs", () => {
+		const late = createUser();
+		const guess = { guess: { x: 0, y: 0 }, distance: 40, hintsUsed: 0, score: 4200 };
+		checkRound(late.id, { ...guess, timeTaken: 50 }, 60);
+		checkRound(late.id, { ...guess, timeTaken: 58 }, 0);
+		checkRound(late.id, { ...guess, timeTaken: 58, score: 3900 }, 60);
+		expect(achievements(late)).not.toContain("last_call");
+		checkRound(late.id, { ...guess, timeTaken: 56.5 }, 60);
+		expect(achievements(late)).toContain("last_call");
+
+		/** The loser starts far enough ahead to finish just short of the winner. */
+		const [narrow, close] = [createUser(), createUser()];
+		const { end } = playDuel(narrow, close, false, (room) => (room.players[1].totalScore = 4950));
+		expect(end.scores[0].total_score - end.scores[1].total_score).toBeLessThan(100);
+		expect(achievements(narrow)).toContain("photo_finish");
+		expect(achievements(close)).not.toContain("photo_finish");
+
+		const [back, rival] = [createUser(), createUser()];
+		playDuel(back, rival, false);
+		expect(achievements(back)).not.toEqual(expect.arrayContaining(["photo_finish", "return_ticket"]));
+		playDuel(back, rival, false, (room) => (room.previousWinnerId = back.id));
+		expect(achievements(back)).not.toContain("return_ticket");
+		playDuel(back, rival, false, (room) => (room.previousWinnerId = rival.id));
+		expect(achievements(back)).toContain("return_ticket");
+		expect(achievements(rival)).not.toContain("return_ticket");
+
+		const [hot, cold] = [createUser(), createUser()];
+		playDuel(hot, cold, true);
+		playDuel(hot, cold, false);
+		playDuel(hot, cold, true);
+		expect(achievements(hot)).not.toContain("hot_streak");
+		playDuel(hot, cold, true);
+		expect(achievements(hot)).toContain("hot_streak");
+		expect(achievements(cold)).not.toContain("hot_streak");
 	});
 
 	test("existing players are given what their history shows, without a pop-up", async () => {

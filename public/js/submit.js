@@ -36,7 +36,7 @@ async function init() {
 				pinWorld = { x: wx, y: wy };
 				updateStep3(true);
 				el("map-hint").textContent = "Pin placed. Click to move";
-				el("fine-controls").classList.remove("hidden");
+				showFineControls("new-fine-slot");
 				checkReady();
 			} else if (mode === "suggest" && suggestType === "coordinates") {
 				suggestPinWorld = { x: wx, y: wy };
@@ -44,6 +44,7 @@ async function init() {
 				el("sug-pin-status").innerHTML =
 					'<span class="material-symbols-outlined text-base text-zinc-300">check_circle</span><span class="text-zinc-300">Correction placed (green = original, red = yours)</span>';
 				el("map-hint").textContent = "Green = original, red = your correction";
+				showFineControls("sug-fine-slot");
 				checkSuggestReady();
 			} else if (mode === "suggest" && suggestType === "full_edit") {
 				fePin = { x: wx, y: wy };
@@ -571,6 +572,9 @@ function switchSuggestType(type) {
 	if (suggestPinWorld && type === "coordinates") {
 		mapCanvas.pin = { worldX: suggestPinWorld.x, worldY: suggestPinWorld.y };
 		mapCanvas.draw();
+		showFineControls("sug-fine-slot");
+	} else {
+		el("fine-controls").classList.add("hidden");
 	}
 	checkSuggestReady();
 }
@@ -786,7 +790,7 @@ function prefillResend() {
 		mapCanvas.setPin(x, y);
 		mapCanvas.fitTo([{ x, y }]);
 		updateStep3(true);
-		el("fine-controls").classList.remove("hidden");
+		showFineControls("new-fine-slot");
 		el("map-hint").textContent = "Pin placed. Click to move";
 	}
 	checkReady();
@@ -796,12 +800,27 @@ function prefillResend() {
 
 init().then(prefillResend);
 
+/** One set of fine controls serves both forms: it is moved under whichever pin it is steering. */
+function showFineControls(slotId) {
+	const controls = el("fine-controls");
+	el(slotId).after(controls);
+	controls.classList.remove("hidden");
+}
+
+/** The pin the fine controls move: a new location's, or the correction in Suggest Change. */
+function nudgeTarget() {
+	if (mode === "new") return pinWorld;
+	return mode === "suggest" && suggestType === "coordinates" ? suggestPinWorld : null;
+}
+
 function nudgePin(dx, dy) {
-	if (!pinWorld) return;
+	const pin = nudgeTarget();
+	if (!pin) return;
 	const step = parseInt(el("fine-increment").value) || 10;
-	pinWorld.x = Math.max(-23818, Math.min(14911, pinWorld.x + dx * step));
-	pinWorld.y = Math.max(-10426, Math.min(13693, pinWorld.y + dy * step));
-	mapCanvas.setPin(pinWorld.x, pinWorld.y);
+	pin.x = Math.max(-23818, Math.min(14911, pin.x + dx * step));
+	pin.y = Math.max(-10426, Math.min(13693, pin.y + dy * step));
+	mapCanvas.setPin(pin.x, pin.y);
+	if (pin === suggestPinWorld) drawCorrectionLine(pin.x, pin.y);
 }
 
 document.querySelectorAll(".fine-btn").forEach((btn) => {
@@ -815,7 +834,7 @@ document.querySelectorAll(".fine-btn").forEach((btn) => {
 });
 
 document.addEventListener("keydown", (e) => {
-	if (!pinWorld) return;
+	if (!nudgeTarget()) return;
 	const tag = document.activeElement?.tagName;
 	if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 	if (e.key === "ArrowUp") {

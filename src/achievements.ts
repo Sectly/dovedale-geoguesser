@@ -14,6 +14,12 @@ export const ACHIEVEMENTS = [
 		icon: "bolt",
 	},
 	{
+		id: "last_call",
+		title: "Last Call",
+		description: "Score 4,000 or more with a guess made in the final 5 seconds.",
+		icon: "hourglass_bottom",
+	},
+	{
 		id: "local_expert",
 		title: "Local Expert",
 		description: "Finish a solo game with at least 80% of the points on offer.",
@@ -36,6 +42,24 @@ export const ACHIEVEMENTS = [
 		title: "Clean Sweep",
 		description: "Win a duel of three or more rounds by taking every round.",
 		icon: "cleaning_services",
+	},
+	{
+		id: "photo_finish",
+		title: "Photo Finish",
+		description: "Win a duel by fewer than 100 points.",
+		icon: "photo_camera",
+	},
+	{
+		id: "return_ticket",
+		title: "Return Ticket",
+		description: "Win a rematch against the player who just beat you.",
+		icon: "replay",
+	},
+	{
+		id: "hot_streak",
+		title: "Hot Streak",
+		description: "Win 3 Quick Play duels in a row.",
+		icon: "rocket_launch",
 	},
 	{ id: "rating_1200", title: "Rising Star", description: "Reach a duel rating of 1,200.", icon: "trending_up" },
 	{
@@ -191,11 +215,12 @@ export function achievementsFor(userId: number) {
 
 /* ---- The moments an achievement can be earned ---- */
 
-/** One scored guess, in any mode. */
-export function checkRound(userId: number | null, outcome: RoundOutcome) {
+/** One scored guess, in any mode. `timeLimit` is the round's clock in seconds, 0 for none. */
+export function checkRound(userId: number | null, outcome: RoundOutcome, timeLimit = 0) {
 	if (!userId || outcome.distance === null) return;
 	if (outcome.distance <= 150) award(userId, "bullseye");
 	if (outcome.timeTaken < 5 && outcome.score >= 4000) award(userId, "quick_draw");
+	if (timeLimit > 0 && outcome.timeTaken >= timeLimit - 5 && outcome.score >= 4000) award(userId, "last_call");
 }
 
 export function checkStreak(userId: number, streak: { longest_streak: number }) {
@@ -215,11 +240,21 @@ export function checkDaily(userId: number, score: number) {
 	if (score >= 4500) award(userId, "daily_ace");
 }
 
-/** A duel that was played to the end. `sweep` is true when the winner took every round. */
-export function checkDuel(
-	userId: number,
-	{ won, sweep, rating }: { won: boolean; sweep: boolean; rating: number | null }
-) {
+type DuelResult = {
+	won: boolean;
+	/** The winner took every round. */
+	sweep: boolean;
+	rating: number | null;
+	/** How many points the winner finished ahead by. */
+	margin: number;
+	/** This was a rematch, and the other player won the duel before it. */
+	lostLast: boolean;
+	/** Quick Play wins in a row, counting this one. 0 outside Quick Play. */
+	streak: number;
+};
+
+/** A duel that was played to the end. */
+export function checkDuel(userId: number, { won, sweep, rating, margin, lostLast, streak }: DuelResult) {
 	if (won) {
 		award(userId, "duel_win");
 		const wins = db
@@ -229,6 +264,9 @@ export function checkDuel(
 			.get(userId)!.n;
 		if (wins >= 10) award(userId, "duel_wins_10");
 		if (sweep) award(userId, "duel_sweep");
+		if (margin >= 0 && margin < 100) award(userId, "photo_finish");
+		if (lostLast) award(userId, "return_ticket");
+		if (streak >= 3) award(userId, "hot_streak");
 	}
 	if (rating !== null && rating >= 1200) award(userId, "rating_1200");
 }
