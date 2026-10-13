@@ -8,10 +8,7 @@ import { features } from "../system/features";
 import { pickLocations } from "./locations";
 import { Round, type Guess, type RoundOutcome, type RoundRules } from "./round";
 
-/**
- * Team duels (Specials): two teams of up to two; a team scores its best guess each round.
- * Rooms live in memory and browsers poll. Never on the leaderboards.
- */
+/** Team duels (Specials): two teams of up to two, best guess scores. In memory, polled. Never on the leaderboards. */
 
 export type TeamId = "a" | "b";
 const TEAMS: TeamId[] = ["a", "b"];

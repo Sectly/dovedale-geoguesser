@@ -32,7 +32,7 @@ submissionRoutes.post("/", async (c) => {
 	const hints = cleanHints(form.get("hints"));
 
 	/** Checked after validation so a typo does not burn one of the hourly submissions. */
-	if (!checkUserRateLimit(user, "sub", 5, HOUR * 1000)) fail(429, "Too many submissions. Try again later.");
+	if (!checkUserRateLimit(user, "sub", 8, HOUR * 1000)) fail(429, "Too many submissions. Try again later.");
 	const filename = await saveUploadedImage(form.get("image"));
 	const result = db.run(
 		"INSERT INTO submissions (image_path, world_x, world_y, label, hints, submitted_by) VALUES (?, ?, ?, ?, ?, ?)",

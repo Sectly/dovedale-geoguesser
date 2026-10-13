@@ -118,10 +118,7 @@ export const GAME = {
 		hardBelow: 1600,
 	},
 	restart: {
-		/**
-		 * Longest warning before a planned restart while matches are being played, in seconds. Sooner if they all
-		 * end.
-		 */
+		/** Longest warning before a planned restart while matches run, in seconds. */
 		notice: 180,
 		/** The warning when nobody is playing, and the last call once every game has finished. */
 		quietNotice: 10,

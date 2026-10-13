@@ -1,4 +1,4 @@
-/** Sound effects, generated in the browser. On by default; remembered on this device and by the account. */
+/** Sound effects, generated in the browser. On by default; remembered per device and account. */
 const Sounds = (() => {
 	const STORAGE_KEY = "sounds";
 	let enabled = true;

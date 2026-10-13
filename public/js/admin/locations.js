@@ -49,9 +49,8 @@ function hintRowHtml(text = "") {
 	</div>`;
 }
 
-/** The editor under an open card. Helpers can open it to look and to see the map, but get no controls. */
 function locationEditorHtml(loc) {
-	const readOnly = isHelper();
+	const readOnly = !atLeast("curator");
 	return `<div class="border-t border-zinc-800 p-3 flex flex-col gap-3">
 		<div id="loc-map-${loc.id}" class="relative h-48 rounded-xl overflow-hidden bg-zinc-800"></div>
 		<div class="text-xs text-zinc-500 flex flex-wrap gap-x-4 gap-y-1">
@@ -82,7 +81,7 @@ function locationEditorHtml(loc) {
 					<button onclick="el('hints-${loc.id}').insertAdjacentHTML('beforeend', hintRowHtml())" class="m-btn m-btn-text m-btn-sm mt-1"><span class="material-symbols-outlined">add</span>Add hint</button>
 				</div>
 				<div class="flex gap-2 flex-wrap justify-end">
-					${currentUser?.role === "operator" ? `<button onclick="deleteLocation(${loc.id})" class="m-btn m-btn-text m-btn-sm danger mr-auto">Delete</button>` : ""}
+					${atLeast("admin") ? `<button onclick="deleteLocation(${loc.id})" class="m-btn m-btn-text m-btn-sm danger mr-auto">Delete</button>` : ""}
 					${loc.plays ? `<button onclick="resetLocationStats(${loc.id})" class="m-btn m-btn-text m-btn-sm" title="Forget how players have done here, e.g. after fixing the pin or the screenshot">Reset difficulty</button>` : ""}
 					<button onclick="toggleLocation(${loc.id})" class="m-btn m-btn-tonal m-btn-sm">${loc.is_active ? "Take out of play" : "Put back in play"}</button>
 					<button onclick="saveLocation(${loc.id})" class="m-btn m-btn-filled m-btn-sm">Save</button>
@@ -109,9 +108,9 @@ function locationCardHtml(loc) {
 		loc.approved_by_username && `@${loc.approved_by_username}`,
 	].join(" ");
 	return `<div class="bg-zinc-900 rounded-2xl overflow-hidden ${open ? "ring-1 ring-zinc-700 md:col-span-2 xl:col-span-2" : ""} ${loc.is_active ? "" : "opacity-70"}" id="loc-${loc.id}" data-search="${escHtml(searchText)}">
-		<a href="/uploads/${escHtml(loc.image_path)}" target="_blank" rel="noopener" title="Open full size">
+		<button onclick="${open ? `viewImage('/uploads/${escHtml(loc.image_path)}')` : `toggleLocationEditor(${loc.id})`}" class="block w-full ${open ? "cursor-zoom-in" : ""}" title="${open ? "View larger" : "Open"}" aria-label="${open ? "View the screenshot larger" : "Open this location"}">
 			<img loading="lazy" src="/uploads/${escHtml(loc.image_path)}" alt="" class="w-full ${open ? "max-h-80 object-contain bg-black" : "h-40 object-cover"}" />
-		</a>
+		</button>
 		<button onclick="toggleLocationEditor(${loc.id})" aria-expanded="${open}" class="w-full text-left px-3 py-2.5 hover:bg-zinc-800/50 transition">
 			<span class="flex items-center gap-2">
 				<span class="flex-1 min-w-0 truncate text-sm font-semibold">${loc.label ? escHtml(loc.label) : '<span class="text-zinc-500 font-normal">No label</span>'}</span>
@@ -336,7 +335,6 @@ async function showLocationBreakdown(id) {
 
 let _stats = null;
 let _statSeries = "games";
-let _announcements = null;
 
 /** The activity chart shows one of these at a time, so every bar means the same thing. */
 const STAT_SERIES = {
@@ -355,7 +353,6 @@ async function loadStats() {
 		return;
 	}
 	renderStats(_stats);
-	if (currentUser.role === "operator") loadAnnouncements();
 }
 
 function statCard(label, value, sub = "", href = "") {
@@ -436,7 +433,7 @@ function renderStats(s) {
 			${statCard("Duels being played", n(s.live?.duels), `${n(s.live?.duel_rooms_waiting)} waiting to start`)}
 			${statCard("Watching duels", n(s.live?.spectators))}
 			${statCard("Team games", n(s.live?.team_games))}
-			${statCard("Solo games open", n(s.live?.solo_games))}
+			${statCard("Solo games being played", n(s.live?.solo_games))}
 		</div>
 
 		${statHeading("Waiting for staff", waiting ? "" : "Nothing is waiting")}
@@ -474,285 +471,5 @@ function renderStats(s) {
 			${statCard("Hard", n(s.locations?.hard), `${n(s.locations?.ungraded)} not graded yet`)}
 		</div>
 
-		${currentUser.role === "operator" ? '<div id="announcements-panel"></div>' : ""}`;
-}
-
-/* ---- Announcements (operators): write one, check it, send it, and see what has gone out ---- */
-
-const AUDIENCE_LABELS = {
-	everyone: ["Everyone", "Every account that is not banned"],
-	active: ["Active players", "Accounts that have played in the last 30 days"],
-	staff: ["Staff only", "Everyone with a staff role"],
-};
-const BANNER_LABELS = { 0: "No banner", 1: "1 hour", 6: "6 hours", 24: "1 day", 72: "3 days" };
-
-/** Ready-made announcements. Staff can edit the text before sending. */
-const ANNOUNCEMENT_PRESETS = {
-	privacy: [
-		"Privacy Policy",
-		"Privacy Policy updated",
-		"We have updated our Privacy Policy. Please read what changed.",
-		"/privacy",
-	],
-	tos: [
-		"Terms of Service",
-		"Terms of Service updated",
-		"We have updated our Terms of Service. Please read what changed.",
-		"/tos",
-	],
-	fairplay: [
-		"Fair Play",
-		"Fair Play Policy updated",
-		"We have updated our Fair Play Policy. Please read what changed.",
-		"/fairplay",
-	],
-	guidelines: [
-		"Upload Guidelines",
-		"Upload Guidelines updated",
-		"We have updated our Upload Guidelines. Please read them before your next submission.",
-		"/guidelines",
-	],
-	several: [
-		"Several documents",
-		"Our policies have been updated",
-		"We have updated our Terms of Service, Privacy Policy, Fair Play Policy and Upload Guidelines. Please read what changed.",
-		"/tos",
-	],
-	maintenance: [
-		"Planned downtime",
-		"Planned maintenance",
-		"The site will be down for maintenance on [day and time, UK time] for about [how long]. Games still open then will be closed.",
-		"",
-	],
-	update: ["New update", "New update", "[What is new, in a sentence or two.]", ""],
-	special: [
-		"Special event",
-		"[Event name] is live",
-		"A new special is open until [date]. Find it on the Specials page.",
-		"/specials",
-	],
-	scores: [
-		"Scores changed",
-		"Leaderboard corrected",
-		"Some scores were [removed or reset] because [reason].",
-		"/leaderboard",
-	],
-	issue: ["Known issue", "Known issue: [what]", "We know about a problem with [what] and are working on it.", ""],
-	fixed: [
-		"Issue fixed",
-		"Fixed: [what]",
-		"The problem with [what] is fixed. Reload the page if anything still looks off.",
-		"",
-	],
-};
-/** The presets about the published documents; the rest are grouped as general. */
-const DOCUMENT_PRESETS = ["privacy", "tos", "fairplay", "guidelines", "several"];
-/** Presets leave the parts only staff know in [brackets]; nothing is sent while one is still there. */
-const UNFILLED = /\[[^\]]+\]/;
-
-const presetChip = (key) =>
-	`<button onclick="useAnnouncementPreset('${key}')" class="m-chip">${ANNOUNCEMENT_PRESETS[key][0]}</button>`;
-
-function useAnnouncementPreset(key) {
-	const [, title, body, link] = ANNOUNCEMENT_PRESETS[key];
-	el("announce-title").value = title;
-	el("announce-body").value = body;
-	el("announce-link").value = link;
-	updateAnnouncementPreview();
-}
-
-async function loadAnnouncements() {
-	try {
-		_announcements = await api("/api/admin/announcements");
-	} catch {
-		_announcements = null;
-	}
-	renderAnnouncements();
-}
-
-function renderAnnouncements() {
-	const box = el("announcements-panel");
-	if (!box || !_announcements) return;
-	/** Redrawing must not throw away what is being written. */
-	const draft = announcementDraft();
-	const sizes = _announcements.audiences;
-	const field =
-		"bg-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600";
-	const history = _announcements.history
-		.map(
-			(a) => `<div class="py-2.5 flex items-start gap-3">
-				<div class="flex-1 min-w-0">
-					<div class="text-sm font-semibold break-words">${escHtml(a.title)} ${a.banner_live ? '<span class="m-tag info ml-1">Banner showing</span>' : ""}</div>
-					<div class="text-xs text-zinc-400 break-words">${escHtml(a.body)}</div>
-					<div class="text-[11px] text-zinc-600 mt-0.5">${formatWhen(a.created_at)} · by ${escHtml(a.created_by || "staff")} · ${escHtml(AUDIENCE_LABELS[a.audience]?.[0] || a.audience)}, ${a.sent_to.toLocaleString()} account${a.sent_to === 1 ? "" : "s"}${a.link ? ` · links to ${escHtml(a.link)}` : ""}</div>
-				</div>
-				${a.banner_live ? `<button onclick="endAnnouncementBanner(${a.id})" class="m-btn m-btn-text m-btn-sm flex-shrink-0">Take banner down</button>` : ""}
-			</div>`
-		)
-		.join("");
-
-	box.innerHTML = `${statHeading("Announcement")}
-		<p class="text-zinc-500 text-xs mb-3 -mt-2">A notification to many accounts at once, for rule changes, planned downtime and new features. It is sent whatever a player's notification settings are, so use it sparingly.</p>
-		<div class="grid md:grid-cols-2 gap-4 items-start">
-			<div class="bg-zinc-900 rounded-2xl p-4 flex flex-col gap-2">
-				<div class="m-label">Start from a preset</div>
-				<div class="flex flex-wrap gap-1.5">
-					${Object.keys(ANNOUNCEMENT_PRESETS)
-						.filter((key) => !DOCUMENT_PRESETS.includes(key))
-						.map(presetChip)
-						.join("")}
-				</div>
-				<div class="flex flex-wrap gap-1.5 mb-2">
-					${DOCUMENT_PRESETS.map(presetChip).join("")}
-				</div>
-				<label class="m-label" for="announce-title">Title <span id="announce-title-count" class="text-zinc-600 font-normal"></span></label>
-				<input id="announce-title" maxlength="120" placeholder="What is it about?" class="${field}" value="${escHtml(draft.title)}" />
-				<label class="m-label mt-1" for="announce-body">Message <span id="announce-body-count" class="text-zinc-600 font-normal"></span></label>
-				<textarea id="announce-body" rows="4" maxlength="400" placeholder="What do players need to know?" class="${field} resize-none">${escHtml(draft.body)}</textarea>
-				<label class="m-label mt-1" for="announce-link">Link <span class="text-zinc-600 font-normal">(optional, a page on this site)</span></label>
-				<input id="announce-link" maxlength="200" placeholder="/daily" class="${field}" value="${escHtml(draft.link)}" />
-				<div class="grid grid-cols-2 gap-2 mt-1">
-					<div>
-						<label class="m-label" for="announce-audience">Send to</label>
-						<select id="announce-audience" class="m-field">${Object.entries(AUDIENCE_LABELS)
-							.map(
-								([key, [label]]) =>
-									`<option value="${key}" ${draft.audience === key ? "selected" : ""}>${label} (${(sizes[key] ?? 0).toLocaleString()})</option>`
-							)
-							.join("")}</select>
-					</div>
-					<div>
-						<label class="m-label" for="announce-banner">Banner on every page</label>
-						<select id="announce-banner" class="m-field">${_announcements.banner_hours
-							.map(
-								(h) =>
-									`<option value="${h}" ${Number(draft.banner_hours) === h ? "selected" : ""}>${BANNER_LABELS[h] || `${h} hours`}</option>`
-							)
-							.join("")}</select>
-					</div>
-				</div>
-				<p id="announce-hint" class="text-xs text-zinc-500 min-h-[1rem]"></p>
-				<div class="flex justify-end gap-2 flex-wrap">
-					<button id="announce-test" onclick="sendAnnouncement(true)" class="m-btn m-btn-text" title="Sends it to you alone, so you can see it in your inbox first">Send me a test</button>
-					<button id="announce-send" onclick="sendAnnouncement(false)" class="m-btn m-btn-filled"><span class="material-symbols-outlined">campaign</span>Send</button>
-				</div>
-			</div>
-			<div>
-				<div class="m-label">Preview</div>
-				<div id="announce-preview"></div>
-				<div class="m-label mt-4">Sent before</div>
-				<div class="bg-zinc-900 rounded-2xl px-4 divide-y divide-zinc-800 max-h-80 overflow-y-auto">${history || '<p class="text-zinc-500 text-sm py-3">Nothing has been sent yet.</p>'}</div>
-			</div>
-		</div>`;
-	for (const id of ["announce-title", "announce-body", "announce-link", "announce-audience", "announce-banner"])
-		el(id).addEventListener("input", updateAnnouncementPreview);
-	updateAnnouncementPreview();
-}
-
-function announcementDraft() {
-	const value = (id, fallback) => el(id)?.value ?? fallback;
-	return {
-		title: value("announce-title", "").trim(),
-		body: value("announce-body", "").trim(),
-		link: value("announce-link", "").trim(),
-		audience: value("announce-audience", "everyone"),
-		banner_hours: Number(value("announce-banner", 0)),
-	};
-}
-
-/** Shows the notification as players will get it, and holds the buttons back until it can be sent. */
-function updateAnnouncementPreview() {
-	const draft = announcementDraft();
-	const staffOnly = draft.audience === "staff";
-	if (staffOnly) el("announce-banner").value = "0";
-	el("announce-banner").disabled = staffOnly;
-	const banner = staffOnly ? 0 : draft.banner_hours;
-	el("announce-title-count").textContent = `${draft.title.length}/120`;
-	el("announce-body-count").textContent = `${draft.body.length}/400`;
-
-	const linkOk = !draft.link || /^\/(?!\/)/.test(draft.link);
-	const problem =
-		draft.title.length < 5
-			? "The title needs at least 5 characters."
-			: draft.body.length < 10
-				? "The message needs at least 10 characters."
-				: !linkOk
-					? "The link has to start with a single /, like /daily."
-					: UNFILLED.test(draft.title + draft.body)
-						? "Fill in the parts in [brackets] first."
-						: "";
-	const reach = _announcements?.audiences?.[draft.audience] ?? 0;
-	el("announce-hint").textContent =
-		problem ||
-		`Goes to ${reach.toLocaleString()} account${reach === 1 ? "" : "s"}${banner ? `, and stays on every page for ${BANNER_LABELS[banner].toLowerCase()} (logged-out visitors see it too)` : ""}.`;
-	el("announce-hint").classList.toggle("text-amber-300", !!problem);
-	el("announce-send").disabled = el("announce-test").disabled = !!problem;
-
-	el("announce-preview").innerHTML = `<div class="bg-zinc-900 rounded-2xl px-4 py-3 flex items-start gap-3">
-			<span class="material-symbols-outlined text-xl text-purple-400 flex-shrink-0 mt-0.5">campaign</span>
-			<div class="min-w-0">
-				<div class="text-sm font-semibold break-words">${escHtml(draft.title || "Title")}</div>
-				<div class="text-xs text-zinc-400 break-words">${escHtml(draft.body || "Your message appears here.")}</div>
-				<div class="text-[11px] text-zinc-600 mt-0.5">In the inbox · opens ${escHtml(draft.link && linkOk ? draft.link : "the notifications page")}</div>
-			</div>
-		</div>
-		${
-			banner
-				? `<div class="site-announcement mt-2" style="position:static;width:auto;animation:none">
-					<span class="site-announcement-icon" aria-hidden="true"><span class="material-symbols-outlined">campaign</span></span>
-					<div class="site-announcement-text">
-						<div class="site-announcement-title">${escHtml(draft.title || "Title")}</div>
-						<div class="site-announcement-body">${escHtml(draft.body || "Your message appears here.")}</div>
-						${draft.link && linkOk ? '<span class="site-announcement-link">Take a look</span>' : ""}
-					</div>
-					<span class="m-icon-btn" aria-hidden="true"><span class="material-symbols-outlined">close</span></span>
-				</div>
-				<div class="text-[11px] text-zinc-600 mt-1">The banner, in the bottom corner of every page</div>`
-				: ""
-		}`;
-}
-
-async function sendAnnouncement(test) {
-	const draft = announcementDraft();
-	if (!test) {
-		const [audience] = AUDIENCE_LABELS[draft.audience] || ["Everyone"];
-		const reach = _announcements?.audiences?.[draft.audience] ?? 0;
-		const ok = await showConfirm(
-			"Send this announcement?",
-			`"${draft.title}" goes to ${audience.toLowerCase()} (${reach.toLocaleString()} account${reach === 1 ? "" : "s"})${draft.banner_hours ? ` and is pinned to every page for ${BANNER_LABELS[draft.banner_hours].toLowerCase()}` : ""}. Notifications cannot be taken back once sent.`,
-			{ confirmLabel: "Send", confirmClass: "bg-blue-600 hover:bg-blue-500" }
-		);
-		if (!ok) return;
-	}
-	try {
-		const { sent } = await api("/api/admin/announcements", { json: { ...draft, test } });
-		if (test) return showToast("Test sent. Check your notifications.", "success");
-		showToast(`Announcement sent to ${sent.toLocaleString()} account${sent === 1 ? "" : "s"}.`, "success");
-		for (const id of ["announce-title", "announce-body", "announce-link"]) el(id).value = "";
-		await loadAnnouncements();
-		if (draft.banner_hours) checkAnnouncement();
-	} catch (err) {
-		showToast(err.message, "error");
-	}
-}
-
-async function endAnnouncementBanner(id) {
-	if (
-		!(await showConfirm(
-			"Take this banner down?",
-			"It disappears from every page. The notifications already sent stay in people's inboxes.",
-			{
-				confirmLabel: "Take down",
-			}
-		))
-	)
-		return;
-	try {
-		await api(`/api/admin/announcements/${id}/end-banner`, { method: "POST" });
-		showToast("Banner taken down.", "success");
-		await loadAnnouncements();
-		checkAnnouncement();
-	} catch (err) {
-		showToast(err.message, "error");
-	}
+`;
 }

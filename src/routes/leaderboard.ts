@@ -21,10 +21,7 @@ function pageQuery(c: Context): { limit: number; offset: number } {
 	return { limit: Math.min(intQuery(c, "limit", 50, 1, MAX_PER_PAGE), MAX_ENTRIES - offset), offset };
 }
 
-/**
- * Boards are the same for everyone, so each answer is reused for a few seconds. A new score can take that long to
- * appear.
- */
+/** Boards are the same for everyone, so answers are reused for a few seconds. */
 const CACHE_MS = 10_000;
 const MAX_CACHED = 500;
 const boardCache = new Map<string, { at: number; rows: unknown[] }>();

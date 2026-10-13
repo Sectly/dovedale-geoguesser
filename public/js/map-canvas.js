@@ -2,11 +2,7 @@
 const MAP_QUALITY_SCALE = { tiny: 0.25, low: 0.45, medium: 0.75, high: 1 };
 const MAP_QUALITIES = Object.keys(MAP_QUALITY_SCALE);
 
-/**
- * How much map a device gets. The full map decodes to nearly 1 GB, which crashes phones and Safari.
- * Those get a small `base` map plus sharper `detail` tiles for what is on screen.
- * With no `base`, one quality is loaded for the whole map.
- */
+/** How much map a device gets. The full map decodes to nearly 1 GB, which crashes phones and Safari, so those get a small `base` map plus sharper `detail` tiles for what is on screen. */
 function _mapProfile() {
 	const ua = navigator.userAgent;
 	/** An iPad asks for the desktop site and calls itself a Mac; only its touch screen gives it away. */
@@ -186,7 +182,7 @@ class MapCanvas {
 		this._scheduleDraw();
 	}
 
-	/** Fits every given world position in view, above the bottom `insetBottom` pixels. `restoreView` undoes it. */
+	/** Fits the given world positions in view. `restoreView` undoes it. */
 	fitTo(points, { insetBottom = 0, padding = 56 } = {}) {
 		this._handleResize();
 		if (!points.length || this.viewWidth <= 0 || this.viewHeight <= 0) return;

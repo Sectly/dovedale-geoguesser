@@ -1942,6 +1942,17 @@ body:has(#game-screen:not(.hidden)) .site-announcement {
 	background: rgba(37, 99, 235, 0.22);
 	color: #93c5fd;
 }
+.site-announcement[data-style="success"] .site-announcement-icon {
+	background: rgba(34, 197, 94, 0.2);
+	color: #86efac;
+}
+.site-announcement[data-style="warning"] {
+	border-color: rgba(245, 158, 11, 0.45);
+}
+.site-announcement[data-style="warning"] .site-announcement-icon {
+	background: rgba(245, 158, 11, 0.22);
+	color: #fcd34d;
+}
 .site-announcement-icon .material-symbols-outlined {
 	font-size: 1.375rem;
 }

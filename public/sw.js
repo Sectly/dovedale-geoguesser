@@ -1,7 +1,4 @@
-/**
- * Service worker: shows push notifications and stands in with a waiting page when the server is unreachable. Caches
- * nothing.
- */
+/** Service worker: push notifications, and a waiting page when the server is unreachable. Caches nothing. */
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
@@ -36,7 +33,7 @@ self.addEventListener("notificationclick", (event) => {
 	);
 });
 
-/** Shown in place of the browser's error page while the server is down. Reloads itself when the server answers. */
+/** Shown instead of the browser's error page while the server is down. Reloads itself when it answers. */
 const WAITING_PAGE = `<!doctype html>
 <html lang="en">
 <head>

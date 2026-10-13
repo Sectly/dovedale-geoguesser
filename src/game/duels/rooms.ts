@@ -9,10 +9,7 @@ import { reviewGuess } from "../../fairplay";
 import { features } from "../../system/features";
 import { rateDuel, type RatingChange } from "./rating";
 
-/**
- * A duel: two players guess the same locations; the higher total wins.
- * Rooms live in memory; results are saved each round.
- */
+/** A duel: two players, the same locations, higher total wins. Rooms live in memory; results are saved each round. */
 
 export type DuelPlayer = {
 	userId: number;
@@ -181,7 +178,7 @@ export function roundStartMessage(room: DuelRoom) {
 	return { round: room.roundNumber, total_rounds: room.rounds, ...room.round.view() };
 }
 
-/** Brings one connection up to date with its room: players, the current round or result, and whether it is paused. */
+/** Brings one connection up to date with its room. */
 export function sendSnapshot(room: DuelRoom, conn: WireConnection, viewerId: number | null, spectating = false) {
 	send(conn, "room_state", { ...roomState(room), spectating });
 	if (room.status !== "in_progress") return;
@@ -664,7 +661,7 @@ export function broadcastToDuels(event: string, data: unknown) {
 	for (const room of duelRooms.values()) broadcast(room, event, data);
 }
 
-/** Closes every room before the server stops. Cut-short duels are recorded as abandoned, with no winner. */
+/** Closes every room before the server stops. Cut-short duels are recorded as abandoned. */
 export function closeAllDuels(message: string) {
 	for (const room of [...duelRooms.values()]) {
 		clearPhase(room);
@@ -685,6 +682,43 @@ export function closeAllDuels(message: string) {
 		duelRooms.delete(room.code);
 		broadcast(room, "server_restart", { message });
 	}
+}
+
+/** Ends a room on staff's say-so. A running duel is recorded as abandoned with no winner, so nothing changes for either player. The reason stays in the audit log. */
+export function closeDuelByStaff(code: string): DuelRoom | null {
+	const room = duelRooms.get(code);
+	if (!room || room.status === "finished") return null;
+	clearPhase(room);
+	clearPause(room);
+	if (room.rematchTimer) clearTimeout(room.rematchTimer);
+	if (room.status === "in_progress") db.run("UPDATE duel_games SET status = 'abandoned' WHERE id = ?", [room.dbId]);
+	else db.run("DELETE FROM duel_games WHERE id = ? AND status = 'waiting'", [room.dbId]);
+	room.status = "finished";
+	room.round = null;
+	duelRooms.delete(room.code);
+	broadcast(room, "closed_by_staff", {});
+	return room;
+}
+
+/** Every room waiting or being played, private ones included, for the staff panel. */
+export function allOpenDuels() {
+	return [...duelRooms.values()]
+		.filter((room) => room.status !== "finished")
+		.map((room) => ({
+			code: room.code,
+			status: room.status,
+			round: room.roundNumber,
+			rounds: room.rounds,
+			quickplay: room.quickplay,
+			listed: room.listed,
+			spectators: room.spectators.size,
+			players: room.players.map((p) => ({
+				user_id: p.userId,
+				username: p.username,
+				total_score: p.totalScore,
+				connected: p.connected,
+			})),
+		}));
 }
 
 /** Duels under way that anyone may watch, busiest first. */

@@ -48,9 +48,9 @@ export function actionStatus(action: ModerationAction, now = nowSec()): "active"
 	return "active";
 }
 
-/** Supervisors may overturn warnings, limits and temporary bans; permanent bans need an operator. */
+/** Supervisors may overturn warnings, limits and temporary bans; permanent bans need an admin. */
 export function canOverturn(staff: User, action: ModerationAction): boolean {
-	return hasRole(staff, action.type === "ban_perm" ? "operator" : "supervisor");
+	return hasRole(staff, action.type === "ban_perm" ? "admin" : "supervisor");
 }
 
 /** Only operators may erase an action from a user's history. */

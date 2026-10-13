@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db, type Location } from "../../db";
 import { LIMITS } from "../../config";
-import { requireStaff } from "../../auth/guards";
+import { isFullStaff, requireStaff } from "../../auth/guards";
 import { cleanHints, parseHints } from "../../game/locations";
 import { parseGuess } from "../../game/round";
 import { auditLog } from "../../lib/audit";
@@ -119,7 +119,8 @@ adminSuggestionRoutes.get("/", (c) => {
 
 /** The latest reviewed suggestions, with who reviewed each and why any was denied. */
 adminSuggestionRoutes.get("/history", (c) => {
-	requireStaff(c, "helper");
+	const staff = requireStaff(c, "helper");
+	const mine = isFullStaff(staff) ? "" : `AND ls.reviewed_by = ${staff.id}`;
 	return c.json(
 		db
 			.query(
@@ -129,7 +130,7 @@ adminSuggestionRoutes.get("/history", (c) => {
 				JOIN users u ON u.id = ls.user_id
 				JOIN locations l ON l.id = ls.location_id
 				LEFT JOIN users r ON r.id = ls.reviewed_by
-				WHERE ls.status != 'pending'
+				WHERE ls.status != 'pending' ${mine}
 				ORDER BY ls.reviewed_at DESC, ls.id DESC LIMIT ${HISTORY_LIMIT}`
 			)
 			.all()

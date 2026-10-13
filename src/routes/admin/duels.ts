@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { requireStaff } from "../../auth/guards";
 import { db } from "../../db";
-import { duelRooms, duelsInProgress } from "../../game/duels/rooms";
-import { intQuery, text } from "../../lib/http";
+import { allOpenDuels, closeDuelByStaff, duelRooms, duelsInProgress } from "../../game/duels/rooms";
+import { auditLog } from "../../lib/audit";
+import { requireReason } from "../../moderation";
+import { fail, intQuery, readJson, text } from "../../lib/http";
 import { DAY, nowSec } from "../../lib/time";
 
 /** Routes mounted at /api/admin/duels: how duels are going, and the record of past ones. */
@@ -83,6 +85,26 @@ adminDuelRoutes.get("/stats", (c) => {
 			)
 			.all(monthAgo),
 	});
+});
+
+/** Every open room, private ones too. */
+adminDuelRoutes.get("/live", (c) => {
+	requireStaff(c, "admin");
+	return c.json(allOpenDuels());
+});
+
+/** Closes a room that is open or being played. Nobody's score, rating or record changes. */
+adminDuelRoutes.post("/live/:code/close", async (c) => {
+	const staff = requireStaff(c, "admin");
+	const reason = requireReason((await readJson<{ reason: string }>(c)).reason);
+	const room =
+		closeDuelByStaff(text(c.req.param("code"), 12).toUpperCase()) ?? fail(404, "That duel is no longer open");
+	auditLog(staff, "duel_force_close", {
+		targetType: "duel",
+		targetId: room.dbId,
+		details: `${room.code}: ${room.players.map((p) => p.username).join(" vs ") || "empty room"}. ${reason}`,
+	});
+	return c.json({ success: true });
 });
 
 /** Past duels, newest first. `kind` is quickplay or private, `q` a player's username. */

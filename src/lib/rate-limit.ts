@@ -1,3 +1,4 @@
+import { isFullStaff } from "../auth/guards";
 import type { User } from "../db";
 
 type Bucket = { hits: number[]; windowMs: number };
@@ -20,9 +21,9 @@ export function checkRateLimit(key: string, max: number, windowMs: number): bool
 	return allowed;
 }
 
-/** Staff get five times the allowance. */
+/** Staff get five times the allowance. Helpers and locked-out staff are limited like any player. */
 export function checkUserRateLimit(user: User, action: string, max: number, windowMs: number): boolean {
-	return checkRateLimit(`${action}:${user.id}`, user.role ? max * 5 : max, windowMs);
+	return checkRateLimit(`${action}:${user.id}`, isFullStaff(user) ? max * 5 : max, windowMs);
 }
 
 /** Drops every key whose hits have all aged out of its own window, so the map cannot grow for ever. */

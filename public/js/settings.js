@@ -32,7 +32,7 @@ function closeListDialog() {
 	show("list-dialog", false);
 }
 
-/** The submit page with a denied submission's label, pin and hints filled back in. The screenshot is chosen again. */
+/** The submit page with a denied submission's label, pin and hints filled in. */
 function resendUrl(sub) {
 	const params = new URLSearchParams({ label: sub.label || "", x: sub.world_x, y: sub.world_y });
 	try {
@@ -212,6 +212,79 @@ async function setNotifyPreset(preset) {
 	}
 }
 
+const EMAIL_FREQUENCIES = {
+	off: "Off",
+	hourly: "Every hour",
+	daily: "Once a day",
+	weekly: "Once a week",
+	monthly: "Once a month",
+};
+
+/** The email summary row: add an address, wait for it to be confirmed, then pick how often. */
+function emailSettingHtml() {
+	const email = currentUser.email;
+	const remove =
+		'<button onclick="removeEmail()" class="m-btn m-btn-text m-btn-sm danger flex-shrink-0">Remove email</button>';
+	/** While email is switched off the setting is hidden, but a saved address can always be taken away. */
+	if (!email?.available)
+		return email?.address
+			? settingRow(
+					"Email summary",
+					`Not being sent at the moment. ${escHtml(email.address)} is still saved`,
+					remove
+				)
+			: "";
+	if (!email.address)
+		return settingRow(
+			"Email summary",
+			"One email with your unread notifications",
+			`<span class="flex gap-2 flex-shrink-0">
+				<input id="email-input" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" class="m-field" style="width: 11rem" aria-label="Email address"
+					onkeydown="if (event.key === 'Enter') saveEmail()" />
+				<button onclick="saveEmail()" class="m-btn m-btn-tonal m-btn-sm">Confirm</button>
+			</span>`
+		);
+	if (!email.verified)
+		return settingRow("Email summary", `Open the link we sent to ${escHtml(email.address)}`, remove);
+	return settingRow(
+		"Email summary",
+		`One email with your unread notifications, to ${escHtml(email.address)}`,
+		`<span class="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
+		<select onchange="setEmailFrequency(this.value)" class="m-field flex-shrink-0" style="width: auto" aria-label="How often">
+			${Object.entries(EMAIL_FREQUENCIES)
+				.map(
+					([key, label]) =>
+						`<option value="${key}" ${email.frequency === key ? "selected" : ""}>${label}</option>`
+				)
+				.join("")}
+		</select>
+		${remove}</span>`
+	);
+}
+
+/** Runs an email change, then redraws the row from what the server now holds. */
+async function changeEmail(request, done) {
+	try {
+		await request();
+		currentUser.email = (await api("/api/auth/me")).email;
+		el("preferences-body").innerHTML = preferencesHtml();
+		if (done) showToast(done, "success");
+	} catch (err) {
+		showToast(err.message, "error");
+	}
+}
+
+const saveEmail = () =>
+	changeEmail(
+		() => api("/api/settings/email", { json: { email: el("email-input").value } }),
+		"Confirmation email sent."
+	);
+/** Unlinks the address: it is deleted, not just switched off. Adding it again is the undo. */
+const removeEmail = () =>
+	changeEmail(() => api("/api/settings/email", { method: "DELETE" }), "Email removed and deleted.");
+const setEmailFrequency = (frequency) =>
+	changeEmail(() => api("/api/settings/email/frequency", { json: { frequency } }));
+
 function preferencesHtml() {
 	const prefs = currentUser.prefs;
 	const desktopBlocked = "Notification" in window && Notification.permission === "denied";
@@ -253,6 +326,7 @@ function preferencesHtml() {
 					)
 				: '<span class="text-xs text-zinc-500 flex-shrink-0">Not supported</span>'
 		)}
+		${emailSettingHtml()}
 		${
 			currentUser.role
 				? `<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-5 mb-1">Staff</div>` +
@@ -639,10 +713,7 @@ function openTicketView(ticketId) {
 	el("tvm-body").scrollTop = el("tvm-body").scrollHeight;
 }
 
-/**
- * Draws the open conversation. The reply box is only rebuilt when the player's options change, so a half-typed reply
- * survives.
- */
+/** Draws the open conversation. The reply box is rebuilt only when options change, so a half-typed reply survives. */
 function renderTicketView() {
 	const ticket = _myTickets.find((t) => t.id === _viewingTicketId);
 	if (!ticket) return closeTicketView();

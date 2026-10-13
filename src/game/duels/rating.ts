@@ -1,7 +1,7 @@
 import { db } from "../../db";
 import { GAME } from "../../config";
 
-/** Duel ratings: Elo, moved only by Quick Play. Each change is stored with the game so voiding can undo it. */
+/** Duel ratings: Elo, Quick Play only. Each change is stored with the game so voiding can undo it. */
 
 export type RatingChange = { user_id: number; rating: number; change: number };
 
@@ -18,10 +18,7 @@ function getRated(userId: number): Rated | null {
 	return db.query<Rated, [number]>("SELECT id, duel_rating, duel_rated_games FROM users WHERE id = ?").get(userId);
 }
 
-/**
- * Rates one duel. `winnerId` is null for a tie.
- * Returns each player's new rating and change, or null if it cannot be rated.
- */
+/** Rates one duel (`winnerId` null for a tie). Returns each player's new rating and change, or null. */
 export function rateDuel(gameId: number, playerIds: number[], winnerId: number | null): RatingChange[] | null {
 	if (playerIds.length !== 2) return null;
 	const players = playerIds.map(getRated);

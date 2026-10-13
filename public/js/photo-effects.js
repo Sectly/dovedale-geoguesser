@@ -1,7 +1,4 @@
-/**
- * Screenshot effects for seasonal specials: an overlay the pointer cuts through. Scores from these never reach the
- * leaderboards.
- */
+/** Screenshot effects for seasonal specials. Never on the leaderboards. */
 const PhotoEffects = (() => {
 	/** How much of the snow may be wiped away, as a share of the picture. */
 	const SNOW_BUDGET = 0.3;

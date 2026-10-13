@@ -1,6 +1,24 @@
 const _pathMatch = location.pathname.match(/^\/u\/([^/]+)/);
 const username = _pathMatch ? decodeURIComponent(_pathMatch[1]) : new URLSearchParams(location.search).get("u") || "";
 
+/** Role badge tooltips, written for players: what the person does, not what they can access. */
+const ROLE_BADGES = {
+	operator: ["Operator", "Runs Dovedale GeoGuesser."],
+	admin: ["Administrator", "Helps run the site and the staff team."],
+	supervisor: ["Supervisor", "Leads the moderators."],
+	moderator: ["Moderator", "Answers tickets and keeps play fair."],
+	curator: ["Curator", "Looks after the locations in the game."],
+	helper: ["Helper", "A player who helps review new locations."],
+};
+const ROLE_TONES = {
+	operator: "bg-yellow-900/60 text-yellow-300",
+	admin: "bg-orange-900/60 text-orange-300",
+	supervisor: "bg-purple-900/60 text-purple-300",
+	moderator: "bg-blue-900/60 text-blue-300",
+	curator: "bg-green-900/60 text-green-300",
+	helper: "bg-teal-900/60 text-teal-300",
+};
+
 async function init() {
 	const me = await fetchUser();
 
@@ -67,7 +85,7 @@ function render(p, me) {
 		<div class="min-w-0 flex-1">
 			<div class="flex items-center gap-2 flex-wrap">
 				<h1 class="text-2xl sm:text-3xl font-bold break-words">${escHtml(p.display_name || p.username)}</h1>
-				${p.role ? `<span class="text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${p.role === "operator" ? "bg-yellow-900/60 text-yellow-300" : p.role === "supervisor" ? "bg-purple-900/60 text-purple-300" : p.role === "helper" ? "bg-teal-900/60 text-teal-300" : "bg-blue-900/60 text-blue-300"}"><span class="material-symbols-outlined" style="font-size:12px;font-variation-settings:'FILL' 1">shield</span>${escHtml(p.role.charAt(0).toUpperCase() + p.role.slice(1))}</span>` : ""}
+				${ROLE_BADGES[p.role] ? `<span title="${escHtml(ROLE_BADGES[p.role][1])}" tabindex="0" class="text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 cursor-help ${ROLE_TONES[p.role]}"><span class="material-symbols-outlined" style="font-size:12px;font-variation-settings:'FILL' 1">${p.role === "helper" ? "volunteer_activism" : "shield"}</span>${ROLE_BADGES[p.role][0]}</span>` : ""}
 			</div>
 			<div class="text-zinc-500 text-sm">@${escHtml(p.username)}</div>
 			<div class="text-zinc-600 text-xs mt-1">Member since ${joined}</div>

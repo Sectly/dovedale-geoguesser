@@ -1,7 +1,4 @@
-/**
- * Title screen for a session's first visit to the home page. Loaded in the <head> so nothing paints first. "/?intro"
- * replays it.
- */
+/** Title screen on the home page. In the <head> so nothing paints first. "/?intro" replays it. */
 (function intro() {
 	const SEEN_KEY = "intro_seen";
 	const SEEN_AT_KEY = "intro_seen_at";

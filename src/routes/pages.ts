@@ -24,6 +24,7 @@ const PAGES: Record<string, string> = {
 	"/submit": "submit.html",
 	"/admin": "admin.html",
 	"/specials": "specials.html",
+	"/news": "news.html",
 	"/specials/reflex": "special-reflex.html",
 	"/specials/teams": "special-teams.html",
 	"/specials/memory": "special-memory.html",
@@ -46,7 +47,7 @@ function assetVersion(path: string): string {
 	}
 }
 
-/** Loads a page from public/: adds content hashes to script and style URLs, and makes share-image URLs absolute. */
+/** Loads a page from public/: hashes script and style URLs, makes share-image URLs absolute. */
 function loadPage(file: string): Page {
 	const cached = pageCache.get(file);
 	if (cached && !DEV_MODE) return cached;
@@ -174,6 +175,7 @@ pageRoutes.get("/sitemap.xml", (c) => {
 		url("/daily", "daily", "0.9"),
 		url("/duels", "weekly", "0.8"),
 		url("/leaderboard", "daily", "0.8"),
+		url("/news", "weekly", "0.5"),
 		url("/guidelines", "monthly", "0.4"),
 		url("/tos", "monthly", "0.3"),
 		url("/privacy", "monthly", "0.3"),
@@ -232,10 +234,7 @@ type ErrorPageOptions = {
 	help?: boolean;
 };
 
-/**
- * The full-page error screen. Defaults to 500; `ref` is the id in the server log. The status picks the opening
- * animation.
- */
+/** The full-page error screen. `ref` is the server log id; the status picks the animation. */
 export function errorPage(c: Context, { status = 500, title, message, ref, help = true }: ErrorPageOptions = {}) {
 	let html = BARE_ERROR_PAGE;
 	try {
@@ -273,10 +272,7 @@ pageRoutes.get("/uploads/:file", (c) => sendFile(c, UPLOADS_DIR, c.req.param("fi
 pageRoutes.get("*", (c) => {
 	const path = c.req.path;
 	if (path.startsWith("/api/")) return notFound(c);
-	/**
-	 * Hashed scripts and styles are cached for ever. Everything else is revalidated; map tiles must follow map
-	 * updates.
-	 */
+	/** Hashed scripts and styles are cached for ever; the rest is revalidated. */
 	const hashed = /^\/(js|css)\//.test(path) && c.req.query("v") !== undefined;
 	const isMedia = /\.(png|webp|svg|ico|jpg|woff2)$/.test(path);
 	const cacheControl = hashed ? IMMUTABLE : isMedia ? "public, max-age=3600, must-revalidate" : "no-cache";

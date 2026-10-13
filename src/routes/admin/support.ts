@@ -48,7 +48,7 @@ adminSupportRoutes.get("/counts", (c) => {
 });
 
 adminSupportRoutes.post("/cleanup", (c) => {
-	const staff = requireStaff(c, "operator");
+	const staff = requireStaff(c, "admin");
 	const deleted = deleteOldClosedTickets();
 	auditLog(staff, "ticket_cleanup", { details: `${deleted} tickets removed` });
 	return c.json({ deleted });
@@ -115,7 +115,7 @@ adminSupportRoutes.post("/:id/reopen", (c) => {
 });
 
 adminSupportRoutes.delete("/:id", (c) => {
-	const staff = requireStaff(c, "operator");
+	const staff = requireStaff(c, "admin");
 	const ticket = getTicket(idParam(c));
 	if (ticket.status !== "closed") fail(400, "Can only delete closed tickets");
 	db.run("DELETE FROM support_tickets WHERE id = ?", [ticket.id]);

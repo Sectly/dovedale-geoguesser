@@ -18,7 +18,7 @@ let expandedTicketId = null;
 let _ticketsSignature = "";
 let _stopTicketPolling = null;
 
-/** Loads the ticket list. `quiet` is a background refresh: it only redraws on a change and keeps typed replies. */
+/** Loads the ticket list. `quiet` redraws only on a change and keeps typed replies. */
 async function loadTickets(reset = true, autoOpenId = null, { quiet = false } = {}) {
 	if (reset) expandedTicketId = autoOpenId;
 	const params = new URLSearchParams({ status: supportStatus });
@@ -120,7 +120,7 @@ function renderTickets(tickets, counts) {
 				<input id="support-search" type="search" placeholder="Search tickets" value="${escHtml(supportSearch)}" class="m-field" />
 			</label>
 			${
-				currentUser?.role === "operator"
+				atLeast("admin")
 					? `<button onclick="cleanupTickets()" class="m-icon-btn" title="Delete closed tickets older than six months" aria-label="Clean up old tickets"><span class="material-symbols-outlined">auto_delete</span></button>`
 					: ""
 			}
@@ -201,7 +201,7 @@ function renderTicketCard(t) {
 }
 
 function renderTicketBody(t, isOpen) {
-	const isOp = currentUser?.role === "operator";
+	const isOp = atLeast("admin");
 	const closeRequestBanner = t.close_requested
 		? `<div class="flex items-start gap-2 bg-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-300">
 			<span class="material-symbols-outlined text-lg text-amber-300 flex-shrink-0">task_alt</span>
@@ -261,7 +261,7 @@ function setTicketCategory(c) {
 	loadTickets(true);
 }
 
-/** Starting points for common replies. Picking one fills the box; nothing is sent until staff press Send. */
+/** Starting points for common replies. Nothing is sent until staff press Send. */
 const SAVED_REPLIES = [
 	["Looking into it", "Thanks for getting in touch. We're looking into this and will reply here once we know more."],
 	[

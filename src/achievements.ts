@@ -2,7 +2,7 @@ import { db } from "./db";
 import type { RoundOutcome } from "./game/round";
 import { notifyUser } from "./notifications";
 
-/** Achievements: earned once and kept. Games call the `check...` functions when one could have been earned. */
+/** Achievements: earned once and kept. Games call the `check...` functions. */
 
 export const ACHIEVEMENTS = [
 	{ id: "first_game", title: "First Steps", description: "Finish a solo game.", icon: "flag" },

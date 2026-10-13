@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import { db, type User } from "./db";
 import { SECURE_COOKIES } from "./config";
-import { isStaff } from "./auth/guards";
+import { isFullStaff } from "./auth/guards";
 import { DAY, nowSec } from "./lib/time";
 import { auditLog } from "./lib/audit";
 
@@ -79,7 +79,7 @@ export function checkForEvasion(userId: number) {
 
 	for (const other of linkedAccounts(userId)) {
 		const [banned, suspect] = isBannedNow(user) ? [user, other] : [other, user];
-		if (!isBannedNow(banned) || isBannedNow(suspect) || isStaff(suspect as User)) continue;
+		if (!isBannedNow(banned) || isBannedNow(suspect) || isFullStaff(suspect as User)) continue;
 
 		const known = db
 			.query<{ id: number; signal: Signal }, [number, number]>(

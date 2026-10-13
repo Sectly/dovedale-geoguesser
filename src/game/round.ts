@@ -63,7 +63,7 @@ export class Round {
 		this.hintsRevealed = Math.min(this.hintsRevealed, this.hints.length);
 	}
 
-	/** `Round.loading` starts slightly in the future so the screenshot can load. `begin` starts the clock now. */
+	/** `Round.loading` starts slightly ahead so the screenshot can load; `begin` starts the clock now. */
 	static loading(location: Location, rules: RoundRules): Round {
 		return new Round(location, rules, Date.now() + GAME.loadingWindow * 1000);
 	}

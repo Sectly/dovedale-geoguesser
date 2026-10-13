@@ -60,10 +60,7 @@ class RoundView {
 		setupResizeHandle();
 	}
 
-	/**
-	 * Shows a round without starting it. Resolves once the screenshot is visible, which is when to ask for the clock.
-	 * `canGuess: false` is for spectators.
-	 */
+	/** Shows a round without starting it. Resolves once the screenshot is visible. `canGuess: false` is for spectators. */
 	show(round, { canGuess = true } = {}) {
 		this.stop();
 		this.canGuess = canGuess;
@@ -307,7 +304,7 @@ const EMOTE_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "+"];
 const EMOTE_KEY_ALIASES = { "=": "+" };
 let emoteList = [];
 
-/** Draws the reaction picker. An empty list or `canSend: false` hides it. Needs #emote-bar and #emote-feed. */
+/** Draws the reaction picker. An empty list or `canSend: false` hides it. */
 function renderEmoteBar(list, canSend = true) {
 	const offered = Array.isArray(list) ? list.filter((name) => /^[a-z0-9_]+$/.test(name)) : [];
 	const changed = offered.join() !== emoteList.join();
@@ -395,10 +392,7 @@ const REPORT_REASONS = [
 	"Something else",
 ];
 
-/**
- * Reports a location from the result screen, as a support ticket, without leaving the game.
- * Use as a link's click handler: logged-out players follow the link to the ticket form instead.
- */
+/** Reports a location as a ticket without leaving the game. Logged-out players follow the link instead. */
 async function reportLocation(event, locationId) {
 	event.preventDefault();
 	const link = event.currentTarget;
@@ -520,60 +514,4 @@ function setupResizeHandle() {
 		{ passive: false }
 	);
 	document.addEventListener("touchend", end);
-}
-
-/** A magnifying lens that follows the mouse over the screenshot; scroll to resize it. */
-function setupPhotoLens(img) {
-	if (!img) return;
-	const lens = document.createElement("div");
-	lens.style.cssText =
-		"position:absolute;width:200px;height:200px;border-radius:50%;border:2px solid rgba(255,255,255,0.35);box-shadow:0 4px 24px rgba(0,0,0,0.6);pointer-events:none;display:none;background-repeat:no-repeat;z-index:20;transform:translate(-50%,-50%);";
-	img.parentElement.appendChild(lens);
-
-	let size = 200;
-	let zoom = 3;
-	let last = null;
-
-	const hide = () => {
-		last = null;
-		lens.style.display = "none";
-	};
-	const update = (clientX, clientY) => {
-		const rect = img.getBoundingClientRect();
-		const naturalW = img.naturalWidth || rect.width;
-		const naturalH = img.naturalHeight || rect.height;
-		const scale = Math.min(rect.width / naturalW, rect.height / naturalH);
-		const w = naturalW * scale;
-		const h = naturalH * scale;
-		const left = (rect.width - w) / 2;
-		const top = (rect.height - h) / 2;
-		const x = clientX - rect.left;
-		const y = clientY - rect.top;
-		/** The image is letterboxed inside its box; only magnify the picture itself. */
-		if (!img.naturalWidth || x < left || x > left + w || y < top || y > top + h) return hide();
-
-		last = { clientX, clientY };
-		lens.style.width = lens.style.height = `${size}px`;
-		lens.style.backgroundImage = `url("${img.currentSrc || img.src}")`;
-		lens.style.backgroundSize = `${w * zoom}px ${h * zoom}px`;
-		lens.style.backgroundPosition = `-${((x - left) / w) * w * zoom - size / 2}px -${((y - top) / h) * h * zoom - size / 2}px`;
-		lens.style.left = `${x}px`;
-		lens.style.top = `${y}px`;
-		lens.style.display = "block";
-	};
-
-	img.addEventListener("mousemove", (e) => update(e.clientX, e.clientY));
-	img.addEventListener("mouseleave", hide);
-	img.addEventListener(
-		"wheel",
-		(e) => {
-			if (!last) return;
-			e.preventDefault();
-			const step = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-			size = Math.min(360, Math.max(80, size * step));
-			zoom = Math.min(8, Math.max(1.5, zoom * step));
-			update(last.clientX, last.clientY);
-		},
-		{ passive: false }
-	);
 }

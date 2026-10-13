@@ -1,17 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../../db";
 import { hasRole, requireStaff } from "../../auth/guards";
-import {
-	ANNOUNCEMENT_AUDIENCES,
-	BANNER_HOURS,
-	audienceSizes,
-	cleanLink,
-	endBanner,
-	previewAnnouncement,
-	recentAnnouncements,
-	sendAnnouncement,
-	type Audience,
-} from "../../announcements";
 import { duelRooms, duelsInProgress } from "../../game/duels/rooms";
 import { difficultyCounts } from "../../game/locations";
 import { activeSoloGames } from "../../game/solo";
@@ -24,6 +13,7 @@ import { displayName } from "../../lib/webhook";
 import { staffQueue } from "../../notifications";
 import { maintenance } from "../../system/maintenance";
 import { restartIn } from "../../system/restart";
+import { adminAnnouncementRoutes } from "./announcements";
 import { adminDuelRoutes } from "./duels";
 import { adminLocationRoutes } from "./locations";
 import { adminSubmissionRoutes } from "./submissions";
@@ -44,6 +34,7 @@ adminRoutes.route("/support", adminSupportRoutes);
 adminRoutes.route("/system", adminSystemRoutes);
 adminRoutes.route("/scores", adminScoreRoutes);
 adminRoutes.route("/duels", adminDuelRoutes);
+adminRoutes.route("/announcements", adminAnnouncementRoutes);
 
 /** How many days the activity chart covers. */
 const SERIES_DAYS = 14;
@@ -79,10 +70,7 @@ function activitySeries() {
 	});
 }
 
-/**
- * The panel's home tab: what is waiting, who is flagged, what is live, and what staff did lately.
- * Each role gets only what its own tabs would show it.
- */
+/** The panel's home tab. Each role gets only what its own tabs would show. */
 adminRoutes.get("/overview", (c) => {
 	const staff = requireStaff(c, "helper");
 	const moderator = hasRole(staff, "moderator");
@@ -150,10 +138,7 @@ adminRoutes.get("/overview", (c) => {
 	});
 });
 
-/**
- * Says what this member of staff has open (or nothing), and answers with what everyone else has open.
- * The panel calls it on a timer, which is also what keeps a claim alive.
- */
+/** Says what this staff member has open and answers with what others have. Also keeps the claim alive. */
 adminRoutes.post("/claims", async (c) => {
 	const staff = requireStaff(c, "helper");
 	const body = await readJson<{ kind: ClaimKind; id: number }>(c);
@@ -228,57 +213,6 @@ adminRoutes.get("/stats", (c) => {
 		achievements: { earned: count("SELECT COUNT(*) AS n FROM user_achievements") },
 		series: activitySeries(),
 	});
-});
-
-/* ---- Announcements (operators) ---- */
-
-adminRoutes.get("/announcements", (c) => {
-	requireStaff(c, "operator");
-	return c.json({ history: recentAnnouncements(), audiences: audienceSizes(), banner_hours: BANNER_HOURS });
-});
-
-/** Sends an announcement, optionally pinned as a banner. `test: true` sends it to the sender alone. */
-adminRoutes.post("/announcements", async (c) => {
-	const staff = requireStaff(c, "operator");
-	const body = await readJson<{
-		title: string;
-		body: string;
-		link: string;
-		audience: Audience;
-		banner_hours: number;
-		test: boolean;
-	}>(c);
-	const title = text(body.title, 120);
-	const message = text(body.body, 400);
-	if (title.length < 5) fail(400, "Give the announcement a title of at least 5 characters");
-	if (message.length < 10) fail(400, "Write a message of at least 10 characters");
-	const link = cleanLink(body.link);
-
-	if (body.test === true) {
-		previewAnnouncement({ title, body: message, link }, staff);
-		return c.json({ success: true, sent: 1, test: true });
-	}
-
-	const audience = body.audience === undefined ? "everyone" : body.audience;
-	if (!ANNOUNCEMENT_AUDIENCES.includes(audience)) fail(400, "Choose who the announcement is for");
-	const bannerHours = body.banner_hours ?? 0;
-	if (!BANNER_HOURS.includes(bannerHours)) fail(400, "Choose how long the banner stays up");
-	if (bannerHours > 0 && audience === "staff")
-		fail(400, "A staff-only announcement cannot be shown as a site banner");
-
-	const sent = sendAnnouncement({ title, body: message, link, audience, bannerHours }, staff, displayName(staff));
-	auditLog(staff, "announcement", {
-		details: `${title} (${audience}, sent to ${sent.sent_to}${bannerHours ? `, banner for ${bannerHours}h` : ""})`,
-	});
-	return c.json({ success: true, sent: sent.sent_to, id: sent.id });
-});
-
-adminRoutes.post("/announcements/:id/end-banner", (c) => {
-	const staff = requireStaff(c, "operator");
-	const id = idParam(c);
-	if (!endBanner(id)) fail(409, "That announcement has no banner showing");
-	auditLog(staff, "announcement_banner_end", { details: `Announcement #${id}` });
-	return c.json({ success: true });
 });
 
 const AUDIT_SEARCH_COLUMNS = [

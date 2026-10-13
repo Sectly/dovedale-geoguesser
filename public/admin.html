@@ -113,6 +113,14 @@
           <span class="material-symbols-outlined text-lg leading-none">swords</span>Duels
         </button>
         <button
+          data-tab="announcements"
+          data-label="Announcements"
+          data-icon="campaign"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white"
+        >
+          <span class="material-symbols-outlined text-lg leading-none">campaign</span>Announcements
+        </button>
+        <button
           data-tab="staff"
           data-label="Staff"
           data-icon="shield_person"
@@ -136,6 +144,14 @@
           class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white senior-only hidden"
         >
           <span class="material-symbols-outlined text-lg leading-none">history</span>Audit Log
+        </button>
+        <button
+          data-tab="email"
+          data-label="Email"
+          data-icon="mail"
+          class="tab-btn flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm font-medium transition text-zinc-400 hover:text-white hidden"
+        >
+          <span class="material-symbols-outlined text-lg leading-none">mail</span>Email
         </button>
         <button
           data-tab="system"
@@ -280,11 +296,13 @@
     <script src="/js/admin/submissions.js"></script>
     <script src="/js/admin/suggestions.js"></script>
     <script src="/js/admin/locations.js"></script>
+    <script src="/js/admin/announcements.js"></script>
     <script src="/js/admin/tickets.js"></script>
     <script src="/js/admin/duels.js"></script>
     <script src="/js/admin/users.js"></script>
     <script src="/js/admin/audit.js"></script>
     <script src="/js/admin/system.js"></script>
+    <script src="/js/admin/email.js"></script>
     <script src="/js/admin/main.js"></script>
   </body>
 </html>

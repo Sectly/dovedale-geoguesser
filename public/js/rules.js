@@ -1,4 +1,4 @@
-/** The numbered rules staff can cite. Must match the numbers and titles on the linked pages (a test checks). */
+/** The numbered rules staff can cite. Must match the linked pages (a test checks). */
 const RULES = [
 	{ code: "F1", title: "Cheating", page: "/fairplay" },
 	{ code: "F2", title: "Exploiting bugs", page: "/fairplay" },

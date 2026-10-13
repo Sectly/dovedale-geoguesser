@@ -10,10 +10,7 @@ import { ratingOf, resetRating, unrateDuel } from "../../game/duels/rating";
 import { requireReason } from "../../moderation";
 import { notifyUser } from "../../notifications";
 
-/**
- * Routes at /api/admin/scores: view, correct or wipe one player's scores.
- * Every change needs a reason, is logged, and the player is told.
- */
+/** Routes at /api/admin/scores: view, correct or wipe a player's scores. Each change needs a reason and is logged. */
 export const adminScoreRoutes = new Hono();
 
 const MAX_STREAK = 5000;
@@ -47,7 +44,7 @@ function record(actor: User, user: User, action: string, details: string, reason
 }
 
 adminScoreRoutes.get("/:userId", (c) => {
-	requireStaff(c, "operator");
+	requireStaff(c, "admin");
 	const user = target(c);
 	const all = (sql: string) => db.query(sql).all(user.id);
 	return c.json({
@@ -82,7 +79,7 @@ adminScoreRoutes.get("/:userId", (c) => {
 /* ---- Single entries ---- */
 
 adminScoreRoutes.post("/:userId/solo/:id", async (c) => {
-	const actor = requireStaff(c, "operator");
+	const actor = requireStaff(c, "admin");
 	const user = target(c);
 	const body = await readJson<{ total_score: number; reason: string }>(c);
 	const reason = requireReason(body.reason);
@@ -106,7 +103,7 @@ adminScoreRoutes.post("/:userId/solo/:id", async (c) => {
 });
 
 adminScoreRoutes.delete("/:userId/solo/:id", async (c) => {
-	const actor = requireStaff(c, "operator");
+	const actor = requireStaff(c, "admin");
 	const user = target(c);
 	const reason = requireReason((await readJson<{ reason: string }>(c)).reason);
 	const row =
@@ -128,7 +125,7 @@ adminScoreRoutes.delete("/:userId/solo/:id", async (c) => {
 });
 
 adminScoreRoutes.post("/:userId/daily/:id", async (c) => {
-	const actor = requireStaff(c, "operator");
+	const actor = requireStaff(c, "admin");
 	const user = target(c);
 	const body = await readJson<{ score: number; reason: string }>(c);
 	const reason = requireReason(body.reason);
@@ -152,7 +149,7 @@ adminScoreRoutes.post("/:userId/daily/:id", async (c) => {
 });
 
 adminScoreRoutes.delete("/:userId/daily/:id", async (c) => {
-	const actor = requireStaff(c, "operator");
+	const actor = requireStaff(c, "admin");
 	const user = target(c);
 	const reason = requireReason((await readJson<{ reason: string }>(c)).reason);
 	const row =
@@ -175,7 +172,7 @@ adminScoreRoutes.delete("/:userId/daily/:id", async (c) => {
 
 /** Voids a duel for both players. */
 adminScoreRoutes.delete("/:userId/duels/:id", async (c) => {
-	const actor = requireStaff(c, "operator");
+	const actor = requireStaff(c, "admin");
 	const user = target(c);
 	const reason = requireReason((await readJson<{ reason: string }>(c)).reason);
 	const game =
@@ -202,7 +199,7 @@ adminScoreRoutes.delete("/:userId/duels/:id", async (c) => {
 });
 
 adminScoreRoutes.post("/:userId/streak", async (c) => {
-	const actor = requireStaff(c, "operator");
+	const actor = requireStaff(c, "admin");
 	const user = target(c);
 	const body = await readJson<{ current: number; longest: number; reason: string }>(c);
 	const reason = requireReason(body.reason);
@@ -222,7 +219,7 @@ adminScoreRoutes.post("/:userId/streak", async (c) => {
 });
 
 adminScoreRoutes.post("/:userId/rating", async (c) => {
-	const actor = requireStaff(c, "operator");
+	const actor = requireStaff(c, "admin");
 	const user = target(c);
 	const body = await readJson<{ rating: number; reason: string }>(c);
 	const reason = requireReason(body.reason);
@@ -241,7 +238,7 @@ adminScoreRoutes.post("/:userId/rating", async (c) => {
 
 /** Gives or takes away one achievement. */
 adminScoreRoutes.post("/:userId/achievements/:key", async (c) => {
-	const actor = requireStaff(c, "operator");
+	const actor = requireStaff(c, "admin");
 	const user = target(c);
 	const key = c.req.param("key");
 	if (!isAchievement(key)) fail(404, "No such achievement");
@@ -276,7 +273,7 @@ const RESET_NOTICE: Record<Scope, string> = {
 };
 
 adminScoreRoutes.post("/:userId/reset", async (c) => {
-	const actor = requireStaff(c, "operator");
+	const actor = requireStaff(c, "admin");
 	const user = target(c);
 	const body = await readJson<{ scope: Scope; reason: string }>(c);
 	const reason = requireReason(body.reason);

@@ -12,10 +12,7 @@ import { closeTeamRooms, teamGamesInProgress, teamRoomCount } from "../game/team
 import { shutdown } from "../lib/lifecycle";
 import { logInfo } from "../lib/logs";
 
-/**
- * A planned restart is announced first. When the notice ends, duels and team games close,
- * solo games are saved, then the process exits.
- */
+/** A planned restart is announced first, then games close, solo games are saved and the process exits. */
 
 const CLOSED_MESSAGE = "The server restarted for an update, so your game was ended. It won't count against you.";
 /** Long enough for the goodbye messages to leave before the sockets go down with the process. */

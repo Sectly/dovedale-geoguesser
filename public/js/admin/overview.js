@@ -67,7 +67,9 @@ function renderOverview({ waiting, flagged, live, notices, mine, recent }) {
 		<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
 			${waiting
 				.map(
-					(queue) => `<button onclick="switchTab('${queue.tab}')" class="md-card p-4 text-left">
+					(
+						queue
+					) => `<button onclick="switchTab('${queue.tab}')" class="md-card px-5 py-4 text-left !rounded-2xl">
 						<div class="text-3xl font-bold font-mono ${queue.count ? "text-white" : "text-zinc-600"}">${queue.count}</div>
 						<div class="text-sm text-zinc-300 mt-0.5">${queue.label}</div>
 						<div class="text-xs mt-1 ${queue.count ? "text-zinc-500" : "text-green-400/80"}">${queue.count ? (queue.oldest ? `Oldest ${shortAgo(queue.oldest)} ago` : "Open to review") : "All clear"}</div>
@@ -102,7 +104,7 @@ function renderOverview({ waiting, flagged, live, notices, mine, recent }) {
 				["Duels being played", live.duels],
 				["Watching duels", live.spectators],
 				["Team games", live.team_games],
-				["Solo games open", live.solo_games],
+				["Solo games being played", live.solo_games],
 			]
 				.map(
 					([label, value]) =>

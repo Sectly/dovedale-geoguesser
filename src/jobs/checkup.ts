@@ -11,10 +11,7 @@ import { notify } from "../lib/webhook";
 import { maintenance } from "../system/maintenance";
 import { UPDATES_ENABLED, updateStatus } from "../system/updater";
 
-/**
- * The daily check-up: fixes what it safely can and logs everything.
- * Only serious findings go to the staff channel, once each.
- */
+/** The daily check-up: fixes what it safely can and logs it. Only serious findings go to staff, once each. */
 
 type Finding = {
 	/** Stable name for this kind of finding, used to tell a new problem from one already reported. */

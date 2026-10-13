@@ -1,14 +1,15 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { takeUnseen } from "../achievements";
 import { hashIdentity } from "../evasion";
 import { db, type User } from "../db";
+import { confirmEmail, removeEmail, requestEmail, setDigestFrequency, unsubscribe } from "../email";
 import { requireUser } from "../auth/guards";
 import { clearedSessionCookie } from "../auth/sessions";
 import { removeFromDuels } from "../game/duels/rooms";
 import { dropSoloGames } from "../game/solo";
 import { removeFromTeamRooms } from "../game/teams";
 import { auditLog } from "../lib/audit";
-import { fail, readJson } from "../lib/http";
+import { fail, readJson, text } from "../lib/http";
 import { checkUserRateLimit } from "../lib/rate-limit";
 import { DAY } from "../lib/time";
 import { deleteUpload } from "../lib/uploads";
@@ -28,6 +29,59 @@ accountRoutes.post("/settings", async (c) => {
 	if (body.prefs !== undefined) user.prefs = JSON.stringify(updatePreferences(user, body.prefs));
 	return c.json({ success: true, prefs: publicPreferences(user) });
 });
+
+/* ---- Emailed notification summaries ---- */
+
+accountRoutes.post("/settings/email", async (c) => {
+	const user = requireUser(c);
+	if (!checkUserRateLimit(user, "email-confirm", 3, DAY * 1000))
+		fail(429, "Too many confirmation emails today. Try again tomorrow.");
+	await requestEmail(user, text((await readJson<{ email: string }>(c)).email, 254));
+	return c.json({ success: true });
+});
+
+accountRoutes.post("/settings/email/frequency", async (c) => {
+	setDigestFrequency(requireUser(c), String((await readJson<{ frequency: string }>(c)).frequency));
+	return c.json({ success: true });
+});
+
+/** Unlinks and deletes the address. Works with email off, and for banned accounts. */
+accountRoutes.delete("/settings/email", (c) => {
+	removeEmail(requireUser(c).id);
+	return c.json({ success: true });
+});
+
+/** A bare page for links opened from a mail app, where nobody may be logged in. */
+const mailPage = (c: Context, title: string, message: string, status: 200 | 410 = 200) =>
+	c.html(
+		`<!doctype html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="robots" content="noindex" /><title>${title} | Dovedale GeoGuesser</title></head>
+		<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#09090b;color:#e4e4e7;font-family:system-ui,sans-serif;text-align:center;padding:24px">
+		<div><h1 style="font-size:22px">${title}</h1><p style="color:#a1a1aa">${message}</p><p><a href="/settings" style="color:#60a5fa">Open Settings</a></p></div></body></html>`,
+		status
+	);
+
+/** The link in a confirmation email. */
+accountRoutes.get("/email/confirm", (c) =>
+	confirmEmail(c.req.query("token") ?? "")
+		? mailPage(
+				c,
+				"Email confirmed",
+				"You will get a daily summary of unread notifications. Change how often in Settings."
+			)
+		: mailPage(c, "That link has expired", "Ask for a new confirmation email from Settings.", 410)
+);
+
+/** The link at the foot of every summary, and what mail apps call for their own Unsubscribe button. */
+const stopEmails = (c: Context) =>
+	unsubscribe(c.req.query("token") ?? "")
+		? mailPage(
+				c,
+				"Email summaries stopped",
+				"You won't get any more. To delete your address as well, remove it in Settings."
+			)
+		: mailPage(c, "That link no longer works", "Change this in Settings instead.", 410);
+accountRoutes.get("/email/unsubscribe", stopEmails);
+accountRoutes.post("/email/unsubscribe", stopEmails);
 
 accountRoutes.get("/me/moderation", (c) => {
 	const user = requireUser(c);
@@ -56,6 +110,9 @@ export function exportUserData(user: User) {
 			duel_limit_expires_at: user.duel_limit_expires_at,
 			current_streak: user.current_streak,
 			longest_streak: user.longest_streak,
+			email: user.email ?? null,
+			email_confirmed: !!user.email_verified,
+			email_summary: user.email_digest ?? null,
 			last_played_date: user.last_played_date,
 			duel_rating: user.duel_rating,
 			duel_rated_games: user.duel_rated_games ?? 0,
@@ -118,9 +175,13 @@ export function exportUserData(user: User) {
 			"SELECT action, target_type, target_id, created_at FROM audit_log WHERE actor_id = ?1 OR (actor_id IS NULL AND target_type = 'user' AND target_id = ?1) ORDER BY id"
 		),
 		notifications: all("SELECT category, title, body, read_at, created_at FROM notifications WHERE user_id = ?"),
+		/** Messages staff sent to this account alone. They are kept after the notification itself has expired. */
+		messages_from_staff: all(
+			"SELECT title, body, link, created_at FROM announcements WHERE target_user_id = ? AND draft = 0 AND send_at IS NULL"
+		),
 		preferences: parsePreferences(user.prefs),
 		exported_at: new Date().toISOString(),
-		export_version: 11,
+		export_version: 12,
 	};
 }
 
@@ -135,10 +196,7 @@ accountRoutes.get("/gdpr/export", (c) => {
 	return c.json(exportUserData(user));
 });
 
-/**
- * Erases a user's personal data. The anonymised row stays because locations, duels and moderation records point at
- * it.
- */
+/** Erases a user's personal data. The anonymised row stays: locations, duels and moderation records point at it. */
 export async function deleteUserAccount(userId: number) {
 	const pendingImages = db
 		.query<{ image_path: string | null }, [number, number]>(
@@ -169,6 +227,8 @@ export async function deleteUserAccount(userId: number) {
 				current_streak = 0, longest_streak = 0, last_played_date = NULL, prefs = NULL,
 				duel_rating = 1000, duel_rated_games = 0,
 				staff_locked = 0, staff_lock_reason = NULL, suggestions_agreed = 0, suggestions_agreed_at = NULL,
+				email = NULL, email_verified = 0, email_token = NULL, email_token_at = NULL, email_digest = NULL,
+				email_digest_at = NULL, email_digest_upto = NULL,
 				deleted_identity = ?
 			WHERE id = ?`,
 			[hasHistory && account ? hashIdentity(`discord:${account.discord_id}`) : null, userId]
@@ -204,7 +264,15 @@ export async function deleteUserAccount(userId: number) {
 		db.run("UPDATE moderation_actions SET issued_by_username = '[deleted]' WHERE issued_by = ?", [userId]);
 		db.run("UPDATE moderation_actions SET revoked_by_username = '[deleted]' WHERE revoked_by = ?", [userId]);
 		db.run("UPDATE announcements SET created_by = '[deleted]' WHERE created_by_id = ?", [userId]);
+		/** Messages sent to them alone are about them, so they go. */
+		db.run("DELETE FROM announcements WHERE target_user_id = ?", [userId]);
 		db.run("UPDATE staff_notes SET author_username = '[deleted]' WHERE author_id = ?", [userId]);
+		/** The changelog keeps only a name for who wrote an entry. */
+		if (account)
+			db.run("UPDATE changelog SET created_by = '[deleted]' WHERE created_by IN (?, ?)", [
+				account.username,
+				player?.display_name ?? account.username,
+			]);
 		if (account) scrubAuditDetails(account.username);
 	})();
 	clearLeaderboardCache();
@@ -215,7 +283,7 @@ export async function deleteUserAccount(userId: number) {
 /** Takes one player's name out of audit text like "alice vs bob". Whole names only. */
 function scrubAuditDetails(username: string) {
 	const escaped = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	/** A dot can be part of a name or the end of a sentence; it only means the name goes on when a letter follows. */
+	/** A dot may end a sentence; the name only goes on when a letter follows. */
 	const name = new RegExp(`(?<!\\w)(?<!\\w\\.)@?${escaped}(?!\\w|\\.\\w)`, "g");
 	const rows = db
 		.query<{ id: number; details: string }, [string]>(
