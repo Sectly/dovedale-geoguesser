@@ -1,4 +1,4 @@
-import { db, type User } from "./db";
+import { db, type Role, type User } from "./db";
 import { countEvasionFlags } from "./evasion";
 import { hasRole, isStaff } from "./auth/guards";
 import { DAY, utcDate } from "./lib/time";
@@ -14,9 +14,15 @@ export const NOTIFICATION_CATEGORIES = [
 	"achievements",
 	"moderation",
 ] as const;
-/** Sent to everyone regardless of preferences: things a user needs to know. */
-const ALWAYS_SENT = ["moderation", "announcements"];
-export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number] | "announcements";
+/** Not switched off under "notify": things a user needs to know, and staff chat, which has its own setting. */
+const ALWAYS_SENT = ["moderation", "announcements", "staff_chat"];
+export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number] | "announcements" | "staff_chat";
+
+/** Helpers are players trusted with the review queues, not staff, so the staff chat starts one role up. */
+export const STAFF_CHAT_ROLE: Role = "curator";
+/** How a member of staff hears about new staff chat messages. */
+export const STAFF_CHAT_ALERTS = ["none", "badge", "notify"] as const;
+export type StaffChatAlert = (typeof STAFF_CHAT_ALERTS)[number];
 
 export type Preferences = {
 	/** Sound effects in games and for new notifications. */
@@ -29,6 +35,8 @@ export type Preferences = {
 	staff_badges: boolean;
 	/** For staff: pop up a message when something new arrives in a review queue. */
 	staff_alerts: boolean;
+	/** For staff: nothing, a count and a sound, or an inbox entry with a push notification. */
+	staff_chat: StaffChatAlert;
 	/** Which kinds of notification the user wants to receive. */
 	notify: Record<(typeof NOTIFICATION_CATEGORIES)[number], boolean>;
 };
@@ -39,6 +47,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
 	desktop: false,
 	staff_badges: true,
 	staff_alerts: true,
+	staff_chat: "badge",
 	notify: {
 		submissions: true,
 		suggestions: true,
@@ -69,6 +78,9 @@ export function parsePreferences(raw: string | null | undefined): Preferences {
 		desktop: flag(stored.desktop, DEFAULT_PREFERENCES.desktop),
 		staff_badges: flag(stored.staff_badges, DEFAULT_PREFERENCES.staff_badges),
 		staff_alerts: flag(stored.staff_alerts, DEFAULT_PREFERENCES.staff_alerts),
+		staff_chat: STAFF_CHAT_ALERTS.includes(stored.staff_chat as StaffChatAlert)
+			? (stored.staff_chat as StaffChatAlert)
+			: DEFAULT_PREFERENCES.staff_chat,
 		notify: Object.fromEntries(
 			NOTIFICATION_CATEGORIES.map((category) => [
 				category,
@@ -80,8 +92,8 @@ export function parsePreferences(raw: string | null | undefined): Preferences {
 
 /** Preferences as sent to the browser. Players are not told about staff-only options. */
 export function publicPreferences(user: User): Partial<Preferences> {
-	const { staff_badges, staff_alerts, ...shared } = parsePreferences(user.prefs);
-	return isStaff(user) ? { ...shared, staff_badges, staff_alerts } : shared;
+	const { staff_badges, staff_alerts, staff_chat, ...shared } = parsePreferences(user.prefs);
+	return isStaff(user) ? { ...shared, staff_badges, staff_alerts, staff_chat } : shared;
 }
 
 /** Applies a partial update from the settings page and returns the stored result. */
@@ -194,6 +206,15 @@ export function attentionFor(user: User) {
 		unread: count("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND read_at IS NULL", user.id),
 		latest: latest ?? null,
 		staff: queue ? { ...queue, total: queue.submissions + queue.suggestions + queue.tickets + queue.users } : null,
+		/** Staff chat messages from others that they have not seen, unless they asked not to be told. */
+		staff_chat:
+			hasRole(user, STAFF_CHAT_ROLE) && !user.is_banned && prefs.staff_chat !== "none"
+				? count(
+						"SELECT COUNT(*) AS n FROM staff_chat WHERE id > ? AND COALESCE(author_id, 0) != ?",
+						user.staff_chat_read ?? 0,
+						user.id
+					)
+				: 0,
 	};
 }
 

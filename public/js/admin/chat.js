@@ -13,6 +13,9 @@ let _chatEmotes = [];
 let _chatPinsOpen = false;
 let _chatPinSearch = "";
 
+/** How a member of staff hears about new messages, as the picker words it. */
+const CHAT_ALERTS = { none: "No alerts", badge: "Badge and sound", notify: "Inbox and push" };
+
 const emoteLabel = (name) => name.replaceAll("_", " ");
 const chatName = (m) => m.display_name || m.author_username || "[deleted]";
 
@@ -256,19 +259,41 @@ async function deleteChatMessage(id) {
 	refreshChat();
 }
 
+async function setChatAlerts(value) {
+	try {
+		currentUser.prefs = (await api("/api/settings", { json: { prefs: { staff_chat: value } } })).prefs;
+	} catch (err) {
+		el("chat-alerts").value = currentUser.prefs?.staff_chat ?? "badge";
+		return showToast(err.message, "error");
+	}
+	if (value === "notify" && !currentUser.prefs.desktop)
+		showToast("Push also needs desktop notifications switched on in Settings.", "info", { href: "/settings" });
+	refreshAttention();
+}
+
 function loadChat() {
 	_chatShown = "";
 	_chatRoom = null;
 	_chatEmotes = [];
 	el("tab-content").innerHTML = `<div class="flex flex-col h-full min-h-0 max-w-3xl mx-auto">
-		<div class="flex items-start justify-between gap-3 mb-2">
+		<div class="flex items-start justify-between gap-3 flex-wrap mb-2">
 			<div>
 				<h2 class="font-bold text-lg">Staff Chat</h2>
 				<p class="text-xs text-zinc-500">For curators and above. Messages are deleted after 90 days unless pinned.</p>
 			</div>
-			<button id="chat-pins-toggle" onclick="toggleChatPins()" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0" aria-expanded="false" aria-controls="chat-pins">
-				<span class="material-symbols-outlined">push_pin</span>Pinned <span id="chat-pin-count">0</span>
-			</button>
+			<div class="flex items-center gap-2 flex-wrap justify-end flex-shrink-0">
+				<select id="chat-alerts" onchange="setChatAlerts(this.value)" class="m-field !w-auto !py-1.5 text-xs" aria-label="How to be told about new messages" title="How to be told about new messages">
+					${Object.entries(CHAT_ALERTS)
+						.map(
+							([value, label]) =>
+								`<option value="${value}" ${value === (currentUser.prefs?.staff_chat ?? "badge") ? "selected" : ""}>${label}</option>`
+						)
+						.join("")}
+				</select>
+				<button id="chat-pins-toggle" onclick="toggleChatPins()" class="m-btn m-btn-tonal m-btn-sm" aria-expanded="false" aria-controls="chat-pins">
+					<span class="material-symbols-outlined">push_pin</span>Pinned <span id="chat-pin-count">0</span>
+				</button>
+			</div>
 		</div>
 		<div id="chat-pins" class="hidden flex-shrink-0 max-h-[45%] overflow-y-auto bg-zinc-900 rounded-2xl p-3 mb-2">
 			<div id="chat-pins-body" class="flex flex-col gap-2"></div>
@@ -315,8 +340,11 @@ function paintChatUnread(count) {
 /** Only while another tab is open: the chat tab marks everything read by itself. */
 async function checkChatUnread() {
 	if (document.hidden || currentTab === "chat" || !currentUser?.role || !canOpenTab("chat")) return;
+	if (currentUser.prefs?.staff_chat === "none") return paintChatUnread(0);
 	try {
-		paintChatUnread((await api("/api/admin/chat/unread")).unread);
+		const { unread } = await api("/api/admin/chat/unread");
+		paintChatUnread(unread);
+		announceStaffChat(unread, currentUser);
 	} catch {}
 }
 

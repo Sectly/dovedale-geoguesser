@@ -1005,3 +1005,50 @@ describe("staff chat pins", () => {
 		expect(left).not.toContain(dropped);
 	});
 });
+
+describe("staff chat alerts", () => {
+	const say = (as: TestUser, body: string) => post("/api/admin/chat", as, { body });
+	const choose = (as: TestUser, staff_chat: string) => post("/api/settings", as, { prefs: { staff_chat } });
+	const attention = (as: TestUser) => call("/api/attention", { as }).then((r) => r.data);
+	const inbox = async (as: TestUser) =>
+		(await call("/api/notifications", { as })).data.notifications.filter(
+			(n: { category: string }) => n.category === "staff_chat"
+		);
+
+	test("each member of staff picks nothing, a count, or an inbox entry that says only that there is something new", async () => {
+		const [author, quiet, counted, told, helper] = [
+			createUser({ role: "moderator" }),
+			createUser({ role: "moderator" }),
+			createUser({ role: "curator" }),
+			createUser({ role: "supervisor" }),
+			createUser({ role: "helper" }),
+		];
+		/** Everyone starts on the count. */
+		expect((await call("/api/auth/me", { as: counted })).data.prefs.staff_chat).toBe("badge");
+		expect((await choose(quiet, "none")).data.prefs.staff_chat).toBe("none");
+		expect((await choose(told, "notify")).data.prefs.staff_chat).toBe("notify");
+		expect((await choose(helper, "notify")).status).toBe(200);
+		expect((await choose(counted, "loudly")).data.prefs.staff_chat).toBe("badge");
+		for (const reader of [quiet, counted, told]) await call("/api/admin/chat", { as: reader });
+
+		await say(author, "The secret plan is in the usual place");
+		await say(author, "And one more thing");
+		expect((await attention(quiet)).staff_chat).toBe(0);
+		expect((await attention(counted)).staff_chat).toBe(2);
+		expect((await attention(helper)).staff_chat).toBe(0);
+		for (const untold of [quiet, counted, helper, author]) expect(await inbox(untold)).toHaveLength(0);
+
+		/** One entry however many messages, with none of what was said. */
+		const entries = await inbox(told);
+		expect(entries).toHaveLength(1);
+		expect(entries[0]).toMatchObject({ body: null, link: "/admin#chat", read_at: null });
+		expect(JSON.stringify(entries)).not.toContain("secret plan");
+
+		/** Opening the room reads it, and the next message brings a new one. */
+		await call("/api/admin/chat", { as: told });
+		expect((await inbox(told))[0].read_at).not.toBeNull();
+		expect((await attention(told)).staff_chat).toBe(0);
+		await say(author, "Still there?");
+		expect((await inbox(told)).filter((n: { read_at: number | null }) => n.read_at === null)).toHaveLength(1);
+	});
+});

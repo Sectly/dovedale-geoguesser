@@ -6,12 +6,12 @@ import { auditLog } from "../../lib/audit";
 import { fail, idParam, readJson, text } from "../../lib/http";
 import { checkRateLimit } from "../../lib/rate-limit";
 import { DAY } from "../../lib/time";
+import { STAFF_CHAT_ROLE, notifyUser, parsePreferences } from "../../notifications";
 
 /** Routes mounted at /api/admin/chat: one room where staff talk to each other. */
 export const adminChatRoutes = new Hono();
 
-/** Helpers are players trusted with the review queues, not staff, so the room starts one role up. */
-const CHAT_ROLE: Role = "curator";
+const CHAT_ROLE = STAFF_CHAT_ROLE;
 /** Who may delete someone else's message or take off someone else's pin, and then only a lower role's. */
 const CHAT_MODERATOR_ROLE: Role = "supervisor";
 const MESSAGE_MAX = 1000;
@@ -78,6 +78,10 @@ adminChatRoutes.get("/", (c) => {
 	const newest = messages.at(-1)?.id ?? 0;
 	if (newest > (staff.staff_chat_read ?? 0))
 		db.run("UPDATE users SET staff_chat_read = ? WHERE id = ?", [newest, staff.id]);
+	db.run(
+		"UPDATE notifications SET read_at = unixepoch() WHERE user_id = ? AND category = 'staff_chat' AND read_at IS NULL",
+		[staff.id]
+	);
 	const forViewer = ({ pinner_role, ...m }: Message) => {
 		const may = allowed(staff, { ...m, pinner_role });
 		return {
@@ -110,6 +114,29 @@ adminChatRoutes.get("/unread", (c) => {
 	return c.json({ unread });
 });
 
+/**
+ * An inbox entry for staff who asked for one. It says only that there is something new, and there is one at a time:
+ * nothing more is sent until they have opened the room.
+ */
+function tellStaff(author: User) {
+	const others = db
+		.query<Pick<User, "id" | "role" | "staff_locked" | "is_banned" | "prefs">, [number]>(
+			"SELECT id, role, staff_locked, is_banned, prefs FROM users WHERE role IS NOT NULL AND id != ?"
+		)
+		.all(author.id);
+	for (const member of others) {
+		if (member.is_banned || !hasRole(member as User, CHAT_ROLE)) continue;
+		if (parsePreferences(member.prefs).staff_chat !== "notify") continue;
+		const waiting = db
+			.query(
+				"SELECT 1 FROM notifications WHERE user_id = ? AND category = 'staff_chat' AND read_at IS NULL LIMIT 1"
+			)
+			.get(member.id);
+		if (!waiting)
+			notifyUser(member.id, "staff_chat", { title: "New messages in the staff chat", link: "/admin#chat" });
+	}
+}
+
 adminChatRoutes.post("/", async (c) => {
 	const staff = requireStaff(c, CHAT_ROLE);
 	const body = text((await readJson<{ body: string }>(c)).body, MESSAGE_MAX);
@@ -124,6 +151,7 @@ adminChatRoutes.post("/", async (c) => {
 	);
 	/** Their own message is not news to them. */
 	db.run("UPDATE users SET staff_chat_read = ? WHERE id = ?", [id, staff.id]);
+	tellStaff(staff);
 	return c.json({ id });
 });
 

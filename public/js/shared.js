@@ -151,15 +151,18 @@ function renderAttentionBadges() {
 	const unread = _attention.unread;
 	const unreadText = `${unread} unread notification${unread === 1 ? "" : "s"}`;
 	mark("settings", unread, "bg-red-500", `Settings · ${unreadText}`);
-	const staff = _attention.staff;
-	if (staff && _attentionUser?.prefs?.staff_badges) {
-		mark(
-			"staff",
-			staff.total,
-			"bg-blue-500",
-			`Staff panel · ${staff.submissions} submissions, ${staff.suggestions} suggestions, ${staff.tickets} tickets waiting${staff.users ? `, ${staff.users} possible ban evasion` : ""}`
-		);
-	}
+	const staff = _attentionUser?.prefs?.staff_badges ? _attention.staff : null;
+	const chat = _attention.staff_chat || 0;
+	const waiting = staff
+		? `${staff.submissions} submissions, ${staff.suggestions} suggestions, ${staff.tickets} tickets waiting${staff.users ? `, ${staff.users} possible ban evasion` : ""}`
+		: "";
+	const unseen = chat ? `${chat} new in the staff chat` : "";
+	mark(
+		"staff",
+		(staff?.total ?? 0) + chat,
+		"bg-blue-500",
+		`Staff panel · ${[waiting, unseen].filter(Boolean).join(", ")}`
+	);
 }
 
 /** Announces a notification once per browser: a chime, a toast and, if enabled, a desktop notification. */
@@ -231,6 +234,15 @@ function announceStaffQueue(staff, user) {
 	}
 }
 
+let _staffChatHeard = null;
+
+/** For staff who chose the badge and sound: a chime when the count of unseen chat messages goes up. */
+function announceStaffChat(unseen = 0, user) {
+	const heard = _staffChatHeard;
+	_staffChatHeard = unseen;
+	if (user.prefs?.staff_chat === "badge" && heard !== null && unseen > heard && !isMidRound()) Sounds.play("notify");
+}
+
 /** Fetches the latest counts and updates every badge. Pages call this after acting on something. */
 async function refreshAttention(attention) {
 	const user = await fetchUser();
@@ -244,6 +256,7 @@ async function refreshAttention(attention) {
 	renderAttentionBadges();
 	announceNotification(_attention.latest, user);
 	announceStaffQueue(_attention.staff, user);
+	announceStaffChat(_attention.staff_chat, user);
 	document.dispatchEvent(new CustomEvent("attention", { detail: _attention }));
 	return _attention;
 }

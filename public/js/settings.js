@@ -393,6 +393,7 @@ const NOTIFICATION_ICONS = {
 	reminders: ["local_fire_department", "text-orange-400"],
 	achievements: ["emoji_events", "text-yellow-400"],
 	announcements: ["campaign", "text-purple-400"],
+	staff_chat: ["forum", "text-blue-400"],
 };
 
 function timeAgo(seconds) {
