@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Leaving Dovedale GeoGuesser</title>
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#09090b" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" />
+    <link rel="stylesheet" href="/css/shared.css" />
+    <script src="/js/transitions.js"></script>
+  </head>
+  <body class="bg-zinc-950 text-zinc-100 font-[Inter] min-h-screen flex flex-col items-center justify-center px-6 text-center">
+    <div class="max-w-md w-full">
+      <span id="leaving-icon" class="material-symbols-outlined text-blue-500 mb-4" style="font-size: 56px" aria-hidden="true">open_in_new</span>
+      <h1 id="leaving-title" class="text-2xl font-bold mb-2">You're leaving Dovedale GeoGuesser</h1>
+      <p id="leaving-message" class="text-zinc-400 text-sm mb-4">This link goes to another site, which we don't run.</p>
+      <div id="leaving-target" class="hidden bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 mb-8 text-left">
+        <div class="text-xs text-zinc-500 mb-1">Site</div>
+        <div id="leaving-host" class="text-lg font-semibold break-all mb-3"></div>
+        <div class="text-xs text-zinc-500 mb-1">Full address</div>
+        <div id="leaving-url" class="font-mono text-sm text-zinc-400 break-all"></div>
+      </div>
+      <div class="flex gap-3 justify-center flex-wrap">
+        <a id="leaving-back" href="/" class="m-btn m-btn-tonal"><span class="material-symbols-outlined">arrow_back</span>Go back</a>
+      </div>
+    </div>
+    <script src="/js/leaving.js"></script>
+  </body>
+</html>

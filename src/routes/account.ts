@@ -167,6 +167,8 @@ export function exportUserData(user: User) {
 		),
 		/** Notes staff have kept about this account. */
 		staff_notes: all("SELECT body, created_at FROM staff_notes WHERE user_id = ?"),
+		/** What you wrote in the staff chat, if you are or were staff. */
+		staff_chat_messages: all("SELECT body, created_at FROM staff_chat WHERE author_id = ?"),
 		sessions: all("SELECT created_at, expires_at FROM sessions WHERE user_id = ?"),
 		daily_attempts: all("SELECT date, started_at, hints_revealed FROM daily_attempts WHERE user_id = ?"),
 		push_subscriptions: all("SELECT endpoint, created_at FROM push_subscriptions WHERE user_id = ?"),
@@ -181,7 +183,7 @@ export function exportUserData(user: User) {
 		),
 		preferences: parsePreferences(user.prefs),
 		exported_at: new Date().toISOString(),
-		export_version: 12,
+		export_version: 13,
 	};
 }
 
@@ -226,7 +228,7 @@ export async function deleteUserAccount(userId: number) {
 				discord_id = '[deleted:' || id || ']', role = NULL, profile_private = 1,
 				current_streak = 0, longest_streak = 0, last_played_date = NULL, prefs = NULL,
 				duel_rating = 1000, duel_rated_games = 0,
-				staff_locked = 0, staff_lock_reason = NULL, suggestions_agreed = 0, suggestions_agreed_at = NULL,
+				staff_locked = 0, staff_lock_reason = NULL, staff_chat_read = 0, suggestions_agreed = 0, suggestions_agreed_at = NULL,
 				email = NULL, email_verified = 0, email_token = NULL, email_token_at = NULL, email_digest = NULL,
 				email_digest_at = NULL, email_digest_upto = NULL,
 				deleted_identity = ?
@@ -267,6 +269,8 @@ export async function deleteUserAccount(userId: number) {
 		/** Messages sent to them alone are about them, so they go. */
 		db.run("DELETE FROM announcements WHERE target_user_id = ?", [userId]);
 		db.run("UPDATE staff_notes SET author_username = '[deleted]' WHERE author_id = ?", [userId]);
+		db.run("UPDATE staff_chat SET author_username = '[deleted]' WHERE author_id = ?", [userId]);
+		db.run("UPDATE staff_chat SET pinned_by_username = '[deleted]' WHERE pinned_by = ?", [userId]);
 		/** The changelog keeps only a name for who wrote an entry. */
 		if (account)
 			db.run("UPDATE changelog SET created_by = '[deleted]' WHERE created_by IN (?, ?)", [

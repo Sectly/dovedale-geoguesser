@@ -12,6 +12,7 @@ const atLeast = (role) => (ROLE_RANK_JS[currentUser?.role] ?? 0) >= ROLE_RANK_JS
 /** The lowest role that may open each tab. */
 const TAB_MIN_ROLE = {
 	overview: "helper",
+	chat: "curator",
 	submissions: "helper",
 	suggestions: "helper",
 	locations: "curator",
@@ -421,6 +422,7 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 	refreshAttention();
 
 	if (tab === "overview") loadOverview();
+	else if (tab === "chat") loadChat();
 	else if (tab === "submissions") loadSubmissions();
 	else if (tab === "suggestions") loadSuggestions();
 	else if (tab === "locations") loadLocations();

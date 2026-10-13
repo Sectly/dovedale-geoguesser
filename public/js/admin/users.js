@@ -31,8 +31,9 @@ const ROLE_INFO = {
 			"Approve or deny location submissions",
 			"Approve or deny suggested changes to locations (an approved one is applied)",
 			"See their own past reviews",
+			"Suggest changes to locations without the account age and games a player needs first",
 		],
-		note: "Helpers still play the game, so they cannot browse the location list, and they are limited like any player.",
+		note: "Helpers still play the game, so they cannot browse the location list here, have no staff chat, and are limited like any player. Suggest Change does show them where every location is.",
 	},
 	curator: {
 		summary: "The first staff role. Everything a helper can do, and:",
@@ -41,6 +42,7 @@ const ROLE_INFO = {
 			"Edit locations: labels, hints, switching them on or off, resetting difficulty",
 			"See everything that has been reviewed, and by whom",
 			"Get in during maintenance, and receive staff announcements",
+			"Talk to other staff in the staff chat, and keep up to 3 of their own messages pinned there",
 		],
 		note: "Curators do not deal with players: no tickets, warnings or bans.",
 	},
@@ -53,6 +55,7 @@ const ROLE_INFO = {
 			"Leave notes on a player for other staff",
 			"See duel history and stats",
 			"Suspend a helper's or curator's access",
+			"Pin staff chat messages from a lower role as well as their own, up to 5",
 		],
 	},
 	supervisor: {
@@ -63,6 +66,7 @@ const ROLE_INFO = {
 			"Suspend a moderator's staff access",
 			"Remove another member of staff's note",
 			"See site stats and the audit log",
+			"Delete a lower role's staff chat message or take off its pin, and keep up to 10 pinned",
 		],
 	},
 	admin: {
@@ -70,9 +74,10 @@ const ROLE_INFO = {
 		can: [
 			"Appoint supervisors, and overturn permanent bans",
 			"Correct or reset scores, ratings, streaks and achievements",
-			"Send, correct and take back announcements",
+			"Send, correct and take back announcements, with a link to a page here or to another site",
 			"Delete locations and tickets",
 			"See every open duel, private rooms included, and watch or close one",
+			"Keep up to 20 staff chat messages pinned",
 		],
 		note: "Administrators have no access to the server itself or to exporting and deleting player data.",
 	},
@@ -82,6 +87,7 @@ const ROLE_INFO = {
 			"Appoint administrators",
 			"Export or delete a player's data, and erase moderation records",
 			"Maintenance mode, feature switches, updates, restarts, backups and the server log",
+			"Keep up to 30 staff chat messages pinned",
 		],
 		note: "Operators are set in the server's configuration, not from this page.",
 	},
@@ -370,7 +376,7 @@ function renderUsers(users) {
 					${avatarHtml(u.avatar_url, "w-10 h-10 flex-shrink-0")}
 					<div class="flex-1 min-w-[12rem]">
 						<div class="font-semibold truncate">${escHtml(u.display_name || u.username)}</div>
-						<div class="text-xs text-zinc-500 truncate"><a href="/u/${encodeURIComponent(u.username)}" target="_blank" rel="noopener" class="hover:text-zinc-300 hover:underline transition">@${escHtml(u.username)}</a> · User #${u.id} · joined ${new Date(u.created_at * 1000).toLocaleDateString()} · Suggest policy: ${u.suggestions_agreed ? `accepted${u.suggestions_agreed_at ? " " + new Date(u.suggestions_agreed_at * 1000).toLocaleDateString() : ""}` : "not accepted"}</div>
+						<div class="text-xs text-zinc-500 truncate"><a href="/u/${encodeURIComponent(u.username)}" target="_blank" rel="noopener" class="hover:text-zinc-300 hover:underline transition">@${escHtml(u.username)}</a> · User #${u.id} · joined ${new Date(u.created_at * 1000).toLocaleDateString()} · Suggest Change policy: ${u.suggestions_agreed ? `agreed${u.suggestions_agreed_at ? " " + new Date(u.suggestions_agreed_at * 1000).toLocaleDateString() : ""}` : "pending"}</div>
 						<div class="flex gap-1 mt-1 flex-wrap">${userStatusBadges(u)}</div>
 					</div>
 					<div class="flex gap-1.5 flex-wrap justify-end">
@@ -524,8 +530,8 @@ function renderUserPanel({
 				<div class="text-xs text-zinc-500" title="The fair-play notice shown before a player can use Suggest Change">
 					Suggest Change policy: ${
 						user.suggestions_agreed
-							? `<span class="text-green-400">accepted</span>${user.suggestions_agreed_at ? ` on ${formatWhen(user.suggestions_agreed_at)}` : ""}`
-							: '<span class="text-zinc-400">not accepted</span>'
+							? `<span class="text-green-400">agreed</span>${user.suggestions_agreed_at ? ` on ${formatWhen(user.suggestions_agreed_at)}` : ""}`
+							: '<span class="text-zinc-400">pending</span>'
 					}
 				</div>
 				<div class="text-xs mt-0.5">${status.length ? status.join(" · ") : '<span class="text-green-400">In good standing</span>'}</div>

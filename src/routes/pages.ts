@@ -32,6 +32,7 @@ const PAGES: Record<string, string> = {
 	"/privacy": "privacy.html",
 	"/guidelines": "guidelines.html",
 	"/fairplay": "fairplay.html",
+	"/leaving": "leaving.html",
 };
 
 const IMMUTABLE = "public, max-age=31536000, immutable";

@@ -234,6 +234,40 @@ describe("team duels", () => {
 		expect(state.reveal.guesses).toHaveLength(4);
 	});
 
+	test("the host sets the rounds in the lobby, and the finished game says how it went", async () => {
+		clearLocations();
+		for (let i = 0; i < 5; i++) createLocation({ x: 1000, y: 1000 });
+		const [host, rival] = [createUser(), createUser()];
+		const code = (await post("/api/teams/rooms", host, { rounds: 5 })).data.code;
+		await post(`/api/teams/rooms/${code}/join`, rival);
+		expect((await post(`/api/teams/rooms/${code}/rounds`, rival, { rounds: 3 })).status).toBe(403);
+		expect((await post(`/api/teams/rooms/${code}/rounds`, host, { rounds: 3 })).status).toBe(200);
+		expect((await room(code, rival)).rounds).toBe(3);
+		expect((await room(code, rival)).summary).toBeNull();
+
+		await post(`/api/teams/rooms/${code}/start`, host);
+		expect((await post(`/api/teams/rooms/${code}/rounds`, host, { rounds: 10 })).status).toBe(409);
+		let clock = Date.now();
+		tickTeamRooms((clock += 5000));
+		await post(`/api/teams/rooms/${code}/guess`, host, { x: 1000, y: 1000 });
+		await post(`/api/teams/rooms/${code}/guess`, rival, {});
+		expect((await room(code, host)).phase).toBe("reveal");
+		/** The clock here runs ahead of the players, so they count as away and the other rounds end unguessed. */
+		for (let round = 2; round <= 3; round++) {
+			tickTeamRooms((clock += 11000));
+			tickTeamRooms((clock += 5000));
+		}
+		tickTeamRooms((clock += 11000));
+
+		const final = await room(code, rival);
+		const hostTeam = final.members.find((m: { id: number }) => m.id === host.id).team;
+		const rivalTeam = hostTeam === "a" ? "b" : "a";
+		expect(final).toMatchObject({ status: "finished", winner: hostTeam, rounds: 3 });
+		expect(final.summary.rounds_won).toEqual({ [hostTeam]: 1, [rivalTeam]: 0 });
+		expect(final.summary.players).toContainEqual({ id: host.id, best: 5000, counted: 1 });
+		expect(final.summary.players).toContainEqual({ id: rival.id, best: 0, counted: 0 });
+	});
+
 	test("it needs a login, both teams, and is closed to banned players", async () => {
 		expect((await post("/api/teams/rooms", undefined, {})).status).toBe(401);
 		const host = createUser();

@@ -226,15 +226,24 @@ const button = (href: string, label: string) =>
 export type EmailState = {
 	/** False hides the whole setting. */
 	available: boolean;
+	/** Masked: the page says which address it is without showing it in full. */
 	address: string | null;
 	verified: boolean;
 	frequency: DigestFrequency;
 };
 
+/** "sam.jones@example.com" becomes "s****s@example.com". A name of one or two letters keeps only its first. */
+export function maskEmail(address: string): string {
+	const at = address.lastIndexOf("@");
+	if (at < 1) return "****";
+	const name = address.slice(0, at);
+	return `${name[0]}****${name.length > 2 ? name.at(-1) : ""}${address.slice(at)}`;
+}
+
 export function emailState(user: User): EmailState {
 	return {
 		available: emailAvailable(),
-		address: user.email ?? null,
+		address: user.email ? maskEmail(user.email) : null,
 		verified: !!user.email_verified,
 		frequency: (DIGEST_FREQUENCIES as readonly string[]).includes(user.email_digest ?? "")
 			? (user.email_digest as DigestFrequency)

@@ -104,6 +104,11 @@ function renderLobby() {
 	const bothTeams = ["a", "b"].every((team) => room.members.some((m) => m.team === team));
 	show("team-start", isHost);
 	el("team-start").disabled = !bothTeams;
+	show("room-rounds-host", isHost);
+	show("room-rounds-text", !isHost);
+	el("room-rounds-text").textContent = `${room.rounds} rounds`;
+	/** Left alone while the host has it open, so a poll does not undo their choice mid-click. */
+	if (document.activeElement !== el("room-rounds")) el("room-rounds").value = room.rounds;
 	el("room-hint").textContent = !bothTeams
 		? "Share the code or invite link. Each team needs at least one player."
 		: isHost
@@ -121,10 +126,11 @@ function renderScorebar() {
 			const info = TEAM_INFO[team];
 			const members = room.members.filter((m) => m.team === team);
 			const dots = members
-				.map(
-					(m) =>
-						`<span title="${escHtml(nameOf(m))}${m.guessed ? " has guessed" : ""}" class="material-symbols-outlined text-sm ${m.guessed ? info.text : "text-zinc-600"}">${m.guessed ? "check_circle" : "radio_button_unchecked"}</span>`
-				)
+				.map((m) => {
+					const state = m.guessed ? "has guessed" : m.away ? "is away" : "is still guessing";
+					const icon = m.guessed ? "check_circle" : m.away ? "do_not_disturb_on" : "radio_button_unchecked";
+					return `<span title="${escHtml(nameOf(m))} ${state}" class="material-symbols-outlined text-sm ${m.guessed ? info.text : "text-zinc-600"}">${icon}</span>`;
+				})
 				.join("");
 			return `<div class="bg-black/70 rounded-full pl-3 pr-2.5 py-1.5 text-xs flex items-center gap-2 ${room.you.team === team ? "ring-1 ring-white/20" : ""}">
 				<span class="font-semibold ${info.text}">${info.name}</span>
@@ -220,16 +226,30 @@ function renderFinal() {
 	el("final-title").textContent =
 		room.winner === "tie" ? "It's a tie" : `${TEAM_INFO[room.winner].name} wins${won ? "!" : ""}`;
 	el("final-icon").textContent = room.winner === "tie" ? "handshake" : won ? "emoji_events" : "sentiment_neutral";
+	const taken = room.summary?.rounds_won ?? { a: 0, b: 0 };
+	const drawn = room.rounds - taken.a - taken.b;
+	el("final-rounds").textContent =
+		`Rounds: ${TEAM_INFO.a.name} ${taken.a}, ${TEAM_INFO.b.name} ${taken.b}` +
+		(drawn > 0 ? `, drawn ${drawn}` : "");
 	el("final-teams").innerHTML = ["a", "b"]
 		.map((team) => {
 			const info = TEAM_INFO[team];
-			return `<div class="bg-zinc-900 rounded-2xl p-4 text-center ${room.winner === team ? "ring-1 ring-white/20" : ""}">
-				<div class="font-semibold ${info.text}">${info.name}</div>
-				<div class="font-mono text-3xl font-bold my-1">${room.totals[team].toLocaleString()}</div>
-				<div class="text-xs text-zinc-500">${room.members
-					.filter((m) => m.team === team)
-					.map((m) => escHtml(nameOf(m)))
-					.join(" and ")}</div>
+			const players = room.members
+				.filter((m) => m.team === team)
+				.map((m) => {
+					const stats = room.summary?.players.find((p) => p.id === m.id);
+					return `<div class="mt-2 text-left">
+						<div class="text-sm font-medium truncate">${escHtml(nameOf(m))}</div>
+						${stats ? `<div class="text-xs text-zinc-500">Best round ${stats.best.toLocaleString()} · scored for the team in ${stats.counted} of ${room.rounds}</div>` : ""}
+					</div>`;
+				})
+				.join("");
+			return `<div class="bg-zinc-900 rounded-2xl p-4 ${room.winner === team ? "ring-1 ring-white/20" : ""}">
+				<div class="text-center">
+					<div class="font-semibold ${info.text}">${info.name}</div>
+					<div class="font-mono text-3xl font-bold my-1">${room.totals[team].toLocaleString()}</div>
+				</div>
+				${players}
 			</div>`;
 		})
 		.join("");
@@ -281,11 +301,9 @@ function render() {
 		if (changed && (was.phase !== "ready" || was.round !== room.round_number)) startRoundOnScreen();
 		if (changed) {
 			view.go(room.round);
-			if (room.you.guessed) {
-				view.lock();
-				el("click-hint").textContent = "Guess locked in. Waiting for the others";
-			}
+			if (room.you.guessed) view.lock();
 		}
+		if (room.you.guessed) el("click-hint").textContent = lockedHint();
 		showTeammatePins();
 	} else if (room.phase === "reveal") {
 		if (changed) renderReveal();
@@ -294,8 +312,16 @@ function render() {
 	}
 }
 
+/** Shown once a player's guess is in. Away players are not waited for, so they are left out. */
+function lockedHint() {
+	const waiting = room.members.filter((m) => m.team && !m.guessed && !m.away && m.id !== me.id).map(nameOf);
+	if (!waiting.length) return "Guess locked in";
+	const names = waiting.length > 2 ? `${waiting.length} players` : waiting.join(" and ");
+	return `Guess locked in. Waiting for ${names}`;
+}
+
 async function submitGuess(pin) {
-	el("click-hint").textContent = "Guess locked in. Waiting for the others";
+	el("click-hint").textContent = lockedHint();
 	try {
 		await teamApi("/guess", pin ?? {});
 	} catch (err) {
@@ -351,6 +377,16 @@ async function init() {
 			.then(poll)
 			.catch((err) => showToast(err.message, "error"))
 	);
+	el("room-rounds").addEventListener("change", async (e) => {
+		await teamApi("/rounds", { rounds: Number(e.target.value) }).catch((err) => showToast(err.message, "error"));
+		e.target.blur();
+		poll();
+	});
+	/** Closing the page outside a game gives up the seat, so nobody waits on a host or a player who has gone. */
+	addEventListener("pagehide", () => {
+		if (!roomCode || room?.status === "playing") return;
+		fetch(`/api/teams/rooms/${roomCode}/leave`, { method: "POST", keepalive: true }).catch(() => {});
+	});
 	el("team-leave").addEventListener("click", async () => {
 		await teamApi("/leave", {}).catch(() => {});
 		leaveLocally();

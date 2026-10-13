@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { db, type Location } from "../src/db";
 import { closeDuelByStaff, createRoom, joinRoom } from "../src/game/duels/rooms";
 import { utcDate } from "../src/lib/time";
+import { pruneStaffChat } from "../src/routes/admin/chat";
 import { setMaintenance } from "../src/system/maintenance";
 import { call, createLocation, createUser, post, resetReviewQueues, type TestUser } from "./helpers";
 
@@ -866,5 +867,188 @@ describe("closing a duel from the staff panel", () => {
 		expect(
 			db.query<{ duel_rating: number | null }, [number]>("SELECT duel_rating FROM users WHERE id = ?").get(a.id)
 		).toEqual(before);
+	});
+});
+
+describe("staff chat", () => {
+	const chat = (as: TestUser) => call("/api/admin/chat", { as }).then((r) => r.data.messages);
+	const unread = (as: TestUser) => call("/api/admin/chat/unread", { as }).then((r) => r.data.unread);
+
+	test("staff talk in one room; helpers and players are kept out", async () => {
+		const curator = createUser({ role: "curator" });
+		const moderator = createUser({ role: "moderator" });
+		for (const outsider of [createUser(), createUser({ role: "helper" })]) {
+			expect((await call("/api/admin/chat", { as: outsider })).status).toBe(403);
+			expect((await post("/api/admin/chat", outsider, { body: "Let me in" })).status).toBe(403);
+		}
+		expect((await post("/api/admin/chat", curator, { body: "   " })).status).toBe(400);
+
+		const before = await unread(moderator);
+		const sent = await post("/api/admin/chat", curator, { body: "  Queue is clear  " });
+		expect(sent.status).toBe(200);
+		/** New to everyone but the one who wrote it, until they open the room. */
+		expect(await unread(curator)).toBe(0);
+		expect(await unread(moderator)).toBe(before + 1);
+		expect((await chat(moderator)).at(-1)).toMatchObject({
+			id: sent.data.id,
+			author_id: curator.id,
+			body: "Queue is clear",
+			role: "curator",
+			can_delete: false,
+		});
+		expect(await unread(moderator)).toBe(0);
+	});
+
+	test("a message can be deleted by its author or by senior staff", async () => {
+		const [author, peer, senior] = [
+			createUser({ role: "moderator" }),
+			createUser({ role: "moderator" }),
+			createUser({ role: "supervisor" }),
+		];
+		const write = async (body: string) => (await post("/api/admin/chat", author, { body })).data.id;
+		const remove = (id: number, as: TestUser) => call(`/api/admin/chat/${id}`, { as, method: "DELETE" });
+		const [first, second] = [await write("Mine to remove"), await write("Removed by a supervisor")];
+
+		expect((await remove(first, peer)).status).toBe(403);
+		expect((await remove(first, author)).status).toBe(200);
+		expect((await remove(first, author)).status).toBe(404);
+		expect((await chat(senior)).find((m: { id: number }) => m.id === second).can_delete).toBe(true);
+		expect((await remove(second, senior)).status).toBe(200);
+		const ids = (await chat(peer)).map((m: { id: number }) => m.id);
+		expect(ids).not.toContain(first);
+		expect(ids).not.toContain(second);
+		/** Removing someone else's message leaves a trace; removing your own does not. */
+		const logged = db
+			.query<{ n: number }, [number]>(
+				"SELECT COUNT(*) AS n FROM audit_log WHERE action = 'staff_chat_delete' AND actor_id = ?"
+			)
+			.get(senior.id)!.n;
+		expect(logged).toBe(1);
+	});
+});
+
+describe("staff chat pins", () => {
+	const room = (as: TestUser) => call("/api/admin/chat", { as }).then((r) => r.data);
+	const pin = (id: number, as: TestUser, pinned = true) => post(`/api/admin/chat/${id}/pin`, as, { pinned });
+	const write = async (as: TestUser, body: string) => (await post("/api/admin/chat", as, { body })).data.id;
+
+	test("each role may hold only so many pins, and a pin comes off for its owner or senior staff", async () => {
+		const [curator, moderator, senior] = [
+			createUser({ role: "curator" }),
+			createUser({ role: "moderator" }),
+			createUser({ role: "supervisor" }),
+		];
+		expect((await room(curator)).pin_limit).toBeLessThan((await room(moderator)).pin_limit);
+		const limit = (await room(curator)).pin_limit;
+		const ids: number[] = [];
+		for (let i = 0; i <= limit; i++) ids.push(await write(curator, `Worth keeping ${i}`));
+
+		expect((await pin(ids[0], createUser({ role: "helper" }))).status).toBe(403);
+		for (const id of ids.slice(0, limit)) expect((await pin(id, curator)).status).toBe(200);
+		expect((await pin(ids[limit], curator)).status).toBe(409);
+		/** Pinning what is already pinned changes nothing, and does not count against anyone. */
+		expect((await pin(ids[0], moderator)).status).toBe(200);
+		expect(await room(moderator)).toMatchObject({ pins_used: 0 });
+
+		const seen = await room(moderator);
+		expect(seen.pins.map((m: { id: number }) => m.id)).toEqual(expect.arrayContaining(ids.slice(0, limit)));
+		expect(seen.pins.find((m: { id: number }) => m.id === ids[0])).toMatchObject({
+			pinned_by: curator.id,
+			can_unpin: false,
+		});
+		expect((await pin(ids[0], moderator, false)).status).toBe(403);
+		expect((await pin(ids[0], senior, false)).status).toBe(200);
+		expect((await pin(ids[1], curator, false)).status).toBe(200);
+		expect(await room(curator)).toMatchObject({ pins_used: limit - 2 });
+		expect((await pin(ids[limit], curator)).status).toBe(200);
+	});
+
+	test("nobody deletes, pins or unpins the message of someone at their own rank or above", async () => {
+		const [curator, modA, modB, supA, supB, admin] = (
+			["curator", "moderator", "moderator", "supervisor", "supervisor", "admin"] as const
+		).map((role) => createUser({ role }));
+		const remove = (id: number, as: TestUser) => call(`/api/admin/chat/${id}`, { as, method: "DELETE" });
+		const flags = async (id: number, as: TestUser) =>
+			(await room(as)).messages.find((m: { id: number }) => m.id === id);
+
+		/** Pinning: your own, or a lower role's. */
+		const fromMod = await write(modB, "From a moderator");
+		expect(await flags(fromMod, modA)).toMatchObject({ can_pin: false, can_delete: false });
+		expect((await pin(fromMod, modA)).status).toBe(403);
+		expect((await pin(await write(curator, "From a curator"), modA)).status).toBe(200);
+		expect((await pin(fromMod, supA)).status).toBe(200);
+
+		/** A pin comes off for whoever placed it, or for senior staff above them. */
+		expect(await flags(fromMod, supB)).toMatchObject({ can_unpin: false });
+		for (const other of [modB, supB]) expect((await pin(fromMod, other, false)).status).toBe(403);
+		expect((await pin(fromMod, admin, false)).status).toBe(200);
+
+		/** Deleting someone else's: senior staff only, and only below their own rank. */
+		const fromSup = await write(supA, "From a supervisor");
+		for (const other of [modA, supB]) expect((await remove(fromSup, other)).status).toBe(403);
+		expect((await remove(await write(admin, "From an administrator"), supA)).status).toBe(403);
+		expect(await flags(fromSup, admin)).toMatchObject({ can_delete: true, can_pin: true });
+		expect((await remove(fromSup, admin)).status).toBe(200);
+	});
+
+	test("a pinned message outlives the clean-up that removes old ones", async () => {
+		const staff = createUser({ role: "moderator" });
+		const [kept, dropped] = [await write(staff, "Read this before reviewing"), await write(staff, "Old news")];
+		await pin(kept, staff);
+		db.run("UPDATE staff_chat SET created_at = unixepoch() - 200 * 86400 WHERE id IN (?, ?)", [kept, dropped]);
+		pruneStaffChat();
+		const left = db
+			.query<{ id: number }, []>("SELECT id FROM staff_chat")
+			.all()
+			.map((m) => m.id);
+		expect(left).toContain(kept);
+		expect(left).not.toContain(dropped);
+	});
+});
+
+describe("staff chat alerts", () => {
+	const say = (as: TestUser, body: string) => post("/api/admin/chat", as, { body });
+	const choose = (as: TestUser, staff_chat: string) => post("/api/settings", as, { prefs: { staff_chat } });
+	const attention = (as: TestUser) => call("/api/attention", { as }).then((r) => r.data);
+	const inbox = async (as: TestUser) =>
+		(await call("/api/notifications", { as })).data.notifications.filter(
+			(n: { category: string }) => n.category === "staff_chat"
+		);
+
+	test("each member of staff picks nothing, a count, or an inbox entry that says only that there is something new", async () => {
+		const [author, quiet, counted, told, helper] = [
+			createUser({ role: "moderator" }),
+			createUser({ role: "moderator" }),
+			createUser({ role: "curator" }),
+			createUser({ role: "supervisor" }),
+			createUser({ role: "helper" }),
+		];
+		/** Everyone starts on the count. */
+		expect((await call("/api/auth/me", { as: counted })).data.prefs.staff_chat).toBe("badge");
+		expect((await choose(quiet, "none")).data.prefs.staff_chat).toBe("none");
+		expect((await choose(told, "notify")).data.prefs.staff_chat).toBe("notify");
+		expect((await choose(helper, "notify")).status).toBe(200);
+		expect((await choose(counted, "loudly")).data.prefs.staff_chat).toBe("badge");
+		for (const reader of [quiet, counted, told]) await call("/api/admin/chat", { as: reader });
+
+		await say(author, "The secret plan is in the usual place");
+		await say(author, "And one more thing");
+		expect((await attention(quiet)).staff_chat).toBe(0);
+		expect((await attention(counted)).staff_chat).toBe(2);
+		expect((await attention(helper)).staff_chat).toBe(0);
+		for (const untold of [quiet, counted, helper, author]) expect(await inbox(untold)).toHaveLength(0);
+
+		/** One entry however many messages, with none of what was said. */
+		const entries = await inbox(told);
+		expect(entries).toHaveLength(1);
+		expect(entries[0]).toMatchObject({ body: null, link: "/admin#chat", read_at: null });
+		expect(JSON.stringify(entries)).not.toContain("secret plan");
+
+		/** Opening the room reads it, and the next message brings a new one. */
+		await call("/api/admin/chat", { as: told });
+		expect((await inbox(told))[0].read_at).not.toBeNull();
+		expect((await attention(told)).staff_chat).toBe(0);
+		await say(author, "Still there?");
+		expect((await inbox(told)).filter((n: { read_at: number | null }) => n.read_at === null)).toHaveLength(1);
 	});
 });

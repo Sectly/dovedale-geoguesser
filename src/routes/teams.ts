@@ -12,6 +12,7 @@ import {
 	moveTeamPin,
 	resetTeamRoom,
 	sendTeamEmote,
+	setTeamRounds,
 	startTeamGame,
 	submitTeamGuess,
 	teamRoomState,
@@ -54,6 +55,13 @@ teamRoutes.post("/rooms/:code/join", (c) => {
 teamRoutes.post("/rooms/:code/team", async (c) => {
 	const user = requireTeamPlayer(c);
 	chooseTeam(code(c), user, (await readJson<{ team: string }>(c)).team);
+	return done(c);
+});
+
+teamRoutes.post("/rooms/:code/rounds", async (c) => {
+	const user = requireTeamPlayer(c);
+	const body = await readJson<{ rounds: number }>(c);
+	setTeamRounds(code(c), user, clampInt(body.rounds, TEAM_ROUNDS.default, TEAM_ROUNDS.min, TEAM_ROUNDS.max));
 	return done(c);
 });
 

@@ -134,6 +134,8 @@ describe("emailed summaries", () => {
 			expect(await me()).toMatchObject({ available: true, address: null, verified: false, frequency: "off" });
 			expect((await post("/api/settings/email", player, { email: "not an address" })).status).toBe(400);
 			expect((await post("/api/settings/email", player, { email: "Player@Example.com" })).status).toBe(200);
+			/** The page is told which address it is, never the address itself. */
+			expect((await me()).address).toBe("p****r@example.com");
 			expect(outbox[0].to).toBe("player@example.com");
 			expect((await post("/api/settings/email/frequency", player, { frequency: "hourly" })).status).toBe(409);
 
@@ -241,7 +243,7 @@ describe("unlinking an email", () => {
 			/** Hidden as a setting, but the saved address is still shown so it can be removed. */
 			expect((await call("/api/auth/me", { as: player })).data.email).toMatchObject({
 				available: false,
-				address: "gone@example.com",
+				address: "g****e@example.com",
 			});
 			expect((await call("/api/settings/email", { method: "DELETE", as: player })).status).toBe(200);
 			const row = db
@@ -537,5 +539,23 @@ describe("the link counter", () => {
 		).clicks;
 		expect(clicks).toBeGreaterThan(0);
 		expect(clicks).toBeLessThanOrEqual(6);
+	});
+
+	test("sends a link to another site by way of the page that warns about leaving", async () => {
+		const admin = createUser({ role: "admin" });
+		const link = "https://example.com/map?zoom=2#top";
+		const sent = await post("/api/admin/announcements", admin, {
+			title: "Elsewhere",
+			body: "The full map lives on another site.",
+			link,
+			banner_hours: 1,
+		});
+		expect(sent.status).toBe(200);
+		const go = `/api/announcement/${sent.data.id}/go`;
+		expect((await call("/api/announcement")).data).toMatchObject({ link: go, external: true });
+		const visit = await call(go);
+		expect(visit.status).toBe(302);
+		expect(visit.headers.get("Location")).toBe(`/leaving?to=${encodeURIComponent(link)}`);
+		expect((await call("/leaving")).status).toBe(200);
 	});
 });

@@ -21,6 +21,24 @@ function ticketBubbleHtml({ mine, who, when, bodyHtml }) {
 	</div>`;
 }
 
+/** Escapes a message and links the addresses in it. One on another site goes by way of the leaving page. */
+function linkedTextHtml(text) {
+	return String(text ?? "")
+		.split(/(https?:\/\/[^\s<>"']+)/)
+		.map((part, i) => {
+			if (i % 2 === 0) return escHtml(part);
+			/** Punctuation that ends the sentence, not the address. A bracket stays when the address opened it. */
+			let url = part;
+			while (/[.,;:!?\]]$/.test(url) || (url.endsWith(")") && url.split(")").length > url.split("(").length))
+				url = url.slice(0, -1);
+			const after = part.slice(url.length);
+			const here = `${url}/`.startsWith(`${location.origin}/`);
+			if (!here && !isExternalLink(url)) return escHtml(part);
+			return `<a href="${escHtml(here ? url : linkHref(url))}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">${escHtml(url)}${here ? "" : EXTERNAL_ICON}</a>${escHtml(after)}`;
+		})
+		.join("");
+}
+
 /** The whole conversation. `viewer` ("user" or "staff") decides whose messages sit on the right. */
 function ticketThreadHtml(ticket, viewer, openingHtml) {
 	const replies = Array.isArray(ticket.replies) ? ticket.replies : [];
@@ -33,14 +51,14 @@ function ticketThreadHtml(ticket, viewer, openingHtml) {
 			mine: viewer === "user",
 			who: viewer === "user" ? "You" : `@${ticket.username || "user"}`,
 			when: ticket.created_at,
-			bodyHtml: openingHtml ?? escHtml(ticket.message || ""),
+			bodyHtml: openingHtml ?? linkedTextHtml(ticket.message),
 		}),
 		...replies.map((reply) =>
 			ticketBubbleHtml({
 				mine: (reply.type === "staff") === (viewer === "staff"),
 				who: name(reply),
 				when: reply.created_at,
-				bodyHtml: escHtml(reply.body),
+				bodyHtml: linkedTextHtml(reply.body),
 			})
 		),
 	].join("");

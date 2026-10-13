@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { db, type User } from "../db";
 import { LIMITS } from "../config";
-import { hasRole, requirePlayer, requireUser } from "../auth/guards";
+import { isStaff, requirePlayer, requireUser } from "../auth/guards";
 import { cleanHints } from "../game/locations";
 import { parseGuess } from "../game/round";
 import { fail, idParam, readForm, readJson, text } from "../lib/http";
@@ -36,9 +36,9 @@ function suggestionProgress(user: User) {
 	};
 }
 
-/** Why this user may not suggest changes yet, or null when they may. Staff are always allowed. */
+/** Why this user may not suggest changes yet, or null when they may. Staff and helpers are always allowed. */
 function suggestionBlocker(user: User): string | null {
-	if (hasRole(user, "moderator")) return null;
+	if (isStaff(user)) return null;
 	const { days, games } = suggestionProgress(user);
 	if (days.have < days.need) return `Your account must be at least ${days.need} days old to suggest changes`;
 	if (games.have < games.need) return `You must have played at least ${games.need} games to suggest changes`;
