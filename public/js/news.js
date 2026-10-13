@@ -24,7 +24,7 @@ function newsItemHtml(item) {
 		</div>
 		<h2 class="font-bold text-lg mt-2 break-words">${escHtml(item.title)}</h2>
 		${body}
-		${item.link ? `<a href="${escHtml(item.link)}" class="inline-block text-sm text-blue-400 hover:underline mt-3">Take a look</a>` : ""}
+		${item.link ? `<a href="${escHtml(linkHref(item.link))}" class="inline-block text-sm text-blue-400 hover:underline mt-3">Take a look${isExternalLink(item.link) ? EXTERNAL_ICON : ""}</a>` : ""}
 	</article>`;
 }
 

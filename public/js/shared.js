@@ -12,6 +12,14 @@ const escHtml = (s) =>
 
 const locId = (id) => "LOC-" + String(id).padStart(4, "0");
 
+/** True for a link to another site, rather than a page on this one or this site's own address. */
+const isExternalLink = (link) => /^https:\/\//i.test(link || "") && !`${link}/`.startsWith(`${location.origin}/`);
+/** A link to another site goes by way of the page that warns about leaving. */
+const linkHref = (link) => (isExternalLink(link) ? `/leaving?to=${encodeURIComponent(link)}` : link);
+/** The mark beside a link that leaves this site. */
+const EXTERNAL_ICON =
+	'<span class="material-symbols-outlined external-icon" role="img" aria-label="Goes to another site">open_in_new</span>';
+
 /** Shows or hides an element by id. */
 function show(id, visible = true) {
 	el(id)?.classList.toggle("hidden", !visible);
@@ -877,7 +885,7 @@ const ANNOUNCEMENT_ICONS = { info: "campaign", success: "celebration", warning: 
 		</div>
 		<p class="text-zinc-300 text-sm mb-5 break-words">${escHtml(pending.body)}</p>
 		<div class="flex gap-2 justify-end">
-			${pending.link && pending.link !== "/settings#notifications" ? `<a href="${escHtml(pending.link)}" data-ok class="m-btn m-btn-tonal">Read more</a>` : ""}
+			${pending.link && pending.link !== "/settings#notifications" ? `<a href="${escHtml(pending.link)}" data-ok class="m-btn m-btn-tonal">${pending.external ? '<span class="material-symbols-outlined" role="img" aria-label="Goes to another site">open_in_new</span>' : ""}Read more</a>` : ""}
 			<button data-ok class="m-btn m-btn-filled">OK</button>
 		</div>
 	</div>`;
@@ -913,7 +921,7 @@ async function checkAnnouncement() {
 		<div class="site-announcement-text">
 			<div class="site-announcement-title">${escHtml(announcement.title)}</div>
 			<div class="site-announcement-body">${escHtml(announcement.body)}</div>
-			${announcement.link ? `<a href="${escHtml(announcement.link)}" class="site-announcement-link">Take a look</a>` : ""}
+			${announcement.link ? `<a href="${escHtml(announcement.link)}" class="site-announcement-link">Take a look${announcement.external ? EXTERNAL_ICON : ""}</a>` : ""}
 		</div>
 		<button class="m-icon-btn" aria-label="Dismiss this announcement"><span class="material-symbols-outlined">close</span></button>`;
 	card.querySelector("button").addEventListener("click", () => {
@@ -1189,6 +1197,7 @@ whenIdle(async function fingerprint() {
 function setupPhotoLens(img) {
 	if (!img) return;
 	const lens = document.createElement("div");
+	lens.className = "photo-lens";
 	lens.style.cssText =
 		"position:absolute;width:200px;height:200px;border-radius:50%;border:2px solid rgba(255,255,255,0.35);box-shadow:0 4px 24px rgba(0,0,0,0.6);pointer-events:none;display:none;background-repeat:no-repeat;z-index:20;transform:translate(-50%,-50%);";
 	img.parentElement.appendChild(lens);

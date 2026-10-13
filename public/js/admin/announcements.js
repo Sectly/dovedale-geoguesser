@@ -204,7 +204,7 @@ function announcementRowHtml(a) {
 	return `<div class="py-2.5 flex flex-col gap-1" data-search="${escHtml(search)}">
 		<div class="text-sm font-semibold break-words ${a.recalled_at ? "text-zinc-500" : ""}">${escHtml(a.title)} ${tags}</div>
 		<div class="text-xs text-zinc-400 break-words">${escHtml(a.body)}</div>
-		<div class="text-[11px] text-zinc-600">${a.send_at || a.draft ? "Written" : "Sent"} ${formatWhen(a.created_at)} · by ${escHtml(a.created_by || "staff")} · ${escHtml(AUDIENCE_LABELS[a.audience] || a.audience)}${a.link ? ` · links to ${escHtml(a.link)}` : ""}</div>
+		<div class="text-[11px] text-zinc-600 break-words">${a.send_at || a.draft ? "Written" : "Sent"} ${formatWhen(a.created_at)} · by ${escHtml(a.created_by || "staff")} · ${escHtml(AUDIENCE_LABELS[a.audience] || a.audience)}${a.link ? ` · links to ${escHtml(a.link)}${isExternalLink(a.link) ? EXTERNAL_ICON : ""}` : ""}</div>
 		<div class="text-[11px] text-zinc-500">${announcementReachHtml(a)}</div>
 		<div id="announce-unread-${a.id}" class="text-[11px] text-zinc-400 empty:hidden"></div>
 		<div class="flex flex-wrap items-center gap-1 -ml-3">${actions}</div>
@@ -271,7 +271,7 @@ function renderAnnouncements() {
 					<input id="announce-date" type="datetime-local" class="m-field text-xs" style="width:auto;padding-block:0.3rem" aria-label="A date and time to put in the message" />
 					<button onclick="insertAnnouncementDate()" class="m-btn m-btn-text m-btn-sm" title="Adds the date to the message, written out in UK time">Put this date in the message</button>
 				</div>
-				<label class="m-label mt-1" for="announce-link">Link <span class="text-zinc-600 font-normal">(optional, a page on this site)</span></label>
+				<label class="m-label mt-1" for="announce-link">Link <span class="text-zinc-600 font-normal">(optional, a page on this site or an https:// address)</span></label>
 				<input id="announce-link" maxlength="200" placeholder="/daily" class="${field}" value="${escHtml(draft.link)}" />
 				<div class="grid grid-cols-2 gap-2 mt-1">
 					<div>
@@ -461,14 +461,15 @@ function updateAnnouncementPreview() {
 	el("announce-title-count").textContent = `${draft.title.length}/120`;
 	el("announce-body-count").textContent = `${draft.body.length}/400`;
 
-	const linkOk = !draft.link || /^\/(?!\/)/.test(draft.link);
+	const linkOk = !draft.link || /^\/(?!\/)/.test(draft.link) || /^https:\/\/\S+$/i.test(draft.link);
+	const external = linkOk && isExternalLink(draft.link);
 	const problem =
 		draft.title.length < 5
 			? "The title needs at least 5 characters."
 			: draft.body.length < 10
 				? "The message needs at least 10 characters."
 				: !linkOk
-					? "The link has to start with a single /, like /daily."
+					? "The link has to be a page on this site, like /daily, or start with https://."
 					: UNFILLED.test(draft.title + draft.body)
 						? "Fill in the parts in [brackets] first."
 						: draft.audience === "player" && !draft.username
@@ -499,7 +500,7 @@ function updateAnnouncementPreview() {
 	const title = escHtml(draft.title || "Title");
 	const body = escHtml(draft.body || "Your message appears here.");
 	const [, icon] = STYLE_LOOK[draft.style] || STYLE_LOOK.info;
-	const caption = (text) => `<div class="text-[11px] text-zinc-600 mt-1 mb-3">${text}</div>`;
+	const caption = (text) => `<div class="text-[11px] text-zinc-600 mt-1 mb-3 break-words">${text}</div>`;
 	el("announce-preview").innerHTML =
 		(silent
 			? ""
@@ -510,7 +511,7 @@ function updateAnnouncementPreview() {
 					<div class="text-xs text-zinc-400 break-words">${body}</div>
 				</div>
 			</div>
-			${caption(`In the inbox · opens ${escHtml(draft.link && linkOk ? draft.link : "the notifications page")}`)}
+			${caption(`In the inbox · opens ${escHtml(draft.link && linkOk ? draft.link : "the notifications page")}${external ? " after a warning about leaving the site" : ""}`)}
 			${
 				draft.no_push
 					? ""
@@ -534,7 +535,7 @@ function updateAnnouncementPreview() {
 				<div class="site-announcement-text">
 					<div class="site-announcement-title">${title}</div>
 					<div class="site-announcement-body">${body}</div>
-					${draft.link && linkOk ? '<span class="site-announcement-link">Take a look</span>' : ""}
+					${draft.link && linkOk ? `<span class="site-announcement-link">Take a look${external ? EXTERNAL_ICON : ""}</span>` : ""}
 				</div>
 				<span class="m-icon-btn" aria-hidden="true"><span class="material-symbols-outlined">close</span></span>
 			</div>
@@ -666,7 +667,7 @@ function correctAnnouncement(id) {
 		<p class="text-xs text-zinc-500 mb-1">Changes it in every inbox and on the banner. Nobody is notified again.</p>
 		<input id="fix-title" type="text" maxlength="120" class="m-field" aria-label="Title" />
 		<textarea id="fix-body" rows="4" maxlength="400" class="m-field" aria-label="Message"></textarea>
-		<input id="fix-link" type="text" maxlength="200" placeholder="Link (optional), e.g. /daily" class="m-field" aria-label="Link" />
+		<input id="fix-link" type="text" maxlength="200" placeholder="Link (optional), e.g. /daily or https://..." class="m-field" aria-label="Link" />
 		<div class="flex gap-2 justify-end mt-2">
 			<button id="fix-cancel" class="m-btn m-btn-text">Cancel</button>
 			<button id="fix-save" class="m-btn m-btn-filled">Save</button>

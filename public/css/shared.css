@@ -381,6 +381,30 @@ body :focus-visible:not([class*="ring"]) {
 	position: absolute;
 	inset: 0;
 }
+/* Shown in place of a screenshot that failed to load. Sits under the round counter and clock. */
+#photo-error {
+	position: absolute;
+	inset: 0;
+	z-index: 26;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 3.5rem 1.5rem 1.5rem;
+	text-align: center;
+	background: #09090b;
+}
+#photo-error > .material-symbols-outlined {
+	font-size: 3rem;
+	color: #71717a;
+}
+#photo-error > .m-btn {
+	margin-top: 0.5rem;
+}
+#photo-panel.photo-failed :is(#emote-bar, #emote-feed) {
+	z-index: 27;
+}
 #photo-panel.photo-loading::before,
 .skeleton {
 	background: linear-gradient(100deg, #18181b 30%, #27272a 50%, #18181b 70%);
@@ -1213,6 +1237,10 @@ textarea {
 	white-space: nowrap;
 	cursor: pointer;
 }
+.m-btn.hidden,
+.m-icon-btn.hidden {
+	display: none;
+}
 .m-btn:disabled {
 	opacity: 0.4;
 	cursor: not-allowed;
@@ -1518,6 +1546,21 @@ textarea.m-field {
 	/* Above the magnifier, so it cannot be used to see through the effect. */
 	z-index: 25;
 	pointer-events: none;
+}
+/* ---- Staff chat: reactions written as :name: ---- */
+.material-symbols-outlined.chat-emote {
+	font-size: 1.25rem;
+	vertical-align: -0.25em;
+	color: #fcd34d;
+	font-variation-settings: "FILL" 1;
+}
+.chat-emote-only .chat-emote {
+	font-size: 2.25rem;
+}
+
+/* Night Shift and Snowed In are worked with the pointer, so the magnifier stays out of the way. */
+#photo-panel.no-lens .photo-lens {
+	display: none !important;
 }
 /* The round counter and the clock stay readable over any effect. */
 #photo-panel > .top-3 {
@@ -1982,6 +2025,11 @@ body:has(#game-screen:not(.hidden)) .site-announcement {
 }
 .site-announcement-link:hover {
 	text-decoration: underline;
+}
+.material-symbols-outlined.external-icon {
+	font-size: 1.1em;
+	margin-left: 0.2em;
+	vertical-align: -0.18em;
 }
 @media (prefers-reduced-motion: reduce) {
 	.site-announcement {

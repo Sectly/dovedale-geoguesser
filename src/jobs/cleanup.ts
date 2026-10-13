@@ -16,6 +16,7 @@ import { pruneRateLimits } from "../lib/rate-limit";
 import { DAY } from "../lib/time";
 import { deleteUpload } from "../lib/uploads";
 import { pruneNotifications, sendStreakReminders } from "../notifications";
+import { pruneStaffChat } from "../routes/admin/chat";
 import { deleteOldClosedTickets } from "../routes/admin/support";
 import { pruneLeaderboardCache } from "../routes/leaderboard";
 import { pruneOgCache } from "../routes/og";
@@ -128,6 +129,7 @@ const pruneDatabase = job("database", async () => {
 		[RETENTION.emptyAbandonedDuels * DAY]
 	);
 	deleteOldClosedTickets();
+	pruneStaffChat();
 	pruneNotifications();
 	pruneLogs();
 	sendStreakReminders();

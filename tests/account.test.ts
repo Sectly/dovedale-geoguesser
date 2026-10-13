@@ -134,7 +134,18 @@ describe("suggestions", () => {
 		expect(
 			(await post(`/api/locations/${location}/suggest`, staff, { type: "hint", text: "Near the bridge" })).status
 		).toBe(403);
+		const listed = async () =>
+			(await call("/api/admin/users", { as: staff })).data.find((u: { id: number }) => u.id === staff.id);
+		expect(await listed()).toMatchObject({ suggestions_agreed: 0, suggestions_agreed_at: null });
+		expect((await call("/api/suggestions/eligibility", { as: staff })).data.agreed).toBe(false);
 		await post("/api/suggestions/agree", staff);
+		/** Staff see it on the account, in the list and in the panel. */
+		expect((await call("/api/suggestions/eligibility", { as: staff })).data.agreed).toBe(true);
+		expect((await listed()).suggestions_agreed).toBe(1);
+		expect((await listed()).suggestions_agreed_at).toBeGreaterThan(0);
+		expect((await call(`/api/admin/users/${staff.id}/moderation`, { as: staff })).data.user).toMatchObject({
+			suggestions_agreed: true,
+		});
 		expect(
 			(await post(`/api/locations/${location}/suggest`, staff, { type: "hint", text: "Near the bridge" })).status
 		).toBe(200);

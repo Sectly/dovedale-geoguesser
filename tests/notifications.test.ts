@@ -538,4 +538,22 @@ describe("the link counter", () => {
 		expect(clicks).toBeGreaterThan(0);
 		expect(clicks).toBeLessThanOrEqual(6);
 	});
+
+	test("sends a link to another site by way of the page that warns about leaving", async () => {
+		const admin = createUser({ role: "admin" });
+		const link = "https://example.com/map?zoom=2#top";
+		const sent = await post("/api/admin/announcements", admin, {
+			title: "Elsewhere",
+			body: "The full map lives on another site.",
+			link,
+			banner_hours: 1,
+		});
+		expect(sent.status).toBe(200);
+		const go = `/api/announcement/${sent.data.id}/go`;
+		expect((await call("/api/announcement")).data).toMatchObject({ link: go, external: true });
+		const visit = await call(go);
+		expect(visit.status).toBe(302);
+		expect(visit.headers.get("Location")).toBe(`/leaving?to=${encodeURIComponent(link)}`);
+		expect((await call("/leaving")).status).toBe(200);
+	});
 });

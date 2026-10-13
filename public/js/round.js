@@ -9,6 +9,8 @@ const GUESS_BTN_BASE =
 	"pointer-events-auto pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm whitespace-nowrap transition flex items-center gap-2 ";
 const GUESS_BTN_ON = "bg-blue-600 hover:bg-blue-500 active:scale-95 shadow-sm cursor-pointer";
 const GUESS_BTN_OFF = "bg-zinc-700 text-zinc-500 cursor-not-allowed";
+/** How many times a failed screenshot is asked for again before the player is told. */
+const PHOTO_RETRIES = 2;
 const TIMER_TONES = ["text-green-400", "text-yellow-400", "text-orange-400", "text-red-400", "text-zinc-400"];
 
 class RoundView {
@@ -106,23 +108,68 @@ class RoundView {
 		this.go(round);
 	}
 
+	/** Resolves once the screenshot shows or has failed for good. The round carries on either way. */
 	_loadPhoto(url) {
 		const photo = el("round-photo");
 		const panel = el("photo-panel");
-		if (photo.getAttribute("src") === url && photo.complete && photo.naturalWidth) return Promise.resolve();
+		/** A duel shows a round and then starts it; both calls share one load. */
+		if (this._photo?.url === url) return this._photo.shown;
+		const load = (this._photo = { url, shown: null });
+		const current = () => this._photo === load;
+		this._setPhotoError(null);
 		panel.classList.add("photo-loading");
-		return new Promise((resolve) => {
-			const done = () => {
+
+		load.shown = new Promise((resolve) => {
+			const settle = () => {
 				clearTimeout(timeout);
-				if (photo.getAttribute("src") === url) panel.classList.remove("photo-loading");
+				if (current()) panel.classList.remove("photo-loading");
 				resolve();
 			};
-			/** A broken or very slow image must not hold the round up forever. */
-			const timeout = setTimeout(done, 8000);
-			photo.onload = done;
-			photo.onerror = done;
-			photo.src = url;
+			/** A slow image must not hold the round up. */
+			const timeout = setTimeout(settle, 8000);
+			const attempt = (tries) => {
+				const failed = () => {
+					if (!current()) return;
+					if (tries < PHOTO_RETRIES)
+						return setTimeout(() => current() && attempt(tries + 1), 700 * (tries + 1));
+					settle();
+					this._setPhotoError(() => {
+						this._setPhotoError(null);
+						panel.classList.add("photo-loading");
+						attempt(0);
+					});
+				};
+				photo.onload = () => {
+					if (!current()) return;
+					/** Loaded but with nothing in it: a file the browser could not draw. */
+					if (!photo.naturalWidth) return failed();
+					this._setPhotoError(null);
+					settle();
+				};
+				photo.onerror = failed;
+				/** A changed address makes the browser ask again, where repeating the same one may not. */
+				photo.src = tries ? `${url}${url.includes("?") ? "&" : "?"}retry=${Date.now()}` : url;
+			};
+			attempt(0);
 		});
+		return load.shown;
+	}
+
+	/** Shows the load error with its retry button, or clears it when given null. */
+	_setPhotoError(onRetry) {
+		const panel = el("photo-panel");
+		panel.classList.toggle("photo-failed", !!onRetry);
+		document.getElementById("photo-error")?.remove();
+		if (!onRetry) return;
+		const box = document.createElement("div");
+		box.id = "photo-error";
+		box.setAttribute("role", "alert");
+		box.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">broken_image</span>
+			<div class="font-semibold">The screenshot didn't load</div>
+			<p class="text-zinc-400 text-sm">${this.timeLimit ? "The clock is still running." : "The round is still open."}</p>
+			<button class="m-btn m-btn-tonal"><span class="material-symbols-outlined">refresh</span>Try again</button>`;
+		box.querySelector("button").addEventListener("click", onRetry);
+		panel.appendChild(box);
 	}
 
 	/** Submits the current pin (or no guess at all). Does nothing once the round is locked. */

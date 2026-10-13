@@ -145,7 +145,7 @@ function renderTicketMessage(message) {
 	if (!message) return "";
 	const sep = "\n\n---\n\n";
 	const sepIdx = message.indexOf(sep);
-	if (sepIdx === -1) return `<div class="whitespace-pre-wrap text-zinc-300 text-sm">${escHtml(message)}</div>`;
+	if (sepIdx === -1) return `<div class="whitespace-pre-wrap text-zinc-300 text-sm">${linkedTextHtml(message)}</div>`;
 	const structured = message.slice(0, sepIdx);
 	const main = message.slice(sepIdx + sep.length);
 	const pairs = structured
@@ -163,7 +163,7 @@ function renderTicketMessage(message) {
 	return `<div class="bg-black/20 rounded-xl p-3 mb-2">
         ${pairs}
     </div>
-    <div class="whitespace-pre-wrap text-zinc-300 text-sm">${escHtml(main)}</div>`;
+    <div class="whitespace-pre-wrap text-zinc-300 text-sm">${linkedTextHtml(main)}</div>`;
 }
 
 function renderTicketCard(t) {
@@ -217,7 +217,7 @@ function renderTicketBody(t, isOpen) {
 			isOpen
 				? `<select onchange="useSavedReply(${t.id}, this)" class="m-field" aria-label="Saved replies">
 					<option value="">Start from a saved reply...</option>
-					${SAVED_REPLIES.map(([label], i) => `<option value="${i}">${label}</option>`).join("")}
+					${savedReplyOptions()}
 				</select>
 				<div class="flex gap-2 items-end">
 					<textarea id="reply-${t.id}" rows="2" maxlength="2000" placeholder="Write a reply"
@@ -261,32 +261,140 @@ function setTicketCategory(c) {
 	loadTickets(true);
 }
 
-/** Starting points for common replies. Nothing is sent until staff press Send. */
-const SAVED_REPLIES = [
-	["Looking into it", "Thanks for getting in touch. We're looking into this and will reply here once we know more."],
-	[
-		"Need more detail",
-		"Thanks for the report. Could you add a bit more detail: what happened, when, and any IDs or links you have?",
+/** Starting points for common replies, under the headings the menu shows. Nothing is sent until staff press Send. */
+const SAVED_REPLIES = {
+	General: [
+		[
+			"Looking into it",
+			"Thanks for getting in touch. We're looking into this and will reply here once we know more.",
+		],
+		[
+			"Need more detail",
+			"Thanks for the report. Could you add a bit more detail: what happened, when, and any IDs or links you have?",
+		],
+		["Fixed", "This should now be fixed. Reload the page, and reply here if it still isn't right."],
+		["Known issue", "We know about this and are working on it. There's no need to report it again."],
+		["Passed on", "We've passed this to the staff who deal with it. They'll reply here."],
 	],
-	["Fixed", "This should now be fixed. Reload the page, and reply here if it still isn't right."],
-	[
-		"Report: action taken",
-		"Thanks for the report. We looked into it and took action. We can't share details about another player's account.",
+	Reports: [
+		[
+			"Action taken",
+			"Thanks for the report. We looked into it and took action. We can't share details about another player's account.",
+		],
+		[
+			"No action",
+			"Thanks for the report. We looked into it and found nothing that breaks the rules, so no action was taken.",
+		],
+		[
+			"Need evidence",
+			"Thanks for the report. We need something to go on: a game link, a screenshot, or when it happened.",
+		],
+		[
+			"Already handled",
+			"Thanks for the report. This player has already been dealt with, so there's nothing more to do here.",
+		],
 	],
-	[
-		"Report: no action",
-		"Thanks for the report. We looked into it and found nothing that breaks the rules, so no action was taken.",
+	Appeals: [
+		["Under review", "We've got your appeal and are reviewing it. We'll reply here with the outcome."],
+		["Accepted", "We reviewed your appeal and overturned the action. Sorry for the trouble."],
+		["Declined", "We reviewed your appeal and the action stands. The reason given at the time still applies."],
+		["Ban shortened", "We reviewed your appeal and shortened the ban. It won't be removed completely."],
+		[
+			"Final",
+			"This appeal has already been reviewed and the decision is final. Further tickets about it will be closed.",
+		],
 	],
-	["Appeal accepted", "We reviewed your appeal and overturned the action. Sorry for the trouble."],
-	["Appeal declined", "We reviewed your appeal and the action stands. The reason given at the time still applies."],
-	[
-		"Belongs on GitHub",
-		"Bugs and feature requests are tracked on GitHub Issues, not in tickets. Please post it there so it doesn't get lost.",
+	Submissions: [
+		["Approved", "We took another look at your submission and approved it. Sorry for the trouble."],
+		[
+			"Still denied",
+			"We took another look at your submission and the decision stands. The reason given at the time still applies.",
+		],
+		[
+			"Resubmit",
+			"The submission can't be approved as it is. Fix what the denial reason mentions and submit it again.",
+		],
 	],
-];
+	Locations: [
+		["Which one?", "We couldn't find that location. Could you send its ID, the one starting LOC-?"],
+		["Fixed", "Thanks for flagging this location. We checked it and corrected it."],
+		["Duplicate removed", "You're right, this was a duplicate. We've removed the copy and kept the original."],
+		[
+			"No change",
+			"Thanks for flagging this location. We checked it and found nothing wrong, so it stays as it is.",
+		],
+		["Back in play", "We've put this location back in play, so it can come up in games again."],
+		[
+			"Out of play",
+			"We've taken this location out of play, so it won't come up in games any more. Thanks for flagging it.",
+		],
+	],
+	Account: [
+		[
+			"Need proof",
+			"Before we change anything on an account we need to be sure it's yours. Could you tell us the username and roughly when you last logged in?",
+		],
+		[
+			"Log in again",
+			"Your Discord name and avatar are refreshed each time you log in. Log out and back in, then reply here if it's still wrong.",
+		],
+		["Data corrected", "We've corrected the data on your account. Reload the page to see it."],
+		["Can't transfer", "We can't move progress from one account to another."],
+	],
+	"Wrong place": [
+		[
+			"Belongs on GitHub",
+			"Bugs and feature requests are tracked on GitHub Issues, not in tickets. Please post it there so it doesn't get lost.",
+		],
+		[
+			"Wrong category",
+			"This was filed under the wrong category, so it may take longer. There's no need to open a new ticket.",
+		],
+		["Not something we handle", "This isn't something staff can help with through tickets."],
+		["Duplicate", "You have another ticket open about this, so we'll carry on there and close this one."],
+		["One ticket per issue", "Please keep each issue to one ticket. Opening more doesn't speed things up."],
+	],
+	Conduct: [
+		[
+			"Please wait",
+			"We have everything we need and will reply here when there's news. There's no need to reply again unless you have something new to add.",
+		],
+		["Be respectful", "Please keep it respectful. We won't carry on with a ticket while staff are being insulted."],
+	],
+	Documents: [
+		["Terms of Service", `This is covered by our Terms of Service: ${location.origin}/tos`],
+		["Privacy Policy", `Our Privacy Policy sets out what we collect and why: ${location.origin}/privacy`],
+		["Fair Play Policy", `This is covered by our Fair Play Policy: ${location.origin}/fairplay`],
+		[
+			"Upload Guidelines",
+			`Our Upload Guidelines set out what a submission needs. Please read them before your next one: ${location.origin}/guidelines`,
+		],
+		["Deleting your account", `Deleting your account is covered here: ${location.origin}/privacy#deletion`],
+		["Your data rights", `Your rights over your data are set out here: ${location.origin}/privacy#rights`],
+		["Reporting illegal content", `Reporting illegal content is covered here: ${location.origin}/tos#reporting`],
+	],
+	Closing: [
+		[
+			"Inactive",
+			"We haven't heard from you in a while. Reply here if you still need help, otherwise we'll close this ticket.",
+		],
+		["No reply", "We haven't heard back, so we're closing this ticket. Open a new one if you still need help."],
+		["Resolved", "This is sorted, so we're closing the ticket. Open a new one if anything else comes up."],
+	],
+};
+
+/** Each option's value is its heading and its place under it, which useSavedReply reads back. */
+const savedReplyOptions = () =>
+	Object.entries(SAVED_REPLIES)
+		.map(
+			([group, replies]) =>
+				`<optgroup label="${group}">${replies.map(([label], i) => `<option value="${group}|${i}">${label}</option>`).join("")}</optgroup>`
+		)
+		.join("");
 
 function useSavedReply(id, select) {
-	const reply = SAVED_REPLIES[select.value];
+	const [group, index] = select.value.split("|");
+	const reply = SAVED_REPLIES[group]?.[index];
 	select.value = "";
 	if (!reply) return;
 	const box = el(`reply-${id}`);

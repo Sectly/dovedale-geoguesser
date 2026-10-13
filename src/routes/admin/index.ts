@@ -14,6 +14,7 @@ import { staffQueue } from "../../notifications";
 import { maintenance } from "../../system/maintenance";
 import { restartIn } from "../../system/restart";
 import { adminAnnouncementRoutes } from "./announcements";
+import { adminChatRoutes } from "./chat";
 import { adminDuelRoutes } from "./duels";
 import { adminLocationRoutes } from "./locations";
 import { adminSubmissionRoutes } from "./submissions";
@@ -35,6 +36,7 @@ adminRoutes.route("/system", adminSystemRoutes);
 adminRoutes.route("/scores", adminScoreRoutes);
 adminRoutes.route("/duels", adminDuelRoutes);
 adminRoutes.route("/announcements", adminAnnouncementRoutes);
+adminRoutes.route("/chat", adminChatRoutes);
 
 /** How many days the activity chart covers. */
 const SERIES_DAYS = 14;

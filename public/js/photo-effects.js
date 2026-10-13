@@ -121,12 +121,15 @@ const PhotoEffects = (() => {
 	}
 
 	const EFFECTS = { torch, snow, flash };
+	/** Effects worked with the pointer, where the magnifier would cover what is being uncovered. */
+	const NO_LENS = ["torch", "snow"];
 
 	return {
 		/** Starts an effect for a new round, replacing any that is still up. Unknown names do nothing. */
 		apply(name, option) {
 			this.clear();
 			if (!EFFECTS[name]) return;
+			el("photo-panel").classList.toggle("no-lens", NO_LENS.includes(name));
 			const effect = EFFECTS[name](option);
 			cleanup = typeof effect === "function" ? effect : effect.cleanup;
 			begin = effect.begin ?? null;
@@ -138,6 +141,7 @@ const PhotoEffects = (() => {
 		/** Takes the effect off so the whole picture shows. */
 		clear() {
 			cleanup?.();
+			el("photo-panel")?.classList.remove("no-lens");
 			cleanup = null;
 			begin = null;
 		},

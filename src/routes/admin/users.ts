@@ -122,6 +122,7 @@ adminUserRoutes.get("/", (c) => {
 				`SELECT u.id, u.discord_id, u.username, u.display_name, u.avatar_url, u.role, u.created_at,
 					u.is_banned, u.ban_type, u.ban_expires_at, u.upload_limited, u.upload_limit_expires_at,
 					u.duel_limited, u.duel_limit_expires_at, u.profile_private, u.staff_locked, u.staff_lock_reason,
+					u.suggestions_agreed, u.suggestions_agreed_at,
 					(SELECT COUNT(*) FROM moderation_actions m WHERE m.user_id = u.id) AS moderation_count,
 					(SELECT COUNT(*) FROM moderation_actions m WHERE m.user_id = u.id AND m.type = 'warning' AND m.revoked_at IS NULL) AS warning_count,
 					(SELECT COUNT(*) FROM fairplay_flags f WHERE f.user_id = u.id AND f.dismissed_at IS NULL) AS fairplay_flags

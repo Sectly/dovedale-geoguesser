@@ -1,3 +1,4 @@
+import { SITE_URL } from "./config";
 import { db, type User } from "./db";
 import { fail } from "./lib/http";
 import { DAY, nowSec } from "./lib/time";
@@ -101,12 +102,25 @@ export function audienceSizes(): Record<string, number> {
 	);
 }
 
-/** A link may only point somewhere on this site: a path, never another address. */
+/** True for a link to another site, rather than a page on this one. */
+export const isExternalLink = (link: string | null | undefined): link is string => /^https:\/\//i.test(link ?? "");
+
+/** A link to another site goes by way of the page that warns about leaving. */
+export const linkHref = (link: string) => (isExternalLink(link) ? `/leaving?to=${encodeURIComponent(link)}` : link);
+
+/** A link is a page on this site (a path) or an https address on another one. */
 export function cleanLink(value: unknown): string | null {
 	const link = typeof value === "string" ? value.trim() : "";
 	if (!link) return null;
-	if (!/^\/(?!\/)[\w\-./?=&#%~+]*$/.test(link) || link.length > 200)
-		fail(400, "The link must be a page on this site, starting with a single / (for example /daily)");
+	if (link.length > 200) fail(400, "The link is too long");
+	const isPage = (path: string) => /^\/(?!\/)[\w\-./?=&#%~+]*$/.test(path);
+	if (isPage(link)) return link;
+	const url = isExternalLink(link) && !/\s/.test(link) && URL.canParse(link) ? new URL(link) : null;
+	if (!url || url.username || url.password)
+		fail(400, "The link must be a page on this site (for example /daily) or an address starting with https://");
+	/** This site's own address is kept as the page, so following it is not treated as leaving. */
+	const page = url.pathname + url.search + url.hash;
+	if (SITE_URL && URL.canParse(SITE_URL) && url.origin === new URL(SITE_URL).origin && isPage(page)) return page;
 	return link;
 }
 
@@ -247,7 +261,7 @@ export function previewAnnouncement(draft: Pick<Draft, "title" | "body" | "link"
 	notifyUser(sender.id, "announcements", {
 		title: `[Test] ${draft.title}`.slice(0, 120),
 		body: draft.body,
-		link: draft.link ?? undefined,
+		link: draft.link ? linkHref(draft.link) : undefined,
 	});
 }
 
@@ -284,7 +298,7 @@ export function recentAnnouncements(limit = 20): Listed[] {
 
 /** The banner showing now, if any. Staff-only and one-player announcements never show publicly. */
 export function currentBanner():
-	(Pick<Announcement, "id" | "title" | "body" | "style"> & { link: string | null }) | null {
+	(Pick<Announcement, "id" | "title" | "body" | "style"> & { link: string | null; external: boolean }) | null {
 	const a = db
 		.query<Announcement, [number]>(
 			`SELECT * FROM announcements
@@ -293,7 +307,14 @@ export function currentBanner():
 		)
 		.get(nowSec());
 	return a
-		? { id: a.id, title: a.title, body: a.body, style: a.style ?? "info", link: trackedLink(a) ?? null }
+		? {
+				id: a.id,
+				title: a.title,
+				body: a.body,
+				style: a.style ?? "info",
+				link: trackedLink(a) ?? null,
+				external: isExternalLink(a.link),
+			}
 		: null;
 }
 
@@ -316,7 +337,7 @@ export function followLink(id: number, count = true): string {
 	const a = byId(id);
 	if (!a?.link || a.draft) return "/";
 	if (count) db.run("UPDATE announcements SET clicks = clicks + 1 WHERE id = ?", [id]);
-	return a.link;
+	return linkHref(a.link);
 }
 
 /** An announcement that may still be corrected or taken back, or a refusal saying why not. */
@@ -395,16 +416,20 @@ export function unreadStaff(id: number): string[] {
 
 /** The oldest announcement this player must acknowledge, if any. */
 export function pendingAcknowledgement(userId: number) {
-	return (
-		db
-			.query<{ notification_id: number; title: string; body: string; link: string | null }, [number]>(
-				`SELECT n.id AS notification_id, a.title, a.body, n.link FROM notifications n
+	const pending = db
+		.query<
+			{ notification_id: number; title: string; body: string; link: string | null; target: string | null },
+			[number]
+		>(
+			`SELECT n.id AS notification_id, a.title, a.body, n.link, a.link AS target FROM notifications n
 				JOIN announcements a ON a.id = n.announcement_id
 				WHERE n.user_id = ? AND n.read_at IS NULL AND a.must_ack = 1 AND a.recalled_at IS NULL
 				ORDER BY n.id LIMIT 1`
-			)
-			.get(userId) ?? null
-	);
+		)
+		.get(userId);
+	if (!pending) return null;
+	const { target, ...shown } = pending;
+	return { ...shown, external: isExternalLink(target) };
 }
 
 /* ---- Changelog: what changed in each update, written by staff ---- */

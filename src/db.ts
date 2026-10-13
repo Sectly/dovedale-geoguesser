@@ -46,7 +46,7 @@ function openDatabase(): Database {
 export const db = openDatabase();
 
 /** Bumped when a release changes existing data. An older database is copied aside first. */
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 function backupBeforeUpgrade() {
 	const version = db.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version ?? 0;
@@ -338,6 +338,13 @@ const SCHEMA_STATEMENTS = [
   created_at INTEGER DEFAULT (unixepoch())
 )`,
 	`CREATE INDEX IF NOT EXISTS idx_staff_notes_user ON staff_notes(user_id, id DESC)`,
+	`CREATE TABLE IF NOT EXISTS staff_chat (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  author_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  author_username TEXT,
+  body TEXT NOT NULL,
+  created_at INTEGER DEFAULT (unixepoch())
+)`,
 	`CREATE TABLE IF NOT EXISTS guess_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -439,6 +446,10 @@ const MIGRATIONS: string[] = [
 	"ALTER TABLE announcements ADD COLUMN expires_at INTEGER",
 	"ALTER TABLE announcements ADD COLUMN expire_days INTEGER",
 	"ALTER TABLE announcements ADD COLUMN no_push INTEGER NOT NULL DEFAULT 0",
+	"ALTER TABLE users ADD COLUMN staff_chat_read INTEGER NOT NULL DEFAULT 0",
+	"ALTER TABLE staff_chat ADD COLUMN pinned_at INTEGER",
+	"ALTER TABLE staff_chat ADD COLUMN pinned_by INTEGER REFERENCES users(id) ON DELETE SET NULL",
+	"ALTER TABLE staff_chat ADD COLUMN pinned_by_username TEXT",
 ];
 
 for (const sql of MIGRATIONS) {
@@ -566,6 +577,8 @@ export type User = {
 	/** Set when a senior member of staff has suspended this one's staff access. The role itself is kept. */
 	staff_locked: number;
 	staff_lock_reason: string | null;
+	/** The newest staff chat message this member of staff has seen. */
+	staff_chat_read: number;
 	/** For emailed notification summaries, if the player has asked for them. */
 	email?: string | null;
 	email_verified?: number;

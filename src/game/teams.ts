@@ -34,6 +34,9 @@ type Member = {
 	/** Where their pin is right now, before they commit to it. Shown to their teammate only. */
 	pin: Guess | null;
 	outcome: RoundOutcome | null;
+	/** This game so far: their best round, and how many rounds their guess was the one their team scored. */
+	best: number;
+	counted: number;
 	lastEmoteAt?: number;
 };
 
@@ -69,6 +72,8 @@ type TeamRoom = {
 	roundNumber: number;
 	round: Round | null;
 	totals: Record<TeamId, number>;
+	/** Rounds each team has taken outright this game. A drawn round counts for neither. */
+	roundsWon: Record<TeamId, number>;
 	reveal: Reveal | null;
 	/** Reactions sent in the last few seconds, numbered so a browser can tell which it has shown. */
 	emotes: { id: number; user_id: number; emote: string; at: number }[];
@@ -104,6 +109,8 @@ function member(user: User): Member {
 		seenAt: Date.now(),
 		pin: null,
 		outcome: null,
+		best: 0,
+		counted: 0,
 	};
 }
 
@@ -126,6 +133,7 @@ export function createTeamRoom(user: User, rounds: number): string {
 		roundNumber: 0,
 		round: null,
 		totals: { a: 0, b: 0 },
+		roundsWon: { a: 0, b: 0 },
 		reveal: null,
 		emotes: [],
 		emoteSeq: 0,
@@ -164,6 +172,14 @@ export function chooseTeam(code: string, user: User, team: unknown) {
 	if (me.team === team) return;
 	if (onTeam(room, team).length >= TEAM_SIZE) fail(409, "That team is full.");
 	me.team = team;
+}
+
+export function setTeamRounds(code: string, user: User, rounds: number) {
+	const room = getRoom(code);
+	getMember(room, user);
+	if (room.hostId !== user.id) fail(403, "Only the host can change the number of rounds.");
+	if (room.status !== "lobby") fail(409, "The number of rounds is fixed once the game starts.");
+	room.rounds = rounds;
 }
 
 export function leaveTeamRoom(code: string, user: User) {
@@ -208,7 +224,9 @@ export function startTeamGame(code: string, user: User) {
 		rounds: locations.length,
 		roundNumber: 0,
 		totals: { a: 0, b: 0 },
+		roundsWon: { a: 0, b: 0 },
 	});
+	for (const m of room.members.values()) Object.assign(m, { best: 0, counted: 0 });
 	startRound(room, Date.now());
 	auditLog(user, "team_game_start", {
 		details: `${room.code}: ${TEAMS.map((t) =>
@@ -272,6 +290,11 @@ function finishRound(room: TeamRoom, now: number) {
 	const teamScores = { a: 0, b: 0 };
 	for (const m of playing) teamScores[m.team!] = Math.max(teamScores[m.team!], m.outcome!.score);
 	for (const team of TEAMS) room.totals[team] += teamScores[team];
+	if (teamScores.a !== teamScores.b) room.roundsWon[teamScores.a > teamScores.b ? "a" : "b"]++;
+	for (const m of playing) {
+		m.best = Math.max(m.best, m.outcome!.score);
+		if (m.outcome!.score > 0 && m.outcome!.score === teamScores[m.team!]) m.counted++;
+	}
 
 	room.reveal = {
 		round: room.roundNumber,
@@ -359,6 +382,16 @@ export function teamRoomState(code: string, user: User) {
 		emotes: room.emotes
 			.filter((e) => now - e.at < EMOTE_TTL_MS)
 			.map(({ id, user_id, emote }) => ({ id, user_id, emote })),
+		/** Rounds taken by each side and each player's tallies, once the game is over. */
+		summary:
+			room.status === "finished"
+				? {
+						rounds_won: room.roundsWon,
+						players: [...room.members.values()]
+							.filter((m) => m.team)
+							.map((m) => ({ id: m.userId, best: m.best, counted: m.counted })),
+					}
+				: null,
 		next_in: room.phase === "reveal" ? Math.max(0, Math.ceil((room.phaseEndsAt - now) / 1000)) : 0,
 		winner:
 			room.status === "finished"

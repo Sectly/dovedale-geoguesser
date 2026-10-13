@@ -12,7 +12,7 @@ Play it at [dovedalegeoguesser.com](https://dovedalegeoguesser.com).
 - **Specials:** side modes, mini-games and seasonal events, just for fun.
 - **Leaderboards and profiles:** for solo, duels and the daily.
 - **Submissions:** players add their own screenshots and suggest fixes; staff review them.
-- **Staff panel:** review queues, tickets, moderation with a full history, and site tools for operators.
+- **Staff panel:** review queues, tickets, a staff chat, moderation with a full history, and site tools for operators.
 
 ## Run it locally
 

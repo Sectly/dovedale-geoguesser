@@ -92,7 +92,14 @@ describe("upgrading a database from the previous release", () => {
 	});
 
 	test("tables and columns added since are there, and the database is marked as upgraded", () => {
-		for (const table of ["staff_notes", "guess_log", "fairplay_flags", "location_stats", "announcements"])
+		for (const table of [
+			"staff_notes",
+			"staff_chat",
+			"guess_log",
+			"fairplay_flags",
+			"location_stats",
+			"announcements",
+		])
 			expect([table, count(db, table) >= 0]).toEqual([table, true]);
 		const columns = db.query<{ name: string }, []>("PRAGMA table_info(location_stats)").all();
 		expect(columns.map((column) => column.name)).toContain("recent_sum");

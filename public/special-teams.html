@@ -74,6 +74,17 @@
               <button id="copy-invite" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">link</span>Copy invite link</button>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="team-columns"></div>
+            <div class="flex items-center justify-between gap-3 mt-4 bg-zinc-800/60 rounded-2xl px-4 py-2.5">
+              <label class="text-sm font-medium" for="room-rounds">Rounds</label>
+              <div id="room-rounds-host" class="hidden w-36">
+                <select id="room-rounds" class="m-field">
+                  <option value="3">3 rounds</option>
+                  <option value="5">5 rounds</option>
+                  <option value="10">10 rounds</option>
+                </select>
+              </div>
+              <span id="room-rounds-text" class="text-sm text-zinc-400"></span>
+            </div>
             <p id="room-hint" class="text-zinc-500 text-sm text-center mt-5"></p>
             <div class="flex items-center justify-between gap-3 mt-5">
               <button id="team-leave" class="m-btn m-btn-text">Leave</button>
@@ -174,6 +185,7 @@
       <div class="text-center mb-6">
         <span id="final-icon" class="material-symbols-outlined text-6xl text-amber-300" style="font-variation-settings: &quot;FILL&quot; 1">emoji_events</span>
         <h2 id="final-title" class="text-3xl font-bold mt-2"></h2>
+        <p id="final-rounds" class="text-zinc-300 text-sm mt-1"></p>
         <p id="final-sub" class="text-zinc-500 text-sm mt-1">Team duels are not counted on the leaderboards.</p>
       </div>
       <div class="grid grid-cols-2 gap-3 w-full max-w-md" id="final-teams"></div>

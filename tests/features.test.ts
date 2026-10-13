@@ -78,8 +78,15 @@ describe("announcements and reminders", () => {
 		expect(await titles(player)).not.toContain("[Test] Ranked duels are here");
 		expect((await call("/api/admin/announcements", { as: op })).data.history.length).toBe(before);
 
-		/** Links stay on this site. */
-		for (const link of ["https://example.com", "//example.com", "daily"])
+		/** A link is a page on this site or an https address. */
+		for (const link of [
+			"http://example.com",
+			"//example.com",
+			"daily",
+			"javascript:alert(1)",
+			"https://someone:secret@example.com",
+			"https://example.com/a page",
+		])
 			expect((await post("/api/admin/announcements", op, { ...draft, link })).status).toBe(400);
 		expect((await post("/api/admin/announcements", op, { ...draft, audience: "nobody" })).status).toBe(400);
 		expect(
@@ -417,7 +424,10 @@ describe("suggestion gate", () => {
 		expect(locked.eligible).toBe(false);
 		expect(locked.progress.days).toEqual({ have: 2, need: 7 });
 		expect(locked.progress.games.have).toBe(0);
-		const staff = (await call("/api/suggestions/eligibility", { as: createUser({ role: "moderator" }) })).data;
-		expect(staff).toMatchObject({ eligible: true, progress: null });
+		/** Every staff role, and helpers, are let in whatever the age of the account. */
+		for (const role of ["helper", "curator", "moderator"] as const) {
+			const staff = (await call("/api/suggestions/eligibility", { as: createUser({ role }) })).data;
+			expect(staff).toMatchObject({ eligible: true, progress: null });
+		}
 	});
 });
