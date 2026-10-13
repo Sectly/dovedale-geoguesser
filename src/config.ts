@@ -70,6 +70,8 @@ export const GAME = {
 		minRounds: 1,
 		maxRounds: 10,
 		defaultRounds: 5,
+		/** Quick Play duels are all this long, so any two players in the queue can be matched. */
+		quickplayRounds: 6,
 		startCountdown: 3,
 		resultDelay: 7,
 		finalResultDelay: 5,
@@ -95,6 +97,10 @@ export const GAME = {
 			"rocket_launch",
 			"skull",
 		],
+		/** Quick Play: totals this close after the last round are settled by one sudden-death round. */
+		suddenDeathMargin: 100,
+		/** Quick Play: a player this far behind going into the last round scores double in it. */
+		comebackGap: 5000,
 		/** Shortest gap between two reactions from the same player, in milliseconds. */
 		emoteCooldownMs: 1500,
 	},

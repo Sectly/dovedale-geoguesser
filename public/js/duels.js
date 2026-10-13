@@ -4,7 +4,9 @@ import { WebWire } from "/webwire-client.js";
 const SCREENS = ["login-gate", "lobby-screen", "waiting-screen", "round-screen", "end-screen"];
 /** Material 400-weight colours, one per player. */
 const PIN_COLORS = ["#42A5F5", "#FFA726", "#AB47BC", "#EC407A"];
-const QUICKPLAY_ROUNDS = 5;
+const QUICKPLAY_ROUNDS = 6;
+/** Quick Play wins in a row before the flame shows beside a name. */
+const STREAK_SHOWN = 3;
 const QUIET_QUEUE_HINT_MS = 30_000;
 /** How long to keep retrying a lost connection before giving up on the room. */
 const RECONNECT_WINDOW_MS = 30_000;
@@ -556,15 +558,31 @@ function pinColor(userId) {
 	return pinColors.get(userId);
 }
 
-function playerCardHtml(player) {
-	const status = player.is_host
-		? '<span class="text-xs text-blue-400">Host</span>'
-		: player.is_ready
-			? '<span class="text-xs text-green-400">Ready</span>'
-			: '<span class="text-xs text-zinc-500">Not ready</span>';
+/** The win streak flame, or nothing for a streak shorter than STREAK_SHOWN. */
+function streakHtml(streak) {
+	return streak >= STREAK_SHOWN
+		? `<span class="inline-flex items-center gap-0.5 text-orange-400 font-bold" title="${streak} Quick Play wins in a row"><span class="material-symbols-outlined text-base leading-none" style="font-variation-settings:'FILL' 1" role="img" aria-label="Win streak">local_fire_department</span>${streak}</span>`
+		: "";
+}
+
+/** Someone yet to play a ranked duel has no rating worth quoting. */
+const ratingText = (p) => (p.rated_games ? `Rating ${p.rating.toLocaleString()}` : "Unranked");
+
+/** Quick Play starts by itself, so its cards say how the match stands, not who hosts or who is ready. */
+function playerCardHtml(player, { quickPlay = false, matched = false } = {}) {
+	const status = quickPlay
+		? matched
+			? '<span class="text-xs text-green-400">Matched</span>'
+			: '<span class="text-xs text-zinc-500">Searching</span>'
+		: player.is_host
+			? '<span class="text-xs text-blue-400">Host</span>'
+			: player.is_ready
+				? '<span class="text-xs text-green-400">Ready</span>'
+				: '<span class="text-xs text-zinc-500">Not ready</span>';
 	return `<div class="flex flex-col items-center gap-2 w-28">
 		${avatarHtml(player.avatar_url, "w-12 h-12 border-2 border-zinc-600")}
 		<span class="text-sm max-w-full truncate">${escHtml(player.display_name || player.username)}</span>
+		${quickPlay && player.rating != null ? `<span class="text-xs text-zinc-400 flex items-center gap-1.5">${ratingText(player)}${streakHtml(player.streak)}</span>` : ""}
 		${status}
 	</div>`;
 }
@@ -597,7 +615,10 @@ function showWaitingRoom(state) {
 		clearTimeout(quietQueueTimer);
 		show("quickplay-no-players", false);
 	}
-	el("waiting-players").innerHTML = state.players.map(playerCardHtml).join("") + (full ? "" : EMPTY_SEAT_HTML);
+	el("waiting-players").innerHTML =
+		state.players
+			.map((player) => playerCardHtml(player, { quickPlay: !!state.quickplay, matched: full }))
+			.join("") + (full ? "" : EMPTY_SEAT_HTML);
 
 	const canStart = !isSpectator() && !isQuickPlay && isHost && full;
 	const canReady = !isSpectator() && !isQuickPlay && !isHost && full;
@@ -640,6 +661,10 @@ function showStartCountdown(seconds) {
 	let left = seconds;
 	introShown = true;
 	el("versus").innerHTML = versusHtml(lastPlayers);
+	show(
+		"versus-tag",
+		lastPlayers.some((p) => p.rating != null)
+	);
 	el("start-countdown-label").textContent = "Get ready";
 	el("start-countdown-value").textContent = left;
 	Sounds.play("versus");
@@ -676,9 +701,29 @@ function showRound(round) {
 	setOpponentBadge(null);
 	el("round-num").textContent = round.round;
 	el("round-total").textContent = round.total_rounds;
+	showRoundKind(round);
 	shownRound = round.round;
 	if (!isSpectator()) el("click-hint").textContent = "Get ready...";
 	return view.show(round, { canGuess: !isSpectator() });
+}
+
+/** Sudden death has no round number, so its label takes the counter's place. */
+function showRoundKind(round) {
+	const suddenDeath = round.kind === "sudden_death";
+	const comeback = round.kind === "comeback";
+	show("round-counter", !suddenDeath);
+	show("round-kind", suddenDeath || comeback);
+	show("round-kind-note", suddenDeath || comeback);
+	if (!suddenDeath && !comeback) return;
+	el("round-kind").textContent = suddenDeath ? "Sudden death" : "Comeback round";
+	el("round-kind").className =
+		`rounded-full px-3 py-1.5 text-sm font-semibold ${suddenDeath ? "bg-red-600 text-white" : "bg-amber-500 text-zinc-950"}`;
+	const behind = lastPlayers.find((p) => p.user_id === round.comeback_for);
+	el("round-kind-note").textContent = suddenDeath
+		? "The better guess wins the duel."
+		: round.comeback_for === user?.id && !isSpectator()
+			? "Your points count double this round."
+			: `${behind?.display_name || behind?.username || "The player behind"} scores double this round.`;
 }
 
 function startRound(round) {
@@ -745,7 +790,8 @@ function showRoundResult(result) {
 					</div>
 					<div class="text-right">
 						<div class="score-pop font-mono font-bold ${r.score === best && best > 0 ? "text-yellow-400" : ""}">+<span data-count="${r.score}">0</span></div>
-						<div class="text-xs text-zinc-500">total <span data-count="${r.total_score}" data-from="${r.total_score - r.score}">${(r.total_score - r.score).toLocaleString()}</span></div>
+						${r.bonus ? `<div class="text-xs font-semibold text-amber-300">+${r.bonus.toLocaleString()} comeback</div>` : ""}
+						<div class="text-xs text-zinc-500">total <span data-count="${r.total_score}" data-from="${r.total_score - r.score - (r.bonus || 0)}">${(r.total_score - r.score - (r.bonus || 0)).toLocaleString()}</span></div>
 					</div>
 				</div>`;
 			})
@@ -759,6 +805,16 @@ function showRoundResult(result) {
 		countUp(node, Number(node.dataset.count), { from: Number(node.dataset.from || 0), duration: 900 });
 	}
 	lastRoundWasFinal = !!result.is_last;
+	nextRoundLabel = result.sudden_death_next ? "Sudden death" : result.is_last ? "Final results" : "Next round";
+	const behind = result.results.find((r) => r.user_id === result.comeback_next);
+	const note = result.sudden_death_next
+		? "Too close to call. One more round decides it."
+		: behind
+			? `Comeback round next: ${behind.user_id === user?.id && !isSpectator() ? "your points count" : `${behind.display_name || behind.username} scores`} double.`
+			: "";
+	el("result-note").textContent = note;
+	el("result-note").className =
+		`${note ? "" : "hidden "}text-sm font-semibold text-center mb-3 ${result.sudden_death_next ? "text-red-300" : "text-amber-300"}`;
 	if (!isSpectator()) checkAchievements(1500);
 	runNextRoundCountdown(result.next_in);
 	switchScreen("round-screen");
@@ -771,6 +827,7 @@ function showRoundResult(result) {
 }
 
 let lastRoundWasFinal = false;
+let nextRoundLabel = "Next round";
 
 /** Every round seen in this duel, kept for the replay on the end screen. */
 let roundHistory = [];
@@ -779,9 +836,16 @@ let introShown = false;
 let replayMap = null;
 
 function versusHtml(players) {
+	/** Quick Play only: rating, streak and what the result would do to the rating. */
+	const ranked = (p) =>
+		p.rating == null
+			? ""
+			: `<span class="text-sm text-zinc-300 flex items-center gap-1.5">${ratingText(p)}${streakHtml(p.streak)}</span>
+				${p.stakes ? `<span class="text-xs text-zinc-500">Win <span class="font-mono text-green-400">+${p.stakes.win}</span> · Lose <span class="font-mono text-red-400">${p.stakes.loss}</span></span>` : ""}`;
 	const card = (p) => `<div class="flex flex-col items-center gap-2 w-32 sm:w-40">
 		${avatarHtml(p.avatar_url, "w-16 h-16 sm:w-20 sm:h-20 border-4 border-zinc-800")}
 		<span class="font-bold text-sm sm:text-base max-w-full truncate">${escHtml(p.display_name || p.username)}</span>
+		${ranked(p)}
 	</div>`;
 	return players.length === 2
 		? `${card(players[0])}<span class="versus-mark text-2xl sm:text-3xl font-black text-zinc-500">VS</span>${card(players[1])}`
@@ -793,6 +857,10 @@ function showJoinIntro() {
 	if (introShown || lastPlayers.length !== 2) return;
 	introShown = true;
 	el("versus").innerHTML = versusHtml(lastPlayers);
+	show(
+		"versus-tag",
+		lastPlayers.some((p) => p.rating != null)
+	);
 	el("start-countdown-label").textContent = isSpectator() ? "Now watching" : "Back in the duel";
 	el("start-countdown-value").textContent = "";
 	Sounds.play("versus");
@@ -835,9 +903,7 @@ function playReplay() {
 
 function runNextRoundCountdown(seconds) {
 	let left = seconds;
-	const label = () =>
-		(el("next-round-btn").textContent =
-			`${lastRoundWasFinal ? "Final results" : "Next round"} in ${Math.max(0, left)}s...`);
+	const label = () => (el("next-round-btn").textContent = `${nextRoundLabel} in ${Math.max(0, left)}s...`);
 	label();
 	clearInterval(nextRoundTimer);
 	nextRoundTimer = setInterval(() => {
@@ -881,6 +947,21 @@ function showSeries(result) {
 		`Series: ${name(first)} ${wins(first)} - ${wins(second)} ${name(second)}` + (ties ? ` · ${ties} tied` : "");
 }
 
+function showOwnRating(result) {
+	const mine = isSpectator() ? null : result.ratings?.find((r) => r.user_id === user?.id);
+	show("end-rating", !!mine);
+	if (!mine) return;
+	countUp(el("end-rating-value"), mine.rating, { from: mine.rating - mine.change, duration: 1400 });
+	const change = el("end-rating-change");
+	change.textContent = `${mine.change >= 0 ? "+" : ""}${mine.change}`;
+	change.className = `text-xl font-bold font-mono ${mine.change > 0 ? "text-green-400" : mine.change < 0 ? "text-red-400" : "text-zinc-400"}`;
+	const streak = result.streaks?.[user.id] ?? 0;
+	show("end-streak", streak >= STREAK_SHOWN);
+	el("end-streak").textContent = `${streak} wins in a row`;
+	/** The lobby quotes the rating too, so keep what it reads from up to date. */
+	Object.assign(user, { duel_rating: mine.rating, duel_rated_games: (user.duel_rated_games || 0) + 1 });
+}
+
 function showGameEnd(result, { forfeit = false } = {}) {
 	/** The server's record covers rounds played before we joined or reloaded. */
 	if (result.rounds?.length) roundHistory = result.rounds;
@@ -894,7 +975,7 @@ function showGameEnd(result, { forfeit = false } = {}) {
 
 	const btn = el("play-again-btn");
 	btn.disabled = false;
-	btn.textContent = isSpectator() ? "Back to Duels" : "Play Again";
+	btn.textContent = isSpectator() ? "Back to Duels" : result.ratings ? "Rematch" : "Play Again";
 	btn.className = btn.className.replace(
 		"bg-zinc-700 text-zinc-400 cursor-not-allowed",
 		"bg-blue-600 hover:bg-blue-500"
@@ -907,8 +988,17 @@ function showGameEnd(result, { forfeit = false } = {}) {
 	el("end-headline").textContent = result.is_tie ? "It's a Tie!" : iWon ? "You Win!" : `${winnerName} Wins`;
 	Sounds.play(iWon || result.is_tie || isSpectator() ? "win" : "lose");
 	if (iWon) celebrate();
-	el("end-subline").textContent = forfeit ? (iWon ? "Your opponent left the duel." : "A player left the duel.") : "";
+	el("end-subline").textContent = forfeit
+		? iWon
+			? "Your opponent left the duel."
+			: "A player left the duel."
+		: result.sudden_death
+			? result.is_tie
+				? "Still level after sudden death."
+				: "Decided in sudden death."
+			: "";
 	showSeries(result);
+	showOwnRating(result);
 
 	const medals = [
 		["emoji_events", "text-yellow-400"],
@@ -923,7 +1013,7 @@ function showGameEnd(result, { forfeit = false } = {}) {
 			const leads = i === 0 && !result.is_tie && !!winnerId;
 			const rated = result.ratings?.find((r) => r.user_id === p.user_id);
 			const ratingHtml = rated
-				? `<div class="text-xs text-zinc-500 font-normal">Rating ${rated.rating.toLocaleString()} <span class="font-mono ${rated.change >= 0 ? "text-green-400" : "text-red-400"}">${rated.change >= 0 ? "+" : ""}${rated.change}</span></div>`
+				? `<div class="text-xs text-zinc-500 font-normal flex items-center gap-1.5 whitespace-nowrap">${rated.rating.toLocaleString()} <span class="font-mono ${rated.change >= 0 ? "text-green-400" : "text-red-400"}">${rated.change >= 0 ? "+" : ""}${rated.change}</span>${streakHtml(result.streaks?.[p.user_id] ?? 0)}</div>`
 				: "";
 			return `<div class="flex items-center gap-4 bg-zinc-900 rounded-2xl px-5 py-4 ${mine ? "ring-2 ring-blue-500" : leads ? "ring-2 ring-yellow-500/40" : ""}">
 				<span class="material-symbols-outlined text-2xl ${medals[result.is_tie ? 1 : i]?.[1] ?? "text-zinc-600"}" style="font-variation-settings:'FILL' 1">${medals[result.is_tie ? 1 : i]?.[0] ?? "person"}</span>

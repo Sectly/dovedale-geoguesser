@@ -4,6 +4,7 @@ import { GAME } from "../../config";
 import { sessionIdFromCookies, userFromSessionId } from "../../auth/sessions";
 import { parseGuess } from "../round";
 import { leaveQuickplayRoom, markConnected } from "./matchmaking";
+import { winStreak } from "./rating";
 import {
 	abandonDuel,
 	broadcast,
@@ -117,6 +118,7 @@ wireServer.on("connection", (conn: WireConnection) => {
 					connected: true,
 					disconnects: 0,
 					totalScore: 0,
+					streak: room.quickplay ? winStreak(userId) : 0,
 				});
 			}
 			rooms.set(conn, room);

@@ -81,7 +81,7 @@
             <span class="material-symbols-outlined text-3xl" style="font-variation-settings: &quot;FILL&quot; 1">bolt</span>
             <div>
               <div class="font-bold text-lg leading-tight">Quick Play</div>
-              <div class="text-blue-200 text-sm">Ranked · matched with a player near your rating · 5 rounds</div>
+              <div class="text-blue-200 text-sm">Ranked · matched with a player near your rating · 6 rounds</div>
               <div class="text-blue-200/80 text-xs mt-0.5 hidden" id="lobby-rating"></div>
             </div>
           </button>
@@ -260,7 +260,8 @@
 
     <div id="start-countdown" class="hidden absolute inset-0 z-40 bg-zinc-950/90 flex items-center justify-center text-center px-6">
       <div class="w-full max-w-xl">
-        <div id="versus" class="versus flex items-center justify-center gap-4 sm:gap-8 mb-8"></div>
+        <p id="versus-tag" class="hidden text-xs uppercase tracking-widest text-blue-300 font-semibold mb-5">Ranked duel</p>
+        <div id="versus" class="versus flex items-start justify-center gap-4 sm:gap-8 mb-8"></div>
         <p id="start-countdown-label" class="text-xs uppercase tracking-widest text-zinc-400 mb-2">Get ready</p>
         <p id="start-countdown-value" class="text-8xl font-bold font-mono text-white">3</p>
       </div>
@@ -283,10 +284,15 @@
           <a href="/" class="bg-black/70 rounded-full w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-black/70 transition">
             <span class="material-symbols-outlined text-base leading-none">home</span>
           </a>
-          <div class="bg-black/70 rounded-full px-3 py-1.5 text-sm font-semibold">
-            <span id="round-num">1</span><span class="text-zinc-500"> / </span><span id="round-total">5</span>
+          <div id="round-counter" class="bg-black/70 rounded-full px-3 py-1.5 text-sm font-semibold">
+            <span id="round-num">1</span><span class="text-zinc-500"> / </span><span id="round-total">6</span>
           </div>
+          <div id="round-kind" class="hidden rounded-full px-3 py-1.5 text-sm font-semibold"></div>
         </div>
+        <p
+          id="round-kind-note"
+          class="hidden absolute top-14 left-3 right-3 z-10 text-xs text-zinc-200 bg-black/70 rounded-xl px-3 py-1.5 w-fit max-w-[calc(100%-1.5rem)]"
+        ></p>
 
         <div
           id="timer-display"
@@ -364,6 +370,7 @@
             </div>
             <div class="text-center text-2xl font-bold mb-3" id="round-score-display"></div>
             <div id="result-rows" class="stagger flex flex-col gap-2 mb-4"></div>
+            <p id="result-note" class="hidden text-sm font-semibold text-center mb-3"></p>
             <div id="next-round-btn" class="w-full bg-zinc-700 text-zinc-400 py-2.5 rounded-full font-semibold text-sm text-center select-none">
               Next round in <span id="next-round-countdown">7</span>s...
             </div>
@@ -378,6 +385,14 @@
         <h2 class="text-4xl font-bold mb-1" id="end-headline">Game Over</h2>
         <p class="text-zinc-500 text-sm min-h-[1.25rem]" id="end-subline"></p>
         <p class="hidden text-zinc-300 text-sm font-semibold mt-1" id="end-series"></p>
+        <div id="end-rating" class="hidden mt-5 bg-zinc-900 rounded-3xl px-5 py-4 max-w-xs mx-auto">
+          <div class="text-xs text-zinc-500 uppercase tracking-widest font-medium">Your rating</div>
+          <div class="flex items-baseline justify-center gap-3 mt-1">
+            <span id="end-rating-value" class="text-4xl font-bold font-mono"></span>
+            <span id="end-rating-change" class="text-xl font-bold font-mono"></span>
+          </div>
+          <p id="end-streak" class="hidden text-sm font-semibold text-orange-300 mt-1"></p>
+        </div>
         <div class="mb-6"></div>
 
         <div id="end-scores" class="stagger flex flex-col gap-3 mb-6 max-w-xs mx-auto"></div>

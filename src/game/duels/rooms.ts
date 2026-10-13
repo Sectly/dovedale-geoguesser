@@ -7,7 +7,7 @@ import { DUEL_RULES, Round, outcomeJson, recordOutcome, type Guess, type RoundOu
 import { checkDuel, checkRound } from "../../achievements";
 import { reviewGuess } from "../../fairplay";
 import { features } from "../../system/features";
-import { rateDuel, type RatingChange } from "./rating";
+import { getRated, rateDuel, ratingOf, ratingStakes, winStreak, type RatingChange } from "./rating";
 
 /** A duel: two players, the same locations, higher total wins. Rooms live in memory; results are saved each round. */
 
@@ -24,7 +24,12 @@ export type DuelPlayer = {
 	totalScore: number;
 	/** When this player last sent a reaction, to keep them from flooding the other one. */
 	lastEmoteAt?: number;
+	/** Quick Play: their win streak when they sat down. */
+	streak?: number;
 };
+
+/** A Quick Play round out of the ordinary. */
+export type RoundKind = "comeback" | "sudden_death";
 
 /** The single pending step of a game, kept so it can be put on hold and picked up again. */
 type Phase = { run: () => void; dueAt: number; timer: ReturnType<typeof setTimeout> | null; remainingMs: number };
@@ -44,7 +49,15 @@ export type DuelRoom = {
 	spectators: Set<WireConnection>;
 	ready: Set<number>;
 	locations: Location[];
+	/** Quick Play: one more location, held back for a sudden-death round. */
+	spare: Location | null;
 	roundNumber: number;
+	roundKind: RoundKind | null;
+	/** Whose points count double in a comeback round, in this round and as decided for the next. */
+	comebackFor: number | null;
+	nextComebackFor: number | null;
+	/** Set once a sudden-death round has been played: who took it, or null if nobody did. */
+	suddenDeath: { winnerId: number | null } | null;
 	/** The round being guessed, or null between rounds. */
 	round: Round | null;
 	outcomes: Map<number, RoundOutcome>;
@@ -146,8 +159,30 @@ export function sendToSpectators(room: DuelRoom, event: string, data: unknown) {
 	for (const conn of room.spectators) send(conn, event, data);
 }
 
+/** Quick Play: each player's rating, streak and what this duel would do to their rating. */
+function rankedDetails(room: DuelRoom) {
+	if (!room.quickplay) return new Map<number, object>();
+	const rated = room.players.map((p) => getRated(p.userId));
+	return new Map(
+		room.players.map((p, i) => {
+			const own = rated[i];
+			const other = rated[1 - i];
+			return [
+				p.userId,
+				{
+					rating: own ? ratingOf(own) : null,
+					rated_games: own?.duel_rated_games ?? 0,
+					streak: p.streak ?? 0,
+					stakes: own && other && room.status === "waiting" ? ratingStakes(own, other) : null,
+				},
+			];
+		})
+	);
+}
+
 export function roomState(room: DuelRoom) {
 	const hostId = room.players[0]?.userId;
+	const ranked = rankedDetails(room);
 	return {
 		code: room.code,
 		status: room.status,
@@ -164,6 +199,7 @@ export function roomState(room: DuelRoom) {
 			avatar_url: p.avatarUrl,
 			is_host: p.userId === hostId,
 			is_ready: p.userId === hostId || room.ready.has(p.userId),
+			...ranked.get(p.userId),
 		})),
 	};
 }
@@ -175,7 +211,13 @@ export function broadcastState(room: DuelRoom) {
 /** The current round as a late joiner or spectator should see it, or null between rounds. */
 export function roundStartMessage(room: DuelRoom) {
 	if (!room.round) return null;
-	return { round: room.roundNumber, total_rounds: room.rounds, ...room.round.view() };
+	return {
+		round: room.roundNumber,
+		total_rounds: room.rounds,
+		kind: room.roundKind,
+		comeback_for: room.comebackFor,
+		...room.round.view(),
+	};
 }
 
 /** Brings one connection up to date with its room. */
@@ -233,7 +275,12 @@ export function createRoom(creatorId: number, rounds: number, quickplay = false,
 		spectators: new Set(),
 		ready: new Set(),
 		locations: [],
+		spare: null,
 		roundNumber: 0,
+		roundKind: null,
+		comebackFor: null,
+		nextComebackFor: null,
+		suddenDeath: null,
 		round: null,
 		outcomes: new Map(),
 		loaded: new Set(),
@@ -304,10 +351,11 @@ export function startDuel(room: DuelRoom): string | null {
 	if (closing) return "The server is about to restart. Start your duel once it is back.";
 	if (room.players.length < 2) return "Waiting for another player to join";
 
-	const locations = pickLocations(room.rounds);
+	const locations = pickLocations(room.rounds + (room.quickplay ? 1 : 0));
 	if (locations.length < room.rounds) return "Not enough locations yet for a duel this long. Try fewer rounds.";
 
-	room.locations = locations;
+	room.locations = locations.slice(0, room.rounds);
+	room.spare = locations[room.rounds] ?? null;
 	room.starting = true;
 	broadcast(room, "start_countdown", { seconds: GAME.duel.startCountdown });
 	setPhase(room, GAME.duel.startCountdown, () => {
@@ -328,6 +376,9 @@ export function startDuel(room: DuelRoom): string | null {
 function startRound(room: DuelRoom) {
 	if (room.status !== "in_progress") return;
 	room.roundNumber++;
+	room.comebackFor = room.nextComebackFor;
+	room.nextComebackFor = null;
+	room.roundKind = room.roundNumber > room.rounds ? "sudden_death" : room.comebackFor !== null ? "comeback" : null;
 	room.outcomes = new Map();
 	room.loaded = new Set();
 	room.awaitingLoad = true;
@@ -386,9 +437,13 @@ function endRound(room: DuelRoom) {
 	clearPhase(room);
 	room.round = null;
 
+	const kind = room.roundKind;
+	const comebackFor = room.comebackFor;
 	const results = room.players.map((player) => {
 		const outcome = room.outcomes.get(player.userId) ?? round.score(null);
-		player.totalScore += outcome.score;
+		/** The stored round score stays as guessed; the doubling only reaches the duel total. */
+		const bonus = comebackFor === player.userId ? outcome.score : 0;
+		player.totalScore += outcome.score + bonus;
 		recordOutcome(round.location, outcome);
 		checkRound(player.userId, outcome);
 		reviewGuess(player.userId, "duel", round.location.id, outcome);
@@ -414,11 +469,30 @@ function endRound(room: DuelRoom) {
 			display_name: player.displayName,
 			avatar_url: player.avatarUrl,
 			...outcomeJson(outcome),
+			bonus,
 			total_score: player.totalScore,
 		};
 	});
 
-	const isLast = room.roundNumber >= room.rounds;
+	if (kind === "sudden_death") {
+		const [first, second] = results;
+		room.suddenDeath = {
+			winnerId:
+				!second || first.score === second.score
+					? null
+					: first.score > second.score
+						? first.user_id
+						: second.user_id,
+		};
+	}
+	const gap = specialRoundGap(room);
+	room.nextComebackFor =
+		gap && room.roundNumber === room.rounds - 1 && gap.points >= GAME.duel.comebackGap ? gap.trailing.userId : null;
+	const suddenDeathNext =
+		!!gap && !!room.spare && room.roundNumber === room.rounds && gap.points <= GAME.duel.suddenDeathMargin;
+	if (suddenDeathNext) room.locations.push(room.spare!);
+
+	const isLast = room.roundNumber >= room.rounds && !suddenDeathNext;
 	const delay = isLast ? GAME.duel.finalResultDelay : GAME.duel.resultDelay;
 	room.lastResult = {
 		round: room.roundNumber,
@@ -426,10 +500,21 @@ function endRound(room: DuelRoom) {
 		...round.answer(),
 		results,
 		is_last: isLast,
+		kind,
+		comeback_for: comebackFor,
+		comeback_next: room.nextComebackFor,
+		sudden_death_next: suddenDeathNext,
 	};
 	room.history.push(room.lastResult);
 	broadcast(room, "round_result", { ...room.lastResult, next_in: delay });
 	setPhase(room, delay, () => (isLast ? endGame(room) : startRound(room)));
+}
+
+/** Quick Play only: who is behind and by how much. */
+function specialRoundGap(room: DuelRoom) {
+	if (!room.quickplay || room.players.length !== 2) return null;
+	const [leading, trailing] = [...room.players].sort((a, b) => b.totalScore - a.totalScore);
+	return { trailing, points: leading.totalScore - trailing.totalScore };
 }
 
 function finish(room: DuelRoom, winnerId: number | null) {
@@ -509,8 +594,11 @@ export function sendEmote(room: DuelRoom, userId: number, emote: unknown) {
 function endGame(room: DuelRoom) {
 	if (room.status !== "in_progress") return;
 	const scores = scoreboard(room);
-	const isTie = scores.length > 1 && scores[0].total_score === scores[1].total_score;
-	const winner = isTie ? null : scores[0];
+	/** Sudden death goes to whoever took that round, whatever the totals. If nobody did, the totals decide. */
+	const decider = room.suddenDeath?.winnerId ?? null;
+	const level = scores.length > 1 && scores[0].total_score === scores[1].total_score;
+	const winner = decider !== null ? (scores.find((p) => p.user_id === decider) ?? null) : level ? null : scores[0];
+	const isTie = winner === null;
 
 	finish(room, winner?.user_id ?? null);
 	const ratings = rate(room, winner?.user_id ?? null);
@@ -527,7 +615,7 @@ function endGame(room: DuelRoom) {
 		targetId: room.dbId,
 		details: `${
 			winner
-				? `winner: ${winner.username} (${winner.total_score} vs ${scores[1]?.total_score ?? 0})`
+				? `winner: ${winner.username} (${scores.map((p) => p.total_score).join(" vs ")}${decider !== null ? ", sudden death" : ""})`
 				: `tie: ${scores.map((p) => `${p.username} ${p.total_score}`).join(" / ")}`
 		}, ${describe(room)}`,
 	});
@@ -540,7 +628,15 @@ function endGame(room: DuelRoom) {
 		rounds: room.history,
 		ratings,
 		series: room.series,
+		sudden_death: !!room.suddenDeath,
+		streaks: streaksAfter(room),
 	});
+}
+
+/** Quick Play: each player's win streak now that this duel is counted. */
+function streaksAfter(room: DuelRoom): Record<number, number> | null {
+	if (!room.quickplay) return null;
+	return Object.fromEntries(room.players.map((p) => [p.userId, winStreak(p.userId)]));
 }
 
 function pausedMessage(room: DuelRoom) {
@@ -630,6 +726,7 @@ export function abandonDuel(room: DuelRoom, leaverId: number) {
 		rounds: room.history,
 		ratings,
 		series: room.series,
+		streaks: streaksAfter(room),
 	});
 }
 
