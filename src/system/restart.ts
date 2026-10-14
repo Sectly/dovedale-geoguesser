@@ -44,6 +44,12 @@ export function justRestarted(): number | null {
 		: null;
 }
 
+let restartChanged: (() => void) | null = null;
+/** Called when a restart is announced, brought forward or called off. */
+export function onRestartChanged(fn: () => void) {
+	restartChanged = fn;
+}
+
 let dueAt: number | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 /** Watches for the last game to finish during a long notice, so the restart need not wait it out. */
@@ -92,6 +98,7 @@ function setDeadline(seconds: number, reason: string) {
 	if (timer) clearTimeout(timer);
 	dueAt = Date.now() + seconds * 1000;
 	broadcastToDuels("server_restarting", { seconds });
+	restartChanged?.();
 	timer = setTimeout(() => stopCleanly(reason), seconds * 1000);
 }
 
@@ -109,6 +116,7 @@ export function cancelRestart(): boolean {
 	dueAt = null;
 	setDuelsClosing(false);
 	broadcastToDuels("server_restart_cancelled", {});
+	restartChanged?.();
 	logInfo("[server] The planned restart was called off");
 	return true;
 }

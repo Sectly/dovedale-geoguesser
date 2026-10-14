@@ -88,11 +88,9 @@
       <div id="login-gate" class="hidden absolute inset-0 flex items-center justify-center z-20 bg-zinc-950">
         <div class="text-center max-w-sm px-6">
           <span class="material-symbols-outlined text-5xl text-zinc-600 mb-4 block" style="font-variation-settings: &quot;FILL&quot; 1">lock</span>
-          <h2 class="text-2xl font-bold mb-2">Login Required</h2>
+          <h2 class="text-2xl font-bold mb-2">Login required</h2>
           <p class="text-zinc-400 mb-6">Log in with Discord to submit locations or suggest changes.</p>
-          <a href="/api/auth/login?redirect=/submit" class="bg-blue-600 hover:bg-blue-500 transition px-8 py-3 rounded-xl font-semibold inline-block"
-            >Login with Discord</a
-          >
+          <a href="/api/auth/login?redirect=/submit" class="m-btn m-btn-lg m-btn-filled">Log in with Discord</a>
           <p class="text-zinc-600 text-xs mt-4">
             By logging in you agree to our <a href="/tos" class="underline hover:text-zinc-400">Terms of Service</a> and
             <a href="/privacy" class="underline hover:text-zinc-400">Privacy Policy</a>.
@@ -106,8 +104,8 @@
           <h2 class="text-2xl font-bold mb-2" id="success-title">Submitted</h2>
           <p class="text-zinc-400 mb-6" id="success-msg">Submitted for review.</p>
           <div class="flex gap-3 justify-center">
-            <button id="submit-another-btn" class="bg-blue-600 hover:bg-blue-500 transition px-6 py-2.5 rounded-xl font-semibold">Submit Another</button>
-            <a href="/" class="bg-zinc-700 hover:bg-zinc-600 transition px-6 py-2.5 rounded-xl font-semibold">Home</a>
+            <button id="submit-another-btn" class="m-btn m-btn-filled">Submit another</button>
+            <a href="/" class="m-btn m-btn-tonal">Home</a>
           </div>
         </div>
       </div>
@@ -229,13 +227,7 @@
           </div>
 
           <div class="mt-auto pt-2">
-            <button
-              id="submit-btn"
-              class="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-700 disabled:text-zinc-500 disabled:cursor-not-allowed transition px-4 py-3 rounded-xl font-semibold text-sm"
-              disabled
-            >
-              Submit for Review
-            </button>
+            <button id="submit-btn" class="m-btn m-btn-filled w-full" disabled>Submit for review</button>
             <p id="submit-error" class="text-red-400 text-xs mt-2 hidden"></p>
             <p class="text-zinc-700 text-xs mt-2 text-center">
               By submitting you agree to our <a href="/guidelines" class="underline hover:text-zinc-500">guidelines</a>
@@ -267,9 +259,7 @@
                 By continuing you agree to our <a href="/fairplay" class="underline hover:text-zinc-200">fair-play policy</a>. Misuse can get your account
                 banned.
               </p>
-              <button id="policy-agree-btn" class="w-full bg-blue-600 hover:bg-blue-500 transition px-4 py-2.5 rounded-xl text-sm font-semibold">
-                I agree
-              </button>
+              <button id="policy-agree-btn" class="m-btn m-btn-filled w-full">I agree</button>
             </div>
           </div>
 
@@ -458,13 +448,7 @@
             </div>
 
             <div>
-              <button
-                id="suggest-submit-btn"
-                class="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-700 disabled:text-zinc-500 disabled:cursor-not-allowed transition px-4 py-3 rounded-xl font-semibold text-sm"
-                disabled
-              >
-                Submit Suggestion
-              </button>
+              <button id="suggest-submit-btn" class="m-btn m-btn-filled w-full" disabled>Submit suggestion</button>
               <p id="suggest-error" class="text-red-400 text-xs mt-2 hidden"></p>
             </div>
           </div>

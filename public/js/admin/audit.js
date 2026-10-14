@@ -374,8 +374,8 @@ function renderAudit({ rows, total, offset }, reset) {
 	const showPrev = offset > 0;
 	const showNext = offset + rows.length < total;
 	pagination.innerHTML = `
-        ${showPrev ? `<button onclick="auditPage(-1)" class="text-sm bg-zinc-800 hover:bg-zinc-700 transition px-4 py-2 rounded-lg">Previous</button>` : ""}
-        ${showNext ? `<button onclick="auditPage(1)" class="text-sm bg-zinc-800 hover:bg-zinc-700 transition px-4 py-2 rounded-lg">Next</button>` : ""}`;
+        ${showPrev ? `<button onclick="auditPage(-1)" class="m-btn m-btn-tonal m-btn-sm">Previous</button>` : ""}
+        ${showNext ? `<button onclick="auditPage(1)" class="m-btn m-btn-tonal m-btn-sm">Next</button>` : ""}`;
 }
 
 function toggleAuditGroup(id) {

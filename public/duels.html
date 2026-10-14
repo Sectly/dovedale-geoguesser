@@ -41,12 +41,7 @@
         </div>
         <div class="bg-zinc-900 border border-zinc-800 rounded-3xl px-8 py-7 w-full max-w-sm text-center">
           <p class="text-zinc-400 mb-6 text-sm">Log in with Discord to create or join a duel.</p>
-          <a
-            id="login-link"
-            href="/api/auth/login?redirect=/duels"
-            class="block w-full bg-blue-600 hover:bg-blue-500 transition rounded-2xl py-3.5 font-bold text-base shadow-md"
-            >Login with Discord</a
-          >
+          <a id="login-link" href="/api/auth/login?redirect=/duels" class="m-btn m-btn-lg m-btn-filled w-full">Log in with Discord</a>
           <p class="text-zinc-600 text-xs mt-4">
             By logging in you agree to our <a href="/tos" class="underline hover:text-zinc-400">Terms of Service</a> and
             <a href="/privacy" class="underline hover:text-zinc-400">Privacy Policy</a>.
@@ -81,7 +76,7 @@
             <span class="material-symbols-outlined text-3xl" style="font-variation-settings: &quot;FILL&quot; 1">bolt</span>
             <div>
               <div class="font-bold text-lg leading-tight">Quick Play</div>
-              <div class="text-blue-200 text-sm">Ranked · matched with a player near your rating · 6 rounds</div>
+              <div class="text-blue-200 text-sm">Ranked · matched with a player near your rating · <span id="quickplay-rounds"></span> rounds</div>
               <div class="text-blue-200/80 text-xs mt-0.5 hidden" id="lobby-rating"></div>
             </div>
           </button>
@@ -132,7 +127,7 @@
                 <span class="block text-xs text-zinc-500">Anyone can find and watch this duel</span>
               </span>
             </label>
-            <button id="create-btn" class="w-full bg-blue-600 hover:bg-blue-500 transition rounded-2xl py-3 font-bold text-sm shadow-sm">Create Room</button>
+            <button id="create-btn" class="m-btn m-btn-filled w-full">Create room</button>
           </div>
 
           <div class="bg-zinc-900 border border-zinc-800 rounded-3xl px-6 py-6">
@@ -146,9 +141,7 @@
                 style="text-transform: uppercase"
                 class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600 placeholder:tracking-normal placeholder:font-sans"
               />
-              <button id="join-btn" class="bg-zinc-700 hover:bg-zinc-600 transition px-5 py-2.5 rounded-xl font-semibold text-sm border border-zinc-600">
-                Join
-              </button>
+              <button id="join-btn" class="m-btn m-btn-tonal">Join</button>
             </div>
           </div>
 
@@ -226,17 +219,11 @@
             ></button>
           </div>
           <div class="flex gap-2 justify-center mb-6">
-            <button
-              id="copy-invite-btn"
-              class="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 transition px-4 py-2 rounded-full text-sm font-semibold border border-zinc-700"
-            >
+            <button id="copy-invite-btn" class="m-btn m-btn-tonal m-btn-sm">
               <span class="material-symbols-outlined text-base leading-none">link</span>
               Copy invite link
             </button>
-            <button
-              id="copy-spectate-btn"
-              class="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 transition px-4 py-2 rounded-full text-sm font-semibold border border-zinc-700"
-            >
+            <button id="copy-spectate-btn" class="m-btn m-btn-tonal m-btn-sm">
               <span class="material-symbols-outlined text-base leading-none">visibility</span>
               Spectate link
             </button>
@@ -246,10 +233,8 @@
         <p id="waiting-rounds" class="text-zinc-500 text-xs mb-5"></p>
         <div id="waiting-players" class="flex justify-center gap-8 mb-6"></div>
 
-        <button id="start-duel-btn" class="hidden bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3">
-          Start Game
-        </button>
-        <button id="ready-btn" class="hidden bg-green-700 hover:bg-green-600 transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3">Ready</button>
+        <button id="start-duel-btn" class="hidden m-btn m-btn-lg m-btn-success mb-3">Start game</button>
+        <button id="ready-btn" class="hidden m-btn m-btn-lg m-btn-success mb-3">Ready</button>
         <p class="text-zinc-500 text-sm mb-4" id="waiting-hint">Share the code or invite link with your opponent</p>
         <div class="flex items-center justify-center gap-5">
           <button id="leave-btn" class="text-zinc-600 hover:text-zinc-400 transition text-sm">Leave room</button>
@@ -359,7 +344,7 @@
             class="pointer-events-auto bg-zinc-700 text-zinc-500 pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm whitespace-nowrap cursor-not-allowed transition flex items-center gap-2"
             disabled
           >
-            <span class="material-symbols-outlined text-base leading-none">place</span> Submit Guess
+            <span class="material-symbols-outlined text-base leading-none">place</span> Submit guess
           </button>
         </div>
 
@@ -408,15 +393,8 @@
         </div>
 
         <div id="end-actions" class="flex gap-3 justify-center">
-          <a
-            href="/duels"
-            id="end-leave-btn"
-            class="flex-1 max-w-[140px] bg-zinc-800 hover:bg-zinc-700 transition py-3 rounded-full font-semibold text-sm text-center border border-zinc-700"
-            >Leave</a
-          >
-          <button id="play-again-btn" class="flex-1 max-w-[140px] bg-blue-600 hover:bg-blue-500 transition py-3 rounded-full font-bold text-sm shadow-sm">
-            Play Again
-          </button>
+          <a href="/duels" id="end-leave-btn" class="m-btn m-btn-tonal flex-1 max-w-[140px]">Leave</a>
+          <button id="play-again-btn" class="m-btn m-btn-filled flex-1 max-w-[140px]">Play again</button>
         </div>
         <div id="end-waiting" class="hidden flex-col items-center gap-3 mt-1">
           <p class="text-sm text-zinc-400">Waiting for opponent...</p>
@@ -425,13 +403,11 @@
         <div id="end-incoming" class="hidden flex-col items-center gap-3 mt-1">
           <p class="text-sm text-zinc-300 font-semibold">Your opponent wants to play again</p>
           <div class="flex gap-3">
-            <button id="play-again-accept-btn" class="bg-green-600 hover:bg-green-500 transition px-6 py-2.5 rounded-full font-bold text-sm">Accept</button>
-            <button id="play-again-decline-btn" class="bg-zinc-700 hover:bg-zinc-600 transition px-6 py-2.5 rounded-full text-sm">Decline</button>
+            <button id="play-again-accept-btn" class="m-btn m-btn-success">Accept</button>
+            <button id="play-again-decline-btn" class="m-btn m-btn-tonal">Decline</button>
           </div>
         </div>
-        <button id="spectate-new-game-btn" class="hidden mt-3 bg-zinc-700 hover:bg-zinc-600 transition px-6 py-2.5 rounded-full text-sm font-semibold">
-          Spectate New Game
-        </button>
+        <button id="spectate-new-game-btn" class="hidden m-btn m-btn-tonal mt-3">Spectate new game</button>
       </div>
     </div>
 

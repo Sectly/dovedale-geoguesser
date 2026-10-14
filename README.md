@@ -29,14 +29,14 @@ Then open `http://localhost:4000`.
 
 Set `AUTH_DEV=true` in `.env` to skip Discord and log in as a built-in operator account. `bun run seed` adds placeholder locations so there is something to play.
 
-| Command             | What it does                                    |
-| ------------------- | ----------------------------------------------- |
-| `bun run dev`       | Start the server and restart on changes         |
-| `bun test`          | Run the tests against a throwaway database      |
-| `bun run typecheck` | Type-check the server and tests                 |
-| `bun run build`     | Format the code and compile the stylesheet      |
-| `bun run vapid`     | Generate keys for push notifications (optional) |
-| `bun run sync-map`  | Refresh map settings from the Dovedale map      |
+| Command             | What it does                                           |
+| ------------------- | ------------------------------------------------------ |
+| `bun run dev`       | Start the server and restart on changes                |
+| `bun run test`      | Run the tests, each file on its own throwaway database |
+| `bun run typecheck` | Type-check the server and tests                        |
+| `bun run build`     | Format the code and compile the stylesheet             |
+| `bun run vapid`     | Generate keys for push notifications (optional)        |
+| `bun run sync-map`  | Refresh map settings from the Dovedale map             |
 
 ## Configuration
 
@@ -90,11 +90,16 @@ Operators also get a **System** tab in the staff panel to switch on maintenance 
 
 ## Staff roles
 
-| Role       | Can do                                                                             |
-| ---------- | ---------------------------------------------------------------------------------- |
-| Moderator  | Review submissions, answer tickets, warn, limit and temporarily ban                |
-| Supervisor | Also ban permanently, overturn most actions, manage moderators, read the audit log |
-| Operator   | Everything, including player scores and the System tab                             |
+Each role can do everything the one above it can. The Staff tab in the staff panel has the full list.
+
+| Role          | Adds                                                                                    |
+| ------------- | --------------------------------------------------------------------------------------- |
+| Helper        | Review submissions and suggested changes. A player, not counted as staff                |
+| Curator       | Browse and edit locations, see every review, staff chat and announcements               |
+| Moderator     | Answer tickets, warn, limit and temporarily ban, review ban-evasion and fair-play flags |
+| Supervisor    | Ban permanently, overturn most actions, manage moderators and below, read the audit log |
+| Administrator | Correct scores and ratings, send announcements, delete locations, watch or close duels  |
+| Operator      | Everything, including exporting or deleting player data and the System tab. Set in .env |
 
 ## Specials and seasons
 

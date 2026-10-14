@@ -11,6 +11,8 @@ const GUESS_BTN_ON = "bg-blue-600 hover:bg-blue-500 active:scale-95 shadow-sm cu
 const GUESS_BTN_OFF = "bg-zinc-700 text-zinc-500 cursor-not-allowed";
 /** How many times a failed screenshot is asked for again before the player is told. */
 const PHOTO_RETRIES = 2;
+/** Touch screens get "tap" in the hints, and no keyboard tip. */
+const TOUCH = matchMedia("(pointer: coarse)").matches;
 const TIMER_TONES = ["text-green-400", "text-yellow-400", "text-orange-400", "text-red-400", "text-zinc-400"];
 
 class RoundView {
@@ -39,8 +41,9 @@ class RoundView {
 				this.pin = { x, y };
 				Sounds.play("pin");
 				this._setGuessEnabled(true);
-				el("click-hint").innerHTML =
-					'Pin placed. Press <kbd class="kbd">Space</kbd> or <kbd class="kbd">Enter</kbd> to submit, or click to move it';
+				el("click-hint").innerHTML = TOUCH
+					? "Pin placed. Tap the map to move it"
+					: 'Pin placed. Press <kbd class="kbd">Space</kbd> or <kbd class="kbd">Enter</kbd> to submit, or click to move it';
 			},
 		});
 		this.map.setPinEnabled(false);
@@ -96,7 +99,9 @@ class RoundView {
 	go(round) {
 		this.locked = !this.canGuess;
 		this.map.setPinEnabled(this.canGuess);
-		el("click-hint").textContent = this.canGuess ? "Click the map to place your pin" : "Spectating";
+		el("click-hint").textContent = this.canGuess
+			? `${TOUCH ? "Tap" : "Click"} the map to place your pin`
+			: "Spectating";
 		const hintBtn = el("hint-btn");
 		if (hintBtn) hintBtn.disabled = this.hintsShown >= this.hintsTotal;
 		this._startTimer(round.time_limit, round.time_remaining);
@@ -524,7 +529,8 @@ function setupResizeHandle() {
 	const panel = el("photo-panel");
 	if (!handle || !panel) return;
 	const container = panel.parentElement;
-	const isDesktop = () => window.innerWidth >= 768;
+	/** Matches the stylesheet's side-by-side layout: wide screens and short landscape ones. */
+	const isDesktop = () => matchMedia("(min-width: 768px), (orientation: landscape) and (max-height: 500px)").matches;
 	let dragging = false;
 
 	const start = (e) => {

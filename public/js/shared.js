@@ -113,7 +113,7 @@ function renderAuthAreas(user) {
 			${iconLink("/settings", "settings", "Settings", "settings")}
 			${iconLink("/api/auth/logout", "logout", "Log out")}
 		</div>`
-		: `<a href="${escHtml(loginUrl())}" class="text-sm bg-zinc-700 hover:bg-zinc-600 transition px-3 py-1.5 rounded-lg whitespace-nowrap">Login with Discord</a>`;
+		: `<a href="${escHtml(loginUrl())}" class="m-btn m-btn-tonal m-btn-sm">Log in with Discord</a>`;
 	for (const area of document.querySelectorAll("[data-auth-area]")) area.innerHTML = html;
 	renderAttentionBadges();
 }
@@ -306,11 +306,109 @@ async function disablePush() {
 	} catch {}
 }
 
+/** Fallback while the live stream is not connected. */
 function startAttentionPolling() {
-	refreshAttention();
-	setInterval(() => document.hidden || refreshAttention(), ATTENTION_POLL_MS);
-	document.addEventListener("visibilitychange", () => document.hidden || refreshAttention());
+	whenNotLive(refreshAttention);
+	setInterval(() => document.hidden || live.connected || refreshAttention(), ATTENTION_POLL_MS);
+	document.addEventListener("visibilitychange", () => document.hidden || live.connected || refreshAttention());
 }
+
+/* ---- Live updates: one event stream per page instead of polling ---- */
+
+/** Wait after load before opening the stream, plus up to LIVE_JITTER_MS. */
+const LIVE_DELAY_MS = 1500;
+const LIVE_JITTER_MS = 2500;
+/** A hidden tab closes its stream after this long and reopens it when shown again. */
+const LIVE_HIDDEN_MS = 60_000;
+/** Handlers rerun after a reconnect, in case an event was missed. */
+const LIVE_CATCH_UP = ["ticket", "staff_chat"];
+
+const live = {
+	connected: false,
+	source: null,
+	opened: false,
+	retries: 0,
+	retryTimer: null,
+	hiddenTimer: null,
+	handlers: new Map(),
+};
+
+/** Returns a function that removes the handler. */
+function onLive(event, fn) {
+	if (!live.handlers.has(event)) {
+		live.handlers.set(event, new Set());
+		live.source?.addEventListener(event, (e) => deliverLive(event, e.data));
+	}
+	live.handlers.get(event).add(fn);
+	return () => live.handlers.get(event)?.delete(fn);
+}
+
+function deliverLive(event, raw) {
+	let data = null;
+	try {
+		data = JSON.parse(raw);
+	} catch {
+		return;
+	}
+	for (const fn of live.handlers.get(event) || []) {
+		try {
+			fn(data);
+		} catch (err) {
+			console.error(`[live] ${event} handler failed:`, err);
+		}
+	}
+}
+
+function openLive() {
+	if (live.source || !("EventSource" in window) || document.hidden) return;
+	clearTimeout(live.retryTimer);
+	const source = new EventSource("/api/events");
+	live.source = source;
+	for (const event of live.handlers.keys()) source.addEventListener(event, (e) => deliverLive(event, e.data));
+	source.addEventListener("open", () => {
+		const reconnected = live.opened;
+		live.connected = live.opened = true;
+		live.retries = 0;
+		if (reconnected) for (const event of LIVE_CATCH_UP) for (const fn of live.handlers.get(event) || []) fn(null);
+	});
+	source.addEventListener("error", () => {
+		live.connected = false;
+		/** Closed by an error status, such as maintenance: retry with a growing wait. */
+		if (source.readyState !== EventSource.CLOSED) return;
+		closeLive();
+		const wait = Math.min(120_000, 5000 * 2 ** live.retries++);
+		live.retryTimer = setTimeout(openLive, wait + Math.random() * 2000);
+	});
+}
+
+function closeLive() {
+	live.source?.close();
+	live.source = null;
+	live.connected = false;
+}
+
+/** Runs `fn` if the stream has not connected by the time it should have. */
+function whenNotLive(fn) {
+	setTimeout(() => live.connected || fn(), LIVE_DELAY_MS + LIVE_JITTER_MS + 2500);
+}
+
+onLive("hello", (state) => {
+	noteRestart(state.restart_in);
+	noteRestarted(state.restarted);
+});
+onLive("restart", (state) => noteRestart(state.restart_in));
+onLive("attention", (attention) => refreshAttention(attention));
+onLive("banner", (announcement) => showAnnouncement(announcement));
+
+/** Opened after load and idle plus a random delay, to spread out page loads. */
+window.addEventListener("load", () =>
+	whenIdle(() => setTimeout(openLive, LIVE_DELAY_MS + Math.random() * LIVE_JITTER_MS))
+);
+document.addEventListener("visibilitychange", () => {
+	clearTimeout(live.hiddenTimer);
+	if (document.hidden) live.hiddenTimer = setTimeout(closeLive, LIVE_HIDDEN_MS);
+	else if (!live.source && live.opened) setTimeout(openLive, 300 + Math.random() * 1200);
+});
 
 const NAV_LINKS = [
 	["/play", "Solo", "explore"],
@@ -806,7 +904,7 @@ if (welcomeKind) document.cookie = "welcome=; Path=/; Max-Age=0";
 			</div>
 			<p class="text-zinc-400 text-sm mb-3">Dovedale GeoGuesser is in beta, so some things may break or change.</p>
 			<p class="text-zinc-500 text-sm mb-6">Found a problem? Open a ticket in <a href="/settings" class="text-blue-400 hover:text-blue-300 underline">Settings</a>.</p>
-			<button class="w-full bg-blue-600 hover:bg-blue-500 transition py-2.5 rounded-xl font-semibold text-sm">Got it</button>
+			<button class="m-btn m-btn-filled w-full">Got it</button>
 		</div>
 	</div>`;
 	modal.querySelector("button").addEventListener("click", () => {
@@ -914,7 +1012,10 @@ const ANNOUNCEMENT_ICONS = { info: "campaign", success: "celebration", warning: 
 async function checkAnnouncement() {
 	const announcement = await api("/api/announcement").catch(() => undefined);
 	/** A failed request says nothing either way; leave whatever is on screen alone. */
-	if (announcement === undefined) return;
+	if (announcement !== undefined) showAnnouncement(announcement);
+}
+
+function showAnnouncement(announcement) {
 	const shown = document.getElementById("site-announcement");
 	let dismissed = "";
 	try {
@@ -945,8 +1046,8 @@ async function checkAnnouncement() {
 	});
 	document.body.appendChild(card);
 }
-whenIdle(checkAnnouncement);
-setInterval(() => document.hidden || checkAnnouncement(), ANNOUNCEMENT_POLL_MS);
+whenNotLive(checkAnnouncement);
+setInterval(() => document.hidden || live.connected || checkAnnouncement(), ANNOUNCEMENT_POLL_MS);
 
 /* ---- Achievements: the unlock animation ---- */
 
@@ -1152,7 +1253,7 @@ function tickRestartBanner() {
 	if (at && Date.now() - at < 60_000) showRestartBanner(at, false);
 })();
 
-const checkForRestart = () => document.hidden || api("/api/status").catch(() => {});
+const checkForRestart = () => document.hidden || live.connected || api("/api/status").catch(() => {});
 setInterval(checkForRestart, RESTART_POLL_MS);
 /** A tab coming back to the front asks at once rather than waiting out the interval. */
 document.addEventListener("visibilitychange", checkForRestart);

@@ -555,7 +555,7 @@ async function sendAnnouncement(test, asDraft = false) {
 		const ok = await showConfirm(
 			sendAt ? "Schedule this announcement?" : "Send this announcement?",
 			`"${draft.title}" ${draft.silent ? "goes up as a banner only" : `goes to ${to}`}${sendAt ? ` on ${formatWhen(sendAt)}` : ""}${draft.banner_hours && !draft.silent ? ` and is pinned to every page for ${BANNER_LABELS[draft.banner_hours].toLowerCase()}` : ""}. ${sendAt ? "It can be called off until then." : `It can be corrected or taken back for ${_announcements.recall_hours} hours.`}`,
-			{ confirmLabel: sendAt ? "Schedule" : "Send", confirmClass: "bg-blue-600 hover:bg-blue-500" }
+			{ confirmLabel: sendAt ? "Schedule" : "Send", confirmClass: "m-btn-filled" }
 		);
 		if (!ok) return;
 	}

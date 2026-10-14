@@ -54,7 +54,9 @@ async function loadTickets(reset = true, autoOpenId = null, { quiet = false } = 
 	}
 	_stopTicketPolling ??= pollWhile(
 		() => currentTab === "tickets",
-		() => loadTickets(false, null, { quiet: true })
+		() => loadTickets(false, null, { quiet: true }),
+		5000,
+		"ticket"
 	);
 }
 

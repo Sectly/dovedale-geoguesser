@@ -41,8 +41,8 @@ function notFoundMsg(msg) {
 	return `<div class="text-center py-16">
 	<span class="material-symbols-outlined text-5xl text-zinc-700 block mb-4">search_off</span>
 	<div class="text-zinc-400 text-lg font-semibold mb-1">${escHtml(msg)}</div>
-	<a href="/" class="inline-flex items-center gap-2 mt-6 bg-zinc-800 hover:bg-zinc-700 transition px-6 py-2.5 rounded-full font-semibold text-sm text-zinc-200 border border-zinc-700">
-		<span class="material-symbols-outlined text-base leading-none">home</span> Return Home
+	<a href="/" class="m-btn m-btn-tonal mt-6">
+		<span class="material-symbols-outlined text-base leading-none">home</span> Return home
 	</a>
 </div>`;
 }

@@ -107,6 +107,8 @@ describe("planned restarts", () => {
 	afterAll(() => void cancelRestart());
 
 	test("everyone is told, new duels are held back, and it can be called off", async () => {
+		/** A solo game needs locations to start. */
+		for (let i = 0; i < 3; i++) createLocation();
 		const [host, guest] = [createUser(), createUser()];
 		const room = createRoom(host.id, 1);
 		joinRoom(room.code, guest.id);

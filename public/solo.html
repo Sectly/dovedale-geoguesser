@@ -44,7 +44,7 @@
     </style>
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-[Inter] overflow-hidden h-screen w-screen">
-    <div id="start-screen" class="absolute inset-0 z-20 flex flex-col screen-fade">
+    <div id="start-screen" class="absolute inset-0 z-20 flex flex-col overflow-y-auto screen-fade">
       <div class="flex items-center justify-between px-5 py-4 flex-shrink-0">
         <a href="/" class="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition text-sm">
           <span class="material-symbols-outlined text-base leading-none">arrow_back</span> Home
@@ -52,141 +52,138 @@
         <div data-auth-area></div>
       </div>
 
-      <div class="flex-1 flex flex-col items-center justify-center px-6 pb-10">
-        <div class="mb-8 text-center">
-          <div class="hero-icon inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-zinc-800 border border-zinc-700 mb-5">
-            <span id="start-icon" class="material-symbols-outlined text-5xl text-blue-400" style="font-variation-settings: &quot;FILL&quot; 1">explore</span>
+      <div class="flex-1 flex flex-col items-center px-4 sm:px-6 pb-10">
+        <div class="my-auto w-full flex flex-col items-center">
+          <div class="mb-6 sm:mb-8 text-center">
+            <div class="hero-icon inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-zinc-800 border border-zinc-700 mb-5">
+              <span id="start-icon" class="material-symbols-outlined text-5xl text-blue-400" style="font-variation-settings: &quot;FILL&quot; 1">explore</span>
+            </div>
+            <h1 id="start-title" class="text-4xl sm:text-5xl font-bold tracking-tight mb-2">GeoGuesser</h1>
+            <p id="start-subtitle" class="text-zinc-500 text-base">Dovedale Railway</p>
           </div>
-          <h1 id="start-title" class="text-5xl font-bold tracking-tight mb-2">GeoGuesser</h1>
-          <p id="start-subtitle" class="text-zinc-500 text-base">Dovedale Railway</p>
+
+          <div id="start-card" class="bg-zinc-900 border border-zinc-800 rounded-3xl px-5 py-6 sm:px-8 sm:py-7 w-full max-w-sm">
+            <div class="flex justify-around mb-7 pb-6 border-b border-zinc-800">
+              <div class="text-center">
+                <div class="text-2xl font-bold text-zinc-200" id="rounds-preview">5</div>
+                <div class="text-xs text-zinc-500 mt-0.5">Rounds</div>
+              </div>
+              <div class="w-px bg-zinc-800"></div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-zinc-200" id="time-preview">90s</div>
+                <div class="text-xs text-zinc-500 mt-0.5">Per round</div>
+              </div>
+              <div class="w-px bg-zinc-800"></div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-zinc-200">5k</div>
+                <div class="text-xs text-zinc-500 mt-0.5">Max score</div>
+              </div>
+            </div>
+
+            <div class="mb-5">
+              <div class="text-xs text-zinc-500 font-medium mb-2 uppercase tracking-wider">Rounds</div>
+              <div class="flex gap-2">
+                <button
+                  class="rounds-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  data-val="3"
+                >
+                  3
+                </button>
+                <button
+                  class="rounds-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-blue-500 bg-blue-600/15 text-blue-300"
+                  data-val="5"
+                  data-default
+                >
+                  5
+                </button>
+                <button
+                  class="rounds-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  data-val="10"
+                >
+                  10
+                </button>
+              </div>
+            </div>
+
+            <div class="mb-6">
+              <div class="text-xs text-zinc-500 font-medium mb-2 uppercase tracking-wider">Time per round</div>
+              <div class="flex gap-1.5 flex-wrap">
+                <button
+                  class="time-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  data-val="30"
+                >
+                  30s
+                </button>
+                <button
+                  class="time-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  data-val="60"
+                >
+                  60s
+                </button>
+                <button
+                  class="time-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-blue-500 bg-blue-600/15 text-blue-300"
+                  data-val="90"
+                  data-default
+                >
+                  90s
+                </button>
+                <button
+                  class="time-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  data-val="120"
+                >
+                  120s
+                </button>
+                <button
+                  class="time-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 flex items-center justify-center"
+                  data-val="0"
+                >
+                  <span class="material-symbols-outlined text-base leading-none">all_inclusive</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="mb-6">
+              <div class="text-xs text-zinc-500 font-medium mb-2 uppercase tracking-wider">Locations</div>
+              <div class="flex gap-1.5 flex-wrap">
+                <button
+                  class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-blue-500 bg-blue-600/15 text-blue-300"
+                  data-val="0"
+                  data-default
+                >
+                  Any
+                </button>
+                <button
+                  class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  data-val="1"
+                >
+                  Easy
+                </button>
+                <button
+                  class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  data-val="2"
+                >
+                  Medium
+                </button>
+                <button
+                  class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  data-val="3"
+                >
+                  Hard
+                </button>
+              </div>
+              <p id="difficulty-note" class="text-xs text-zinc-600 mt-2"></p>
+            </div>
+
+            <button id="start-btn" class="m-btn m-btn-lg m-btn-filled w-full">Play</button>
+            <p id="start-error" class="text-red-400 text-sm mt-3 text-center hidden"></p>
+          </div>
+
+          <p id="login-save-hint" class="hidden text-zinc-600 text-xs mt-5">
+            <a href="/api/auth/login?redirect=/play" class="hover:text-zinc-400 underline transition">Log in</a> to save scores. By logging in you agree to our
+            <a href="/tos" class="underline hover:text-zinc-400">Terms of Service</a> and
+            <a href="/privacy" class="underline hover:text-zinc-400">Privacy Policy</a>.
+          </p>
         </div>
-
-        <div id="start-card" class="bg-zinc-900 border border-zinc-800 rounded-3xl px-8 py-7 w-full max-w-sm">
-          <div class="flex justify-around mb-7 pb-6 border-b border-zinc-800">
-            <div class="text-center">
-              <div class="text-2xl font-bold text-zinc-200" id="rounds-preview">5</div>
-              <div class="text-xs text-zinc-500 mt-0.5">Rounds</div>
-            </div>
-            <div class="w-px bg-zinc-800"></div>
-            <div class="text-center">
-              <div class="text-2xl font-bold text-zinc-200" id="time-preview">90s</div>
-              <div class="text-xs text-zinc-500 mt-0.5">Per round</div>
-            </div>
-            <div class="w-px bg-zinc-800"></div>
-            <div class="text-center">
-              <div class="text-2xl font-bold text-zinc-200">5k</div>
-              <div class="text-xs text-zinc-500 mt-0.5">Max score</div>
-            </div>
-          </div>
-
-          <div class="mb-5">
-            <div class="text-xs text-zinc-500 font-medium mb-2 uppercase tracking-wider">Rounds</div>
-            <div class="flex gap-2">
-              <button
-                class="rounds-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                data-val="3"
-              >
-                3
-              </button>
-              <button
-                class="rounds-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-blue-500 bg-blue-600/15 text-blue-300"
-                data-val="5"
-                data-default
-              >
-                5
-              </button>
-              <button
-                class="rounds-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                data-val="10"
-              >
-                10
-              </button>
-            </div>
-          </div>
-
-          <div class="mb-6">
-            <div class="text-xs text-zinc-500 font-medium mb-2 uppercase tracking-wider">Time per round</div>
-            <div class="flex gap-1.5 flex-wrap">
-              <button
-                class="time-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                data-val="30"
-              >
-                30s
-              </button>
-              <button
-                class="time-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                data-val="60"
-              >
-                60s
-              </button>
-              <button
-                class="time-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-blue-500 bg-blue-600/15 text-blue-300"
-                data-val="90"
-                data-default
-              >
-                90s
-              </button>
-              <button
-                class="time-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                data-val="120"
-              >
-                120s
-              </button>
-              <button
-                class="time-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 flex items-center justify-center"
-                data-val="0"
-              >
-                <span class="material-symbols-outlined text-base leading-none">all_inclusive</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="mb-6">
-            <div class="text-xs text-zinc-500 font-medium mb-2 uppercase tracking-wider">Locations</div>
-            <div class="flex gap-1.5 flex-wrap">
-              <button
-                class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-blue-500 bg-blue-600/15 text-blue-300"
-                data-val="0"
-                data-default
-              >
-                Any
-              </button>
-              <button
-                class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                data-val="1"
-              >
-                Easy
-              </button>
-              <button
-                class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                data-val="2"
-              >
-                Medium
-              </button>
-              <button
-                class="difficulty-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                data-val="3"
-              >
-                Hard
-              </button>
-            </div>
-            <p id="difficulty-note" class="text-xs text-zinc-600 mt-2"></p>
-          </div>
-
-          <button
-            id="start-btn"
-            class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 transition rounded-2xl py-3.5 font-bold text-lg tracking-wide shadow-md"
-          >
-            Play
-          </button>
-          <p id="start-error" class="text-red-400 text-sm mt-3 text-center hidden"></p>
-        </div>
-
-        <p id="login-save-hint" class="hidden text-zinc-600 text-xs mt-5">
-          <a href="/api/auth/login?redirect=/play" class="hover:text-zinc-400 underline transition">Login</a> to save scores. By logging in you agree to our
-          <a href="/tos" class="underline hover:text-zinc-400">Terms of Service</a> and
-          <a href="/privacy" class="underline hover:text-zinc-400">Privacy Policy</a>.
-        </p>
       </div>
     </div>
 
@@ -254,7 +251,7 @@
             class="pointer-events-auto bg-zinc-700 text-zinc-500 pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm whitespace-nowrap cursor-not-allowed transition flex items-center gap-2"
             disabled
           >
-            <span class="material-symbols-outlined text-base leading-none">place</span> Submit Guess
+            <span class="material-symbols-outlined text-base leading-none">place</span> Submit guess
           </button>
         </div>
 
@@ -276,9 +273,7 @@
               <div class="score-bar h-2 rounded-full bg-blue-500" id="result-score-bar" style="width: 0%"></div>
             </div>
             <div class="flex items-center gap-3">
-              <button id="next-btn" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 transition py-2.5 rounded-full font-semibold text-sm shadow-sm">
-                Next Round
-              </button>
+              <button id="next-btn" class="m-btn m-btn-filled flex-1">Next round</button>
               <a
                 id="result-report-link"
                 href="#"
@@ -313,13 +308,8 @@
         </div>
 
         <div class="flex gap-3">
-          <button
-            id="replay-btn"
-            class="flex-1 bg-zinc-800 hover:bg-zinc-700 transition py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 border border-zinc-700"
-          >
-            <span class="material-symbols-outlined text-base leading-none">map</span> View Map
-          </button>
-          <button id="play-again-btn" class="flex-1 bg-blue-600 hover:bg-blue-500 transition py-3 rounded-xl font-bold text-sm shadow-sm">Play Again</button>
+          <button id="replay-btn" class="m-btn m-btn-tonal flex-1"><span class="material-symbols-outlined text-base leading-none">map</span> View map</button>
+          <button id="play-again-btn" class="m-btn m-btn-filled flex-1">Play again</button>
         </div>
 
         <div class="flex justify-center gap-4 mt-5">

@@ -242,13 +242,13 @@ function bindPanelSearch(selector) {
 	});
 }
 
-function showConfirm(title, message, { confirmLabel = "Confirm", confirmClass = "bg-red-600 hover:bg-red-500" } = {}) {
+function showConfirm(title, message, { confirmLabel = "Confirm", confirmClass = "m-btn-danger" } = {}) {
 	return new Promise((resolve) => {
 		el("confirm-title").textContent = title;
 		el("confirm-message").textContent = message;
 		const okBtn = el("confirm-ok");
 		okBtn.textContent = confirmLabel;
-		okBtn.className = `px-5 py-2 rounded-xl transition text-sm font-semibold ${confirmClass}`;
+		okBtn.className = `m-btn ${confirmClass}`;
 		el("confirm-modal").classList.remove("hidden");
 		const done = (val) => {
 			el("confirm-modal").classList.add("hidden");

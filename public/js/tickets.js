@@ -73,13 +73,32 @@ function ticketFollowUps(ticket) {
 }
 
 /**
- * Calls `load` every few seconds while `isActive()` is true and the tab is visible. Returns a function that stops it.
+ * Calls `load` every few seconds while `isActive()` is true and the tab is visible. With `liveEvent`, it runs on that
+ * event instead while the live stream is connected. Returns a function that stops it.
  */
-function pollWhile(isActive, load, everyMs = 5000) {
+function pollWhile(isActive, load, everyMs = 5000, liveEvent = null) {
 	const timer = setInterval(() => {
-		if (!document.hidden && isActive()) load();
+		if (document.hidden || !isActive() || (liveEvent && live.connected)) return;
+		load();
 	}, everyMs);
-	return () => clearInterval(timer);
+	/** A random delay spreads refetches across pages, and events in that window share one fetch. */
+	let pending = null;
+	const soon = () => {
+		if (pending || document.hidden || !isActive()) return;
+		pending = setTimeout(
+			() => {
+				pending = null;
+				if (!document.hidden && isActive()) load();
+			},
+			300 + Math.random() * 1700
+		);
+	};
+	const stopLive = liveEvent ? onLive(liveEvent, soon) : null;
+	return () => {
+		clearInterval(timer);
+		clearTimeout(pending);
+		stopLive?.();
+	};
 }
 
 /** Scrolls a thread to its newest message, but only if the reader was already at the bottom. */

@@ -1,21 +1,20 @@
-import { Hono } from 'hono'
+import { Hono } from "hono";
 
-const app = new Hono()
-const port = Number(Bun.env.PORT || 4000)
+const app = new Hono();
+const port = Number(Bun.env.PORT || 4000);
 
-app.use('*', async (c, next) => {
-  await next()
-  c.header('X-Content-Type-Options', 'nosniff')
-  c.header('X-Frame-Options', 'DENY')
-  c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
-  c.header('Cache-Control', 'no-store')
-})
+app.use("*", async (c, next) => {
+	await next();
+	c.header("X-Content-Type-Options", "nosniff");
+	c.header("X-Frame-Options", "DENY");
+	c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+	c.header("Cache-Control", "no-store");
+});
 
-app.get('/healthz', (c) =>
-  c.json({ ok: true, service: 'dovedale-geoguesser-maintenance' }),
-)
+app.get("/healthz", (c) => c.json({ ok: true, service: "dovedale-geoguesser-maintenance" }));
 
-app.get('*', (c) => c.html(`<!doctype html>
+app.get("*", (c) =>
+	c.html(`<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -167,10 +166,11 @@ app.get('*', (c) => c.html(`<!doctype html>
     <a href="https://github.com/Sectly/dovedale-geoguesser">GitHub</a>
   </footer>
 </body>
-</html>`))
+</html>`)
+);
 
 export default {
-  port,
-  hostname: '0.0.0.0',
-  fetch: app.fetch,
-}
+	port,
+	hostname: "0.0.0.0",
+	fetch: app.fetch,
+};

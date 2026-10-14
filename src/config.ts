@@ -72,6 +72,8 @@ export const GAME = {
 		defaultRounds: 5,
 		/** Quick Play duels are all this long, so any two players in the queue can be matched. */
 		quickplayRounds: 6,
+		/** Quick Play wins in a row before the streak flame shows beside a player's name. */
+		streakShown: 3,
 		startCountdown: 3,
 		resultDelay: 7,
 		finalResultDelay: 5,

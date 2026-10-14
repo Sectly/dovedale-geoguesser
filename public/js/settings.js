@@ -5,7 +5,7 @@ async function init() {
 	if (!currentUser) {
 		el("main").innerHTML = `<div class="text-center py-16">
 		<p class="text-zinc-400 mb-4">You need to be logged in to access settings.</p>
-		<a href="/api/auth/login?redirect=/settings" class="bg-blue-600 hover:bg-blue-500 transition px-6 py-2.5 rounded-xl font-semibold">Login with Discord</a>
+		<a href="/api/auth/login?redirect=/settings" class="m-btn m-btn-lg m-btn-filled">Log in with Discord</a>
 		<p class="text-zinc-600 text-xs mt-4">By logging in you agree to our <a href="/tos" class="underline hover:text-zinc-400">Terms of Service</a> and <a href="/privacy" class="underline hover:text-zinc-400">Privacy Policy</a>.</p>
 	</div>`;
 		return;
@@ -51,7 +51,7 @@ async function openMySubmissions() {
 			body.innerHTML = `<div class="text-center py-10">
 				<span class="material-symbols-outlined text-4xl text-zinc-700">add_photo_alternate</span>
 				<p class="text-zinc-500 text-sm mt-2">You haven't submitted any locations yet.</p>
-				<a href="/submit" class="inline-block mt-4 bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-xl text-sm font-semibold">Submit a location</a>
+				<a href="/submit" class="m-btn m-btn-filled m-btn-sm mt-4">Submit a location</a>
 			</div>`;
 			return;
 		}
@@ -539,7 +539,7 @@ function renderSettings() {
 				<div class="font-medium text-sm">Export your data</div>
 				<div class="text-zinc-500 text-xs mt-0.5">Download everything we hold about your account as a JSON file.</div>
 			</div>
-			<button onclick="exportData()" class="flex-shrink-0 bg-zinc-700 hover:bg-zinc-600 transition px-3 py-1.5 rounded-lg text-sm font-semibold">
+			<button onclick="exportData()" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0">
 				Export
 			</button>
 		</div>
@@ -555,7 +555,7 @@ function renderSettings() {
 				<div class="font-medium text-sm">Delete account</div>
 				<div class="text-zinc-500 text-xs mt-0.5">Permanently removes your name, scores and personal data. Moderation records are kept.</div>
 			</div>
-			<button onclick="deleteAccount()" class="flex-shrink-0 bg-red-900 hover:bg-red-800 transition px-3 py-1.5 rounded-lg text-sm font-semibold text-red-200">
+			<button onclick="deleteAccount()" class="m-btn m-btn-danger m-btn-sm flex-shrink-0">
 				Delete
 			</button>
 		</div>
@@ -564,8 +564,8 @@ function renderSettings() {
 			<div class="flex gap-2">
 				<input id="delete-confirm-input" type="text" placeholder="Type DELETE" maxlength="10"
 					class="flex-1 bg-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-zinc-600" />
-				<button onclick="confirmDeleteAccount()" class="bg-red-700 hover:bg-red-600 transition px-4 py-2 rounded-lg text-sm font-semibold text-white">Confirm</button>
-				<button onclick="el('delete-confirm-row').classList.add('hidden')" class="bg-zinc-700 hover:bg-zinc-600 transition px-3 py-2 rounded-lg text-sm">Cancel</button>
+				<button onclick="confirmDeleteAccount()" class="m-btn m-btn-danger m-btn-sm">Confirm</button>
+				<button onclick="el('delete-confirm-row').classList.add('hidden')" class="m-btn m-btn-tonal m-btn-sm">Cancel</button>
 			</div>
 		</div>
 	`
@@ -667,7 +667,9 @@ async function openMyTickets(openId = null) {
 					Sounds.play("notify");
 				}
 			} catch {}
-		}
+		},
+		5000,
+		"ticket"
 	);
 }
 

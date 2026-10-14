@@ -50,7 +50,7 @@ function specialCard(special) {
 			<span class="material-symbols-outlined text-4xl text-zinc-500 mb-2">lock</span>
 			<p class="text-zinc-300 font-semibold mb-1">Log in to see what's on</p>
 			<p class="text-zinc-500 text-sm mb-5">Specials are for logged-in players.</p>
-			<a href="${escHtml(loginUrl("/specials"))}" class="m-btn m-btn-filled">Login with Discord</a>
+			<a href="${escHtml(loginUrl("/specials"))}" class="m-btn m-btn-filled">Log in with Discord</a>
 			<p class="text-zinc-600 text-xs mt-4">By logging in you agree to our <a href="/tos" class="underline hover:text-zinc-400">Terms of Service</a> and <a href="/privacy" class="underline hover:text-zinc-400">Privacy Policy</a>.</p>
 		</div>`;
 		return;

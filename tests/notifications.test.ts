@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { app } from "../src/app";
 import { db } from "../src/db";
 import { sendScheduledAnnouncements } from "../src/announcements";
 import { sendDueDigests, setTestSender } from "../src/email";
@@ -557,5 +558,83 @@ describe("the link counter", () => {
 		expect(visit.status).toBe(302);
 		expect(visit.headers.get("Location")).toBe(`/leaving?to=${encodeURIComponent(link)}`);
 		expect((await call("/leaving")).status).toBe(200);
+	});
+});
+
+describe("live updates", () => {
+	/** Opens the stream as this player and returns a reader for its events, and a way to close it. */
+	async function stream(as?: TestUser) {
+		const abort = new AbortController();
+		const res = await app.fetch(
+			new Request("http://localhost/api/events", {
+				headers: as ? { Cookie: as.cookie } : {},
+				signal: abort.signal,
+			})
+		);
+		const reader = res.body!.getReader();
+		const decoder = new TextDecoder();
+		let buffer = "";
+		/** The next event with this name, or null if none arrives in time. */
+		const next = async (name: string, ms = 1000): Promise<any> => {
+			const deadline = Date.now() + ms;
+			for (;;) {
+				const block = buffer.match(new RegExp(String.raw`event: ${name}\ndata: (.*)\n(?:retry: \d+\n)?\n`));
+				if (block) {
+					buffer = buffer.slice(buffer.indexOf(block[0]) + block[0].length);
+					return JSON.parse(block[1]);
+				}
+				const left = deadline - Date.now();
+				if (left <= 0) return null;
+				const chunk = await Promise.race([reader.read(), Bun.sleep(left).then(() => null)]);
+				if (!chunk || chunk.done) return null;
+				buffer += decoder.decode(chunk.value);
+			}
+		};
+		return { res, next, close: () => abort.abort() };
+	}
+
+	test("a page hears its counts, the banner and restarts, and a new notification at once", async () => {
+		const player = createUser();
+		const live = await stream(player);
+		expect(live.res.headers.get("Content-Type")).toContain("text/event-stream");
+		expect(live.res.headers.get("Content-Encoding")).toBeNull();
+		expect(await live.next("hello")).toMatchObject({ restart_in: null });
+		/** Sent whether or not a banner is up. */
+		expect(await live.next("banner")).toBeDefined();
+		const before = (await live.next("attention")).unread;
+
+		notifyUser(player.id, "achievements", { title: "Pushed, not polled" });
+		/** Sent after a short delay that merges bursts. */
+		expect(await live.next("attention", 3000)).toMatchObject({
+			unread: before + 1,
+			latest: { title: "Pushed, not polled" },
+		});
+		live.close();
+	});
+
+	test("logged-out visitors get the banner, and staff hear the chat and tickets as they change", async () => {
+		const visitor = await stream();
+		expect(await visitor.next("hello")).not.toBeNull();
+		expect(await visitor.next("attention", 200)).toBeNull();
+		visitor.close();
+
+		const [mod, player] = [createUser({ role: "moderator" }), createUser()];
+		const staff = await stream(mod);
+		const own = await stream(player);
+		await post("/api/admin/chat", createUser({ role: "curator" }), { body: "Anyone about?" });
+		expect(await staff.next("staff_chat")).not.toBeNull();
+		expect(await own.next("staff_chat", 200)).toBeNull();
+
+		const ticket = await post("/api/support", player, {
+			subject: "Question about my account",
+			message: "Something is not right with my account",
+			category: "other",
+		});
+		expect(ticket.status).toBe(200);
+		await post(`/api/admin/support/${ticket.data.id}/reply`, mod, { reply: "Looking into it now." });
+		expect(await own.next("ticket")).toMatchObject({ id: ticket.data.id });
+		expect(await staff.next("ticket")).not.toBeNull();
+		staff.close();
+		own.close();
 	});
 });
