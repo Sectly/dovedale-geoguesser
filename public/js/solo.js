@@ -188,7 +188,7 @@ async function submitGuess(pin) {
 		.join(" · ");
 	el("result-report-link").href = reportLocationUrl(result.location_id);
 	el("result-report-link").onclick = (e) => reportLocation(e, result.location_id);
-	el("next-btn").textContent = result.finished ? "See Results" : "Next Round";
+	el("next-btn").textContent = result.finished ? "See Results" : "Next round";
 	el("result-screen").classList.add("shown");
 	view.fitResult(result, [pin]);
 	if (user) checkAchievements(1200);

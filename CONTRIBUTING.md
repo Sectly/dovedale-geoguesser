@@ -5,7 +5,7 @@ Thanks for your interest in contributing to Dovedale GeoGuesser.
 ## How to contribute
 
 1. Fork the repository and create a branch from `main`.
-2. Make your changes and test them locally (`bun run dev`, `bun test`). Set `AUTH_DEV=true` in `.env` to log in without Discord, and run `bun run seed` for placeholder locations.
+2. Make your changes and test them locally (`bun run dev`, `bun run test`). Set `AUTH_DEV=true` in `.env` to log in without Discord, and run `bun run seed` for placeholder locations.
 3. **Format your code** before opening a PR (see below).
 4. Open a pull request with a clear description of what you changed and why.
 
@@ -25,7 +25,7 @@ The config is in `.prettierrc`. Tabs, double quotes, semi-colons, 120-char print
 ## Tests
 
 ```bash
-bun test             # runs against a temporary database, never your local one
+bun run test         # each test file gets its own temporary database, never your local one
 bun run typecheck
 ```
 

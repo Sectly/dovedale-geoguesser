@@ -121,6 +121,11 @@ type NewNotification = {
 	noPush?: boolean;
 };
 
+let afterNotify: ((userId: number) => void) | null = null;
+export function onNotified(fn: (userId: number) => void) {
+	afterNotify = fn;
+}
+
 /** Tells a user something happened. Respects their preferences; moderation notices always go through. */
 export function notifyUser(userId: number | null | undefined, category: NotificationCategory, n: NewNotification) {
 	if (!userId) return;
@@ -137,6 +142,7 @@ export function notifyUser(userId: number | null | undefined, category: Notifica
 			[userId, category, title, body, link, n.announcementId ?? null]
 		);
 		if (prefs.desktop && !n.noPush) sendPush(userId, { title, body: body ?? "", link });
+		afterNotify?.(userId);
 	} catch (err) {
 		console.error("[notifications] write failed:", err);
 	}
@@ -174,8 +180,19 @@ function count(sql: string, ...params: number[]): number {
 	return db.query<{ n: number }, number[]>(sql).get(...params)?.n ?? 0;
 }
 
-/** What is waiting for staff to act on. */
+let queueCache: { at: number; value: ReturnType<typeof countStaffQueue> } | null = null;
+
+export function forgetStaffQueue() {
+	queueCache = null;
+}
+
+/** What is waiting for staff to act on. Cached briefly, since every staff page asks. */
 export function staffQueue() {
+	if (!queueCache || Date.now() - queueCache.at > 5000) queueCache = { at: Date.now(), value: countStaffQueue() };
+	return queueCache.value;
+}
+
+function countStaffQueue() {
 	return {
 		submissions: count("SELECT COUNT(*) AS n FROM submissions WHERE status = 'pending'"),
 		suggestions: count("SELECT COUNT(*) AS n FROM location_suggestions WHERE status = 'pending'"),

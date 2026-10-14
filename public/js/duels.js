@@ -4,9 +4,6 @@ import { WebWire } from "/webwire-client.js";
 const SCREENS = ["login-gate", "lobby-screen", "waiting-screen", "round-screen", "end-screen"];
 /** Material 400-weight colours, one per player. */
 const PIN_COLORS = ["#42A5F5", "#FFA726", "#AB47BC", "#EC407A"];
-const QUICKPLAY_ROUNDS = 6;
-/** Quick Play wins in a row before the flame shows beside a name. */
-const STREAK_SHOWN = 3;
 const QUIET_QUEUE_HINT_MS = 30_000;
 /** How long to keep retrying a lost connection before giving up on the room. */
 const RECONNECT_WINDOW_MS = 30_000;
@@ -246,6 +243,7 @@ async function init() {
 		return;
 	}
 	switchScreen("lobby-screen");
+	el("quickplay-rounds").textContent = user.limits.quickplay_rounds;
 	el("lobby-rating").textContent = user.duel_rated_games
 		? `Your rating: ${user.duel_rating.toLocaleString()}`
 		: "Your first ranked duel sets your rating";
@@ -343,7 +341,7 @@ function joinRoom(input) {
 
 function quickPlay() {
 	return lobbyAction(async () => {
-		const match = await api("/api/duels/quickplay", { json: { rounds: QUICKPLAY_ROUNDS } });
+		const match = await api("/api/duels/quickplay", { json: {} });
 		await enterRoom(match.code, { host: match.status === "waiting", quickplay: true });
 		quietQueueTimer = setTimeout(() => show("quickplay-no-players"), QUIET_QUEUE_HINT_MS);
 	});
@@ -558,9 +556,9 @@ function pinColor(userId) {
 	return pinColors.get(userId);
 }
 
-/** The win streak flame, or nothing for a streak shorter than STREAK_SHOWN. */
+/** The win streak flame, or nothing below the length the server shows it from. */
 function streakHtml(streak) {
-	return streak >= STREAK_SHOWN
+	return streak >= user?.limits?.streak_shown
 		? `<span class="inline-flex items-center gap-0.5 text-orange-400 font-bold" title="${streak} Quick Play wins in a row"><span class="material-symbols-outlined text-base leading-none" style="font-variation-settings:'FILL' 1" role="img" aria-label="Win streak">local_fire_department</span>${streak}</span>`
 		: "";
 }
@@ -626,16 +624,12 @@ function showWaitingRoom(state) {
 
 	const startBtn = el("start-duel-btn");
 	startBtn.disabled = !opponentReady;
-	startBtn.className = `${canStart ? "" : "hidden "}transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3 ${
-		opponentReady ? "bg-green-700 hover:bg-green-600" : "bg-zinc-700 text-zinc-500 cursor-not-allowed"
-	}`;
+	startBtn.classList.toggle("hidden", !canStart);
 
 	const readyBtn = el("ready-btn");
 	readyBtn.disabled = !!me?.is_ready;
 	readyBtn.textContent = me?.is_ready ? "You are ready" : "Ready";
-	readyBtn.className = `${canReady ? "" : "hidden "}transition px-8 py-3 rounded-full font-bold text-sm shadow-sm mb-3 ${
-		me?.is_ready ? "bg-zinc-700 text-green-400 cursor-not-allowed" : "bg-green-700 hover:bg-green-600"
-	}`;
+	readyBtn.classList.toggle("hidden", !canReady);
 
 	show("spectate-instead-btn", canReady);
 	el("leave-btn").textContent = isSpectator() ? "Stop spectating" : isQuickPlay ? "Cancel" : "Leave room";
@@ -926,10 +920,6 @@ function rematchUnavailable(reason) {
 	if (isSpectator()) return;
 	btn.disabled = true;
 	btn.textContent = reason;
-	btn.className = btn.className.replace(
-		"bg-blue-600 hover:bg-blue-500",
-		"bg-zinc-700 text-zinc-400 cursor-not-allowed"
-	);
 }
 
 /** The running score across rematches, once the same two players have met more than once. */
@@ -956,7 +946,7 @@ function showOwnRating(result) {
 	change.textContent = `${mine.change >= 0 ? "+" : ""}${mine.change}`;
 	change.className = `text-xl font-bold font-mono ${mine.change > 0 ? "text-green-400" : mine.change < 0 ? "text-red-400" : "text-zinc-400"}`;
 	const streak = result.streaks?.[user.id] ?? 0;
-	show("end-streak", streak >= STREAK_SHOWN);
+	show("end-streak", streak >= user.limits?.streak_shown);
 	el("end-streak").textContent = `${streak} wins in a row`;
 	/** The lobby quotes the rating too, so keep what it reads from up to date. */
 	Object.assign(user, { duel_rating: mine.rating, duel_rated_games: (user.duel_rated_games || 0) + 1 });
@@ -975,11 +965,7 @@ function showGameEnd(result, { forfeit = false } = {}) {
 
 	const btn = el("play-again-btn");
 	btn.disabled = false;
-	btn.textContent = isSpectator() ? "Back to Duels" : result.ratings ? "Rematch" : "Play Again";
-	btn.className = btn.className.replace(
-		"bg-zinc-700 text-zinc-400 cursor-not-allowed",
-		"bg-blue-600 hover:bg-blue-500"
-	);
+	btn.textContent = isSpectator() ? "Back to Duels" : result.ratings ? "Rematch" : "Play again";
 	show("end-leave-btn", !isSpectator());
 	if (forfeit && !isSpectator()) rematchUnavailable("Opponent left");
 

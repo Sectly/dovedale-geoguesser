@@ -30,12 +30,8 @@
           >autorenew</span
         >
         <div class="text-zinc-500 text-sm" id="loading-msg">Loading today's challenge...</div>
-        <a
-          id="loading-home-btn"
-          href="/"
-          class="hidden mt-6 inline-flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 transition px-6 py-2.5 rounded-full font-semibold text-sm text-zinc-200 border border-zinc-700"
-        >
-          <span class="material-symbols-outlined text-base leading-none">home</span> Return Home
+        <a id="loading-home-btn" href="/" class="hidden m-btn m-btn-tonal mt-6">
+          <span class="material-symbols-outlined text-base leading-none">home</span> Return home
         </a>
       </div>
     </div>
@@ -56,11 +52,7 @@
         </div>
         <div class="bg-zinc-900 border border-zinc-800 rounded-3xl px-8 py-7 w-full max-w-sm text-center">
           <p class="text-zinc-400 mb-6 text-sm">Log in with Discord to play today's challenge.</p>
-          <a
-            href="/api/auth/login?redirect=/daily"
-            class="block w-full bg-blue-600 hover:bg-blue-500 transition rounded-2xl py-3.5 font-bold text-base shadow-md"
-            >Login with Discord</a
-          >
+          <a href="/api/auth/login?redirect=/daily" class="m-btn m-btn-lg m-btn-filled w-full">Log in with Discord</a>
           <p class="text-zinc-600 text-xs mt-4">
             By logging in you agree to our <a href="/tos" class="underline hover:text-zinc-400">Terms of Service</a> and
             <a href="/privacy" class="underline hover:text-zinc-400">Privacy Policy</a>.
@@ -93,14 +85,11 @@
           <canvas id="replay-canvas" class="absolute inset-0 w-full h-full"></canvas>
         </div>
         <div class="flex gap-3 flex-wrap justify-center">
-          <button
-            id="played-share-btn"
-            class="bg-green-700 hover:bg-green-600 transition px-6 py-2.5 rounded-full font-semibold text-sm shadow-sm flex items-center gap-1.5"
-          >
+          <button id="played-share-btn" class="m-btn m-btn-success">
             <span class="material-symbols-outlined text-base leading-none">share</span>Share result
           </button>
-          <a href="/leaderboard" class="bg-blue-600 hover:bg-blue-500 transition px-6 py-2.5 rounded-full font-semibold text-sm shadow-sm">Leaderboard</a>
-          <a href="/play" class="bg-zinc-800 hover:bg-zinc-700 transition px-6 py-2.5 rounded-full font-semibold text-sm border border-zinc-700">Play Solo</a>
+          <a href="/leaderboard" class="m-btn m-btn-filled">Leaderboard</a>
+          <a href="/play" class="m-btn m-btn-tonal">Play Solo</a>
         </div>
       </div>
     </div>
@@ -170,7 +159,7 @@
             class="pointer-events-auto bg-zinc-700 text-zinc-500 pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm whitespace-nowrap cursor-not-allowed transition flex items-center gap-2"
             disabled
           >
-            <span class="material-symbols-outlined text-base leading-none">place</span> Submit Guess
+            <span class="material-symbols-outlined text-base leading-none">place</span> Submit guess
           </button>
         </div>
 
@@ -194,23 +183,12 @@
               <div class="score-bar h-2 rounded-full bg-orange-500" id="result-score-bar" style="width: 0%"></div>
             </div>
             <p class="text-zinc-500 text-xs text-center mb-3" id="result-reset"></p>
-            <button
-              id="result-share-btn"
-              class="w-full bg-green-700 hover:bg-green-600 active:scale-95 transition py-2.5 rounded-full font-semibold text-sm text-center shadow-sm mb-3 flex items-center justify-center gap-1.5"
-            >
+            <button id="result-share-btn" class="m-btn m-btn-success w-full mb-3">
               <span class="material-symbols-outlined text-base leading-none">share</span>Share result
             </button>
             <div class="flex gap-3">
-              <a
-                href="/leaderboard"
-                class="flex-1 bg-zinc-700 hover:bg-zinc-600 transition py-2.5 rounded-full font-semibold text-sm text-center border border-zinc-600"
-                >Leaderboard</a
-              >
-              <a
-                href="/play"
-                class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 transition py-2.5 rounded-full font-semibold text-sm text-center shadow-sm"
-                >Play Solo</a
-              >
+              <a href="/leaderboard" class="m-btn m-btn-tonal flex-1">Leaderboard</a>
+              <a href="/play" class="m-btn m-btn-filled flex-1">Play Solo</a>
             </div>
           </div>
         </div>

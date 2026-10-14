@@ -42,7 +42,7 @@ const ROLE_INFO = {
 			"Edit locations: labels, hints, switching them on or off, resetting difficulty",
 			"See everything that has been reviewed, and by whom",
 			"Get in during maintenance, and receive staff announcements",
-			"Talk to other staff in the staff chat, and keep up to 3 of their own messages pinned there",
+			"Talk to other staff in the staff chat, and keep up to {pins} of their own messages pinned there",
 		],
 		note: "Curators do not deal with players: no tickets, warnings or bans.",
 	},
@@ -55,7 +55,7 @@ const ROLE_INFO = {
 			"Leave notes on a player for other staff",
 			"See duel history and stats",
 			"Suspend a helper's or curator's access",
-			"Pin staff chat messages from a lower role as well as their own, up to 5",
+			"Pin staff chat messages from a lower role as well as their own, up to {pins}",
 		],
 	},
 	supervisor: {
@@ -66,7 +66,7 @@ const ROLE_INFO = {
 			"Suspend a moderator's staff access",
 			"Remove another member of staff's note",
 			"See site stats and the audit log",
-			"Delete a lower role's staff chat message or take off its pin, and keep up to 10 pinned",
+			"Delete a lower role's staff chat message or take off its pin, and keep up to {pins} pinned",
 		],
 	},
 	admin: {
@@ -77,7 +77,7 @@ const ROLE_INFO = {
 			"Send, correct and take back announcements, with a link to a page here or to another site",
 			"Delete locations and tickets",
 			"See every open duel, private rooms included, and watch or close one",
-			"Keep up to 20 staff chat messages pinned",
+			"Keep up to {pins} staff chat messages pinned",
 		],
 		note: "Administrators have no access to the server itself or to exporting and deleting player data.",
 	},
@@ -87,7 +87,7 @@ const ROLE_INFO = {
 			"Appoint administrators",
 			"Export or delete a player's data, and erase moderation records",
 			"Maintenance mode, feature switches, updates, restarts, backups and the server log",
-			"Keep up to 30 staff chat messages pinned",
+			"Keep up to {pins} staff chat messages pinned",
 		],
 		note: "Operators are set in the server's configuration, not from this page.",
 	},
@@ -163,14 +163,7 @@ function formatWhen(seconds) {
 }
 
 /** Asks for a reason, and a duration if the action has one. Resolves to { reason, hours } or null. */
-function askReason({
-	title,
-	note = "",
-	button = "Confirm",
-	tone = "bg-blue-600 hover:bg-blue-500",
-	durations = null,
-	rules = "",
-}) {
+function askReason({ title, note = "", button = "Confirm", tone = "m-btn-filled", durations = null, rules = "" }) {
 	return new Promise((resolve) => {
 		const reason = el("reason-text");
 		const hours = el("reason-hours");
@@ -187,11 +180,11 @@ function askReason({
 		el("reason-presets").innerHTML = (durations || [])
 			.map(
 				(h) =>
-					`<button type="button" data-hours="${h}" class="px-2.5 py-1 rounded-lg text-xs bg-zinc-800 hover:bg-zinc-700 transition">${formatHours(h)}</button>`
+					`<button type="button" data-hours="${h}" class="m-btn m-btn-tonal m-btn-sm">${formatHours(h)}</button>`
 			)
 			.join("");
 		ok.textContent = button;
-		ok.className = `px-5 py-2 rounded-xl transition text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed ${tone}`;
+		ok.className = `m-btn ${tone}`;
 
 		const validate = () => {
 			const left = REASON_MIN - reason.value.trim().length;
@@ -385,15 +378,15 @@ function renderUsers(users) {
 								? assignable
 										.map(
 											(r) =>
-												`<button onclick="setUserRole(${u.id}, '${r}')" class="bg-purple-900/60 hover:bg-purple-800 transition px-2.5 py-1.5 rounded-lg text-xs">Make ${roleName(r)}</button>`
+												`<button onclick="setUserRole(${u.id}, '${r}')" class="m-btn m-btn-sm bg-purple-900/60 hover:bg-purple-800">Make ${roleName(r)}</button>`
 										)
 										.join("") +
 									(u.role
-										? `<button onclick="setUserRole(${u.id}, 'none')" class="bg-zinc-800 hover:bg-zinc-700 transition px-2.5 py-1.5 rounded-lg text-xs">Remove role</button>`
+										? `<button onclick="setUserRole(${u.id}, 'none')" class="m-btn m-btn-tonal m-btn-sm">Remove role</button>`
 										: "")
 								: ""
 						}
-						<button onclick="openUserPanel(${u.id})" class="bg-blue-700 hover:bg-blue-600 transition px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1">
+						<button onclick="openUserPanel(${u.id})" class="m-btn m-btn-filled m-btn-sm">
 							<span class="material-symbols-outlined text-sm leading-none">gavel</span> Moderation${u.moderation_count ? ` (${u.moderation_count})` : ""}
 						</button>
 					</div>
@@ -518,7 +511,7 @@ function renderUserPanel({
 	const stat = (label, value) =>
 		`<div class="bg-zinc-800/60 rounded-xl px-3 py-2"><div class="text-sm font-bold">${value}</div><div class="text-[11px] text-zinc-500">${label}</div></div>`;
 	const actionBtn = (key, label, tone) =>
-		`<button onclick="moderateUser(${user.id}, '${key}')" class="${tone} transition px-3 py-1.5 rounded-lg text-xs font-semibold">${label}</button>`;
+		`<button onclick="moderateUser(${user.id}, '${key}')" class="m-btn m-btn-sm ${tone}">${label}</button>`;
 
 	el("user-panel-title").textContent = user.display_name || user.username;
 	el("user-panel-body").innerHTML = `
@@ -630,8 +623,8 @@ function renderUserPanel({
 									${
 										a.can_overturn || a.can_delete
 											? `<div class="flex gap-2 mt-2">
-												${a.can_overturn ? `<button onclick="overturnAction(${a.id}, '${escHtml(a.label)}')" class="bg-green-800 hover:bg-green-700 transition px-2.5 py-1 rounded-lg text-xs">Overturn</button>` : ""}
-												${a.can_delete ? `<button onclick="deleteModerationRecord(${a.id})" class="bg-zinc-700 hover:bg-zinc-600 transition px-2.5 py-1 rounded-lg text-xs">Remove record</button>` : ""}
+												${a.can_overturn ? `<button onclick="overturnAction(${a.id}, '${escHtml(a.label)}')" class="m-btn m-btn-success m-btn-sm">Overturn</button>` : ""}
+												${a.can_delete ? `<button onclick="deleteModerationRecord(${a.id})" class="m-btn m-btn-tonal m-btn-sm">Remove record</button>` : ""}
 											</div>`
 											: ""
 									}
@@ -653,8 +646,8 @@ function renderUserPanel({
 						isOp
 							? `<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-2">Account data</div>
 								<div class="flex gap-2 flex-wrap">
-									<button onclick="exportUserData(${user.id})" class="bg-zinc-700 hover:bg-zinc-600 transition px-3 py-1.5 rounded-lg text-xs">Export data</button>
-									${can_moderate ? `<button onclick="deleteUserAccount(${user.id})" class="bg-red-900 hover:bg-red-800 transition px-3 py-1.5 rounded-lg text-xs">Delete account</button>` : ""}
+									<button onclick="exportUserData(${user.id})" class="m-btn m-btn-tonal m-btn-sm">Export data</button>
+									${can_moderate ? `<button onclick="deleteUserAccount(${user.id})" class="m-btn m-btn-danger m-btn-sm">Delete account</button>` : ""}
 								</div>`
 							: ""
 					}
@@ -722,7 +715,7 @@ async function setUserRole(userId, role) {
 	const label = role === "none" ? "remove their role" : `make them ${roleName(role)}`;
 	const ok = await showConfirm("Change role", `Are you sure you want to ${label}?`, {
 		confirmLabel: "Confirm",
-		confirmClass: "bg-blue-600 hover:bg-blue-500",
+		confirmClass: "m-btn-filled",
 	});
 	if (!ok) return;
 	try {
@@ -779,14 +772,14 @@ function renderStaff(staff) {
 										.filter((r) => r !== u.role)
 										.map(
 											(r) =>
-												`<button onclick="setUserRole(${u.id}, '${r}')" class="bg-purple-900/60 hover:bg-purple-800 transition px-2.5 py-1 rounded-lg text-xs">Make ${roleName(r)}</button>`
+												`<button onclick="setUserRole(${u.id}, '${r}')" class="m-btn m-btn-sm bg-purple-900/60 hover:bg-purple-800">Make ${roleName(r)}</button>`
 										),
 									canAppoint && u.role !== "operator"
-										? `<button onclick="setUserRole(${u.id}, 'none')" class="bg-zinc-700 hover:bg-zinc-600 transition px-2.5 py-1 rounded-lg text-xs">Remove role</button>`
+										? `<button onclick="setUserRole(${u.id}, 'none')" class="m-btn m-btn-tonal m-btn-sm">Remove role</button>`
 										: "",
 									u.staff_locked
-										? `<button onclick="setStaffLock(${u.id}, false)" class="bg-green-800 hover:bg-green-700 transition px-2.5 py-1 rounded-lg text-xs">Restore access</button>`
-										: `<button onclick="setStaffLock(${u.id}, true)" class="bg-red-900 hover:bg-red-800 transition px-2.5 py-1 rounded-lg text-xs" title="Stops them opening the staff panel or taking staff actions. Their role is kept.">Lock out</button>`,
+										? `<button onclick="setStaffLock(${u.id}, false)" class="m-btn m-btn-success m-btn-sm">Restore access</button>`
+										: `<button onclick="setStaffLock(${u.id}, true)" class="m-btn m-btn-danger m-btn-sm" title="Stops them opening the staff panel or taking staff actions. Their role is kept.">Lock out</button>`,
 								].join("")
 							: "";
 						const searchText = [
@@ -830,7 +823,7 @@ function renderStaff(staff) {
 					)
 					.join("")}
             </select>
-            <button onclick="addStaffMember()" class="bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-lg text-sm font-semibold">Add</button>
+            <button onclick="addStaffMember()" class="m-btn m-btn-filled">Add</button>
         </div>
         <p id="staff-add-error" class="text-red-400 text-xs mt-2 hidden"></p>
     </div>`
@@ -851,7 +844,7 @@ function renderStaff(staff) {
                     <ul class="text-xs text-zinc-300 flex flex-col gap-1">${info.can
 						.map(
 							(line) =>
-								`<li class="flex gap-1.5"><span class="material-symbols-outlined text-sm leading-4 text-zinc-600 flex-shrink-0">check</span>${line}</li>`
+								`<li class="flex gap-1.5"><span class="material-symbols-outlined text-sm leading-4 text-zinc-600 flex-shrink-0">check</span>${line.replace("{pins}", currentUser.limits?.chat_pin_limits?.[role] ?? "")}</li>`
 						)
 						.join("")}</ul>
                     ${info.note ? `<p class="text-[11px] text-zinc-600 mt-2">${info.note}</p>` : ""}

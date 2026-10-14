@@ -6,6 +6,8 @@ import { join } from "path";
 import { ROOT_DIR, SECURE_COOKIES } from "./config";
 import { hasRole } from "./auth/guards";
 import { currentUser } from "./auth/sessions";
+import { eventStream, nudgeBanner, nudgeStaffChat, nudgeTicket, ticketOwner } from "./events";
+import { forgetStaffQueue } from "./notifications";
 import { HttpError } from "./lib/http";
 import { reportProblem } from "./lib/problems";
 import { accountRoutes } from "./routes/account";
@@ -48,7 +50,8 @@ export const app = new Hono();
 
 /** Compresses text responses, for servers with no proxy doing it. Never a socket upgrade. */
 const compressed = compress();
-app.use("*", (c, next) => (c.req.header("Upgrade") ? next() : compressed(c, next)));
+/** Sockets and the event stream are left uncompressed: compression would buffer stream messages. */
+app.use("*", (c, next) => (c.req.header("Upgrade") || c.req.path === "/api/events" ? next() : compressed(c, next)));
 
 app.use("*", async (c, next) => {
 	await next();
@@ -116,6 +119,21 @@ app.use("/api/*", async (c, next) => {
 	if (!c.res.headers.has("Cache-Control")) c.header("Cache-Control", "no-store");
 });
 
+/** Pushes changes to open pages through the event stream. */
+app.use("/api/*", async (c, next) => {
+	await next();
+	if (c.req.method === "GET" || c.res.status >= 400) return;
+	forgetStaffQueue();
+	const path = c.req.path;
+	if (path.startsWith("/api/admin/chat")) return nudgeStaffChat();
+	if (path.startsWith("/api/admin/announcements")) return nudgeBanner();
+	const ticket = path.match(/^\/api\/(?:admin\/)?support(?:\/(\d+))?/);
+	if (!ticket) return;
+	const id = ticket[1] ? Number(ticket[1]) : null;
+	nudgeTicket(id, id ? ticketOwner(id) : (currentUser(c)?.id ?? null));
+});
+
+app.get("/api/events", eventStream);
 app.route("/api/auth", authRoutes);
 app.route("/api/solo", soloRoutes);
 app.route("/api/specials", specialRoutes);

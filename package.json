@@ -6,7 +6,7 @@
 		"dev": "bun run --watch server.ts",
 		"build": "bun run scripts/build.ts",
 		"build:css": "bun run scripts/build.ts --no-format",
-		"test": "bun test",
+		"test": "bun test --isolate",
 		"typecheck": "tsc --noEmit",
 		"seed": "bun run scripts/seed-dev.ts",
 		"vapid": "bun run scripts/generate-vapid.ts",

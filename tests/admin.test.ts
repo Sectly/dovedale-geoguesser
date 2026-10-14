@@ -1052,3 +1052,15 @@ describe("staff chat alerts", () => {
 		expect((await inbox(told)).filter((n: { read_at: number | null }) => n.read_at === null)).toHaveLength(1);
 	});
 });
+
+describe("numbers the pages show", () => {
+	test("come from the server, and only staff hear the chat's", async () => {
+		const me = async (as: TestUser) => (await call("/api/auth/me", { as })).data.limits;
+		const player = await me(createUser());
+		expect(player).toEqual({ quickplay_rounds: expect.any(Number), streak_shown: expect.any(Number) });
+		const curator = await me(createUser({ role: "curator" }));
+		expect(curator.chat_retention_days).toBeGreaterThan(0);
+		expect(curator.chat_pin_limits.curator).toBeLessThan(curator.chat_pin_limits.operator);
+		expect((await me(createUser({ role: "helper" }))).chat_pin_limits).toBeUndefined();
+	});
+});

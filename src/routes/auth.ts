@@ -26,6 +26,8 @@ import { emailState } from "../email";
 import { features } from "../system/features";
 import { maintenance } from "../system/maintenance";
 import { errorPage } from "./pages";
+import { CHAT_RETENTION_DAYS, PIN_LIMITS } from "./admin/chat";
+import { STAFF_CHAT_ROLE } from "../notifications";
 
 export const authRoutes = new Hono();
 
@@ -140,6 +142,14 @@ authRoutes.get("/me", (c) => {
 		suggestions_agreed: !!user.suggestions_agreed,
 		prefs: publicPreferences(user),
 		email: emailState(user),
+		/** Numbers the pages show that the server also enforces, so they are only set in one place. */
+		limits: {
+			quickplay_rounds: GAME.duel.quickplayRounds,
+			streak_shown: GAME.duel.streakShown,
+			...(hasRole(user, STAFF_CHAT_ROLE)
+				? { chat_retention_days: CHAT_RETENTION_DAYS, chat_pin_limits: PIN_LIMITS }
+				: {}),
+		},
 		/** Only staff ever see the site during maintenance, so only they need telling. */
 		maintenance: hasRole(user, "curator") && maintenance().enabled ? maintenance().message || true : false,
 	});

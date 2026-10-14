@@ -434,7 +434,7 @@ async function submitLocation() {
 	} catch (err) {
 		showError(err.message || "Submission failed. Please try again.");
 		el("submit-btn").disabled = false;
-		el("submit-btn").textContent = "Submit for Review";
+		el("submit-btn").textContent = "Submit for review";
 	}
 }
 
@@ -449,7 +449,7 @@ function resetNew() {
 	el("label-input").value = "";
 	el("hints-list").innerHTML = "";
 	el("add-hint-btn").style.display = "";
-	el("submit-btn").textContent = "Submit for Review";
+	el("submit-btn").textContent = "Submit for review";
 	updateStep("step1", "idle");
 	updateStep("step2", "idle");
 	updateStep("step3", "idle");
@@ -665,7 +665,7 @@ async function submitSuggestion() {
 		el("suggest-error").textContent = err.message || "Failed. Please try again.";
 		el("suggest-error").classList.remove("hidden");
 		el("suggest-submit-btn").disabled = false;
-		el("suggest-submit-btn").textContent = "Submit Suggestion";
+		el("suggest-submit-btn").textContent = "Submit suggestion";
 	}
 }
 

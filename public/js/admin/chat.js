@@ -155,11 +155,11 @@ async function pinChatMessage(id, pinned) {
 	const confirmed = pinned
 		? await showConfirm("Pin this message?", "It is added to the Pinned list and is not deleted for age.", {
 				confirmLabel: "Pin",
-				confirmClass: "bg-blue-600 hover:bg-blue-500",
+				confirmClass: "m-btn-filled",
 			})
 		: await showConfirm(
 				"Unpin this message?",
-				"It leaves the Pinned list, and is deleted once it is 90 days old.",
+				`It leaves the Pinned list, and is deleted once it is ${currentUser.limits.chat_retention_days} days old.`,
 				{ confirmLabel: "Unpin" }
 			);
 	if (!confirmed) return;
@@ -279,7 +279,7 @@ function loadChat() {
 		<div class="flex items-start justify-between gap-3 flex-wrap mb-2">
 			<div>
 				<h2 class="font-bold text-lg">Staff Chat</h2>
-				<p class="text-xs text-zinc-500">For curators and above. Messages are deleted after 90 days unless pinned.</p>
+				<p class="text-xs text-zinc-500">For curators and above. Messages are deleted after ${currentUser.limits.chat_retention_days} days unless pinned.</p>
 			</div>
 			<div class="flex items-center gap-2 flex-wrap justify-end flex-shrink-0">
 				<select id="chat-alerts" onchange="setChatAlerts(this.value)" class="m-field !w-auto !py-1.5 text-xs" aria-label="How to be told about new messages" title="How to be told about new messages">
@@ -322,7 +322,8 @@ function loadChat() {
 		sendChatMessage();
 	});
 	refreshChat(true);
-	if (!_chatPolling) pollWhile(() => currentTab === "chat" && !!el("chat-list"), refreshChat, CHAT_POLL_MS);
+	if (!_chatPolling)
+		pollWhile(() => currentTab === "chat" && !!el("chat-list"), refreshChat, CHAT_POLL_MS, "staff_chat");
 	_chatPolling = true;
 }
 
@@ -339,7 +340,7 @@ function paintChatUnread(count) {
 
 /** Only while another tab is open: the chat tab marks everything read by itself. */
 async function checkChatUnread() {
-	if (document.hidden || currentTab === "chat" || !currentUser?.role || !canOpenTab("chat")) return;
+	if (document.hidden || live.connected || currentTab === "chat" || !currentUser?.role || !canOpenTab("chat")) return;
 	if (currentUser.prefs?.staff_chat === "none") return paintChatUnread(0);
 	try {
 		const { unread } = await api("/api/admin/chat/unread");
@@ -349,4 +350,9 @@ async function checkChatUnread() {
 }
 
 setInterval(checkChatUnread, CHAT_UNREAD_POLL_MS);
+/** The chat tab's count follows the live stream's counts. */
+document.addEventListener("attention", (e) => {
+	if (currentTab === "chat" || !canOpenTab("chat") || currentUser?.prefs?.staff_chat === "none") return;
+	paintChatUnread(e.detail?.staff_chat ?? 0);
+});
 setTimeout(checkChatUnread, 2000);

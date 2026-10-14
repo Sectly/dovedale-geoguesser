@@ -20,7 +20,13 @@ const SHOWN = 150;
 /** Messages older than this many days are deleted by the nightly clean-up, unless they are pinned. */
 export const CHAT_RETENTION_DAYS = 90;
 /** How many messages each member of staff may have pinned at once, by role. */
-const PIN_LIMITS: Partial<Record<Role, number>> = { curator: 3, moderator: 5, supervisor: 10, admin: 20, operator: 30 };
+export const PIN_LIMITS: Partial<Record<Role, number>> = {
+	curator: 3,
+	moderator: 5,
+	supervisor: 10,
+	admin: 20,
+	operator: 30,
+};
 const pinLimit = (staff: User) => PIN_LIMITS[staff.role as Role] ?? 0;
 
 type Message = {
