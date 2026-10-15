@@ -27,12 +27,9 @@ async function decodedTile(img) {
 		const { width, height } = full;
 		const strips = [];
 		for (let top = 0; top < height; top += STRIP_HEIGHT) {
-			const stripHeight = Math.min(STRIP_HEIGHT, height - top);
-			strips.push({
-				top,
-				height: stripHeight,
-				bitmap: await createImageBitmap(full, 0, top, width, stripHeight),
-			});
+			/** One row more than the strip, from the next one, so seams are covered by real pixels, not stretching. */
+			const rows = Math.min(STRIP_HEIGHT + 1, height - top);
+			strips.push({ top, rows, bitmap: await createImageBitmap(full, 0, top, width, rows) });
 		}
 		full.close();
 		img.onload = img.onerror = null;
@@ -54,7 +51,7 @@ const releaseTile = (tile) => {
 	else for (const strip of tile?.strips ?? []) strip.bitmap.close();
 };
 
-/** How much map a device gets. The full map decodes to nearly 1 GB, which crashes phones and Safari, so those get a small `base` map plus sharper `detail` tiles for what is on screen. */
+/** A small `base` map for every device, plus sharper `detail` tiles for what is on screen: the full map decodes to nearly 1 GB. */
 function _mapProfile() {
 	const ua = navigator.userAgent;
 	/** An iPad asks for the desktop site and calls itself a Mac; only its touch screen gives it away. */
@@ -63,7 +60,8 @@ function _mapProfile() {
 	const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg/i.test(ua);
 	if (isMobile) return { base: "tiny", detail: "medium", maxDetailTiles: 3, maxPixelRatio: 2 };
 	if (isSafari) return { base: "low", detail: "medium", maxDetailTiles: 4, maxPixelRatio: 2 };
-	return { base: null, detail: null, maxDetailTiles: 0, maxPixelRatio: 3 };
+	/** Decoding and uploading every full-size tile at once froze desktops for half a second. */
+	return { base: "tiny", detail: "high", maxDetailTiles: 8, maxPixelRatio: 3 };
 }
 
 export class MapCanvas {
@@ -94,14 +92,13 @@ export class MapCanvas {
 		this._warmQueue = [];
 		this._warming = false;
 		this._detailTimer = null;
-		this.quality = this.profile.base || "high";
+		this.quality = this.profile.base;
 		/** AVIF is smallest, but its decoder needs several cores; with two or fewer, WebP loads sooner. */
 		this.format = (navigator.hardwareConcurrency || 4) > 2 ? "avif" : "webp";
 		/** Blocked storage throws; the map must still be built. */
 		try {
 			const quality = localStorage.getItem("mapQuality");
-			if (MAP_QUALITY_CHOICES.includes(quality))
-				this.profile.base ? (this.profile.detail = quality) : (this.quality = quality);
+			if (MAP_QUALITY_CHOICES.includes(quality)) this.profile.detail = quality;
 			if (localStorage.getItem("mapFormat") in MAP_FORMATS) this.format = localStorage.getItem("mapFormat");
 		} catch {}
 		this._mapAR = MAP_CONFIG.totalWidth / MAP_CONFIG.totalHeight;
@@ -276,10 +273,6 @@ export class MapCanvas {
 		try {
 			localStorage.setItem("mapQuality", q);
 		} catch {}
-		if (!this.profile.base) {
-			this.quality = q;
-			return this._loadImages();
-		}
 		this.profile.detail = q;
 		this._dropStaleDetail(0);
 		this._scheduleDraw();
@@ -317,7 +310,6 @@ export class MapCanvas {
 	/** The tile quality this zoom needs, or null when the base map is sharp enough. */
 	_detailQuality() {
 		const { base, detail } = this.profile;
-		if (!base) return null;
 		const density = this._sf * this.currentScale * this._pixelRatio();
 		const enough = MAP_QUALITIES.find((q) => MAP_QUALITY_SCALE[q] >= density) || "high";
 		const wanted = MAP_QUALITIES[Math.min(MAP_QUALITIES.indexOf(enough), MAP_QUALITIES.indexOf(detail))];
@@ -429,25 +421,24 @@ export class MapCanvas {
 				if (tileReady(img)) tiles.push({ r, c, img, x, y, w: right - x, h: bottom - y });
 			}
 		}
-		if (this.profile.base) this._queueDetail(wanted, onScreen);
-		/** `pad` stretches each piece over the seam after it. */
-		const drawTile = (tile, x, y, w, h, padRight, padBelow, pad) => {
+		this._queueDetail(wanted, onScreen);
+		const drawTile = (tile, x, y, w, h, padRight, padBelow) => {
 			if (!tile.strips) return ctx.drawImage(tile, x, y, w + padRight, h + padBelow);
 			const scale = h / tile.height;
 			for (const strip of tile.strips) {
 				const top = y + strip.top * scale;
-				const height = strip.height * scale;
+				const height = strip.rows * scale;
 				if (top > bottomRight.y || top + height < topLeft.y) continue;
-				const last = strip.top + strip.height >= tile.height;
-				ctx.drawImage(strip.bitmap, x, top, w + padRight, height + (last ? padBelow : pad));
+				const last = strip.top + strip.rows >= tile.height;
+				ctx.drawImage(strip.bitmap, x, top, w + padRight, height + (last ? padBelow : 0));
 			}
 		};
 		/** An oversized pass fills the hairline gaps, then an exact pass on top so nothing else is stretched. */
 		for (const { r, c, img, x, y, w, h } of tiles) {
 			const right = c < MAP_CONFIG.columns - 1 ? overlap : 0;
-			drawTile(img, x, y, w, h, right, r < MAP_CONFIG.rows - 1 ? overlap : 0, overlap);
+			drawTile(img, x, y, w, h, right, r < MAP_CONFIG.rows - 1 ? overlap : 0);
 		}
-		for (const { img, x, y, w, h } of tiles) drawTile(img, x, y, w, h, 0, 0, 0);
+		for (const { img, x, y, w, h } of tiles) drawTile(img, x, y, w, h, 0, 0);
 		ctx.imageSmoothingEnabled = true;
 
 		const now = performance.now();
@@ -717,16 +708,13 @@ export class MapCanvas {
 		this.mapImages = [];
 		this._warmQueue = [];
 		this._dropStaleDetail(0);
-		/** Without a base map, tiny tiles show first and the chosen size replaces them. */
-		const passes = !this.profile.base && this.quality !== "tiny" ? ["tiny", this.quality] : [this.quality];
 		for (let r = 0; r < MAP_CONFIG.rows; r++) {
 			this.mapImages[r] = [];
-			for (let c = 0; c < MAP_CONFIG.columns; c++)
-				passes.forEach((quality, i) => this._loadTile(r, c, quality, loadId, i === passes.length - 1));
+			for (let c = 0; c < MAP_CONFIG.columns; c++) this._loadTile(r, c, this.quality, loadId);
 		}
 	}
 
-	_loadTile(r, c, wanted, loadId, final) {
+	_loadTile(r, c, wanted, loadId) {
 		const img = new Image();
 		img.decoding = "async";
 		let quality = wanted;
@@ -734,10 +722,7 @@ export class MapCanvas {
 		img.onload = async () => {
 			if (loadId !== this.mapLoadId) return;
 			const tile = await decodedTile(img);
-			const current = this.mapImages[r]?.[c];
-			/** A rough tile that arrives after the sharp one is not wanted. */
-			if (loadId !== this.mapLoadId || (!final && current)) return releaseTile(tile);
-			if (current) releaseTile(current);
+			if (loadId !== this.mapLoadId) return releaseTile(tile);
 			this.mapImages[r][c] = tile;
 			this._warmTile(tile);
 			if (!this.mapInitialized) {
@@ -1103,7 +1088,7 @@ export class MapCanvas {
 			this.setFormat(formatSel.value);
 			formatSel.blur();
 		});
-		qualitySel.value = this.profile.base ? this.profile.detail : this.quality;
+		qualitySel.value = this.profile.detail;
 		qualitySel.addEventListener("change", () => {
 			this.setQuality(qualitySel.value);
 			/** Hand the keyboard back to the game, so Space still submits a guess. */
