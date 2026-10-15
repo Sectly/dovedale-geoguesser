@@ -6,9 +6,10 @@ export const WORLD_HEIGHT = WORLD_BOUNDS.BOTTOM_RIGHT.y - WORLD_BOUNDS.TOP_LEFT.
 /** Set by the server; changes when the tiles do. */
 const TILE_VERSION = document.querySelector('meta[name="tile-version"]')?.content || "0";
 
-/** Full-size PNG is the original image. */
-export function tileUrl(row, col, quality, format = "webp") {
+/** `square` picks one square of a sharper size; without it, the whole column. Full-size PNG is the original. */
+export function tileUrl(row, col, quality, format = "webp", square) {
 	const name = `row-${row + 1}-column-${col + 1}`;
+	if (square !== undefined) return `/images/generated/${name}-${quality}-${square}.${format}?v=${TILE_VERSION}`;
 	if (quality === "high" && format === "png") return `/images/${name}.png?v=1`;
 	return `/images/generated/${name}-${quality}.${format}?v=${TILE_VERSION}`;
 }

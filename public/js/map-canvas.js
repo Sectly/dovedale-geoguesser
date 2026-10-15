@@ -7,7 +7,9 @@ const whenIdle = (fn) =>
 /** Each quality's width as a share of the full-size map (see src/tile-images.ts), smallest first. */
 const MAP_QUALITY_SCALE = { tiny: 0.25, low: 0.45, medium: 0.75, high: 1 };
 const MAP_QUALITIES = Object.keys(MAP_QUALITY_SCALE);
-/** The picker's sizes. On phones they cap how sharp the zoomed-in tiles get. */
+/** Rows of the original image in each square of the sharper sizes; keep in step with src/tile-images.ts. */
+const SQUARE_ROWS = 1024;
+/** The picker's sizes: how sharp zoomed-in squares may get. */
 const MAP_QUALITY_CHOICES = ["high", "medium", "low"];
 const MAP_FORMATS = { avif: "AVIF (recommended)", webp: "WebP (older devices)", png: "PNG (fast connections)" };
 
@@ -58,10 +60,10 @@ function _mapProfile() {
 	const isMobile =
 		/Mobi|Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
 	const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg/i.test(ua);
-	if (isMobile) return { base: "tiny", detail: "medium", maxDetailTiles: 3, maxPixelRatio: 2 };
-	if (isSafari) return { base: "low", detail: "medium", maxDetailTiles: 4, maxPixelRatio: 2 };
+	if (isMobile) return { base: "tiny", detail: "medium", maxSquares: 16, maxPixelRatio: 2 };
+	if (isSafari) return { base: "tiny", detail: "medium", maxSquares: 24, maxPixelRatio: 2 };
 	/** Decoding and uploading every full-size tile at once froze desktops for half a second. */
-	return { base: "tiny", detail: "high", maxDetailTiles: 8, maxPixelRatio: 3 };
+	return { base: "tiny", detail: "high", maxSquares: 40, maxPixelRatio: 3 };
 }
 
 export class MapCanvas {
@@ -316,51 +318,56 @@ export class MapCanvas {
 		return MAP_QUALITIES.indexOf(wanted) > MAP_QUALITIES.indexOf(base) ? wanted : null;
 	}
 
-	_tileImage(r, c, wanted, now) {
+	/** The sharpest loaded square, no sharper than `wanted`, or null to leave the base map showing. */
+	_squareImage(r, c, k, wanted, now) {
 		for (let i = MAP_QUALITIES.indexOf(wanted); i > MAP_QUALITIES.indexOf(this.profile.base); i--) {
-			const entry = this.detailImages.get(`${MAP_QUALITIES[i]}:${r}:${c}`);
+			const entry = this.detailImages.get(`${MAP_QUALITIES[i]}:${r}:${c}:${k}`);
 			if (!entry) continue;
 			entry.usedAt = now;
-			if (entry.tile) return entry.tile;
+			if (tileReady(entry.tile)) return entry.tile.strips ? entry.tile.strips[0].bitmap : entry.tile;
 		}
-		return this.mapImages[r]?.[c];
+		return null;
 	}
 
-	_queueDetail(quality, tiles) {
+	_queueDetail(quality, squares) {
 		clearTimeout(this._detailTimer);
 		/** Zoomed back out to where the base map is enough: the sharper tiles are only holding memory. */
 		if (!quality) {
 			if (this.detailImages.size) this._detailTimer = setTimeout(() => this._dropStaleDetail(0), 1500);
 			return;
 		}
-		const missing = tiles.filter(([r, c]) => !this.detailImages.has(`${quality}:${r}:${c}`));
+		const keyOf = ([r, c, k]) => `${quality}:${r}:${c}:${k}`;
+		const missing = squares.filter((square) => !this.detailImages.has(keyOf(square)));
 		if (!missing.length) return;
 		this._detailTimer = setTimeout(() => {
-			for (const [r, c] of missing.slice(0, this.profile.maxDetailTiles)) {
+			for (const square of missing.slice(0, this.profile.maxSquares)) {
+				const [r, c, k] = square;
+				const key = keyOf(square);
 				const entry = { img: new Image(), tile: null, usedAt: performance.now() };
+				const formats = [this.format, ...["webp", "png"].filter((f) => f !== this.format)];
 				entry.img.decoding = "async";
 				entry.img.onload = async () => {
 					const tile = await decodedTile(entry.img);
-					if (this.detailImages.get(`${quality}:${r}:${c}`) !== entry) return releaseTile(tile);
+					if (this.detailImages.get(key) !== entry) return releaseTile(tile);
 					entry.tile = tile;
 					this._warmTile(tile);
 					this._scheduleDraw();
 				};
-				/** A failed AVIF tile tries the other format; after that it is kept as failed, so it is not asked for every frame. */
+				/** A failed square tries the other formats, then stays failed so it is not asked for every frame. */
 				entry.img.onerror = () => {
-					if (this.format !== "avif" || entry.retried) return void (entry.failed = true);
-					entry.retried = true;
-					entry.img.src = tileUrl(r, c, quality, "webp");
+					formats.shift();
+					if (!formats.length) return void (entry.failed = true);
+					entry.img.src = tileUrl(r, c, quality, formats[0], k);
 				};
-				entry.img.src = tileUrl(r, c, quality, this.format);
-				this.detailImages.set(`${quality}:${r}:${c}`, entry);
+				entry.img.src = tileUrl(r, c, quality, formats[0], k);
+				this.detailImages.set(key, entry);
 			}
 			this._dropStaleDetail();
 		}, 180);
 	}
 
 	/** Drops the sharper tiles used longest ago. Emptying `src` makes WebKit free the decoded image. */
-	_dropStaleDetail(keep = this.profile.maxDetailTiles) {
+	_dropStaleDetail(keep = this.profile.maxSquares) {
 		const oldestFirst = [...this.detailImages].sort((a, b) => a[1].usedAt - b[1].usedAt);
 		for (const [key, entry] of oldestFirst.slice(0, Math.max(0, oldestFirst.length - keep))) {
 			entry.img.onload = entry.img.onerror = null;
@@ -416,12 +423,15 @@ export class MapCanvas {
 				const right = this._ox + this._tileEdge(c + 1, MAP_CONFIG.columns, MAP_CONFIG.totalWidth) * this._sf;
 				const bottom = this._oy + this._tileEdge(r + 1, MAP_CONFIG.rows, MAP_CONFIG.totalHeight) * this._sf;
 				if (right < topLeft.x || x > bottomRight.x || bottom < topLeft.y || y > bottomRight.y) continue;
-				onScreen.push([r, c]);
-				const img = wanted ? this._tileImage(r, c, wanted, frameAt) : this.mapImages[r]?.[c];
+				const mapHeight =
+					this._tileEdge(r + 1, MAP_CONFIG.rows, MAP_CONFIG.totalHeight) -
+					this._tileEdge(r, MAP_CONFIG.rows, MAP_CONFIG.totalHeight);
+				onScreen.push({ r, c, x, y, w: right - x, mapHeight });
+				const img = this.mapImages[r]?.[c];
 				if (tileReady(img)) tiles.push({ r, c, img, x, y, w: right - x, h: bottom - y });
 			}
 		}
-		this._queueDetail(wanted, onScreen);
+
 		const drawTile = (tile, x, y, w, h, padRight, padBelow) => {
 			if (!tile.strips) return ctx.drawImage(tile, x, y, w + padRight, h + padBelow);
 			const scale = h / tile.height;
@@ -439,6 +449,27 @@ export class MapCanvas {
 			drawTile(img, x, y, w, h, right, r < MAP_CONFIG.rows - 1 ? overlap : 0);
 		}
 		for (const { img, x, y, w, h } of tiles) drawTile(img, x, y, w, h, 0, 0);
+		/** Sharper squares over the base, at their exact original rows and column edges, as pins use; the base covers seams. */
+		const squares = [];
+		if (wanted) {
+			for (const { r, c, x, y, w, mapHeight } of onScreen) {
+				const first = Math.max(0, Math.floor((topLeft.y - y) / (SQUARE_ROWS * this._sf)));
+				const last = Math.min(
+					Math.ceil(mapHeight / SQUARE_ROWS) - 1,
+					Math.floor((bottomRight.y - y) / (SQUARE_ROWS * this._sf))
+				);
+				for (let k = first; k <= last; k++) {
+					squares.push([r, c, k]);
+					const square = this._squareImage(r, c, k, wanted, frameAt);
+					if (!square) continue;
+					const topRow = k * SQUARE_ROWS;
+					const rows = Math.min(SQUARE_ROWS, mapHeight - topRow);
+					const take = rows + (topRow + rows < mapHeight ? 1 : 0);
+					ctx.drawImage(square, x, y + topRow * this._sf, w, take * this._sf);
+				}
+			}
+		}
+		this._queueDetail(wanted, squares);
 		ctx.imageSmoothingEnabled = true;
 
 		const now = performance.now();
