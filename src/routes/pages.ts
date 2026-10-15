@@ -9,6 +9,8 @@ import { DEV_DISCORD_ID, DEV_MODE, PUBLIC_DIR, SITE_URL, UPLOADS_DIR } from "../
 import { duelRooms } from "../game/duels/rooms";
 import { escapeXml } from "../og/cards";
 import { OG_VERSION } from "./og";
+import { tileVersion } from "../tile-images";
+import { usedIcons } from "../icons";
 import { findProfile } from "./profile";
 
 export const pageRoutes = new Hono();
@@ -35,9 +37,14 @@ const PAGES: Record<string, string> = {
 };
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
+/** Tiles change address when rebuilt, so a month of caching is safe. */
+const TILE_CACHE = "public, max-age=2592000, immutable";
 
 type Page = { html: string; etag: string };
 const pageCache = new Map<string, Page>();
+
+/** For when the tile version the pages carry changes. */
+export const forgetPages = () => pageCache.clear();
 
 function assetVersion(path: string): string {
 	try {
@@ -90,13 +97,18 @@ function loadPage(file: string): Page {
 			/content="\/og\.png\?type=(\w+)"/g,
 			(_, type) => `content="${SITE_URL}/og.png?type=${type}&v=${OG_VERSION}"`
 		);
+	const icons = usedIcons();
+	if (icons) html = html.replace(/(family=Material\+Symbols\+Outlined:[^"&]*)/, `$1&icon_names=${icons}`);
 	const entry = html.match(/<script type="module" src="(\/js\/[^"?]+)/)?.[1];
 	if (entry) {
 		const preload = [...moduleGraph(entry)]
 			.slice(1)
 			.map((path) => `<link rel="modulepreload" href="${path}?v=${assetVersion(path)}" />`);
 		/** The import map has to come before the first module script. */
-		html = html.replace("</head>", `${importMap()}\n${preload.join("\n")}\n</head>`);
+		html = html.replace(
+			"</head>",
+			`<meta name="tile-version" content="${tileVersion()}" />\n${importMap()}\n${preload.join("\n")}\n</head>`
+		);
 	}
 	const page = { html, etag: `"${Bun.hash(html).toString(36)}"` };
 	pageCache.set(file, page);
@@ -310,7 +322,14 @@ pageRoutes.get("*", (c) => {
 	/** Hashed scripts and styles are cached for ever; the rest is revalidated. */
 	const hashed = /^\/(js|css)\//.test(path) && c.req.query("v") !== undefined;
 	const isMedia = /\.(png|webp|avif|svg|ico|jpg|woff2)$/.test(path);
-	const cacheControl = hashed ? IMMUTABLE : isMedia ? "public, max-age=3600, must-revalidate" : "no-cache";
+	const versionedImage = path.startsWith("/images/") && c.req.query("v") !== undefined;
+	const cacheControl = hashed
+		? IMMUTABLE
+		: versionedImage
+			? TILE_CACHE
+			: isMedia
+				? "public, max-age=3600, must-revalidate"
+				: "no-cache";
 	return sendFile(c, PUBLIC_DIR, path.slice(1), cacheControl) ?? notFound(c);
 });
 

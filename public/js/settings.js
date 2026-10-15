@@ -72,7 +72,7 @@ async function openMySubmissions() {
 		body.innerHTML = `<div class="stagger">${subs
 			.map(
 				(sub) => `<div class="flex items-center gap-3 py-2.5 border-b border-zinc-800 last:border-0">
-					<img src="/uploads/${escHtml(sub.image_path)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'" class="w-16 h-10 rounded-lg object-cover flex-shrink-0 bg-zinc-800" />
+					<img src="/uploads/${escHtml(sub.image_path)}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'" class="w-16 h-10 rounded-lg object-cover flex-shrink-0 bg-zinc-800" />
 					<div class="flex-1 min-w-0">
 						<div class="text-sm font-medium truncate">${escHtml(sub.label || "No label")}</div>
 						<div class="text-xs text-zinc-500">SUB-${String(sub.id).padStart(4, "0")} · ${new Date(sub.created_at * 1000).toLocaleDateString()}</div>

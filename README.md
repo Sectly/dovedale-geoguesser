@@ -29,15 +29,15 @@ Then open `http://localhost:4000`.
 
 Set `AUTH_DEV=true` in `.env` to skip Discord and log in as a built-in operator account. `bun run seed` adds placeholder locations so there is something to play.
 
-| Command             | What it does                                                |
-| ------------------- | ----------------------------------------------------------- |
-| `bun run dev`       | Start the server and restart on changes                     |
-| `bun run test`      | Run the tests, each file on its own throwaway database      |
-| `bun run typecheck` | Type-check the server and tests                             |
-| `bun run build`     | Format the code and compile the stylesheet                  |
-| `bun run vapid`     | Generate keys for push notifications (optional)             |
-| `bun run sync-map`  | Refresh map settings from the Dovedale map                  |
-| `bun run tiles`     | Build the smaller and AVIF map tiles (`--force` redoes all) |
+| Command             | What it does                                                        |
+| ------------------- | ------------------------------------------------------------------- |
+| `bun run dev`       | Start the server and restart on changes                             |
+| `bun run test`      | Run the tests, each file on its own throwaway database              |
+| `bun run typecheck` | Type-check the server and tests                                     |
+| `bun run build`     | Format the code and compile the stylesheet                          |
+| `bun run vapid`     | Generate keys for push notifications (optional)                     |
+| `bun run sync-map`  | Refresh map settings from the Dovedale map                          |
+| `bun run tiles`     | Build the map tiles in every size and format (`--force` redoes all) |
 
 ## Configuration
 

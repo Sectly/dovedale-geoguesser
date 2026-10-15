@@ -61,8 +61,8 @@ function suggestedPin(s, content) {
 }
 
 const beforeAfterHtml = (s) => `<div class="grid grid-cols-2 gap-2">
-	<a href="/uploads/${escHtml(s.location_image)}" target="_blank" rel="noopener"><div class="m-label">Now</div><img loading="lazy" src="/uploads/${escHtml(s.location_image)}" alt="Current screenshot" class="w-full rounded-xl object-cover aspect-video bg-black" /></a>
-	<a href="/uploads/${escHtml(s.image_path)}" target="_blank" rel="noopener"><div class="m-label">Suggested</div><img loading="lazy" src="/uploads/${escHtml(s.image_path)}" alt="Suggested screenshot" class="w-full rounded-xl object-cover aspect-video bg-black" /></a>
+	<a href="/uploads/${escHtml(s.location_image)}" target="_blank" rel="noopener"><div class="m-label">Now</div><img loading="lazy" decoding="async" src="/uploads/${escHtml(s.location_image)}" alt="Current screenshot" class="w-full rounded-xl object-cover aspect-video bg-black" /></a>
+	<a href="/uploads/${escHtml(s.image_path)}" target="_blank" rel="noopener"><div class="m-label">Suggested</div><img loading="lazy" decoding="async" src="/uploads/${escHtml(s.image_path)}" alt="Suggested screenshot" class="w-full rounded-xl object-cover aspect-video bg-black" /></a>
 </div>`;
 
 const changeRow = (name, html) =>

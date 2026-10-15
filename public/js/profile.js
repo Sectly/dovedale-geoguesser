@@ -1,5 +1,5 @@
 import "./lib/site.js";
-import { el, escHtml, scoreTone } from "./lib/dom.js";
+import { avatarSrc, el, escHtml, scoreTone } from "./lib/dom.js";
 import { api, fetchUser } from "./lib/api.js";
 import { copyText } from "./lib/toast.js";
 
@@ -84,7 +84,7 @@ function render(p, me) {
 	<div class="flex items-center gap-x-5 gap-y-3 mb-8 flex-wrap">
 		${
 			p.avatar_url
-				? `<img src="${escHtml(p.avatar_url)}" class="w-20 h-20 rounded-full border-2 border-zinc-700" />`
+				? `<img src="${escHtml(avatarSrc(p.avatar_url, 80))}" alt="" decoding="async" class="w-20 h-20 rounded-full border-2 border-zinc-700" />`
 				: `<div class="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center"><span class="material-symbols-outlined text-4xl text-zinc-600">person</span></div>`
 		}
 		<div class="min-w-0 flex-1">

@@ -1,4 +1,4 @@
-import { avatarHtml, el, errorStateHtml, escHtml, show, skeletonRows } from "../lib/dom.js";
+import { avatarHtml, avatarSrc, el, errorStateHtml, escHtml, show, skeletonRows } from "../lib/dom.js";
 import { api } from "../lib/api.js";
 import { showToast } from "../lib/toast.js";
 import { refreshAttention } from "../lib/attention.js";
@@ -807,7 +807,7 @@ function renderStaff(staff) {
 						].join(" ");
 						return `
                     <div class="bg-zinc-900 rounded-xl px-4 py-3 flex items-center gap-3" data-search="${escHtml(searchText)}">
-                        ${u.avatar_url ? `<img src="${escHtml(u.avatar_url)}" class="w-8 h-8 rounded-full flex-shrink-0" />` : '<div class="w-8 h-8 rounded-full bg-zinc-700 flex-shrink-0"></div>'}
+                        ${u.avatar_url ? `<img src="${escHtml(avatarSrc(u.avatar_url, 32))}" alt="" loading="lazy" decoding="async" class="w-8 h-8 rounded-full flex-shrink-0" />` : '<div class="w-8 h-8 rounded-full bg-zinc-700 flex-shrink-0"></div>'}
                         <div class="flex-1 min-w-0">
                             <div class="font-medium text-sm truncate">${escHtml(u.display_name || u.username)}</div>
                             <div class="text-xs text-zinc-500">@${escHtml(u.username)} · User #${u.id} · Discord #${u.discord_id}</div>

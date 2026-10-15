@@ -69,7 +69,7 @@ async function newMemoryGame() {
 				card,
 				index
 			) => `<button class="memory-card" data-index="${index}" data-state="down" aria-label="Card ${index + 1}, face down">
-				<img src="${escHtml(card.image)}" alt="" draggable="false" />
+				<img src="${escHtml(card.image)}" alt="" decoding="async" draggable="false" />
 				<span class="material-symbols-outlined">train</span>
 			</button>`
 		)

@@ -139,7 +139,7 @@ export function reviewedRowHtml({
 		reason,
 	].join(" ");
 	return `<div class="bg-zinc-900 rounded-2xl px-4 py-3 flex items-start gap-3" data-search="${escHtml(search)}">
-		${image ? `<img loading="lazy" src="/uploads/${escHtml(image)}" alt="" onerror="this.remove()" class="w-16 h-10 rounded-lg object-cover flex-shrink-0" />` : ""}
+		${image ? `<img loading="lazy" decoding="async" src="/uploads/${escHtml(image)}" alt="" onerror="this.remove()" class="w-16 h-10 rounded-lg object-cover flex-shrink-0" />` : ""}
 		<div class="flex-1 min-w-0">
 			<div class="flex items-center gap-2 flex-wrap">
 				${tag}

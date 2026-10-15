@@ -14,6 +14,7 @@ import { websocket } from "./src/routes/duels";
 import { ensureStyles, watchStyles } from "./src/styles";
 import { scheduleRestart, stopCleanly } from "./src/system/restart";
 import { generateTileVariants } from "./src/tile-images";
+import { forgetPages } from "./src/routes/pages";
 
 /** Also keep warnings and errors where operators can read them in the staff panel. */
 captureConsole();
@@ -43,7 +44,9 @@ backfillAchievementsOnce();
 const restoredGames = restoreSoloGames();
 if (restoredGames) console.log(`[server] Picked up ${restoredGames} solo game(s) from before the restart`);
 startCleanupJobs();
-generateTileVariants().catch((err) => console.error("Tile variant generation failed:", err));
+generateTileVariants()
+	.then((made) => made && forgetPages())
+	.catch((err) => console.error("Tile variant generation failed:", err));
 
 logInfo(`Dovedale GeoGuesser listening on http://localhost:${PORT}${SUPERVISED ? " (managed by PM2)" : ""}`);
 /** A start nobody asked for (a crash, the host rebooting) is worth knowing about. */

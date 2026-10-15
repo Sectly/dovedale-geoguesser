@@ -20,9 +20,18 @@ export function show(id, visible = true) {
 	el(id)?.classList.toggle("hidden", !visible);
 }
 
+/** The smallest Discord avatar WebP that stays sharp at `px` on this screen. */
+export function avatarSrc(url, px) {
+	const discord = /^(https:\/\/cdn\.discordapp\.com\/avatars\/[^?]+)\.(?:png|jpg|webp|gif)(?:\?.*)?$/.exec(url || "");
+	if (!discord) return url;
+	const wanted = px * Math.min(window.devicePixelRatio || 1, 2);
+	return `${discord[1]}.webp?size=${[32, 64, 128, 256].find((size) => size >= wanted) ?? 256}`;
+}
+
 export function avatarHtml(url, sizeClass = "w-7 h-7") {
+	const px = Math.max(28, ...[...sizeClass.matchAll(/\bw-(\d+)\b/g)].map((m) => Number(m[1]) * 4));
 	return url
-		? `<img src="${escHtml(url)}" alt="" class="${sizeClass} rounded-full" />`
+		? `<img src="${escHtml(avatarSrc(url, px))}" alt="" loading="lazy" decoding="async" class="${sizeClass} rounded-full" />`
 		: `<div class="${sizeClass} rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined text-sm">person</span></div>`;
 }
 

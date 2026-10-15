@@ -59,6 +59,22 @@ describe("pages and static files", () => {
 		}
 	});
 
+	test("the icon font is asked for only the icons the pages use", async () => {
+		const html = String((await call("/play")).data);
+		const icons = html.match(/icon_names=([a-z0-9_,]+)/)?.[1].split(",") ?? [];
+		for (const used of ["explore", "swords", "progress_activity", "waving_hand"]) expect(icons).toContain(used);
+		expect(icons).toEqual([...icons].sort());
+		expect(icons.length).toBeLessThan(400);
+	});
+
+	test("map tiles are addressed by version and kept for 30 days", async () => {
+		const html = String((await call("/play")).data);
+		expect(html).toMatch(/<meta name="tile-version" content="\w+" \/>/);
+		const tile = await call("/images/row-1-column-1.png?v=1");
+		expect(tile.headers.get("cache-control")).toBe("public, max-age=2592000, immutable");
+		expect((await call("/images/row-1-column-1.png")).headers.get("cache-control")).toContain("max-age=3600");
+	});
+
 	test("unchanged pages answer conditional requests with 304", async () => {
 		const first = await call("/play");
 		const again = await call("/play", { headers: { "If-None-Match": first.headers.get("etag")! } });

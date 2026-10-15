@@ -1,4 +1,4 @@
-/** Builds the WebP and AVIF map tiles from public/images (`bun run tiles`). `--force` rebuilds them all. */
+/** Builds the map tiles in every size as WebP, AVIF and PNG (`bun run tiles`). `--force` rebuilds them all. */
 import { generateTileVariants } from "../src/tile-images";
 
 const force = process.argv.includes("--force");

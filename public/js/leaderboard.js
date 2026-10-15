@@ -1,5 +1,5 @@
 import "./lib/site.js";
-import { el, errorStateHtml, escHtml, show, skeletonRows } from "./lib/dom.js";
+import { avatarSrc, el, errorStateHtml, escHtml, show, skeletonRows } from "./lib/dom.js";
 import { fetchUser } from "./lib/api.js";
 import { showToast } from "./lib/toast.js";
 
@@ -328,7 +328,7 @@ function entryHtml(tab, e, i) {
 	}
 	return `<div class="flex items-center gap-4 bg-zinc-900 rounded-2xl px-5 py-4 mb-2 ${isMe ? "ring-2 ring-blue-500" : ""}">
 		${medal}
-		${e.avatar_url ? `<img src="${escHtml(e.avatar_url)}" alt="" class="w-9 h-9 rounded-full" />` : `<div class="w-9 h-9 rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined text-sm">person</span></div>`}
+		${e.avatar_url ? `<img src="${escHtml(avatarSrc(e.avatar_url, 36))}" alt="" loading="lazy" decoding="async" class="w-9 h-9 rounded-full" />` : `<div class="w-9 h-9 rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined text-sm">person</span></div>`}
 		<div class="flex-1">
 			<div class="font-semibold">${escHtml(e.display_name || e.username)}${isMe ? ' <span class="text-xs text-blue-400">(you)</span>' : ""}</div>
 			<div class="text-xs text-zinc-500">${escHtml(e.username)}</div>

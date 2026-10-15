@@ -125,7 +125,7 @@ function locationCardHtml(loc) {
 	].join(" ");
 	return `<div class="bg-zinc-900 rounded-2xl overflow-hidden ${open ? "ring-1 ring-zinc-700 md:col-span-2 xl:col-span-2" : ""} ${loc.is_active ? "" : "opacity-70"}" id="loc-${loc.id}" data-search="${escHtml(searchText)}">
 		<button onclick="${open ? `viewImage('/uploads/${escHtml(loc.image_path)}')` : `toggleLocationEditor(${loc.id})`}" class="block w-full ${open ? "cursor-zoom-in" : ""}" title="${open ? "View larger" : "Open"}" aria-label="${open ? "View the screenshot larger" : "Open this location"}">
-			<img loading="lazy" src="/uploads/${escHtml(loc.image_path)}" alt="" class="w-full ${open ? "max-h-80 object-contain bg-black" : "h-40 object-cover"}" />
+			<img loading="lazy" decoding="async" src="/uploads/${escHtml(loc.image_path)}" alt="" class="w-full ${open ? "max-h-80 object-contain bg-black" : "h-40 object-cover"}" />
 		</button>
 		<button onclick="toggleLocationEditor(${loc.id})" aria-expanded="${open}" class="w-full text-left px-3 py-2.5 hover:bg-zinc-800/50 transition">
 			<span class="flex items-center gap-2">

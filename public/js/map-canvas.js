@@ -1,12 +1,15 @@
 import { MAP_CONFIG, WORLD_BOUNDS, WORLD_HEIGHT, WORLD_WIDTH, tileUrl } from "./map-config.js";
+import { avatarSrc } from "./lib/dom.js";
+
+const whenIdle = (fn) =>
+	"requestIdleCallback" in window ? requestIdleCallback(fn, { timeout: 1000 }) : setTimeout(fn, 50);
 
 /** Each quality's width as a share of the full-size map (see src/tile-images.ts), smallest first. */
 const MAP_QUALITY_SCALE = { tiny: 0.25, low: 0.45, medium: 0.75, high: 1 };
 const MAP_QUALITIES = Object.keys(MAP_QUALITY_SCALE);
 /** The picker's sizes. On phones they cap how sharp the zoomed-in tiles get. */
 const MAP_QUALITY_CHOICES = ["high", "medium", "low"];
-/** Tile formats (src/tile-images.ts). Without AVIF, full size is the original PNG. */
-const MAP_FORMATS = { webp: "WebP", avif: "AVIF" };
+const MAP_FORMATS = { avif: "AVIF (recommended)", webp: "WebP (older devices)", png: "PNG (fast connections)" };
 
 const avifSupported = new Promise((resolve) => {
 	const img = new Image();
@@ -16,6 +19,41 @@ const avifSupported = new Promise((resolve) => {
 		"data:image/avif;base64,AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAACJpbG9jAAAAAERAAAEAAQAAAAAA+gABAAAAAAAAAB0AAAAjaWluZgAAAAAAAQAAABVpbmZlAgAAAAABAABhdjAxAAAAAA5waXRtAAAAAAABAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAEAAAABAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAlbWRhdBIACgc4AAaQENBpMhAZQmMEwAA0AACQQM6Xt10S";
 });
 
+/** Decodes once, off the main thread; drawing an <img> re-decodes it mid-frame and stalls panning. */
+async function decodedTile(img) {
+	if (typeof createImageBitmap !== "function") return img;
+	try {
+		const full = await createImageBitmap(img);
+		const { width, height } = full;
+		const strips = [];
+		for (let top = 0; top < height; top += STRIP_HEIGHT) {
+			const stripHeight = Math.min(STRIP_HEIGHT, height - top);
+			strips.push({
+				top,
+				height: stripHeight,
+				bitmap: await createImageBitmap(full, 0, top, width, stripHeight),
+			});
+		}
+		full.close();
+		img.onload = img.onerror = null;
+		img.src = "";
+		return { width, height, strips };
+	} catch {
+		return img;
+	}
+}
+
+/** Tiles are 12,000px tall, past many graphics cards' 8,192 limit; strips draw fast and only when on screen. */
+const STRIP_HEIGHT = 2048;
+
+const tileReady = (tile) =>
+	!!tile && (tile instanceof HTMLImageElement ? tile.complete && tile.naturalWidth > 0 : tile.strips.length > 0);
+
+const releaseTile = (tile) => {
+	if (tile instanceof HTMLImageElement) tile.src = "";
+	else for (const strip of tile?.strips ?? []) strip.bitmap.close();
+};
+
 /** How much map a device gets. The full map decodes to nearly 1 GB, which crashes phones and Safari, so those get a small `base` map plus sharper `detail` tiles for what is on screen. */
 function _mapProfile() {
 	const ua = navigator.userAgent;
@@ -23,7 +61,7 @@ function _mapProfile() {
 	const isMobile =
 		/Mobi|Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
 	const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg/i.test(ua);
-	if (isMobile) return { mobile: true, base: "tiny", detail: "medium", maxDetailTiles: 3, maxPixelRatio: 2 };
+	if (isMobile) return { base: "tiny", detail: "medium", maxDetailTiles: 3, maxPixelRatio: 2 };
 	if (isSafari) return { base: "low", detail: "medium", maxDetailTiles: 4, maxPixelRatio: 2 };
 	return { base: null, detail: null, maxDetailTiles: 0, maxPixelRatio: 3 };
 }
@@ -53,10 +91,12 @@ export class MapCanvas {
 		this.profile = _mapProfile();
 		/** Sharper tiles for the part of the map on screen, by "quality:row:column". Only used with a `base`. */
 		this.detailImages = new Map();
+		this._warmQueue = [];
+		this._warming = false;
 		this._detailTimer = null;
 		this.quality = this.profile.base || "high";
-		/** Phones default to WebP, which their processors decode faster. */
-		this.format = this.profile.mobile ? "webp" : "avif";
+		/** AVIF is smallest, but its decoder needs several cores; with two or fewer, WebP loads sooner. */
+		this.format = (navigator.hardwareConcurrency || 4) > 2 ? "avif" : "webp";
 		/** Blocked storage throws; the map must still be built. */
 		try {
 			const quality = localStorage.getItem("mapQuality");
@@ -75,7 +115,7 @@ export class MapCanvas {
 		this._setupTransforms();
 		this._setupEvents();
 		avifSupported.then((ok) => {
-			if (!ok) this.format = "webp";
+			if (!ok && this.format === "avif") this.format = "webp";
 			this._loadImages();
 		});
 		const _parent = this.canvas.parentElement || this.canvas;
@@ -106,7 +146,7 @@ export class MapCanvas {
 				pin.avatar = img;
 				this.draw();
 			};
-			img.src = avatarUrl;
+			img.src = avatarSrc(avatarUrl, 32);
 		}
 		this.namePins.set(id, pin);
 		if (ripple) this.addRipple(worldX, worldY, color);
@@ -289,7 +329,7 @@ export class MapCanvas {
 			const entry = this.detailImages.get(`${MAP_QUALITIES[i]}:${r}:${c}`);
 			if (!entry) continue;
 			entry.usedAt = now;
-			if (entry.ready) return entry.img;
+			if (entry.tile) return entry.tile;
 		}
 		return this.mapImages[r]?.[c];
 	}
@@ -305,10 +345,13 @@ export class MapCanvas {
 		if (!missing.length) return;
 		this._detailTimer = setTimeout(() => {
 			for (const [r, c] of missing.slice(0, this.profile.maxDetailTiles)) {
-				const entry = { img: new Image(), ready: false, usedAt: performance.now() };
+				const entry = { img: new Image(), tile: null, usedAt: performance.now() };
 				entry.img.decoding = "async";
-				entry.img.onload = () => {
-					entry.ready = true;
+				entry.img.onload = async () => {
+					const tile = await decodedTile(entry.img);
+					if (this.detailImages.get(`${quality}:${r}:${c}`) !== entry) return releaseTile(tile);
+					entry.tile = tile;
+					this._warmTile(tile);
 					this._scheduleDraw();
 				};
 				/** A failed AVIF tile tries the other format; after that it is kept as failed, so it is not asked for every frame. */
@@ -330,6 +373,7 @@ export class MapCanvas {
 		for (const [key, entry] of oldestFirst.slice(0, Math.max(0, oldestFirst.length - keep))) {
 			entry.img.onload = entry.img.onerror = null;
 			entry.img.src = "";
+			releaseTile(entry.tile);
 			this.detailImages.delete(key);
 		}
 	}
@@ -382,19 +426,28 @@ export class MapCanvas {
 				if (right < topLeft.x || x > bottomRight.x || bottom < topLeft.y || y > bottomRight.y) continue;
 				onScreen.push([r, c]);
 				const img = wanted ? this._tileImage(r, c, wanted, frameAt) : this.mapImages[r]?.[c];
-				if (img?.complete && img.naturalWidth) tiles.push({ r, c, img, x, y, w: right - x, h: bottom - y });
+				if (tileReady(img)) tiles.push({ r, c, img, x, y, w: right - x, h: bottom - y });
 			}
 		}
 		if (this.profile.base) this._queueDetail(wanted, onScreen);
-		const eachTile = (fn) => {
-			for (const { r, c, img, x, y, w, h } of tiles)
-				fn(img, x, y, w, h, c < MAP_CONFIG.columns - 1, r < MAP_CONFIG.rows - 1);
+		/** `pad` stretches each piece over the seam after it. */
+		const drawTile = (tile, x, y, w, h, padRight, padBelow, pad) => {
+			if (!tile.strips) return ctx.drawImage(tile, x, y, w + padRight, h + padBelow);
+			const scale = h / tile.height;
+			for (const strip of tile.strips) {
+				const top = y + strip.top * scale;
+				const height = strip.height * scale;
+				if (top > bottomRight.y || top + height < topLeft.y) continue;
+				const last = strip.top + strip.height >= tile.height;
+				ctx.drawImage(strip.bitmap, x, top, w + padRight, height + (last ? padBelow : pad));
+			}
 		};
 		/** An oversized pass fills the hairline gaps, then an exact pass on top so nothing else is stretched. */
-		eachTile((img, x, y, w, h, moreRight, moreBelow) =>
-			ctx.drawImage(img, x, y, w + (moreRight ? overlap : 0), h + (moreBelow ? overlap : 0))
-		);
-		eachTile((img, x, y, w, h) => ctx.drawImage(img, x, y, w, h));
+		for (const { r, c, img, x, y, w, h } of tiles) {
+			const right = c < MAP_CONFIG.columns - 1 ? overlap : 0;
+			drawTile(img, x, y, w, h, right, r < MAP_CONFIG.rows - 1 ? overlap : 0, overlap);
+		}
+		for (const { img, x, y, w, h } of tiles) drawTile(img, x, y, w, h, 0, 0, 0);
 		ctx.imageSmoothingEnabled = true;
 
 		const now = performance.now();
@@ -658,44 +711,83 @@ export class MapCanvas {
 		ctx.restore();
 	}
 
-	_tileUrl(row, col) {
-		return tileUrl(row, col, this.quality, this.format);
-	}
-
 	_loadImages() {
 		const loadId = ++this.mapLoadId;
+		for (const row of this.mapImages) for (const tile of row ?? []) releaseTile(tile);
 		this.mapImages = [];
+		this._warmQueue = [];
 		this._dropStaleDetail(0);
+		/** Without a base map, tiny tiles show first and the chosen size replaces them. */
+		const passes = !this.profile.base && this.quality !== "tiny" ? ["tiny", this.quality] : [this.quality];
 		for (let r = 0; r < MAP_CONFIG.rows; r++) {
 			this.mapImages[r] = [];
-			for (let c = 0; c < MAP_CONFIG.columns; c++) {
-				const img = new Image();
-				img.decoding = "async";
-				let quality = this.quality;
-				let format = this.format;
-				img.src = this._tileUrl(r, c);
-				img.onload = () => {
-					if (loadId !== this.mapLoadId) return;
-					this.mapImages[r][c] = img;
-					if (!this.mapInitialized) {
-						this.mapInitialized = true;
-						this._initCenter();
-					} else {
-						this.draw();
-					}
-				};
-				/** A failed AVIF tile tries WebP, then the next size up rather than the full-size tile. */
-				img.onerror = () => {
-					if (loadId !== this.mapLoadId) return;
-					if (format !== "webp") format = "webp";
-					else {
-						quality = MAP_QUALITIES[MAP_QUALITIES.indexOf(quality) + 1];
-						if (!quality) return;
-					}
-					img.src = tileUrl(r, c, quality, format);
-				};
-			}
+			for (let c = 0; c < MAP_CONFIG.columns; c++)
+				passes.forEach((quality, i) => this._loadTile(r, c, quality, loadId, i === passes.length - 1));
 		}
+	}
+
+	_loadTile(r, c, wanted, loadId, final) {
+		const img = new Image();
+		img.decoding = "async";
+		let quality = wanted;
+		let format = this.format;
+		img.onload = async () => {
+			if (loadId !== this.mapLoadId) return;
+			const tile = await decodedTile(img);
+			const current = this.mapImages[r]?.[c];
+			/** A rough tile that arrives after the sharp one is not wanted. */
+			if (loadId !== this.mapLoadId || (!final && current)) return releaseTile(tile);
+			if (current) releaseTile(current);
+			this.mapImages[r][c] = tile;
+			this._warmTile(tile);
+			if (!this.mapInitialized) {
+				this.mapInitialized = true;
+				this._initCenter();
+			} else {
+				this._scheduleDraw();
+			}
+		};
+		/** A failed tile tries the other formats, then the next size up. */
+		const tried = new Set([format]);
+		img.onerror = () => {
+			if (loadId !== this.mapLoadId) return;
+			const other = ["webp", "png"].find((f) => !tried.has(f));
+			if (other) format = other;
+			else {
+				quality = MAP_QUALITIES[MAP_QUALITIES.indexOf(quality) + 1];
+				if (!quality) return;
+				format = "webp";
+				tried.clear();
+			}
+			tried.add(format);
+			img.src = tileUrl(r, c, quality, format);
+		};
+		img.src = tileUrl(r, c, quality, format);
+	}
+
+	/** Uploads strips to the graphics card while idle, so the first sight of one does not stall a frame. */
+	_warmTile(tile) {
+		if (!tile?.strips) return;
+		this._warmQueue.push(...tile.strips);
+		if (this._warming) return;
+		this._warming = true;
+		const next = () => {
+			const strip = this._warmQueue.shift();
+			if (!strip) {
+				this._warming = false;
+				return this._scheduleDraw();
+			}
+			/** Drawn into one corner pixel, almost transparent; the next frame paints over it. */
+			if (strip.bitmap.width) {
+				this.ctx.save();
+				this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+				this.ctx.globalAlpha = 0.01;
+				this.ctx.drawImage(strip.bitmap, 0, 0, 1, 1);
+				this.ctx.restore();
+			}
+			whenIdle(next);
+		};
+		whenIdle(next);
 	}
 
 	_initCenter() {
@@ -998,29 +1090,22 @@ export class MapCanvas {
 		formatSel.id = "map-format";
 		formatSel.title = "Map image format";
 		formatSel.className = qualitySel.className;
-		formatSel.hidden = true;
 		formatSel.innerHTML = Object.entries(MAP_FORMATS)
 			.map(([value, label]) => `<option value="${value}">${label}</option>`)
 			.join("");
 		formatSel.value = this.format;
 		qualitySel.after(formatSel);
-		/** Without AVIF, full size is the original PNG. */
-		const syncFormat = () =>
-			(formatSel.querySelector('[value="webp"]').textContent =
-				!this.profile.base && this.quality === "high" ? "PNG" : MAP_FORMATS.webp);
 		avifSupported.then((ok) => {
-			formatSel.hidden = !ok;
+			if (!ok) formatSel.querySelector('[value="avif"]')?.remove();
 			formatSel.value = this.format;
 		});
 		formatSel.addEventListener("change", () => {
 			this.setFormat(formatSel.value);
 			formatSel.blur();
 		});
-		syncFormat();
 		qualitySel.value = this.profile.base ? this.profile.detail : this.quality;
 		qualitySel.addEventListener("change", () => {
 			this.setQuality(qualitySel.value);
-			syncFormat();
 			/** Hand the keyboard back to the game, so Space still submits a guess. */
 			qualitySel.blur();
 		});

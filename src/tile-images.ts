@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { readFileSync } from "fs";
 import { mkdir } from "fs/promises";
 import { join } from "path";
 import { PUBLIC_DIR } from "./config";
@@ -7,17 +8,20 @@ const IMAGES_DIR = join(PUBLIC_DIR, "images");
 const GENERATED_DIR = join(IMAGES_DIR, "generated");
 const MANIFEST_PATH = `${GENERATED_DIR}/manifest.json`;
 
-/**
- * Keep in step with MAP_QUALITY_SCALE in public/js/map-canvas.js. AVIF matches WebP detail at about half the size.
- * Full size has no WebP: the original PNG serves browsers without AVIF.
- */
-const QUALITY_VARIANTS: { name: string; widthPercent: number; webpQuality?: number; avifQuality: number }[] = [
-	{ name: "high", widthPercent: 100, avifQuality: 65 },
-	{ name: "medium", widthPercent: 75, webpQuality: 90, avifQuality: 55 },
-	{ name: "low", widthPercent: 45, webpQuality: 70, avifQuality: 35 },
-	{ name: "tiny", widthPercent: 25, webpQuality: 70, avifQuality: 35 },
+/** Keep in step with MAP_QUALITY_SCALE in public/js/map-canvas.js. Full-size PNG is the original image. */
+const QUALITY_VARIANTS: {
+	name: string;
+	widthPercent: number;
+	webpQuality: number;
+	avifQuality: number;
+	png: boolean;
+}[] = [
+	{ name: "high", widthPercent: 100, webpQuality: 90, avifQuality: 65, png: false },
+	{ name: "medium", widthPercent: 75, webpQuality: 90, avifQuality: 55, png: true },
+	{ name: "low", widthPercent: 45, webpQuality: 70, avifQuality: 35, png: true },
+	{ name: "tiny", widthPercent: 25, webpQuality: 70, avifQuality: 35, png: true },
 ];
-const formatsOf = (variant: (typeof QUALITY_VARIANTS)[number]) => (variant.webpQuality ? ["webp", "avif"] : ["avif"]);
+const formatsOf = (variant: (typeof QUALITY_VARIANTS)[number]) => ["webp", "avif", ...(variant.png ? ["png"] : [])];
 const VARIANTS_CONFIG_HASH = Bun.hash(JSON.stringify(QUALITY_VARIANTS)).toString(16);
 
 const MAP_ROWS = 1;
@@ -28,6 +32,19 @@ const ENCODE_THREADS = 1;
 const PAUSE_MS = 300;
 /** Above 2, AVIF takes about 60% more memory and four times as long for files only about 15% smaller. */
 const AVIF_EFFORT = 2;
+
+let version: string | null = null;
+
+/** Changes with any tile; tile addresses carry it, so tiles can be cached for 30 days. */
+export function tileVersion(): string {
+	if (version !== null) return version;
+	try {
+		version = Bun.hash(readFileSync(MANIFEST_PATH, "utf8")).toString(36);
+	} catch {
+		version = "0";
+	}
+	return version;
+}
 
 async function readManifest(): Promise<Record<string, string>> {
 	const file = Bun.file(MANIFEST_PATH);
@@ -62,7 +79,9 @@ async function generateTile(tileKey: string, manifest: Record<string, string>, f
 		for (const format of formatsOf(variant)) {
 			const image = sharp(source, { sequentialRead: true }).resize({ width });
 			if (format === "webp") await image.webp({ quality: variant.webpQuality }).toFile(`${out}.webp`);
-			else await image.avif({ quality: variant.avifQuality, effort: AVIF_EFFORT }).toFile(`${out}.avif`);
+			else if (format === "avif")
+				await image.avif({ quality: variant.avifQuality, effort: AVIF_EFFORT }).toFile(`${out}.avif`);
+			else await image.png({ compressionLevel: 9 }).toFile(`${out}.png`);
 			await Bun.sleep(PAUSE_MS);
 		}
 	}
@@ -95,6 +114,7 @@ export async function generateTileVariants({ force = false, log = false } = {}) 
 		sharp.concurrency(threads);
 		sharp.cache(true);
 	}
+	if (made) version = null;
 	if (made) console.log(`Map tiles: ${made} generated in ${Math.round((Date.now() - start) / 1000)}s`);
 	return made;
 }
