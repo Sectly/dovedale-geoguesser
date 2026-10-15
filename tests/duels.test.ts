@@ -51,7 +51,6 @@ function seat(room: DuelRoom, user: TestUser): FakeConn {
 	return conn;
 }
 
-/** Puts a room straight into round one without waiting for the countdown. */
 function beginRound(room: DuelRoom) {
 	room.status = "in_progress";
 	room.roundNumber = 1;
@@ -170,7 +169,6 @@ describe("duel game flow", () => {
 			expect(start).toMatchObject({ loading: false, time_remaining: 60 });
 			abandonDuel(room, b.id);
 
-			/** A player who never reports in only holds things up for the loading window. */
 			const slow = createRoom(a.id, 1);
 			joinRoom(slow.code, b.id);
 			const connSlow = seat(slow, a);
@@ -208,7 +206,6 @@ describe("duel game flow", () => {
 			submitGuess(room, a.id, { x: 0, y: 0 });
 			expect(room.outcomes.size).toBe(0); // no guessing while paused
 
-			/** Twenty seconds away costs nobody any time on the clock. */
 			jest.advanceTimersByTime(20_000);
 			expect(room.status).toBe("in_progress");
 			room.players[1].connected = true;
@@ -308,7 +305,6 @@ describe("quick play", () => {
 		const [a, b, c] = [createUser(), createUser(), createUser()].map(fullUser);
 		const first = quickplay(a, 5, () => true)!;
 		expect(first.status).toBe("waiting");
-		/** Nobody is matched into a room whose host has not connected yet. */
 		expect(quickplay(b, 5, () => true)!.code).not.toBe(first.code);
 		cancelQuickplay(b.id);
 
@@ -319,7 +315,6 @@ describe("quick play", () => {
 		cancelQuickplay(c.id);
 		expect(quickplay(b, 5, () => true)).toEqual({ status: "matched", code: first.code });
 
-		/** If the matched player backs out, the host goes back to waiting for someone else. */
 		cancelQuickplay(b.id);
 		expect(duelRooms.has(first.code)).toBe(true);
 		expect(quickplay(c, 5, () => true)).toEqual({ status: "matched", code: first.code });
@@ -347,7 +342,6 @@ describe("quick play rounds out of the ordinary", () => {
 
 	const lastEvent = (conn: FakeConn, name: string) => conn.events.filter(([event]) => event === name).at(-1)?.[1];
 
-	/** Seats two players in a ranked room and runs the countdown, leaving round one loading. */
 	function rankedDuel(rounds = 3) {
 		const [a, b] = [createUser(), createUser()];
 		const room = createRoom(a.id, rounds, true);
@@ -358,7 +352,6 @@ describe("quick play rounds out of the ordinary", () => {
 		return { room, a, b, conns };
 	}
 
-	/** Plays the round on screen: a named player guesses the exact spot, anyone else places no pin. */
 	function playRound(room: DuelRoom, exact: TestUser[]) {
 		for (const player of room.players) playerLoaded(room, player.userId);
 		const target = room.locations[room.roundNumber - 1];
@@ -393,7 +386,6 @@ describe("quick play rounds out of the ordinary", () => {
 			expect(mine.score).toBeGreaterThan(0);
 			expect(mine).toMatchObject({ bonus: mine.score, total_score: mine.score * 2 });
 			expect(result.results.find((r: { user_id: number }) => r.user_id === a.id).bonus).toBe(0);
-			/** The saved round keeps the score as guessed. */
 			const saved = db
 				.query<{ score: number }, [number, number]>(
 					"SELECT score FROM duel_round_scores WHERE game_id = ? AND user_id = ? AND round_number = 3"
@@ -422,7 +414,6 @@ describe("quick play rounds out of the ordinary", () => {
 				kind: "sudden_death",
 			});
 
-			/** The round goes to B, and so does the duel, even with A ahead on points. */
 			room.players.find((p) => p.userId === a.id)!.totalScore += 20_000;
 			playRound(room, [b]);
 			expect(lastEvent(conns[a.id], "round_result")).toMatchObject({ kind: "sudden_death", is_last: true });
@@ -451,7 +442,6 @@ describe("quick play rounds out of the ordinary", () => {
 			});
 
 			const clear = rankedDuel();
-			/** Ahead by more than sudden death allows and less than a comeback round needs. */
 			clear.room.players.find((p) => p.userId === clear.a.id)!.totalScore += 1_000;
 			for (let round = 1; round <= 3; round++) {
 				playRound(clear.room, [clear.a, clear.b]);

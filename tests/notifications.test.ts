@@ -30,7 +30,6 @@ describe("notifications", () => {
 
 		await post(`/api/admin/submissions/${pendingSubmission(author)}/approve`, mod);
 		const blurry = pendingSubmission(author, "A blurry field");
-		/** A denial has to say why. */
 		expect((await post(`/api/admin/submissions/${blurry}/deny`, mod, {})).status).toBe(400);
 		expect((await post(`/api/admin/submissions/${blurry}/deny`, mod, { reason: "  no " })).status).toBe(400);
 		await post(`/api/admin/submissions/${blurry}/deny`, mod, {
@@ -110,14 +109,12 @@ describe("notifications", () => {
 			title: "Staff replied to your ticket",
 		});
 
-		/** With badges and alerts both off, the queue is not even counted. */
 		await post("/api/settings", mod, { prefs: { staff_badges: false } });
 		expect((await call("/api/attention", { as: mod })).data.staff).not.toBeNull();
 		const saved = await post("/api/settings", mod, { prefs: { staff_alerts: false } });
 		expect(saved.data.prefs).toMatchObject({ staff_badges: false, staff_alerts: false });
 		expect((await call("/api/attention", { as: mod })).data.staff).toBeNull();
 
-		/** Players never see the staff-only options. */
 		const prefs = (await call("/api/auth/me", { as: player })).data.prefs;
 		expect(prefs.staff_badges).toBeUndefined();
 		expect(prefs.staff_alerts).toBeUndefined();
@@ -135,12 +132,10 @@ describe("emailed summaries", () => {
 			expect(await me()).toMatchObject({ available: true, address: null, verified: false, frequency: "off" });
 			expect((await post("/api/settings/email", player, { email: "not an address" })).status).toBe(400);
 			expect((await post("/api/settings/email", player, { email: "Player@Example.com" })).status).toBe(200);
-			/** The page is told which address it is, never the address itself. */
 			expect((await me()).address).toBe("p****r@example.com");
 			expect(outbox[0].to).toBe("player@example.com");
 			expect((await post("/api/settings/email/frequency", player, { frequency: "hourly" })).status).toBe(409);
 
-			/** Nothing goes out to an address nobody has confirmed. */
 			notifyUser(player.id, "tickets", { title: "Staff replied to your ticket" });
 			expect(await sendDueDigests(nowSec() + 2 * DAY)).toBe(0);
 
@@ -156,10 +151,8 @@ describe("emailed summaries", () => {
 			const digest = outbox.at(-1)!;
 			expect(digest.subject).toContain("2 new notifications");
 			expect(digest.text).toContain("Your submission was approved");
-			/** Sent once: the next run has nothing new to say. */
 			expect(await sendDueDigests(nowSec() + 2 * DAY + 120)).toBe(0);
 
-			/** The link in the email stops them without logging in. */
 			expect((await call(`/api/email/unsubscribe?token=${token}`)).status).toBe(200);
 			expect((await me()).frequency).toBe("off");
 			expect((await call("/api/settings/email", { method: "DELETE", as: player })).status).toBe(200);
@@ -241,7 +234,6 @@ describe("unlinking an email", () => {
 		try {
 			expect((await post("/api/settings/email", player, { email: "gone@example.com" })).status).toBe(200);
 			await post("/api/admin/system/features", operator, { feature: "email_digests", enabled: false });
-			/** Hidden as a setting, but the saved address is still shown so it can be removed. */
 			expect((await call("/api/auth/me", { as: player })).data.email).toMatchObject({
 				available: false,
 				address: "g****e@example.com",
@@ -297,19 +289,16 @@ describe("switching email on", () => {
 
 		expect(await state()).toMatchObject({ saved: false, enabled: false });
 		expect((await toggle(true)).status).toBe(409);
-		/** With nothing saved and email off, a player is not shown the setting at all. */
 		expect((await call("/api/auth/me", { as: player })).data.email).toMatchObject({
 			available: false,
 			address: null,
 		});
 		expect((await post("/api/settings/email", player, { email: "early@example.com" })).status).toBe(503);
 
-		/** A stand-in for a working mail server: now it can be switched on, and off again. */
 		setTestSender(async () => {});
 		try {
 			expect((await toggle(true)).status).toBe(200);
 			expect((await call("/api/auth/me", { as: player })).data.email.available).toBe(true);
-			/** Removing the mail server switches email off with it. */
 			expect((await call("/api/admin/system/email/settings", { method: "DELETE", as: operator })).status).toBe(
 				200
 			);
@@ -343,7 +332,6 @@ describe("the mail server", () => {
 			from: "Dovedale GeoGuesser <notifications@example.com>",
 		});
 		expect(saved.status).toBe(200);
-		/** Hidden until asked for, and the password not even then. */
 		const hidden = (await call("/api/admin/system/email", { as: operator })).data;
 		expect(hidden).toMatchObject({ saved: true, has_password: true });
 		expect(JSON.stringify(hidden)).not.toContain("smtp.example.com");
@@ -419,7 +407,6 @@ describe("announcement options", () => {
 		const sent = await send(admin, { title: "Fully written", from_draft: draft.data.id });
 		expect(await inbox(player)).toContain("Fully written");
 		expect(await listed(admin, draft.data.id)).toBeUndefined();
-		/** Fresh and sent: it cannot be removed from the history yet. */
 		expect(await listed(admin, sent.data.id)).toMatchObject({ can_delete: false });
 		expect((await call(`/api/admin/announcements/${sent.data.id}`, { method: "DELETE", as: admin })).status).toBe(
 			409
@@ -428,7 +415,6 @@ describe("announcement options", () => {
 		expect((await call(`/api/admin/announcements/${sent.data.id}`, { method: "DELETE", as: admin })).status).toBe(
 			200
 		);
-		/** The copy in the inbox stays. */
 		expect(await inbox(player)).toContain("Fully written");
 	});
 
@@ -451,7 +437,6 @@ describe("announcement options", () => {
 			.get(first.data.id)!;
 		expect(next.send_at).toBeGreaterThan(nowSec() + 6 * DAY);
 		db.run("DELETE FROM announcements WHERE title = 'Weekly reminder' AND send_at IS NOT NULL");
-		/** A day and a bit later it has gone from the inbox by itself. */
 		sendScheduledAnnouncements(nowSec() + 2 * DAY);
 		expect(await inbox(player)).not.toContain("Weekly reminder");
 	});
@@ -562,7 +547,6 @@ describe("the link counter", () => {
 });
 
 describe("live updates", () => {
-	/** Opens the stream as this player and returns a reader for its events, and a way to close it. */
 	async function stream(as?: TestUser) {
 		const abort = new AbortController();
 		const res = await app.fetch(
@@ -574,7 +558,6 @@ describe("live updates", () => {
 		const reader = res.body!.getReader();
 		const decoder = new TextDecoder();
 		let buffer = "";
-		/** The next event with this name, or null if none arrives in time. */
 		const next = async (name: string, ms = 1000): Promise<any> => {
 			const deadline = Date.now() + ms;
 			for (;;) {
@@ -599,12 +582,10 @@ describe("live updates", () => {
 		expect(live.res.headers.get("Content-Type")).toContain("text/event-stream");
 		expect(live.res.headers.get("Content-Encoding")).toBeNull();
 		expect(await live.next("hello")).toMatchObject({ restart_in: null });
-		/** Sent whether or not a banner is up. */
 		expect(await live.next("banner")).toBeDefined();
 		const before = (await live.next("attention")).unread;
 
 		notifyUser(player.id, "achievements", { title: "Pushed, not polled" });
-		/** Sent after a short delay that merges bursts. */
 		expect(await live.next("attention", 3000)).toMatchObject({
 			unread: before + 1,
 			latest: { title: "Pushed, not polled" },

@@ -24,7 +24,6 @@ function tailwind(extraArgs: string[]) {
 	);
 }
 
-/** Builds the stylesheet once. Throws with Tailwind's own message if it fails. */
 export async function buildStyles() {
 	const proc = tailwind(["--minify"]);
 	if ((await proc.exited) !== 0) throw new Error(`Tailwind build failed:\n${await new Response(proc.stderr).text()}`);

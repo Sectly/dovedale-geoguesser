@@ -13,7 +13,8 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"maintenance": "bun --hot dev-maintenance.ts",
-		"sync-map": "bun run scripts/sync-map.ts"
+		"sync-map": "bun run scripts/sync-map.ts",
+		"tiles": "bun run scripts/build-tiles.ts"
 	},
 	"dependencies": {
 		"@webwirejs/client": "^0.1.0",

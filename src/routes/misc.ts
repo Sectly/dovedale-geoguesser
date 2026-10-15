@@ -8,24 +8,20 @@ import { checkRateLimit } from "../lib/rate-limit";
 import { currentSeason, upcomingEvent } from "../specials";
 import { DEVICE_COOKIE, checkForEvasion, deviceCookie, deviceId, hashIdentity, recordSignal } from "../evasion";
 
-/** Routes mounted at /api that belong to no particular feature. */
 export const miscRoutes = new Hono();
 
 const pkg = await Bun.file(join(ROOT_DIR, "package.json")).json();
 
 miscRoutes.get("/status", (c) => c.text("200 OK"));
-/** The announcement pinned to every page right now, or null. */
 miscRoutes.get("/announcement", (c) => c.json(currentBanner()));
 /** Follows an announcement's link, counting it. Past a few a minute per address it redirects without counting. */
 miscRoutes.get("/announcement/:id/go", (c) =>
 	c.redirect(followLink(idParam(c), checkRateLimit(`announcement-link:${clientIp(c)}`, 6, 60 * 1000)))
 );
-/** An announcement the logged-in player has to acknowledge before carrying on, or null. */
 miscRoutes.get("/announcement/pending", (c) => {
 	const user = currentUser(c);
 	return c.json(user ? pendingAcknowledgement(user.id) : null);
 });
-/** Past announcements to all players, for the news page. */
 miscRoutes.get("/news", (c) => c.json(publicNews()));
 miscRoutes.get("/meta", (c) =>
 	c.json({

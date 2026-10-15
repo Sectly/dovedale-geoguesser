@@ -4,8 +4,6 @@ import { hasRole, isStaff } from "./auth/guards";
 import { DAY, utcDate } from "./lib/time";
 import { sendPush } from "./push";
 
-/** Per-user notifications and their preferences, plus a live count of work waiting for staff. */
-
 export const NOTIFICATION_CATEGORIES = [
 	"submissions",
 	"suggestions",
@@ -20,24 +18,18 @@ export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number] | "a
 
 /** Helpers are players trusted with the review queues, not staff, so the staff chat starts one role up. */
 export const STAFF_CHAT_ROLE: Role = "curator";
-/** How a member of staff hears about new staff chat messages. */
 export const STAFF_CHAT_ALERTS = ["none", "badge", "notify"] as const;
 export type StaffChatAlert = (typeof STAFF_CHAT_ALERTS)[number];
 
 export type Preferences = {
-	/** Sound effects in games and for new notifications. */
 	sounds: boolean;
-	/** Pop-up messages inside the site when something new arrives. */
 	toasts: boolean;
 	/** Browser notifications, delivered by push even when the site is closed where supported. */
 	desktop: boolean;
-	/** For staff: show what is waiting for review on the staff panel button and sidebar. */
 	staff_badges: boolean;
-	/** For staff: pop up a message when something new arrives in a review queue. */
 	staff_alerts: boolean;
 	/** For staff: nothing, a count and a sound, or an inbox entry with a push notification. */
 	staff_chat: StaffChatAlert;
-	/** Which kinds of notification the user wants to receive. */
 	notify: Record<(typeof NOTIFICATION_CATEGORIES)[number], boolean>;
 };
 
@@ -96,7 +88,6 @@ export function publicPreferences(user: User): Partial<Preferences> {
 	return isStaff(user) ? { ...shared, staff_badges, staff_alerts, staff_chat } : shared;
 }
 
-/** Applies a partial update from the settings page and returns the stored result. */
 export function updatePreferences(user: User, changes: unknown): Preferences {
 	const current = parsePreferences(user.prefs);
 	const input = (changes && typeof changes === "object" ? changes : {}) as Record<string, unknown>;
@@ -160,7 +151,6 @@ export function countNotifications(userId: number): number {
 	return count("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ?", userId);
 }
 
-/** Marks notifications as read: the given ids, or everything when none are given. */
 export function markRead(userId: number, ids: number[] | null) {
 	if (ids?.length) {
 		db.run(
@@ -206,7 +196,6 @@ function countStaffQueue() {
 	};
 }
 
-/** Everything needing this user's attention: unread notifications and, for staff, the review queues. */
 export function attentionFor(user: User) {
 	const latest = db
 		.query<{ id: number; category: string; title: string; body: string | null; link: string | null }, [number]>(

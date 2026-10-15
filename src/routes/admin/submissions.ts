@@ -71,7 +71,6 @@ adminSubmissionRoutes.get("/", (c) => {
 	);
 });
 
-/** The latest reviewed submissions, with who reviewed each and why any was denied. */
 adminSubmissionRoutes.get("/history", (c) => {
 	const staff = requireStaff(c, "helper");
 	/** A helper sees their own reviews; what the rest of the team decided is for staff. */

@@ -2,8 +2,6 @@ import { db } from "./db";
 import type { RoundOutcome } from "./game/round";
 import { notifyUser } from "./notifications";
 
-/** Achievements: earned once and kept. Games call the `check...` functions. */
-
 export const ACHIEVEMENTS = [
 	{ id: "first_game", title: "First Steps", description: "Finish a solo game.", icon: "flag" },
 	{ id: "bullseye", title: "Bullseye", description: "Guess within 150 units of the spot.", icon: "my_location" },
@@ -104,6 +102,16 @@ export function award(userId: number | null | undefined, id: AchievementId, { qu
 }
 
 /** The achievements this player has earned but not been shown. Marks them shown. */
+export function unseenCount(userId: number): number {
+	return (
+		db
+			.query<{ n: number }, [number]>(
+				"SELECT COUNT(*) AS n FROM user_achievements WHERE user_id = ? AND seen_at IS NULL"
+			)
+			.get(userId)?.n ?? 0
+	);
+}
+
 export function takeUnseen(userId: number) {
 	const keys = db
 		.query<{ key: string }, [number]>(
@@ -200,7 +208,6 @@ export function clearAchievements(userId: number): number {
 	return db.run("DELETE FROM user_achievements WHERE user_id = ?", [userId]).changes;
 }
 
-/** Every achievement there is, with when this player earned it (null if they have not). */
 export function achievementsFor(userId: number) {
 	const earned = new Map(
 		db
@@ -242,10 +249,8 @@ export function checkDaily(userId: number, score: number) {
 
 type DuelResult = {
 	won: boolean;
-	/** The winner took every round. */
 	sweep: boolean;
 	rating: number | null;
-	/** How many points the winner finished ahead by. */
 	margin: number;
 	/** This was a rematch, and the other player won the duel before it. */
 	lostLast: boolean;
@@ -253,7 +258,6 @@ type DuelResult = {
 	streak: number;
 };
 
-/** A duel that was played to the end. */
 export function checkDuel(userId: number, { won, sweep, rating, margin, lostLast, streak }: DuelResult) {
 	if (won) {
 		award(userId, "duel_win");

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { DEV_MODE, GAME } from "../config";
+import { DEV_MODE, GAME, LIMITS } from "../config";
 import { consumeState, createAuthUrl, exchangeCode, oauthConfigured } from "../auth/discord";
 import {
 	clearedSessionCookie,
@@ -20,6 +20,8 @@ import { clientIp, getCookie, safeRedirect } from "../lib/http";
 import { checkRateLimit } from "../lib/rate-limit";
 import { displayName, notify } from "../lib/webhook";
 import { activeBanReason } from "../moderation";
+import { unseenCount } from "../achievements";
+import { pendingAcknowledgement } from "../announcements";
 import { hasRole, isStaff } from "../auth/guards";
 import { publicPreferences } from "../notifications";
 import { emailState } from "../email";
@@ -142,8 +144,18 @@ authRoutes.get("/me", (c) => {
 		suggestions_agreed: !!user.suggestions_agreed,
 		prefs: publicPreferences(user),
 		email: emailState(user),
+		/** Sent here so pages only ask for the details when there is something to show. */
+		unseen_achievements: unseenCount(user.id),
+		pending_announcement: pendingAcknowledgement(user.id),
 		/** Numbers the pages show that the server also enforces, so they are only set in one place. */
 		limits: {
+			label_min: LIMITS.labelMin,
+			label_max: LIMITS.labelMax,
+			label_edit_min: LIMITS.labelEditMin,
+			hints: LIMITS.hintsPerLocation,
+			hint_length: LIMITS.hintLength,
+			upload_bytes: LIMITS.uploadBytes,
+			ticket_follow_ups: LIMITS.ticketFollowUps,
 			quickplay_rounds: GAME.duel.quickplayRounds,
 			streak_shown: GAME.duel.streakShown,
 			...(hasRole(user, STAFF_CHAT_ROLE)

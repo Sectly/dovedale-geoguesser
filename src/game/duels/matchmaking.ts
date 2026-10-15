@@ -7,9 +7,7 @@ import { createRoom, duelRooms, joinRoom, leaveWaitingRoom, type DuelRoom } from
 
 type QueueEntry = { code: string; rounds: number; rating: number };
 
-/** Players waiting alone in a quickplay room, keyed by user id. */
 const queue = new Map<number, QueueEntry>();
-/** Players who were matched and have yet to connect to their room. */
 const matched = new Map<number, string>();
 
 function waitingRoom(code: string): DuelRoom | null {
@@ -26,7 +24,6 @@ export function pruneMatchmaking() {
 	}
 }
 
-/** Finds an opponent for the user or queues them. Returns the room to connect to. */
 export function quickplay(user: User, rounds: number, canCreateRoom: () => boolean) {
 	pruneMatchmaking();
 
@@ -62,12 +59,10 @@ export function quickplay(user: User, rounds: number, canCreateRoom: () => boole
 	return { status: "waiting" as const, code: room.code };
 }
 
-/** The player has taken their seat, so the match no longer needs tracking. */
 export function markConnected(userId: number) {
 	matched.delete(userId);
 }
 
-/** Leaves the quickplay queue or backs out of a match that has not started. */
 export function cancelQuickplay(userId: number) {
 	const code = queue.get(userId)?.code ?? matched.get(userId);
 	queue.delete(userId);

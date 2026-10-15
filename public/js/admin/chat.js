@@ -1,4 +1,11 @@
-/** Staff panel: the Staff Chat tab, one room where staff talk to each other. */
+import { avatarHtml, el, errorStateHtml, escHtml, scrollBehavior, show, skeletonRows } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
+import { live } from "../lib/live.js";
+import { announceStaffChat, refreshAttention } from "../lib/attention.js";
+import { keepThreadAtBottom, linkedTextHtml, pollWhile, ticketTime } from "../tickets.js";
+import { canOpenTab, currentTab, currentUser, showConfirm } from "./core.js";
+import { ROLE_BADGE, roleName } from "./users.js";
 
 const CHAT_POLL_MS = 3000;
 const CHAT_UNREAD_POLL_MS = 20_000;
@@ -8,12 +15,10 @@ const CHAT_GROUP_SECONDS = 300;
 let _chatShown = "";
 let _chatPolling = false;
 let _chatRoom = null;
-/** Reactions that may be written as :name:. */
 let _chatEmotes = [];
 let _chatPinsOpen = false;
 let _chatPinSearch = "";
 
-/** How a member of staff hears about new messages, as the picker words it. */
 const CHAT_ALERTS = { none: "No alerts", badge: "Badge and sound", notify: "Inbox and push" };
 
 const emoteLabel = (name) => name.replaceAll("_", " ");
@@ -56,7 +61,6 @@ const chatRoleBadge = (role) =>
 		? `<span class="text-[11px] px-1.5 py-0.5 rounded ${ROLE_BADGE[role] || "bg-zinc-700 text-zinc-300"}">${roleName(role)}</span>`
 		: "";
 
-/** A button for whoever may change the pin; on a pinned message, a plain mark for everyone else. */
 function chatPinHtml(m) {
 	if (!m.pinned_at && !m.can_pin) return "";
 	if (m.pinned_at && !m.can_unpin)
@@ -174,7 +178,6 @@ async function pinChatMessage(id, pinned) {
 
 /* ---- The room ---- */
 
-/** Redraws only on a change. `toBottom` jumps to the newest message afterwards. */
 async function refreshChat(toBottom = false) {
 	let room;
 	try {
@@ -222,7 +225,6 @@ function toggleChatEmotes(open = el("chat-emotes").classList.contains("hidden"))
 	el("chat-emote-toggle").setAttribute("aria-expanded", String(open));
 }
 
-/** Inserts at the cursor, with a space either side where one is needed. */
 function insertIntoChat(text) {
 	const box = el("chat-input");
 	const before = box.value.slice(0, box.selectionStart);
@@ -271,7 +273,7 @@ async function setChatAlerts(value) {
 	refreshAttention();
 }
 
-function loadChat() {
+export function loadChat() {
 	_chatShown = "";
 	_chatRoom = null;
 	_chatEmotes = [];
@@ -350,9 +352,19 @@ async function checkChatUnread() {
 }
 
 setInterval(checkChatUnread, CHAT_UNREAD_POLL_MS);
-/** The chat tab's count follows the live stream's counts. */
 document.addEventListener("attention", (e) => {
 	if (currentTab === "chat" || !canOpenTab("chat") || currentUser?.prefs?.staff_chat === "none") return;
 	paintChatUnread(e.detail?.staff_chat ?? 0);
 });
 setTimeout(checkChatUnread, 2000);
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, {
+	deleteChatMessage,
+	filterChatPins,
+	jumpToChatMessage,
+	pinChatMessage,
+	sendChatMessage,
+	setChatAlerts,
+	toggleChatPins,
+});

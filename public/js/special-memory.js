@@ -1,5 +1,11 @@
 /** Memory Match (Specials): pairs of screenshots. The best game is kept on this device. */
 
+import "./lib/site.js";
+import { Sounds } from "./sounds.js";
+import { el, escHtml } from "./lib/dom.js";
+import { api } from "./lib/api.js";
+import { celebrate } from "./lib/effects.js";
+
 const MEMORY_PAIRS = 8;
 const MEMORY_BEST_KEY = "memory_best_turns";
 

@@ -7,7 +7,6 @@ import { requireReason } from "../../moderation";
 import { fail, intQuery, readJson, text } from "../../lib/http";
 import { DAY, nowSec } from "../../lib/time";
 
-/** Routes mounted at /api/admin/duels: how duels are going, and the record of past ones. */
 export const adminDuelRoutes = new Hono();
 
 const PAGE = 30;
@@ -45,7 +44,6 @@ adminDuelRoutes.get("/stats", (c) => {
 	);
 	return c.json({
 		finished,
-		/** Rooms that were opened but never played to the end. */
 		abandoned: one<{ n: number }>("SELECT COUNT(*) AS n FROM duel_games WHERE status = 'abandoned'").n,
 		live: {
 			playing: duelsInProgress(),
@@ -87,7 +85,6 @@ adminDuelRoutes.get("/stats", (c) => {
 	});
 });
 
-/** Every open room, private ones too. */
 adminDuelRoutes.get("/live", (c) => {
 	requireStaff(c, "admin");
 	return c.json(allOpenDuels());

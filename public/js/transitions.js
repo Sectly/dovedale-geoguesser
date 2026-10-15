@@ -1,6 +1,6 @@
 /** Gives page transitions a direction. In the <head> so it listens before the page shows. */
 (function pageTransitions() {
-	/** The header's sections in order (see NAV_LINKS in shared.js). */
+	/** The header's sections in order (see NAV_LINKS in lib/header.js). */
 	const SECTIONS = ["/play", "/daily", "/duels", "/leaderboard", "/submit"];
 
 	/** Home is 0, a section 1, a duel, profile or special 2. */

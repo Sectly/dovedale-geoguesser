@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { LIMITS } from "../src/config";
 import { db, type Location } from "../src/db";
 import { closeDuelByStaff, createRoom, joinRoom } from "../src/game/duels/rooms";
 import { utcDate } from "../src/lib/time";
@@ -122,14 +123,12 @@ describe("admin users", () => {
 			call(`/api/admin/users/${player.id}/moderation`, { as: operator }).then((r) => r.data.actions);
 		const [perm, temp, warning] = await actions();
 
-		/** Moderators issue actions but cannot take them back. */
 		expect(
 			(await post(`/api/admin/moderation/${warning.id}/overturn`, mod, { reason: "Changed my mind" })).status
 		).toBe(403);
 		expect((await post(`/api/admin/users/${player.id}/unban`, mod, { reason: "Changed my mind" })).status).toBe(
 			403
 		);
-		/** Supervisors handle warnings and temporary bans, with a reason. */
 		expect((await post(`/api/admin/moderation/${warning.id}/overturn`, supervisor, {})).status).toBe(400);
 		expect(
 			(await post(`/api/admin/moderation/${warning.id}/overturn`, supervisor, { reason: "Appeal accepted" }))
@@ -142,7 +141,6 @@ describe("admin users", () => {
 		expect(
 			(await post(`/api/admin/moderation/${temp.id}/overturn`, supervisor, { reason: "Appeal accepted" })).status
 		).toBe(200);
-		/** The permanent ban still stands, and only an operator can lift or erase it. */
 		expect((await call("/api/auth/me", { as: player })).data).toMatchObject({ is_banned: true, ban_type: "perm" });
 		expect(
 			(await post(`/api/admin/moderation/${perm.id}/overturn`, supervisor, { reason: "Appeal accepted" })).status
@@ -304,7 +302,6 @@ describe("support", () => {
 		expect(created.status).toBe(200);
 		const id = created.data.id;
 
-		/** A player can add a couple of follow-ups, then has to wait for staff. */
 		expect((await post(`/api/support/${id}/reply`, player, { message: "Forgot to say which one." })).status).toBe(
 			200
 		);
@@ -445,7 +442,6 @@ describe("locking a member of staff out", () => {
 		expect((await post(`/api/admin/users/${moderator.id}/staff-lock`, supervisor, {})).status).toBe(400);
 		expect((await post(`/api/admin/users/${moderator.id}/staff-lock`, supervisor, { reason })).status).toBe(200);
 
-		/** Their existing session stops working as staff at once. */
 		expect((await call("/api/admin/stats", { as: moderator })).status).toBe(403);
 		expect(
 			(
@@ -459,7 +455,6 @@ describe("locking a member of staff out", () => {
 		const me = (await call("/api/auth/me", { as: moderator })).data;
 		expect(me).toMatchObject({ role: null, staff_locked: true });
 		expect((await call("/api/attention", { as: moderator })).data.staff).toBeNull();
-		/** They can still play. */
 		expect((await call("/api/daily", { as: moderator })).status).toBe(200);
 
 		expect(
@@ -480,7 +475,6 @@ describe("locking a member of staff out", () => {
 		expect((await post(`/api/admin/users/${supA.id}/staff-lock`, supA, { reason })).status).toBe(403);
 		expect((await post(`/api/admin/users/${createUser().id}/staff-lock`, supA, { reason })).status).toBe(400);
 		expect((await post(`/api/admin/users/${supB.id}/staff-lock`, operator, { reason })).status).toBe(200);
-		/** A locked supervisor cannot use the powers they would need to undo it. */
 		expect((await post(`/api/admin/users/${modA.id}/staff-lock`, supB, { reason })).status).toBe(403);
 	});
 });
@@ -499,10 +493,8 @@ describe("helpers", () => {
 		const author = createUser();
 		expect((await call("/api/auth/me", { as: helper })).data.role).toBe("helper");
 
-		/** Theirs to do. */
 		expect((await call("/api/admin/submissions", { as: helper })).status).toBe(200);
 		expect((await call("/api/admin/suggestions", { as: helper })).status).toBe(200);
-		/** The whole answer list is for staff; a helper still plays the game. */
 		expect((await call("/api/admin/locations", { as: helper })).status).toBe(403);
 		expect((await call("/api/admin/locations", { as: createUser({ role: "curator" }) })).status).toBe(200);
 		expect((await post(`/api/admin/submissions/${pending(author)}/approve`, helper)).status).toBe(200);
@@ -511,7 +503,6 @@ describe("helpers", () => {
 				.status
 		).toBe(200);
 
-		/** Not theirs. */
 		const location = db.query<{ id: number }, []>("SELECT id FROM locations ORDER BY id DESC LIMIT 1").get()!.id;
 		for (const [path, body] of [
 			[`/api/admin/locations/${location}/toggle`, undefined],
@@ -524,7 +515,6 @@ describe("helpers", () => {
 			expect((await call(path, { as: helper })).status).toBe(403);
 		expect((await call(`/api/admin/locations/${location}`, { method: "DELETE", as: helper })).status).toBe(403);
 
-		/** Their queue counts only what they review. */
 		const queue = (await call("/api/attention", { as: helper })).data.staff;
 		expect(queue).toMatchObject({ tickets: 0, users: 0 });
 		expect(queue.total).toBe(queue.submissions + queue.suggestions);
@@ -534,7 +524,6 @@ describe("helpers", () => {
 		const helper = createUser({ role: "helper" });
 		const moderator = createUser({ role: "moderator" });
 
-		/** A suggestion they accept is applied, but a removal only takes the location out of play. */
 		const location = createLocation();
 		const removal = createSuggestion(location, "removal", { reason: "duplicate" });
 		expect((await post(`/api/admin/suggestions/${removal}/approve`, helper)).status).toBe(200);
@@ -545,13 +534,11 @@ describe("helpers", () => {
 			(await post(`/api/admin/suggestions/${hint}/deny`, helper, { reason: "Too vague to help" })).status
 		).toBe(200);
 
-		/** A private profile stays private to them; a moderator may look. */
 		const shy = createUser();
 		await post("/api/settings", shy, { profile_private: true });
 		expect((await call(`/api/profile/${shy.username}`, { as: helper })).status).toBe(403);
 		expect((await call(`/api/profile/${shy.username}`, { as: moderator })).status).toBe(200);
 
-		/** Maintenance locks them out with the players. */
 		setMaintenance(true, "Back soon", "test");
 		try {
 			expect((await call("/api/leaderboard/solo", { as: helper })).status).toBe(503);
@@ -562,13 +549,11 @@ describe("helpers", () => {
 			setMaintenance(false, "", "test");
 		}
 
-		/** They cannot change roles, their own included, or reach the operator tools. */
 		expect((await post(`/api/admin/users/${helper.id}/role`, helper, { role: "moderator" })).status).toBe(403);
 		expect((await post(`/api/admin/users/${shy.id}/role`, helper, { role: "helper" })).status).toBe(403);
 		for (const path of ["/api/admin/system/info", "/api/admin/announcements", `/api/admin/scores/${shy.id}`])
 			expect((await call(path, { as: helper })).status).toBe(403);
 
-		/** Suspended: the role is kept on record, but they are an ordinary player everywhere. */
 		expect(
 			(
 				await post(`/api/admin/users/${helper.id}/staff-lock`, moderator, {
@@ -602,7 +587,6 @@ describe("helpers", () => {
 		expect((await setRole(operator, recruit, "moderator")).status).toBe(200);
 		expect((await setRole(supervisor, recruit, "helper")).status).toBe(200);
 
-		/** A moderator can suspend and restore a helper, but not a fellow moderator. */
 		const lock = (as: TestUser, target: TestUser, action: "staff-lock" | "staff-unlock") =>
 			post(`/api/admin/users/${target.id}/${action}`, as, { reason: "Checking the helper lock" });
 		expect((await lock(moderator, recruit, "staff-lock")).status).toBe(200);
@@ -752,7 +736,6 @@ describe("curators, admins and helpers", () => {
 			await toggle(true);
 		}
 
-		/** Each pending submission carries only the locations near its pin. */
 		const near = createLocation({ x: 71000, y: 71000 });
 		createLocation({ x: 79000, y: 79000 });
 		const author = createUser();
@@ -765,7 +748,6 @@ describe("curators, admins and helpers", () => {
 		expect(mine.nearby.map((spot: { id: number }) => spot.id)).toEqual([near]);
 		expect(mine.nearby[0].distance).toBe(50);
 
-		/** A helper's reviewed list is their own work only. */
 		await post(`/api/admin/submissions/${mine.id}/deny`, createUser({ role: "moderator" }), {
 			reason: "Someone else reviewed it",
 		});
@@ -808,7 +790,6 @@ describe("taking back an announcement", () => {
 		expect(await inbox()).toEqual([]);
 		expect((await post(`/api/admin/announcements/${id}/recall`, admin)).status).toBe(409);
 
-		/** Past the window it stays as sent. */
 		const old = (
 			await post("/api/admin/announcements", admin, { title: "An older note", body: "Sent a while ago now." })
 		).data.id;
@@ -842,7 +823,6 @@ describe("closing a duel from the staff panel", () => {
 		expect((await post(`/api/admin/duels/live/${code}/close`, mod, { reason: "Closing it twice" })).status).toBe(
 			404
 		);
-		/** A room nobody had started leaves no record behind. */
 		expect(db.query("SELECT 1 FROM duel_games WHERE room_code = ?").get(code)).toBeNull();
 	});
 
@@ -886,7 +866,6 @@ describe("staff chat", () => {
 		const before = await unread(moderator);
 		const sent = await post("/api/admin/chat", curator, { body: "  Queue is clear  " });
 		expect(sent.status).toBe(200);
-		/** New to everyone but the one who wrote it, until they open the room. */
 		expect(await unread(curator)).toBe(0);
 		expect(await unread(moderator)).toBe(before + 1);
 		expect((await chat(moderator)).at(-1)).toMatchObject({
@@ -917,7 +896,6 @@ describe("staff chat", () => {
 		const ids = (await chat(peer)).map((m: { id: number }) => m.id);
 		expect(ids).not.toContain(first);
 		expect(ids).not.toContain(second);
-		/** Removing someone else's message leaves a trace; removing your own does not. */
 		const logged = db
 			.query<{ n: number }, [number]>(
 				"SELECT COUNT(*) AS n FROM audit_log WHERE action = 'staff_chat_delete' AND actor_id = ?"
@@ -946,7 +924,6 @@ describe("staff chat pins", () => {
 		expect((await pin(ids[0], createUser({ role: "helper" }))).status).toBe(403);
 		for (const id of ids.slice(0, limit)) expect((await pin(id, curator)).status).toBe(200);
 		expect((await pin(ids[limit], curator)).status).toBe(409);
-		/** Pinning what is already pinned changes nothing, and does not count against anyone. */
 		expect((await pin(ids[0], moderator)).status).toBe(200);
 		expect(await room(moderator)).toMatchObject({ pins_used: 0 });
 
@@ -971,19 +948,16 @@ describe("staff chat pins", () => {
 		const flags = async (id: number, as: TestUser) =>
 			(await room(as)).messages.find((m: { id: number }) => m.id === id);
 
-		/** Pinning: your own, or a lower role's. */
 		const fromMod = await write(modB, "From a moderator");
 		expect(await flags(fromMod, modA)).toMatchObject({ can_pin: false, can_delete: false });
 		expect((await pin(fromMod, modA)).status).toBe(403);
 		expect((await pin(await write(curator, "From a curator"), modA)).status).toBe(200);
 		expect((await pin(fromMod, supA)).status).toBe(200);
 
-		/** A pin comes off for whoever placed it, or for senior staff above them. */
 		expect(await flags(fromMod, supB)).toMatchObject({ can_unpin: false });
 		for (const other of [modB, supB]) expect((await pin(fromMod, other, false)).status).toBe(403);
 		expect((await pin(fromMod, admin, false)).status).toBe(200);
 
-		/** Deleting someone else's: senior staff only, and only below their own rank. */
 		const fromSup = await write(supA, "From a supervisor");
 		for (const other of [modA, supB]) expect((await remove(fromSup, other)).status).toBe(403);
 		expect((await remove(await write(admin, "From an administrator"), supA)).status).toBe(403);
@@ -1023,7 +997,6 @@ describe("staff chat alerts", () => {
 			createUser({ role: "supervisor" }),
 			createUser({ role: "helper" }),
 		];
-		/** Everyone starts on the count. */
 		expect((await call("/api/auth/me", { as: counted })).data.prefs.staff_chat).toBe("badge");
 		expect((await choose(quiet, "none")).data.prefs.staff_chat).toBe("none");
 		expect((await choose(told, "notify")).data.prefs.staff_chat).toBe("notify");
@@ -1038,13 +1011,11 @@ describe("staff chat alerts", () => {
 		expect((await attention(helper)).staff_chat).toBe(0);
 		for (const untold of [quiet, counted, helper, author]) expect(await inbox(untold)).toHaveLength(0);
 
-		/** One entry however many messages, with none of what was said. */
 		const entries = await inbox(told);
 		expect(entries).toHaveLength(1);
 		expect(entries[0]).toMatchObject({ body: null, link: "/admin#chat", read_at: null });
 		expect(JSON.stringify(entries)).not.toContain("secret plan");
 
-		/** Opening the room reads it, and the next message brings a new one. */
 		await call("/api/admin/chat", { as: told });
 		expect((await inbox(told))[0].read_at).not.toBeNull();
 		expect((await attention(told)).staff_chat).toBe(0);
@@ -1057,7 +1028,17 @@ describe("numbers the pages show", () => {
 	test("come from the server, and only staff hear the chat's", async () => {
 		const me = async (as: TestUser) => (await call("/api/auth/me", { as })).data.limits;
 		const player = await me(createUser());
-		expect(player).toEqual({ quickplay_rounds: expect.any(Number), streak_shown: expect.any(Number) });
+		expect(player).toEqual({
+			label_min: LIMITS.labelMin,
+			label_max: LIMITS.labelMax,
+			label_edit_min: LIMITS.labelEditMin,
+			hints: LIMITS.hintsPerLocation,
+			hint_length: LIMITS.hintLength,
+			upload_bytes: LIMITS.uploadBytes,
+			ticket_follow_ups: LIMITS.ticketFollowUps,
+			quickplay_rounds: expect.any(Number),
+			streak_shown: expect.any(Number),
+		});
 		const curator = await me(createUser({ role: "curator" }));
 		expect(curator.chat_retention_days).toBeGreaterThan(0);
 		expect(curator.chat_pin_limits.curator).toBeLessThan(curator.chat_pin_limits.operator);

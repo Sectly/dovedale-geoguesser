@@ -1,3 +1,9 @@
+import "./lib/site.js";
+import { MapCanvas } from "./map-canvas.js";
+import { el, errorStateHtml, escHtml } from "./lib/dom.js";
+import { api, fetchUser } from "./lib/api.js";
+import { showToast } from "./lib/toast.js";
+
 let currentUser = null,
 	mapCanvas = null,
 	pinWorld = null,
@@ -68,9 +74,7 @@ async function init() {
 
 		const visible = [];
 		for (const loc of allLocPins) {
-			const cp = mapCanvas.worldToCanvas(loc.world_x, loc.world_y);
-			const sx = cp.x * t.a + cp.y * t.c + t.e;
-			const sy = cp.x * t.b + cp.y * t.d + t.f;
+			const { x: sx, y: sy } = mapCanvas._screenPos(loc.world_x, loc.world_y);
 			if (sx < -PAD || sx > vw + PAD || sy < -PAD || sy > vh + PAD) continue;
 			visible.push({ id: loc.id, sx, sy });
 		}
@@ -79,22 +83,16 @@ async function init() {
 		ctx.save();
 		ctx.resetTransform();
 
-		ctx.fillStyle = "#f97316";
-		ctx.beginPath();
+		const dots = new Path2D();
 		for (const { sx, sy } of visible) {
-			ctx.moveTo(sx + R, sy);
-			ctx.arc(sx, sy, R, 0, Math.PI * 2);
+			dots.moveTo(sx + R, sy);
+			dots.arc(sx, sy, R, 0, Math.PI * 2);
 		}
-		ctx.fill();
-
+		ctx.fillStyle = "#f97316";
+		ctx.fill(dots);
 		ctx.strokeStyle = "#fff";
 		ctx.lineWidth = 1.5;
-		ctx.beginPath();
-		for (const { sx, sy } of visible) {
-			ctx.moveTo(sx + R, sy);
-			ctx.arc(sx, sy, R, 0, Math.PI * 2);
-		}
-		ctx.stroke();
+		ctx.stroke(dots);
 
 		if (t.a >= 1.5) {
 			ctx.fillStyle = "#fff";
@@ -187,7 +185,6 @@ const _policyTs = (() => {
 })();
 let _policyAgreed = !!_policyTs && Date.now() - _policyTs < 24 * 60 * 60 * 1000;
 
-/** Draws a line from where the location is now to where the suggested pin puts it. */
 function drawCorrectionLine(toX, toY) {
 	const current = _allLocPinsCache.find((l) => l.id === selectedLocId);
 	mapCanvas.guessLines = [];
@@ -222,7 +219,6 @@ function switchMode(m) {
 
 let _eligibility = null;
 
-/** What is still needed before suggestions open, as two bars. */
 function suggestProgressHtml(progress) {
 	if (!progress) return "";
 	const bar = (label, { have, need }, unit) => {
@@ -309,29 +305,41 @@ function updateStep3(done) {
 	}
 }
 
-function addHintField() {
-	const list = el("hints-list");
-	if (list.children.length >= 3) return;
-	const idx = list.children.length;
+/** Adds a hint box to `listId`, up to three. `onChange` runs as the list or its text changes. */
+function addHintRow(listId, addBtnId, onChange = () => {}) {
+	const list = el(listId);
+	const max = currentUser.limits.hints;
+	if (list.children.length >= max) return;
 	const wrap = document.createElement("div");
 	wrap.className = "flex items-center gap-2";
 	const inp = document.createElement("input");
 	inp.type = "text";
-	inp.maxLength = 150;
-	inp.placeholder = "Hint " + (idx + 1);
+	inp.maxLength = currentUser.limits.hint_length;
+	inp.placeholder = "Hint " + (list.children.length + 1);
 	inp.className =
 		"flex-1 bg-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600";
+	inp.addEventListener("input", onChange);
 	const removeBtn = document.createElement("button");
 	removeBtn.className = "text-zinc-500 hover:text-red-400 transition flex-shrink-0";
 	removeBtn.innerHTML = '<span class="material-symbols-outlined text-base">close</span>';
 	removeBtn.addEventListener("click", () => {
 		wrap.remove();
-		if (list.children.length < 3) el("add-hint-btn").style.display = "";
+		if (list.children.length < max) el(addBtnId).style.display = "";
+		onChange();
 	});
-	wrap.appendChild(inp);
-	wrap.appendChild(removeBtn);
+	wrap.append(inp, removeBtn);
 	list.appendChild(wrap);
-	if (list.children.length >= 3) el("add-hint-btn").style.display = "none";
+	if (list.children.length >= max) el(addBtnId).style.display = "none";
+	onChange();
+	return inp;
+}
+
+function addHintField() {
+	return addHintRow("hints-list", "add-hint-btn");
+}
+
+function addFeHintField() {
+	return addHintRow("fe-hints-list", "fe-add-hint-btn", checkSuggestReady);
 }
 
 function getHints() {
@@ -343,7 +351,7 @@ function getHints() {
 function onFileChange() {
 	const file = el("file-input").files[0];
 	if (!file) return;
-	if (file.size > 8 * 1024 * 1024) {
+	if (file.size > currentUser.limits.upload_bytes) {
 		showError("File too large (max 8MB).");
 		return;
 	}
@@ -369,8 +377,8 @@ function clearFile() {
 	checkReady();
 }
 
-const LABEL_MIN = 5;
-const LABEL_MAX = 128;
+const labelMin = () => currentUser.limits.label_min;
+const labelMax = () => currentUser.limits.label_max;
 
 function getLabel() {
 	return el("label-input").value.trim();
@@ -378,7 +386,7 @@ function getLabel() {
 
 function isLabelValid() {
 	const len = getLabel().length;
-	return len >= LABEL_MIN && len <= LABEL_MAX;
+	return len >= labelMin() && len <= labelMax();
 }
 
 function updateLabelHint() {
@@ -386,13 +394,13 @@ function updateLabelHint() {
 	const len = getLabel().length;
 	if (len === 0) {
 		hint.className = "text-zinc-600 text-xs mt-1";
-		hint.textContent = "Required · 5-128 characters. Describe where the photo was taken.";
-	} else if (len < LABEL_MIN) {
+		hint.textContent = `Required · ${labelMin()}-${labelMax()} characters. Describe where the photo was taken.`;
+	} else if (len < labelMin()) {
 		hint.className = "text-red-400 text-xs mt-1";
-		hint.textContent = `Label is too short - ${LABEL_MIN - len} more character${LABEL_MIN - len === 1 ? "" : "s"} needed.`;
+		hint.textContent = `Label is too short - ${labelMin() - len} more character${labelMin() - len === 1 ? "" : "s"} needed.`;
 	} else {
 		hint.className = "text-zinc-600 text-xs mt-1";
-		hint.textContent = `${len}/${LABEL_MAX} characters`;
+		hint.textContent = `${len}/${labelMax()} characters`;
 	}
 }
 
@@ -412,7 +420,7 @@ async function submitLocation() {
 	if (!selectedFile || !pinWorld) return;
 	const label = getLabel();
 	if (!isLabelValid()) {
-		showError(`Label must be between ${LABEL_MIN} and ${LABEL_MAX} characters.`);
+		showError(`Label must be between ${labelMin()} and ${labelMax()} characters.`);
 		el("label-input").focus();
 		return;
 	}
@@ -440,12 +448,8 @@ async function submitLocation() {
 
 function resetNew() {
 	el("success-screen").classList.add("hidden");
-	selectedFile = null;
 	pinWorld = null;
-	el("file-input").value = "";
-	el("preview-container").classList.add("hidden");
-	el("upload-icon").textContent = "upload";
-	el("upload-label-text").textContent = "Click to upload or drag & drop";
+	clearFile();
 	el("label-input").value = "";
 	el("hints-list").innerHTML = "";
 	el("add-hint-btn").style.display = "";
@@ -579,19 +583,26 @@ function switchSuggestType(type) {
 	checkSuggestReady();
 }
 
-function onSugFileChange() {
-	const file = el("sug-file-input").files[0];
-	if (!file) return;
-	if (file.size > 8 * 1024 * 1024) {
+/** Previews the screenshot picked in a suggestion form (`prefix` "sug" or "fe"). Returns it, or null. */
+function pickSuggestImage(prefix) {
+	const file = el(`${prefix}-file-input`).files[0];
+	if (!file) return null;
+	if (file.size > currentUser.limits.upload_bytes) {
 		el("suggest-error").textContent = "File too large.";
 		el("suggest-error").classList.remove("hidden");
-		return;
+		return null;
 	}
+	el(`${prefix}-preview-img`).src = URL.createObjectURL(file);
+	el(`${prefix}-preview-wrap`).classList.remove("hidden");
+	el(`${prefix}-img-icon`).textContent = "photo";
+	el(`${prefix}-img-label`).textContent = file.name;
+	return file;
+}
+
+function onSugFileChange() {
+	const file = pickSuggestImage("sug");
+	if (!file) return;
 	suggestFile = file;
-	el("sug-preview-img").src = URL.createObjectURL(file);
-	el("sug-preview-wrap").classList.remove("hidden");
-	el("sug-img-icon").textContent = "photo";
-	el("sug-img-label").textContent = file.name;
 	checkSuggestReady();
 }
 
@@ -670,46 +681,9 @@ async function submitSuggestion() {
 }
 
 function onFeFileChange() {
-	const file = el("fe-file-input").files[0];
+	const file = pickSuggestImage("fe");
 	if (!file) return;
-	if (file.size > 8 * 1024 * 1024) {
-		el("suggest-error").textContent = "File too large.";
-		el("suggest-error").classList.remove("hidden");
-		return;
-	}
 	feFile = file;
-	el("fe-preview-img").src = URL.createObjectURL(file);
-	el("fe-preview-wrap").classList.remove("hidden");
-	el("fe-img-icon").textContent = "photo";
-	el("fe-img-label").textContent = file.name;
-	checkSuggestReady();
-}
-
-function addFeHintField() {
-	const list = el("fe-hints-list");
-	if (list.children.length >= 3) return;
-	const idx = list.children.length;
-	const wrap = document.createElement("div");
-	wrap.className = "flex items-center gap-2";
-	const inp = document.createElement("input");
-	inp.type = "text";
-	inp.maxLength = 150;
-	inp.placeholder = "Hint " + (idx + 1);
-	inp.className =
-		"flex-1 bg-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600";
-	inp.addEventListener("input", checkSuggestReady);
-	const removeBtn = document.createElement("button");
-	removeBtn.className = "text-zinc-500 hover:text-red-400 transition flex-shrink-0";
-	removeBtn.innerHTML = '<span class="material-symbols-outlined text-base">close</span>';
-	removeBtn.addEventListener("click", () => {
-		wrap.remove();
-		if (list.children.length < 3) el("fe-add-hint-btn").style.display = "";
-		checkSuggestReady();
-	});
-	wrap.appendChild(inp);
-	wrap.appendChild(removeBtn);
-	list.appendChild(wrap);
-	if (list.children.length >= 3) el("fe-add-hint-btn").style.display = "none";
 	checkSuggestReady();
 }
 
@@ -747,17 +721,12 @@ async function togglePinView() {
 
 function findNearestPin(wx, wy) {
 	const THRESHOLD_PX = 22;
-	const t = mapCanvas.ctx.getTransform();
-	const clickC = mapCanvas.worldToCanvas(wx, wy);
-	const clickSx = clickC.x * t.a + clickC.y * t.c + t.e;
-	const clickSy = clickC.x * t.b + clickC.y * t.d + t.f;
+	const click = mapCanvas._screenPos(wx, wy);
 	let best = null,
 		bestDist = THRESHOLD_PX;
 	for (const loc of allLocPins) {
-		const cp = mapCanvas.worldToCanvas(loc.world_x, loc.world_y);
-		const sx = cp.x * t.a + cp.y * t.c + t.e;
-		const sy = cp.x * t.b + cp.y * t.d + t.f;
-		const dist = Math.sqrt((sx - clickSx) ** 2 + (sy - clickSy) ** 2);
+		const pos = mapCanvas._screenPos(loc.world_x, loc.world_y);
+		const dist = Math.hypot(pos.x - click.x, pos.y - click.y);
 		if (dist < bestDist) {
 			bestDist = dist;
 			best = loc;
@@ -773,15 +742,13 @@ function redrawPins() {
 el("panel-new").style.display = "flex";
 el("panel-suggest").style.display = "none";
 
-/** Fills the form back in when arriving from "Fix and send again" on a denied submission. */
 function prefillResend() {
 	const params = new URLSearchParams(location.search);
 	if (!mapCanvas || !params.has("label")) return;
-	el("label-input").value = params.get("label").slice(0, 128);
-	for (const hint of params.getAll("hint").slice(0, 3)) {
-		addHintField();
-		const input = el("hints-list").lastElementChild?.querySelector("input");
-		if (input) input.value = hint.slice(0, 150);
+	el("label-input").value = params.get("label").slice(0, labelMax());
+	for (const hint of params.getAll("hint").slice(0, currentUser.limits.hints)) {
+		const input = addHintField();
+		if (input) input.value = hint.slice(0, currentUser.limits.hint_length);
 	}
 	const x = parseFloat(params.get("x"));
 	const y = parseFloat(params.get("y"));
@@ -807,7 +774,6 @@ function showFineControls(slotId) {
 	controls.classList.remove("hidden");
 }
 
-/** The pin the fine controls move: a new location's, or the correction in Suggest Change. */
 function nudgeTarget() {
 	if (mode === "new") return pinWorld;
 	return mode === "suggest" && suggestType === "coordinates" ? suggestPinWorld : null;

@@ -1,4 +1,22 @@
-/** Staff panel: reviewing suggested changes to locations. */
+import { el, errorStateHtml, escHtml, locId } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
+import { refreshAttention } from "../lib/attention.js";
+import {
+	atLeast,
+	bindPanelSearch,
+	emptyQueueHtml,
+	mountReviewMap,
+	panelSearchInput,
+	restorePanelSearch,
+	reviewHeader,
+	reviewViewChips,
+	reviewedRowHtml,
+	openDenyDialog,
+	staffUserLink,
+	userFilterSelect,
+} from "./core.js";
+import { shortAgo } from "./overview.js";
 
 let _suggestions = [];
 let _suggestionUser = "";
@@ -14,7 +32,7 @@ const SUGGESTION_TYPES = {
 };
 const sugCode = (id) => `SUG-${String(id).padStart(4, "0")}`;
 
-async function loadSuggestions() {
+export async function loadSuggestions() {
 	try {
 		_suggestions = await api("/api/admin/suggestions");
 		if (_suggestionView === "reviewed") return setSuggestionView("reviewed");
@@ -35,7 +53,6 @@ function suggestionContent(s) {
 	}
 }
 
-/** The pin a suggestion would move the location to, or null when it leaves the pin alone. */
 function suggestedPin(s, content) {
 	const moves = s.type === "coordinates" || s.type === "full_edit";
 	return moves && Number.isFinite(content.world_x) && Number.isFinite(content.world_y)
@@ -184,7 +201,6 @@ function renderSuggestions() {
 	restorePanelSearch(search);
 }
 
-/** Shows the current pin and the suggested one, on the shared map. */
 function showSuggestionMap(id) {
 	const s = _suggestions.find((item) => item.id === id);
 	const pin = s && suggestedPin(s, suggestionContent(s));
@@ -215,8 +231,7 @@ async function approveSuggestion(id) {
 }
 
 function denySuggestion(id) {
-	denyTargetId = null;
-	denyCallback = async (reason) => {
+	openDenyDialog(`Deny ${sugCode(id)}`, null, async (reason) => {
 		try {
 			await api(`/api/admin/suggestions/${id}/deny`, { json: { reason } });
 			showToast(`${sugCode(id)} denied.`);
@@ -224,10 +239,15 @@ function denySuggestion(id) {
 		} catch (err) {
 			showToast(err.message || "Couldn't deny it.", "error");
 		}
-	};
-	el("deny-modal-title").textContent = `Deny ${sugCode(id)}`;
-	el("deny-reason").value = "";
-	el("deny-reason").dispatchEvent(new Event("input"));
-	el("deny-modal").classList.remove("hidden");
-	setTimeout(() => el("deny-reason").focus(), 50);
+	});
 }
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, {
+	approveSuggestion,
+	denySuggestion,
+	loadSuggestions,
+	setSuggestionUser,
+	setSuggestionView,
+	showSuggestionMap,
+});

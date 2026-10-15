@@ -1,4 +1,9 @@
-/** Staff panel: the Duels tab. How duels are going, and the record of past ones. */
+import { el, errorStateHtml, escHtml } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
+import { atLeast, reviewHeader } from "./core.js";
+import { statCard, statHeading } from "./locations.js";
+import { askReason, formatWhen } from "./users.js";
 
 let _duelKind = "";
 let _duelSearch = "";
@@ -6,19 +11,17 @@ let _duelGames = [];
 let _duelMore = false;
 let _duelDetail = new Map();
 let _openDuel = null;
-/** Rooms waiting or being played right now. */
 let _openDuels = [];
 
 const DUEL_KINDS = { "": "All", quickplay: "Quick Play", private: "Private rooms" };
 
-/** "4m 12s": how long a duel took. */
 function duelLength(game) {
 	if (!game.finished_at) return "";
 	const seconds = Math.max(0, game.finished_at - game.created_at);
 	return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
 }
 
-async function loadDuels() {
+export async function loadDuels() {
 	let stats;
 	try {
 		[stats, _openDuels] = await Promise.all([
@@ -130,7 +133,6 @@ async function closeOpenDuel(code) {
 	}
 }
 
-/** Fetches a page of past duels. Page 0 replaces the list, later ones add to it. */
 async function fetchDuels(offset) {
 	const params = new URLSearchParams({ offset });
 	if (_duelKind) params.set("kind", _duelKind);
@@ -153,7 +155,6 @@ async function moreDuels() {
 	renderDuelList();
 }
 
-/** Opens a duel's rounds, fetched the first time it is opened. */
 async function toggleDuel(id) {
 	_openDuel = _openDuel === id ? null : id;
 	if (_openDuel && !_duelDetail.has(id)) {
@@ -226,3 +227,6 @@ function renderDuelList() {
 				: "")
 		: '<p class="text-sm text-zinc-500 text-center py-8">No duels match.</p>';
 }
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, { closeOpenDuel, loadDuels, moreDuels, setDuelKind, toggleDuel });

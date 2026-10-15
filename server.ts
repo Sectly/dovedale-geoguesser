@@ -53,7 +53,6 @@ notify(
 	"/admin#stats"
 );
 
-/** Stop cleanly when the host stops or restarts us. */
 process.on("SIGTERM", () => stopCleanly("SIGTERM received"));
 process.on("SIGINT", () => stopCleanly("SIGINT received"));
 /** `pm2 sendSignal SIGUSR2` (see deploy.sh) asks for a restart with the usual warning to players. */

@@ -8,18 +8,15 @@ import { checkRateLimit } from "../../lib/rate-limit";
 import { DAY } from "../../lib/time";
 import { STAFF_CHAT_ROLE, notifyUser, parsePreferences } from "../../notifications";
 
-/** Routes mounted at /api/admin/chat: one room where staff talk to each other. */
 export const adminChatRoutes = new Hono();
 
 const CHAT_ROLE = STAFF_CHAT_ROLE;
 /** Who may delete someone else's message or take off someone else's pin, and then only a lower role's. */
 const CHAT_MODERATOR_ROLE: Role = "supervisor";
 const MESSAGE_MAX = 1000;
-/** How many of the newest messages the room shows. */
 const SHOWN = 150;
 /** Messages older than this many days are deleted by the nightly clean-up, unless they are pinned. */
 export const CHAT_RETENTION_DAYS = 90;
-/** How many messages each member of staff may have pinned at once, by role. */
 export const PIN_LIMITS: Partial<Record<Role, number>> = {
 	curator: 3,
 	moderator: 5,
@@ -108,7 +105,6 @@ adminChatRoutes.get("/", (c) => {
 	});
 });
 
-/** How many messages from other staff have arrived since this one last had the room open. */
 adminChatRoutes.get("/unread", (c) => {
 	const staff = requireStaff(c, CHAT_ROLE);
 	const unread =

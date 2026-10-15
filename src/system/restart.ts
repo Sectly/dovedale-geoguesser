@@ -57,7 +57,6 @@ let watcher: ReturnType<typeof setInterval> | null = null;
 const WATCH_MS = 2000;
 let stopping = false;
 
-/** Seconds until a planned restart, or null when none is coming. */
 export function restartIn(): number | null {
 	return dueAt === null ? null : Math.max(0, Math.ceil((dueAt - Date.now()) / 1000));
 }

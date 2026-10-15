@@ -11,7 +11,6 @@ import { escapeXml } from "../og/cards";
 import { OG_VERSION } from "./og";
 import { findProfile } from "./profile";
 
-/** HTML pages, static files, the sitemap and the 404 page. */
 export const pageRoutes = new Hono();
 
 const PAGES: Record<string, string> = {
@@ -48,12 +47,41 @@ function assetVersion(path: string): string {
 	}
 }
 
+let importMapTag = "";
+
+/** Hashed addresses for every module, so imports cache like script tags and no module loads twice. */
+function importMap(): string {
+	if (importMapTag && !DEV_MODE) return importMapTag;
+	const imports: Record<string, string> = {};
+	for (const file of new Bun.Glob("js/**/*.js").scanSync(PUBLIC_DIR)) {
+		const path = `/${file.replace(/\\/g, "/")}`;
+		imports[path] = `${path}?v=${assetVersion(path)}`;
+	}
+	importMapTag = `<script type="importmap">${JSON.stringify({ imports })}</script>`;
+	return importMapTag;
+}
+
+/** Every module an entry imports, directly or not, so the browser can fetch them at once instead of level by level. */
+function moduleGraph(entry: string, seen = new Set<string>()): Set<string> {
+	if (seen.has(entry)) return seen;
+	seen.add(entry);
+	let source = "";
+	try {
+		source = readFileSync(join(PUBLIC_DIR, entry), "utf8");
+	} catch {
+		return seen;
+	}
+	for (const [, from, bare] of source.matchAll(/\bfrom\s+"(\.[^"]+)"|^import\s+"(\.[^"]+)"/gm))
+		moduleGraph(new URL(from ?? bare, `http://x${entry}`).pathname, seen);
+	return seen;
+}
+
 /** Loads a page from public/: hashes script and style URLs, makes share-image URLs absolute. */
 function loadPage(file: string): Page {
 	const cached = pageCache.get(file);
 	if (cached && !DEV_MODE) return cached;
 
-	const html = readFileSync(join(PUBLIC_DIR, file), "utf8")
+	let html = readFileSync(join(PUBLIC_DIR, file), "utf8")
 		.replace(
 			/\b(src|href)="(\/(?:js|css)\/[^"?#]+)(?:\?[^"]*)?"/g,
 			(_, attr, path) => `${attr}="${path}?v=${assetVersion(path)}"`
@@ -62,6 +90,14 @@ function loadPage(file: string): Page {
 			/content="\/og\.png\?type=(\w+)"/g,
 			(_, type) => `content="${SITE_URL}/og.png?type=${type}&v=${OG_VERSION}"`
 		);
+	const entry = html.match(/<script type="module" src="(\/js\/[^"?]+)/)?.[1];
+	if (entry) {
+		const preload = [...moduleGraph(entry)]
+			.slice(1)
+			.map((path) => `<link rel="modulepreload" href="${path}?v=${assetVersion(path)}" />`);
+		/** The import map has to come before the first module script. */
+		html = html.replace("</head>", `${importMap()}\n${preload.join("\n")}\n</head>`);
+	}
 	const page = { html, etag: `"${Bun.hash(html).toString(36)}"` };
 	pageCache.set(file, page);
 	return page;
@@ -78,7 +114,6 @@ function sendHtml(c: Context, html: string, etag?: string, status: 200 | 404 = 2
 
 type Meta = { title: string; description: string; image: string; url: string; type: "website" | "profile" };
 
-/** Replaces a page's title, description and share tags with ones for a specific room or profile. */
 function withMeta(html: string, meta: Meta): string {
 	const e = escapeXml;
 	const image = `${SITE_URL}${meta.image}&v=${OG_VERSION}`;
@@ -190,7 +225,6 @@ pageRoutes.get("/sitemap.xml", (c) => {
 	);
 });
 
-/** Serves a file from below `root`, or returns null when there is no such file. */
 function sendFile(c: Context, root: string, relativePath: string, cacheControl: string) {
 	let decoded: string;
 	try {
@@ -275,14 +309,13 @@ pageRoutes.get("*", (c) => {
 	if (path.startsWith("/api/")) return notFound(c);
 	/** Hashed scripts and styles are cached for ever; the rest is revalidated. */
 	const hashed = /^\/(js|css)\//.test(path) && c.req.query("v") !== undefined;
-	const isMedia = /\.(png|webp|svg|ico|jpg|woff2)$/.test(path);
+	const isMedia = /\.(png|webp|avif|svg|ico|jpg|woff2)$/.test(path);
 	const cacheControl = hashed ? IMMUTABLE : isMedia ? "public, max-age=3600, must-revalidate" : "no-cache";
 	return sendFile(c, PUBLIC_DIR, path.slice(1), cacheControl) ?? notFound(c);
 });
 
 export { notFound };
 
-/** True when the browser is loading a page, rather than a script calling the API. */
 export function wantsPage(c: Context): boolean {
 	return (
 		c.req.method === "GET" &&

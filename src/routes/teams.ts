@@ -23,7 +23,6 @@ import { checkUserRateLimit } from "../lib/rate-limit";
 import { HOUR } from "../lib/time";
 import { liveSpecial } from "../specials";
 
-/** Routes mounted at /api/teams: the 2v2 team mode in Specials. */
 export const teamRoutes = new Hono();
 
 function requireTeamPlayer(c: Context): User {

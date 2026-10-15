@@ -7,7 +7,6 @@ import { DATA_DIR } from "./config";
 
 export const BACKUP_DIR = join(DATA_DIR, "backups");
 
-/** How many of each kind are kept. */
 export const BACKUP_LIMITS = {
 	/** One a day, made by the hourly maintenance job. */
 	daily: 7,
@@ -43,7 +42,6 @@ export function listBackups() {
 		.sort((a, b) => b.created_at - a.created_at || b.name.localeCompare(a.name));
 }
 
-/** Removes the oldest backups of a kind beyond its limit. */
 function prune(kind: BackupKind) {
 	const ofKind = listBackups().filter((b) => b.kind === kind);
 	for (const old of ofKind.slice(BACKUP_LIMITS[kind])) unlinkSync(join(BACKUP_DIR, old.name));

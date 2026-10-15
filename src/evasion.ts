@@ -49,11 +49,9 @@ type LinkedAccount = {
 	is_banned: number;
 	ban_type: string | null;
 	ban_expires_at: number | null;
-	/** The strongest signal the two accounts share. */
 	signal: Signal;
 };
 
-/** Other accounts that share a device or browser signal with this one. */
 export function linkedAccounts(userId: number): LinkedAccount[] {
 	return db
 		.query<LinkedAccount, [number]>(
@@ -112,7 +110,6 @@ const OPEN_FLAGS = `FROM evasion_flags f
 	WHERE f.dismissed_at IS NULL AND u.is_banned = 0 AND u.role IS NULL AND u.username != '[deleted]'
 		AND b.is_banned = 1 AND (b.ban_type = 'perm' OR b.ban_expires_at > unixepoch())`;
 
-/** Flags still waiting for a decision. */
 export function openEvasionFlags() {
 	return db
 		.query(

@@ -22,7 +22,6 @@ function clip(text: string, max: number): string {
 	return text.length > max ? text.slice(0, max - 3) + "..." : text;
 }
 
-/** The compass mark and site name that sit in the corner of every card. */
 function brand(x: number, y: number): string {
 	return `<circle cx="${x + 22}" cy="${y}" r="22" fill="${PRIMARY}"/>
   <circle cx="${x + 22}" cy="${y}" r="13" fill="none" stroke="#fff" stroke-width="3"/>

@@ -47,7 +47,6 @@ const achievements = (u: TestUser) =>
 		.map((r) => r.key);
 const operator = () => createUser({ role: "operator" });
 
-/** Plays a one-round duel in which `winner` guesses the spot exactly and the other misses. */
 function playDuel(winner: TestUser, loser: TestUser, quick: boolean, prepare?: (room: DuelRoom) => void) {
 	const room = createRoom(winner.id, 1, quick);
 	joinRoom(room.code, loser.id);
@@ -176,7 +175,6 @@ describe("small touches", () => {
 			}
 			return last.data.summary;
 		};
-		/** A first game is not a "new best"; there was nothing to beat. */
 		const far = await play(900000);
 		expect(far).toMatchObject({ personal_best: false, previous_best: null });
 		const near = await play(0);
@@ -226,7 +224,6 @@ describe("achievements", () => {
 		checkRound(late.id, { ...guess, timeTaken: 56.5 }, 60);
 		expect(achievements(late)).toContain("last_call");
 
-		/** The loser starts far enough ahead to finish just short of the winner. */
 		const [narrow, close] = [createUser(), createUser()];
 		const { end } = playDuel(narrow, close, false, (room) => (room.players[1].totalScore = 4950));
 		expect(end.scores[0].total_score - end.scores[1].total_score).toBeLessThan(100);
@@ -279,7 +276,6 @@ describe("achievements", () => {
 		);
 		expect(achievements(veteran)).not.toContain("streak_30");
 		expect((await call("/api/achievements/unseen", { as: veteran })).data).toEqual([]);
-		/** Running it again gives nothing twice. */
 		const before = achievements(veteran).length;
 		backfillAchievements();
 		expect(achievements(veteran).length).toBe(before);

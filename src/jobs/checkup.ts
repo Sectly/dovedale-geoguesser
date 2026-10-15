@@ -19,7 +19,6 @@ type Finding = {
 	text: string;
 	/** Serious findings go to the staff channel; the rest only to the log. */
 	serious?: boolean;
-	/** Set when the check-up dealt with it itself. */
 	fixed?: boolean;
 };
 
@@ -43,7 +42,6 @@ const count = (sql: string, ...params: (string | number)[]) =>
 	db.query<{ n: number }, (string | number)[]>(sql).get(...params)?.n ?? 0;
 const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
-/** Looks the site over, fixing what it safely can. Returns what it found. */
 export async function checkUp(
 	now = Math.floor(Date.now() / 1000),
 	{ updates = UPDATES_ENABLED } = {}
@@ -161,7 +159,6 @@ function unreported(found: Finding[], now: number): Finding[] {
 	return due;
 }
 
-/** Runs the check-up once per UTC day. Returns what was sent to staff. */
 export async function dailyCheckUp(
 	today = new Date().toISOString().slice(0, 10),
 	options: { updates?: boolean } = {}

@@ -11,7 +11,6 @@ export function parseHints(raw: string | null | undefined): string[] {
 	}
 }
 
-/** Cleans a hint list from untrusted input (an array, or a JSON string holding one). */
 export function cleanHints(input: unknown): string[] {
 	let list: unknown = input;
 	if (typeof input === "string") {
@@ -72,7 +71,6 @@ export function recordLocationPlay(locationId: number, score: number) {
 	}
 }
 
-/** How hard a location has proved to be, or null until enough people have guessed it. */
 export function difficultyOf(locationId: number): Difficulty | null {
 	const row = db
 		.query<{ plays: number; recent_sum: number }, [number]>(
@@ -82,7 +80,6 @@ export function difficultyOf(locationId: number): Difficulty | null {
 	return row ? grade(row.plays, row.recent_sum) : null;
 }
 
-/** The grade of every location that has one. */
 function gradedLocations(): Map<number, Difficulty> {
 	const graded = new Map<number, Difficulty>();
 	for (const row of db
@@ -96,7 +93,6 @@ function gradedLocations(): Map<number, Difficulty> {
 	return graded;
 }
 
-/** How many active locations there are of each grade, for the page to offer only what can be played. */
 export function difficultyCounts(): Record<Difficulty, number> {
 	const counts = { easy: 0, medium: 0, hard: 0 };
 	for (const difficulty of gradedLocations().values()) counts[difficulty]++;

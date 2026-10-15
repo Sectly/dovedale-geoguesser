@@ -9,7 +9,6 @@ export type Rated = { id: number; duel_rating: number | null; duel_rated_games: 
 
 export const ratingOf = (user: { duel_rating?: number | null }) => user.duel_rating ?? GAME.rating.start;
 
-/** The share of the points a player rated `own` is expected to take from one rated `other`. */
 export function expectedScore(own: number, other: number): number {
 	return 1 / (1 + 10 ** ((other - own) / 400));
 }
@@ -18,13 +17,17 @@ export function getRated(userId: number): Rated | null {
 	return db.query<Rated, [number]>("SELECT id, duel_rating, duel_rated_games FROM users WHERE id = ?").get(userId);
 }
 
-/** How far a player's rating would move against this opponent: up for a win, down for a loss. */
+/** The rating a player would have after one result against `other`: 1 a win, 0.5 a tie, 0 a loss. */
+function ratingAfter(player: Rated, other: Rated, result: number): number {
+	/** New players move quickly towards where they belong, then settle. */
+	const k = (player.duel_rated_games ?? 0) < GAME.rating.provisionalGames ? GAME.rating.kProvisional : GAME.rating.k;
+	const before = ratingOf(player);
+	return Math.max(GAME.rating.floor, Math.round(before + k * (result - expectedScore(before, ratingOf(other)))));
+}
+
 export function ratingStakes(own: Rated, other: Rated): { win: number; loss: number } {
-	const k = (own.duel_rated_games ?? 0) < GAME.rating.provisionalGames ? GAME.rating.kProvisional : GAME.rating.k;
 	const before = ratingOf(own);
-	const after = (result: number) =>
-		Math.max(GAME.rating.floor, Math.round(before + k * (result - expectedScore(before, ratingOf(other)))));
-	return { win: after(1) - before, loss: after(0) - before };
+	return { win: ratingAfter(own, other, 1) - before, loss: ratingAfter(own, other, 0) - before };
 }
 
 /** How many Quick Play duels a player has won in a row, newest first. A tie or a loss ends the run. */
@@ -50,15 +53,8 @@ export function rateDuel(gameId: number, playerIds: number[], winnerId: number |
 	const changes = [a, b].map((player, i) => {
 		const other = i === 0 ? b : a;
 		const result = winnerId === null ? 0.5 : winnerId === player.id ? 1 : 0;
-		/** New players move quickly towards where they belong, then settle. */
-		const k =
-			(player.duel_rated_games ?? 0) < GAME.rating.provisionalGames ? GAME.rating.kProvisional : GAME.rating.k;
-		const before = ratingOf(player);
-		const after = Math.max(
-			GAME.rating.floor,
-			Math.round(before + k * (result - expectedScore(before, ratingOf(other))))
-		);
-		return { user_id: player.id, rating: after, change: after - before };
+		const after = ratingAfter(player, other, result);
+		return { user_id: player.id, rating: after, change: after - ratingOf(player) };
 	});
 
 	db.transaction(() => {

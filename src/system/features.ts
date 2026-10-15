@@ -5,15 +5,11 @@ import { fail } from "../lib/http";
 /** Switches for turning parts of the site off without a release. Stored in the database. */
 
 const DEFAULTS = {
-	/** The preset reactions players can send each other during a duel. */
 	duel_emotes: true,
-	/** Players sending in new locations. */
 	submissions: true,
-	/** Players suggesting changes to locations. */
 	suggestions: true,
 	/** Starting new duels and team games. Ones already open carry on. */
 	new_duels: true,
-	/** People who have never logged in before making an account. */
 	signups: true,
 	/** Emailed notification summaries. Off until an operator has saved a mail server and switched it on. */
 	email_digests: false,

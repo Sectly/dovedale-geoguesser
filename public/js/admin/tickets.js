@@ -1,4 +1,9 @@
-/** Staff panel: support tickets. */
+import { avatarHtml, el, escHtml, scrollBehavior } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
+import { refreshAttention } from "../lib/attention.js";
+import { linkedTextHtml, pollWhile, ticketThreadHtml, ticketTime } from "../tickets.js";
+import { atLeast, claimChanged, currentTab, showConfirm } from "./core.js";
 
 const TICKET_CATEGORY_LABELS = {
 	ban_appeal: "Ban Appeal",
@@ -13,13 +18,13 @@ const TICKET_CATEGORY_LABELS = {
 let supportStatus = "open";
 let supportCategory = "";
 let supportSearch = "";
-let expandedTicketId = null;
+export let expandedTicketId = null;
 
 let _ticketsSignature = "";
 let _stopTicketPolling = null;
 
 /** Loads the ticket list. `quiet` redraws only on a change and keeps typed replies. */
-async function loadTickets(reset = true, autoOpenId = null, { quiet = false } = {}) {
+export async function loadTickets(reset = true, autoOpenId = null, { quiet = false } = {}) {
 	if (reset) expandedTicketId = autoOpenId;
 	const params = new URLSearchParams({ status: supportStatus });
 	if (supportCategory) params.set("category", supportCategory);
@@ -263,7 +268,6 @@ function setTicketCategory(c) {
 	loadTickets(true);
 }
 
-/** Starting points for common replies, under the headings the menu shows. Nothing is sent until staff press Send. */
 const SAVED_REPLIES = {
 	General: [
 		[
@@ -475,3 +479,17 @@ async function cleanupTickets() {
 		showToast(err.message || "Failed.", "error");
 	}
 }
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, {
+	cleanupTickets,
+	closeTicket,
+	deleteTicket,
+	loadTickets,
+	reopenTicket,
+	replyTicket,
+	setTicketCategory,
+	setTicketStatus,
+	toggleTicket,
+	useSavedReply,
+});

@@ -1,3 +1,4 @@
+import { LIMITS } from "../config";
 import { Hono } from "hono";
 import { db } from "../db";
 import { requireUser } from "../auth/guards";
@@ -23,7 +24,6 @@ const REPLIES_JSON = `COALESCE((
 	)) FROM (SELECT * FROM ticket_replies WHERE ticket_id = t.id ORDER BY created_at ASC, id ASC) r
 ), '[]')`;
 
-/** Tickets with their reply thread attached, oldest reply first. */
 export function listTickets(where: string, params: (string | number)[], order: string) {
 	const rows = db
 		.query<Record<string, unknown>, (string | number)[]>(
@@ -90,9 +90,6 @@ function ownOpenTicket(userId: number, ticketId: number) {
 	return ticket;
 }
 
-/** A player may send this many messages in a row (the opening one included) before staff must answer. */
-const MAX_FOLLOW_UPS = 3;
-
 supportRoutes.post("/:id/reply", async (c) => {
 	const user = requireUser(c);
 	const ticketId = idParam(c);
@@ -108,7 +105,7 @@ supportRoutes.post("/:id/reply", async (c) => {
 	const staffHaveReplied = !!db
 		.query("SELECT 1 FROM ticket_replies WHERE ticket_id = ? AND type = 'staff' LIMIT 1")
 		.get(ticketId);
-	if (sinceStaff + (staffHaveReplied ? 0 : 1) >= MAX_FOLLOW_UPS)
+	if (sinceStaff + (staffHaveReplied ? 0 : 1) >= LIMITS.ticketFollowUps)
 		fail(400, "You've sent a few messages in a row. Please wait for staff to reply before adding more.");
 
 	const message = text((await readJson<{ message: string }>(c)).message, 2001);

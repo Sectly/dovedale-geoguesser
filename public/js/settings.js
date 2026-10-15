@@ -1,3 +1,13 @@
+import "./lib/site.js";
+import { Sounds } from "./sounds.js";
+import { el, escHtml, scrollBehavior, show, skeletonRows } from "./lib/dom.js";
+import { api, fetchUser } from "./lib/api.js";
+import { showToast } from "./lib/toast.js";
+import { disablePush, enablePush } from "./lib/push.js";
+import { refreshAttention } from "./lib/attention.js";
+import { linkRuleCodes } from "./rules.js";
+import { keepThreadAtBottom, pollWhile, ticketFollowUps, ticketThreadHtml } from "./tickets.js";
+
 let currentUser = null;
 
 async function init() {
@@ -32,7 +42,6 @@ function closeListDialog() {
 	show("list-dialog", false);
 }
 
-/** The submit page with a denied submission's label, pin and hints filled in. */
 function resendUrl(sub) {
 	const params = new URLSearchParams({ label: sub.label || "", x: sub.world_x, y: sub.world_y });
 	try {
@@ -155,7 +164,6 @@ function section(id, content) {
 </section>`;
 }
 
-/** The jump menu under the page title. */
 function sectionMenu() {
 	return `<nav class="flex gap-1.5 flex-wrap mb-4" aria-label="Settings sections">
 		${SECTIONS.map(
@@ -192,7 +200,6 @@ const NOTIFY_OPTIONS = [
 	["achievements", "Achievements", "When you unlock one"],
 ];
 
-/** One-press choices for the toggles below: the label, then which of them it switches on. */
 const NOTIFY_PRESETS = {
 	all: ["Everything", NOTIFY_OPTIONS.map(([key]) => key)],
 	essential: ["Just replies", ["submissions", "suggestions", "tickets"]],
@@ -220,7 +227,6 @@ const EMAIL_FREQUENCIES = {
 	monthly: "Once a month",
 };
 
-/** The email summary row: add an address, wait for it to be confirmed, then pick how often. */
 function emailSettingHtml() {
 	const email = currentUser.email;
 	const remove =
@@ -262,7 +268,6 @@ function emailSettingHtml() {
 	);
 }
 
-/** Runs an email change, then redraws the row from what the server now holds. */
 async function changeEmail(request, done) {
 	try {
 		await request();
@@ -352,7 +357,6 @@ function preferencesHtml() {
 		}`;
 }
 
-/** Saves one preference ("sounds" or "notify.tickets") and redraws the block. */
 async function setPref(path, value) {
 	const [group, key] = path.split(".");
 	try {
@@ -584,7 +588,6 @@ function renderSettings() {
 	/** Links like /settings#moderation land on a section that did not exist until now. */
 	if (location.hash) requestAnimationFrame(() => document.getElementById(location.hash.slice(1))?.scrollIntoView());
 
-	/** Pre-fill ticket form if arriving from a report link (e.g. ?ticket=report_location&loc=42) */
 	const urlParams = new URLSearchParams(location.search);
 	const preTicket = urlParams.get("ticket");
 	if (preTicket) {
@@ -640,7 +643,6 @@ async function fetchMyTickets() {
 	return changed;
 }
 
-/** Opens the ticket list, or goes straight to one conversation when given its id. */
 async function openMyTickets(openId = null) {
 	openListDialog(
 		"tickets",
@@ -727,7 +729,7 @@ function renderTicketView() {
 	keepThreadAtBottom(el("tvm-body"), () => (el("tvm-body").innerHTML = ticketThreadHtml(ticket, "user")));
 
 	const open = ticket.status === "open";
-	const canReply = open && ticketFollowUps(ticket) < TICKET_MAX_FOLLOW_UPS;
+	const canReply = open && ticketFollowUps(ticket) < currentUser.limits.ticket_follow_ups;
 	const state = !open ? "closed" : canReply ? `reply:${ticket.close_requested}` : "wait";
 	const actions = el("tvm-actions");
 	if (actions.dataset.state === state) return;
@@ -765,7 +767,6 @@ function closeTicketView() {
 	if (_listDialog !== "tickets") openMyTickets();
 }
 
-/** Runs a ticket action, then refreshes the conversation straight away. */
 async function ticketAction(request, { onDone } = {}) {
 	const error = el("tvm-error");
 	if (error) error.textContent = "";
@@ -964,14 +965,11 @@ const CATEGORY_SUBJECTS = {
 
 /** Tracked on GitHub instead; the form is never opened for these. */
 const GITHUB_CATEGORIES = ["bug_report", "feature_request"];
-/** The category the form is open for, and its name as the picker shows it. */
 let _ticketCategory = "";
 let _ticketCategoryName = "";
 /** The subject the form filled in itself: a category change may replace it, never something typed. */
 let _autoSubject = "";
-/** True while step one is open from the form's "Change" button, with a draft waiting behind it. */
 let _changingCategory = false;
-/** Location id carried in by a "report this location" link, dropped into the form once it opens. */
 let _ticketPrefillLoc = null;
 
 function onModalCategoryChange() {
@@ -1020,7 +1018,6 @@ function proceedToTicketForm() {
 	show("ticket-form-dialog");
 }
 
-/** Back to step one with the current category selected. What has been typed stays in the form. */
 function changeTicketCategory() {
 	_changingCategory = true;
 	show("ticket-form-dialog", false);
@@ -1059,7 +1056,6 @@ const TICKET_FORM_HTML = `
 		</div>
 `;
 
-/** Closes the form and throws the draft away. */
 function hideTicketForm() {
 	show("ticket-form-dialog", false);
 	_ticketCategory = _ticketCategoryName = _autoSubject = "";
@@ -1165,3 +1161,32 @@ async function confirmDeleteAccount() {
 }
 
 init();
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, {
+	changeTicketCategory,
+	clearNotifications,
+	closeListDialog,
+	closeTicketInfoModal,
+	closeTicketView,
+	confirmDeleteAccount,
+	deleteAccount,
+	exportData,
+	hideTicketForm,
+	onModalCategoryChange,
+	openMySubmissions,
+	openMyTickets,
+	openTicketInfoModal,
+	openTicketView,
+	proceedToTicketForm,
+	removeEmail,
+	requestTicketClose,
+	saveEmail,
+	sendUserReply,
+	setDesktopNotifications,
+	setEmailFrequency,
+	setNotifyPreset,
+	setPref,
+	submitTicket,
+	togglePrivacy,
+});

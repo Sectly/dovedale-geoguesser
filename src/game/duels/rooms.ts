@@ -19,16 +19,13 @@ export type DuelPlayer = {
 	conn: WireConnection;
 	/** False while the player's socket is down and they may still come back. */
 	connected: boolean;
-	/** Times this player has dropped out of the current duel. */
 	disconnects: number;
 	totalScore: number;
-	/** When this player last sent a reaction, to keep them from flooding the other one. */
 	lastEmoteAt?: number;
 	/** Quick Play: their win streak when they sat down. */
 	streak?: number;
 };
 
-/** A Quick Play round out of the ordinary. */
 export type RoundKind = "comeback" | "sudden_death";
 
 /** The single pending step of a game, kept so it can be put on hold and picked up again. */
@@ -58,18 +55,14 @@ export type DuelRoom = {
 	nextComebackFor: number | null;
 	/** Set once a sudden-death round has been played: who took it, or null if nobody did. */
 	suddenDeath: { winnerId: number | null } | null;
-	/** The round being guessed, or null between rounds. */
 	round: Round | null;
 	outcomes: Map<number, RoundOutcome>;
-	/** Players whose browsers have the current round's screenshot loaded. */
 	loaded: Set<number>;
 	/** True from the moment a round is sent out until its clock starts. */
 	awaitingLoad: boolean;
-	/** True during the countdown before the first round. */
 	starting: boolean;
 	/** The one pending step of the game: countdown, round timeout or the pause between rounds. */
 	phase: Phase | null;
-	/** Set while the duel is on hold for a disconnected player. */
 	paused: { timer: ReturnType<typeof setTimeout> | null; resuming: boolean } | null;
 	/** The last round's results, replayed to anyone who connects between rounds. */
 	lastResult: Record<string, unknown> | null;
@@ -81,7 +74,6 @@ export type DuelRoom = {
 	series: { wins: Record<number, number>; games: number };
 	/** In a rematch: who won the duel before this one, or null if nobody did. */
 	previousWinnerId: number | null;
-	/** Who won this duel, once it is over. */
 	winnerId: number | null;
 	createdAt: number;
 };
@@ -163,7 +155,19 @@ export function sendToSpectators(room: DuelRoom, event: string, data: unknown) {
 	for (const conn of room.spectators) send(conn, event, data);
 }
 
-/** Quick Play: each player's rating, streak and what this duel would do to their rating. */
+/** The reactions on offer, or none when staff have switched them off. */
+export const offeredEmotes = () => (features().duel_emotes ? GAME.duel.emotes : []);
+
+/** A guess as spectators see it on their map. */
+const pinMessage = (player: DuelPlayer, guess: { x: number; y: number }) => ({
+	user_id: player.userId,
+	username: player.username,
+	display_name: player.displayName,
+	avatar_url: player.avatarUrl,
+	world_x: guess.x,
+	world_y: guess.y,
+});
+
 function rankedDetails(room: DuelRoom) {
 	if (!room.quickplay) return new Map<number, object>();
 	const rated = room.players.map((p) => getRated(p.userId));
@@ -193,8 +197,7 @@ export function roomState(room: DuelRoom) {
 		rounds: room.rounds,
 		quickplay: room.quickplay,
 		listed: room.listed,
-		/** The reactions on offer, or none when staff have switched them off. */
-		emotes: features().duel_emotes ? GAME.duel.emotes : [],
+		emotes: offeredEmotes(),
 		spectators: room.spectators.size,
 		players: room.players.map((p) => ({
 			user_id: p.userId,
@@ -224,7 +227,6 @@ export function roundStartMessage(room: DuelRoom) {
 	};
 }
 
-/** Brings one connection up to date with its room. */
 export function sendSnapshot(room: DuelRoom, conn: WireConnection, viewerId: number | null, spectating = false) {
 	send(conn, "room_state", { ...roomState(room), spectating });
 	if (room.status !== "in_progress") return;
@@ -240,14 +242,7 @@ export function sendSnapshot(room: DuelRoom, conn: WireConnection, viewerId: num
 			for (const [userId, outcome] of room.outcomes) {
 				const player = room.players.find((p) => p.userId === userId);
 				if (outcome.guess && player) {
-					send(conn, "player_pin", {
-						user_id: userId,
-						username: player.username,
-						display_name: player.displayName,
-						avatar_url: player.avatarUrl,
-						world_x: outcome.guess.x,
-						world_y: outcome.guess.y,
-					});
+					send(conn, "player_pin", pinMessage(player, outcome.guess));
 				}
 			}
 		}
@@ -425,14 +420,7 @@ export function submitGuess(room: DuelRoom, userId: number, guess: Guess | null)
 		if (other.userId !== userId) send(other.conn, "opponent_guessed", { round: room.roundNumber });
 	}
 	if (outcome.guess) {
-		sendToSpectators(room, "player_pin", {
-			user_id: userId,
-			username: player.username,
-			display_name: player.displayName,
-			avatar_url: player.avatarUrl,
-			world_x: outcome.guess.x,
-			world_y: outcome.guess.y,
-		});
+		sendToSpectators(room, "player_pin", pinMessage(player, outcome.guess));
 	}
 	if (room.outcomes.size >= room.players.length) endRound(room);
 }
@@ -516,7 +504,6 @@ function endRound(room: DuelRoom) {
 	setPhase(room, delay, () => (isLast ? endGame(room) : startRound(room)));
 }
 
-/** Quick Play only: who is behind and by how much. */
 function specialRoundGap(room: DuelRoom) {
 	if (!room.quickplay || room.players.length !== 2) return null;
 	const [leading, trailing] = [...room.players].sort((a, b) => b.totalScore - a.totalScore);
@@ -587,7 +574,6 @@ function tookEveryRound(room: DuelRoom, userId: number): boolean {
 	});
 }
 
-/** Passes a reaction to the room, unless reactions are off or the player just sent one. */
 export function sendEmote(room: DuelRoom, userId: number, emote: unknown) {
 	if (!features().duel_emotes || room.status === "waiting") return;
 	if (typeof emote !== "string" || !GAME.duel.emotes.includes(emote)) return;
@@ -645,7 +631,6 @@ function endGame(room: DuelRoom) {
 	});
 }
 
-/** Quick Play: each player's win streak now that this duel is counted. */
 function streaksAfter(room: DuelRoom): Record<number, number> | null {
 	if (!room.quickplay) return null;
 	return Object.fromEntries(room.players.map((p) => [p.userId, winStreak(p.userId)]));
@@ -765,7 +750,6 @@ export function duelsInProgress(): number {
 	return [...duelRooms.values()].filter((room) => room.status === "in_progress").length;
 }
 
-/** Sends one message to everybody in any duel room, spectators included. */
 export function broadcastToDuels(event: string, data: unknown) {
 	for (const room of duelRooms.values()) broadcast(room, event, data);
 }
@@ -809,7 +793,6 @@ export function closeDuelByStaff(code: string): DuelRoom | null {
 	return room;
 }
 
-/** Every room waiting or being played, private ones included, for the staff panel. */
 export function allOpenDuels() {
 	return [...duelRooms.values()]
 		.filter((room) => room.status !== "finished")
@@ -830,7 +813,6 @@ export function allOpenDuels() {
 		}));
 }
 
-/** Duels under way that anyone may watch, busiest first. */
 export function liveDuels() {
 	return [...duelRooms.values()]
 		.filter((room) => room.status === "in_progress" && room.listed)

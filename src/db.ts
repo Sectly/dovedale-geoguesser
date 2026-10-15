@@ -527,7 +527,6 @@ db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 const pragmaNumber = (name: string) =>
 	Number(Object.values(db.query<Record<string, number>, []>(`PRAGMA ${name}`).get() ?? {})[0]) || 0;
 
-/** The share of the database file that is free pages left behind by deletions. */
 export function freeSpaceShare(): number {
 	const pages = pragmaNumber("page_count");
 	return pages ? pragmaNumber("freelist_count") / pages : 0;

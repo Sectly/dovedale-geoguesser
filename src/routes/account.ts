@@ -17,7 +17,6 @@ import { ownHistory } from "../moderation";
 import { parsePreferences, publicPreferences, updatePreferences } from "../notifications";
 import { clearLeaderboardCache } from "./leaderboard";
 
-/** Routes mounted at /api: a user's own settings, data export and account deletion. */
 export const accountRoutes = new Hono();
 
 accountRoutes.post("/settings", async (c) => {
@@ -60,7 +59,6 @@ const mailPage = (c: Context, title: string, message: string, status: 200 | 410 
 		status
 	);
 
-/** The link in a confirmation email. */
 accountRoutes.get("/email/confirm", (c) =>
 	confirmEmail(c.req.query("token") ?? "")
 		? mailPage(
@@ -88,7 +86,6 @@ accountRoutes.get("/me/moderation", (c) => {
 	return c.json({ actions: ownHistory(user.id) });
 });
 
-/** Everything stored about a user, in the shape handed out for data requests. */
 export function exportUserData(user: User) {
 	const all = (sql: string) => db.query(sql).all(user.id);
 	return {
@@ -145,7 +142,6 @@ export function exportUserData(user: User) {
 		ticket_replies: all(
 			"SELECT tr.id, tr.ticket_id, tr.body, tr.type, tr.created_at FROM ticket_replies tr JOIN support_tickets st ON st.id = tr.ticket_id WHERE st.user_id = ?"
 		),
-		/** Replies you wrote on other people's tickets, as a member of staff. */
 		ticket_replies_written: all(
 			"SELECT tr.id, tr.ticket_id, tr.body, tr.created_at FROM ticket_replies tr JOIN support_tickets st ON st.id = tr.ticket_id WHERE tr.author_id = ?1 AND st.user_id != ?1"
 		),
@@ -165,14 +161,11 @@ export function exportUserData(user: User) {
 		fairplay_reviews: all(
 			"SELECT signal, evidence, created_at, CASE WHEN dismissed_at IS NULL THEN 'open' ELSE 'dismissed' END AS status, dismissed_at FROM fairplay_flags WHERE user_id = ?"
 		),
-		/** Notes staff have kept about this account. */
 		staff_notes: all("SELECT body, created_at FROM staff_notes WHERE user_id = ?"),
-		/** What you wrote in the staff chat, if you are or were staff. */
 		staff_chat_messages: all("SELECT body, created_at FROM staff_chat WHERE author_id = ?"),
 		sessions: all("SELECT created_at, expires_at FROM sessions WHERE user_id = ?"),
 		daily_attempts: all("SELECT date, started_at, hints_revealed FROM daily_attempts WHERE user_id = ?"),
 		push_subscriptions: all("SELECT endpoint, created_at FROM push_subscriptions WHERE user_id = ?"),
-		/** Things you did yourself; what staff did about you is under "moderation". */
 		activity_log: all(
 			"SELECT action, target_type, target_id, created_at FROM audit_log WHERE actor_id = ?1 OR (actor_id IS NULL AND target_type = 'user' AND target_id = ?1) ORDER BY id"
 		),
@@ -271,7 +264,6 @@ export async function deleteUserAccount(userId: number) {
 		db.run("UPDATE staff_notes SET author_username = '[deleted]' WHERE author_id = ?", [userId]);
 		db.run("UPDATE staff_chat SET author_username = '[deleted]' WHERE author_id = ?", [userId]);
 		db.run("UPDATE staff_chat SET pinned_by_username = '[deleted]' WHERE pinned_by = ?", [userId]);
-		/** The changelog keeps only a name for who wrote an entry. */
 		if (account)
 			db.run("UPDATE changelog SET created_by = '[deleted]' WHERE created_by IN (?, ?)", [
 				account.username,

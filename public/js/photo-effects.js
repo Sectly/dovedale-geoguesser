@@ -1,5 +1,7 @@
+import { el } from "./lib/dom.js";
+
 /** Screenshot effects for seasonal specials. Never on the leaderboards. */
-const PhotoEffects = (() => {
+export const PhotoEffects = (() => {
 	/** How much of the snow may be wiped away, as a share of the picture. */
 	const SNOW_BUDGET = 0.3;
 	const SNOW_BRUSH = 34;
@@ -15,7 +17,6 @@ const PhotoEffects = (() => {
 		return node;
 	}
 
-	/** Calls `move(x, y)` in panel coordinates as the mouse or a finger moves over the photo. */
 	function track(move) {
 		const panel = el("photo-panel");
 		const onMove = (e) => {
@@ -53,7 +54,6 @@ const PhotoEffects = (() => {
 		const ctx = canvas.getContext("2d");
 		ctx.fillStyle = "#e8eef5";
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
-		/** A little texture, so it reads as snow and not as a blank panel. */
 		for (let i = 0; i < 260; i++) {
 			ctx.fillStyle = i % 2 ? "rgba(255, 255, 255, 0.9)" : "rgba(190, 205, 222, 0.55)";
 			ctx.beginPath();
@@ -125,7 +125,6 @@ const PhotoEffects = (() => {
 	const NO_LENS = ["torch", "snow"];
 
 	return {
-		/** Starts an effect for a new round, replacing any that is still up. Unknown names do nothing. */
 		apply(name, option) {
 			this.clear();
 			if (!EFFECTS[name]) return;
@@ -134,11 +133,9 @@ const PhotoEffects = (() => {
 			cleanup = typeof effect === "function" ? effect : effect.cleanup;
 			begin = effect.begin ?? null;
 		},
-		/** Tells the effect the clock has started, for the ones that are timed. */
 		begin() {
 			begin?.();
 		},
-		/** Takes the effect off so the whole picture shows. */
 		clear() {
 			cleanup?.();
 			el("photo-panel")?.classList.remove("no-lens");

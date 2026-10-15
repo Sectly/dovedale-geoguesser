@@ -4,7 +4,6 @@ import { fail, readJson, text } from "../lib/http";
 import { isPushEndpoint, pushEnabled, removeSubscription, saveSubscription } from "../push";
 import { attentionFor, clearNotifications, countNotifications, listNotifications, markRead } from "../notifications";
 
-/** Routes mounted at /api: the notification inbox and the header's attention summary. */
 export const notificationRoutes = new Hono();
 
 notificationRoutes.get("/attention", (c) => c.json(attentionFor(requireUser(c))));

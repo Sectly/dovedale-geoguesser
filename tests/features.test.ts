@@ -69,7 +69,6 @@ describe("announcements and reminders", () => {
 		const titles = async (user: typeof player) =>
 			(await call("/api/notifications", { as: user })).data.notifications.map((n: any) => n.title);
 
-		/** A test goes to the sender alone and leaves no record. */
 		const before = (await call("/api/admin/announcements", { as: op })).data.history.length;
 		expect((await post("/api/admin/announcements", op, { ...draft, test: true })).data).toMatchObject({
 			test: true,
@@ -78,7 +77,6 @@ describe("announcements and reminders", () => {
 		expect(await titles(player)).not.toContain("[Test] Ranked duels are here");
 		expect((await call("/api/admin/announcements", { as: op })).data.history.length).toBe(before);
 
-		/** A link is a page on this site or an https address. */
 		for (const link of [
 			"http://example.com",
 			"//example.com",
@@ -93,7 +91,6 @@ describe("announcements and reminders", () => {
 			(await post("/api/admin/announcements", op, { ...draft, audience: "staff", banner_hours: 1 })).status
 		).toBe(400);
 
-		/** Staff only: the player hears nothing, and no banner goes up. */
 		await post("/api/admin/announcements", op, {
 			title: "Staff meeting",
 			body: "Friday at eight, in the usual place.",
@@ -103,10 +100,8 @@ describe("announcements and reminders", () => {
 		expect(await titles(player)).not.toContain("Staff meeting");
 		expect((await call("/api/announcement")).data).toBeNull();
 
-		/** Everyone, with a link and a banner that logged-out visitors see too. */
 		const sent = await post("/api/admin/announcements", op, { ...draft, link: "/duels", banner_hours: 1 });
 		expect(sent.status).toBe(200);
-		/** The link goes through a counter on its way to the page. */
 		const counted = `/api/announcement/${sent.data.id}/go`;
 		expect((await call("/api/notifications", { as: player })).data.notifications[0]).toMatchObject({
 			title: draft.title,
@@ -131,13 +126,11 @@ describe("announcements and reminders", () => {
 		expect(history.audiences.staff).toBeLessThan(history.audiences.everyone);
 		expect((await call("/api/admin/announcements", { as: mod })).status).toBe(403);
 
-		/** Taken down early. */
 		const banner = (as: typeof op, hours: number) =>
 			post(`/api/admin/announcements/${sent.data.id}/banner`, as, { hours });
 		expect((await banner(mod, 0)).status).toBe(403);
 		expect((await banner(op, 0)).status).toBe(200);
 		expect((await call("/api/announcement")).data).toBeNull();
-		/** And put back up for longer. */
 		expect((await banner(op, 24)).status).toBe(200);
 		expect((await call("/api/announcement")).data).toMatchObject({ id: sent.data.id });
 		expect((await banner(op, 5)).status).toBe(400);
@@ -335,7 +328,6 @@ describe("seasonal specials", () => {
 		});
 		expect(statusOf("night-shift", player, "2026-10-31T12:00:00Z")).toMatchObject({ status: "live" });
 		expect(statusOf("night-shift", player, "2027-10-31T12:00:00Z")).toMatchObject({ status: "live" });
-		/** The day after it ends it is already counting down to next year. */
 		expect(statusOf("night-shift", player, "2026-11-09T12:00:00Z")?.startsAt).toBe("2027-10-17T00:00:00.000Z");
 	});
 
@@ -352,7 +344,6 @@ describe("seasonal specials", () => {
 		});
 		clearLocations();
 		for (let i = 0; i < 5; i++) createLocation();
-		/** A seasonal mode that has not started is refused for players and open to staff. */
 		const closed = SPECIALS.find(
 			(s) => s.season && specialsFor(player).find((l) => l.id === s.id)?.status === "upcoming"
 		);
@@ -384,15 +375,12 @@ describe("the homepage season", () => {
 			event: { title: "Night Shift", ends_at: "2026-11-08T00:00:00.000Z" },
 		});
 		expect(on("2026-12-25T12:00:00Z")).toMatchObject({ theme: "christmas", event: { title: "Snowed In" } });
-		/** New Year sits inside the Christmas season and takes over for its few days. */
 		expect(on("2026-12-31T23:00:00Z")).toMatchObject({ theme: "newyear", splash: "Happy New Year!", event: null });
 		expect(on("2027-01-03T12:00:00Z")).toMatchObject({ theme: "christmas" });
 		expect(on("2027-01-12T12:00:00Z")).toBeNull();
 		expect(on("2027-02-14T12:00:00Z")).toMatchObject({ theme: "valentines", event: null });
 		expect(on("2026-11-05T20:00:00Z")).toMatchObject({ theme: "bonfire" });
-		/** Logged-out visitors get it with the rest of the public page details. */
 		expect((await call("/api/meta")).data).toHaveProperty("season");
-		/** Any season can be previewed by name, whatever the date. */
 		expect((await call("/api/meta?season=easter")).data.season).toMatchObject({
 			theme: "easter",
 			splash: "Happy Easter!",
@@ -424,7 +412,6 @@ describe("suggestion gate", () => {
 		expect(locked.eligible).toBe(false);
 		expect(locked.progress.days).toEqual({ have: 2, need: 7 });
 		expect(locked.progress.games.have).toBe(0);
-		/** Every staff role, and helpers, are let in whatever the age of the account. */
 		for (const role of ["helper", "curator", "moderator"] as const) {
 			const staff = (await call("/api/suggestions/eligibility", { as: createUser({ role }) })).data;
 			expect(staff).toMatchObject({ eligible: true, progress: null });

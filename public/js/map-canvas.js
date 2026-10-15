@@ -1,6 +1,20 @@
+import { MAP_CONFIG, WORLD_BOUNDS, WORLD_HEIGHT, WORLD_WIDTH, tileUrl } from "./map-config.js";
+
 /** Each quality's width as a share of the full-size map (see src/tile-images.ts), smallest first. */
 const MAP_QUALITY_SCALE = { tiny: 0.25, low: 0.45, medium: 0.75, high: 1 };
 const MAP_QUALITIES = Object.keys(MAP_QUALITY_SCALE);
+/** The picker's sizes. On phones they cap how sharp the zoomed-in tiles get. */
+const MAP_QUALITY_CHOICES = ["high", "medium", "low"];
+/** Tile formats (src/tile-images.ts). Without AVIF, full size is the original PNG. */
+const MAP_FORMATS = { webp: "WebP", avif: "AVIF" };
+
+const avifSupported = new Promise((resolve) => {
+	const img = new Image();
+	img.onload = () => resolve(img.width === 1);
+	img.onerror = () => resolve(false);
+	img.src =
+		"data:image/avif;base64,AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAACJpbG9jAAAAAERAAAEAAQAAAAAA+gABAAAAAAAAAB0AAAAjaWluZgAAAAAAAQAAABVpbmZlAgAAAAABAABhdjAxAAAAAA5waXRtAAAAAAABAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAEAAAABAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAlbWRhdBIACgc4AAaQENBpMhAZQmMEwAA0AACQQM6Xt10S";
+});
 
 /** How much map a device gets. The full map decodes to nearly 1 GB, which crashes phones and Safari, so those get a small `base` map plus sharper `detail` tiles for what is on screen. */
 function _mapProfile() {
@@ -9,12 +23,12 @@ function _mapProfile() {
 	const isMobile =
 		/Mobi|Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
 	const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg/i.test(ua);
-	if (isMobile) return { base: "tiny", detail: "medium", maxDetailTiles: 3, maxPixelRatio: 2 };
+	if (isMobile) return { mobile: true, base: "tiny", detail: "medium", maxDetailTiles: 3, maxPixelRatio: 2 };
 	if (isSafari) return { base: "low", detail: "medium", maxDetailTiles: 4, maxPixelRatio: 2 };
 	return { base: null, detail: null, maxDetailTiles: 0, maxPixelRatio: 3 };
 }
 
-class MapCanvas {
+export class MapCanvas {
 	constructor(canvas, { onPinPlaced } = {}) {
 		this.canvas = canvas;
 		this.ctx = canvas.getContext("2d");
@@ -34,18 +48,21 @@ class MapCanvas {
 		this.replayDots = [];
 		this._deferredPins = [];
 		this.namePins = new Map();
-		/** Lines drawn from a guess to the answer. */
 		this.guessLines = [];
-		/** Rings that mark a pin landing. */
 		this.ripples = [];
 		this.profile = _mapProfile();
 		/** Sharper tiles for the part of the map on screen, by "quality:row:column". Only used with a `base`. */
 		this.detailImages = new Map();
 		this._detailTimer = null;
 		this.quality = this.profile.base || "high";
+		/** Phones default to WebP, which their processors decode faster. */
+		this.format = this.profile.mobile ? "webp" : "avif";
 		/** Blocked storage throws; the map must still be built. */
 		try {
-			if (!this.profile.base) this.quality = localStorage.getItem("mapQuality") || this.quality;
+			const quality = localStorage.getItem("mapQuality");
+			if (MAP_QUALITY_CHOICES.includes(quality))
+				this.profile.base ? (this.profile.detail = quality) : (this.quality = quality);
+			if (localStorage.getItem("mapFormat") in MAP_FORMATS) this.format = localStorage.getItem("mapFormat");
 		} catch {}
 		this._mapAR = MAP_CONFIG.totalWidth / MAP_CONFIG.totalHeight;
 		this._sf = 0;
@@ -57,7 +74,10 @@ class MapCanvas {
 
 		this._setupTransforms();
 		this._setupEvents();
-		this._loadImages();
+		avifSupported.then((ok) => {
+			if (!ok) this.format = "webp";
+			this._loadImages();
+		});
 		const _parent = this.canvas.parentElement || this.canvas;
 		if (typeof ResizeObserver !== "undefined") {
 			new ResizeObserver(() => this._handleResize()).observe(_parent);
@@ -78,7 +98,6 @@ class MapCanvas {
 		this.pinEnabled = enabled;
 	}
 
-	/** A labelled pin for one player's guess. With an avatar URL the pin shows their picture. */
 	setNamePin(id, worldX, worldY, color, name, avatarUrl = "", { ripple = false } = {}) {
 		const pin = { worldX, worldY, color, name, avatar: null };
 		if (avatarUrl) {
@@ -94,7 +113,6 @@ class MapCanvas {
 		this.draw();
 	}
 
-	/** Sends a ring outward from a spot on the map, e.g. where a pin just landed. */
 	addRipple(worldX, worldY, color, delay = 0) {
 		if (MapCanvas.reducedMotion()) return;
 		/** One ring per colour at a time: re-placing a pin quickly must not stack rings. */
@@ -121,7 +139,6 @@ class MapCanvas {
 
 	/** Draws a line growing from a guess to the answer. Returns when it will arrive. */
 	addGuessLine(fromX, fromY, toX, toY, color = MapCanvas.GUESS_COLOR, delay = 0) {
-		/** Reduced motion: already at full length. */
 		const startAt = MapCanvas.reducedMotion()
 			? performance.now() - MapCanvas.LINE_DURATION
 			: performance.now() + delay;
@@ -155,7 +172,6 @@ class MapCanvas {
 		this.draw();
 	}
 
-	/** Adds one round to a multi-player replay: a numbered answer, and a dot and line per guess. */
 	addReplayRound(roundNum, correctX, correctY, guesses) {
 		const delay = MapCanvas.reducedMotion() ? 0 : this.replayPins.length * 700;
 		let revealAt = performance.now() + delay;
@@ -182,7 +198,6 @@ class MapCanvas {
 		this._scheduleDraw();
 	}
 
-	/** Fits the given world positions in view. `restoreView` undoes it. */
 	fitTo(points, { insetBottom = 0, padding = 56 } = {}) {
 		this._handleResize();
 		if (!points.length || this.viewWidth <= 0 || this.viewHeight <= 0) return;
@@ -207,7 +222,6 @@ class MapCanvas {
 		this._scheduleDraw();
 	}
 
-	/** Puts the map back where it was before `fitTo` moved it. */
 	restoreView() {
 		const before = this._viewBeforeFit;
 		this._viewBeforeFit = null;
@@ -219,9 +233,22 @@ class MapCanvas {
 	}
 
 	setQuality(q) {
-		this.quality = q;
 		try {
 			localStorage.setItem("mapQuality", q);
+		} catch {}
+		if (!this.profile.base) {
+			this.quality = q;
+			return this._loadImages();
+		}
+		this.profile.detail = q;
+		this._dropStaleDetail(0);
+		this._scheduleDraw();
+	}
+
+	setFormat(format) {
+		this.format = format;
+		try {
+			localStorage.setItem("mapFormat", format);
 		} catch {}
 		this._loadImages();
 	}
@@ -257,7 +284,6 @@ class MapCanvas {
 		return MAP_QUALITIES.indexOf(wanted) > MAP_QUALITIES.indexOf(base) ? wanted : null;
 	}
 
-	/** The sharpest loaded image for a tile, no sharper than `wanted`; the base map when there is none. */
 	_tileImage(r, c, wanted, now) {
 		for (let i = MAP_QUALITIES.indexOf(wanted); i > MAP_QUALITIES.indexOf(this.profile.base); i--) {
 			const entry = this.detailImages.get(`${MAP_QUALITIES[i]}:${r}:${c}`);
@@ -268,7 +294,6 @@ class MapCanvas {
 		return this.mapImages[r]?.[c];
 	}
 
-	/** Loads sharper tiles once the view has been still for a moment. */
 	_queueDetail(quality, tiles) {
 		clearTimeout(this._detailTimer);
 		/** Zoomed back out to where the base map is enough: the sharper tiles are only holding memory. */
@@ -286,9 +311,13 @@ class MapCanvas {
 					entry.ready = true;
 					this._scheduleDraw();
 				};
-				/** Kept as a failed entry, so the same tile is not asked for on every frame. */
-				entry.img.onerror = () => (entry.failed = true);
-				entry.img.src = tileUrl(r, c, quality);
+				/** A failed AVIF tile tries the other format; after that it is kept as failed, so it is not asked for every frame. */
+				entry.img.onerror = () => {
+					if (this.format !== "avif" || entry.retried) return void (entry.failed = true);
+					entry.retried = true;
+					entry.img.src = tileUrl(r, c, quality, "webp");
+				};
+				entry.img.src = tileUrl(r, c, quality, this.format);
 				this.detailImages.set(`${quality}:${r}:${c}`, entry);
 			}
 			this._dropStaleDetail();
@@ -415,7 +444,6 @@ class MapCanvas {
 		if (animating) this._scheduleDraw();
 	}
 
-	/** Where a world position currently is on screen, after panning and zooming. */
 	_screenPos(worldX, worldY) {
 		const cp = this.worldToCanvas(worldX, worldY);
 		const t = this.ctx.getTransform();
@@ -443,7 +471,6 @@ class MapCanvas {
 		ctx.restore();
 	}
 
-	/** The correct location: a "place" marker with its tip on the spot. It scales in as it is revealed. */
 	_drawAnswerPin(worldX, worldY, label, sinceReveal = 1000) {
 		const { x, y } = this._screenPos(worldX, worldY);
 		const t = Math.min(1, Math.max(0, sinceReveal / 250));
@@ -522,7 +549,6 @@ class MapCanvas {
 		return t < 1;
 	}
 
-	/** A small marker for a guess in a multi-player replay. */
 	_drawDot(worldX, worldY, color) {
 		const ctx = this.ctx;
 		const { x, y } = this._screenPos(worldX, worldY);
@@ -541,7 +567,6 @@ class MapCanvas {
 		ctx.restore();
 	}
 
-	/** A guess pin in the player's colour. */
 	_drawPin(worldX, worldY, color, label) {
 		const ctx = this.ctx;
 		const { x: sx, y: sy } = this._screenPos(worldX, worldY);
@@ -634,7 +659,7 @@ class MapCanvas {
 	}
 
 	_tileUrl(row, col) {
-		return tileUrl(row, col, this.quality);
+		return tileUrl(row, col, this.quality, this.format);
 	}
 
 	_loadImages() {
@@ -647,6 +672,7 @@ class MapCanvas {
 				const img = new Image();
 				img.decoding = "async";
 				let quality = this.quality;
+				let format = this.format;
 				img.src = this._tileUrl(r, c);
 				img.onload = () => {
 					if (loadId !== this.mapLoadId) return;
@@ -658,12 +684,15 @@ class MapCanvas {
 						this.draw();
 					}
 				};
-				/** A variant that is missing falls back to the next size up, not straight to the full-size tile. */
+				/** A failed AVIF tile tries WebP, then the next size up rather than the full-size tile. */
 				img.onerror = () => {
-					const next = MAP_QUALITIES[MAP_QUALITIES.indexOf(quality) + 1];
-					if (!next || loadId !== this.mapLoadId) return;
-					quality = next;
-					img.src = tileUrl(r, c, quality);
+					if (loadId !== this.mapLoadId) return;
+					if (format !== "webp") format = "webp";
+					else {
+						quality = MAP_QUALITIES[MAP_QUALITIES.indexOf(quality) + 1];
+						if (!quality) return;
+					}
+					img.src = tileUrl(r, c, quality, format);
 				};
 			}
 		}
@@ -814,7 +843,6 @@ class MapCanvas {
 		};
 	}
 
-	/** Drops the guess pin on the map under a pointer position, if that is on the map. */
 	_placePinAt(pos) {
 		if (!this.pinEnabled || !this.onPinPlaced) return;
 		const pt = this.ctx.transformedPoint(pos.x, pos.y);
@@ -884,9 +912,7 @@ class MapCanvas {
 		);
 
 		let lastDist = 0;
-		/** Where a one-finger touch began, while it could still turn out to be a tap. */
 		let tapAt = null;
-		/** The last tap, so a second one right after it in the same spot zooms in. */
 		let lastTap = null;
 
 		canvas.addEventListener(
@@ -899,7 +925,6 @@ class MapCanvas {
 					tapAt = pos;
 					this.isDragging = true;
 				} else {
-					/** A second finger makes it a pinch, never a tap. */
 					tapAt = null;
 					this.isDragging = false;
 					lastDist = Math.hypot(
@@ -968,20 +993,40 @@ class MapCanvas {
 			.getElementById("zoom-out")
 			?.addEventListener("click", () => this._zoomAt(this.viewWidth / 2, this.viewHeight / 2, 1 / 1.3));
 		const qualitySel = document.getElementById("map-quality");
-		/** With a base map the quality follows the zoom by itself, so there is nothing to choose. */
-		if (qualitySel && this.profile.base) qualitySel.hidden = true;
-		else if (qualitySel) {
-			qualitySel.value = this.quality;
-			qualitySel.addEventListener("change", () => {
-				this.setQuality(qualitySel.value);
-				/** Hand the keyboard back to the game, so Space still submits a guess. */
-				qualitySel.blur();
-			});
-		}
+		if (!qualitySel) return;
+		const formatSel = document.createElement("select");
+		formatSel.id = "map-format";
+		formatSel.title = "Map image format";
+		formatSel.className = qualitySel.className;
+		formatSel.hidden = true;
+		formatSel.innerHTML = Object.entries(MAP_FORMATS)
+			.map(([value, label]) => `<option value="${value}">${label}</option>`)
+			.join("");
+		formatSel.value = this.format;
+		qualitySel.after(formatSel);
+		/** Without AVIF, full size is the original PNG. */
+		const syncFormat = () =>
+			(formatSel.querySelector('[value="webp"]').textContent =
+				!this.profile.base && this.quality === "high" ? "PNG" : MAP_FORMATS.webp);
+		avifSupported.then((ok) => {
+			formatSel.hidden = !ok;
+			formatSel.value = this.format;
+		});
+		formatSel.addEventListener("change", () => {
+			this.setFormat(formatSel.value);
+			formatSel.blur();
+		});
+		syncFormat();
+		qualitySel.value = this.profile.base ? this.profile.detail : this.quality;
+		qualitySel.addEventListener("change", () => {
+			this.setQuality(qualitySel.value);
+			syncFormat();
+			/** Hand the keyboard back to the game, so Space still submits a guess. */
+			qualitySel.blur();
+		});
 	}
 }
 
-/** Material Red 400 for a guess, Green 500 for the answer. */
 MapCanvas.GUESS_COLOR = "#EF5350";
 MapCanvas.ANSWER_COLOR = "#4CAF50";
 /** How long a guess line takes to reach the answer, in milliseconds. */
@@ -992,5 +1037,4 @@ MapCanvas.reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").m
 /** How far (in CSS pixels) a press may wander and still count as a click or a tap. */
 MapCanvas.CLICK_SLOP = 4;
 MapCanvas.TAP_SLOP = 10;
-/** Two taps within this many milliseconds are a double tap. */
 MapCanvas.DOUBLE_TAP_MS = 300;

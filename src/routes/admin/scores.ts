@@ -22,7 +22,6 @@ function target(c: Context): User {
 	);
 }
 
-/** A whole number within [min, max], or a 400 naming the field. */
 function wholeNumber(value: unknown, what: string, min: number, max: number): number {
 	if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max)
 		fail(400, `${what} must be a whole number from ${min} to ${max}`);
@@ -170,7 +169,6 @@ adminScoreRoutes.delete("/:userId/daily/:id", async (c) => {
 	return c.json({ success: true });
 });
 
-/** Voids a duel for both players. */
 adminScoreRoutes.delete("/:userId/duels/:id", async (c) => {
 	const actor = requireStaff(c, "admin");
 	const user = target(c);
@@ -236,7 +234,6 @@ adminScoreRoutes.post("/:userId/rating", async (c) => {
 	return c.json({ success: true });
 });
 
-/** Gives or takes away one achievement. */
 adminScoreRoutes.post("/:userId/achievements/:key", async (c) => {
 	const actor = requireStaff(c, "admin");
 	const user = target(c);

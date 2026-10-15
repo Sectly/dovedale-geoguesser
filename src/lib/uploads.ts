@@ -7,7 +7,6 @@ import { fail } from "./http";
 
 const ALLOWED_FORMATS = ["jpeg", "png", "webp", "gif"];
 
-/** Validates an uploaded screenshot, re-encodes it as WebP and stores it. Returns the stored filename. */
 export async function saveUploadedImage(file: unknown): Promise<string> {
 	if (!(file instanceof File)) fail(400, "Image required");
 	if (file.size > LIMITS.uploadBytes) fail(400, "File too large (max 8MB)");

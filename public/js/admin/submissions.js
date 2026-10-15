@@ -1,9 +1,32 @@
-/** Staff panel: reviewing submitted locations. */
+import { el, errorStateHtml, escHtml, locId } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
+import { refreshAttention } from "../lib/attention.js";
+import { addKeybinds } from "../lib/keys.js";
+import {
+	LABEL_MAX_LENGTH,
+	LABEL_MIN_LENGTH,
+	bindPanelSearch,
+	claimChanged,
+	currentTab,
+	emptyQueueHtml,
+	mountReviewMap,
+	panelSearchInput,
+	restorePanelSearch,
+	reviewHeader,
+	reviewViewChips,
+	reviewedRowHtml,
+	openDenyDialog,
+	staffUserLink,
+	userFilterSelect,
+} from "./core.js";
+import { shortAgo } from "./overview.js";
+import { formatWhen } from "./users.js";
 
 let _submissions = [];
-let _openSubmission = null;
+export let _openSubmission = null;
 let _submissionUser = "";
-let _submissionView = "waiting";
+export let _submissionView = "waiting";
 let _submissionHistory = [];
 
 /** Closer than this and the row is marked as a possible duplicate before it is even opened. */
@@ -11,7 +34,7 @@ const DUPLICATE_UNITS = 150;
 
 const subCode = (id) => `SUB-${String(id).padStart(4, "0")}`;
 
-async function loadSubmissions() {
+export async function loadSubmissions() {
 	try {
 		_submissions = await api("/api/admin/submissions");
 		/** Open on the oldest, so the queue can be worked from the keyboard straight away. */
@@ -26,7 +49,6 @@ async function loadSubmissions() {
 	}
 }
 
-/** The queue as filtered by the user picker. */
 const shownSubmissions = () => _submissions.filter((s) => !_submissionUser || s.username === _submissionUser);
 
 function setSubmissionUser(name) {
@@ -88,7 +110,6 @@ function renderSubmissions() {
 	claimChanged();
 }
 
-/** Locations already in the game near a submitted pin, nearest first. The server sends only these few. */
 const nearbyLocations = (s) => (s.nearby ?? []).map((loc) => ({ loc, distance: loc.distance }));
 
 function nearbyHtml(near) {
@@ -197,13 +218,12 @@ function mountSubmissionMap() {
 	map.fitTo([{ x: s.world_x, y: s.world_y }, ...near.map(({ loc }) => ({ x: loc.world_x, y: loc.world_y }))]);
 }
 
-function toggleSubmission(id) {
+export function toggleSubmission(id) {
 	_openSubmission = _openSubmission === id ? null : id;
 	renderSubmissions();
 	el(`sub-${id}`)?.scrollIntoView({ block: "nearest" });
 }
 
-/** Opens the submission before or after the open one. */
 function stepSubmission(step) {
 	const shown = shownSubmissions();
 	if (!shown.length) return;
@@ -212,7 +232,6 @@ function stepSubmission(step) {
 	if (next && next.id !== _openSubmission) toggleSubmission(next.id);
 }
 
-/** Takes a reviewed submission off the list and opens the next one, so the queue keeps moving. */
 function submissionReviewed(id) {
 	const at = shownSubmissions().findIndex((s) => s.id === id);
 	_submissions = _submissions.filter((s) => s.id !== id);
@@ -239,16 +258,10 @@ async function approveSubmission(id) {
 }
 
 function openDenyModal(id) {
-	denyTargetId = id;
-	denyCallback = null;
-	el("deny-modal-title").textContent = `Deny ${subCode(id)}`;
-	el("deny-reason").value = "";
-	el("deny-reason").dispatchEvent(new Event("input"));
-	el("deny-modal").classList.remove("hidden");
-	setTimeout(() => el("deny-reason").focus(), 50);
+	openDenyDialog(`Deny ${subCode(id)}`, id);
 }
 
-async function denySubmission(id, reason) {
+export async function denySubmission(id, reason) {
 	try {
 		await api(`/api/admin/submissions/${id}/deny`, { json: { reason } });
 		showToast(`${subCode(id)} denied.`);
@@ -258,7 +271,6 @@ async function denySubmission(id, reason) {
 	}
 }
 
-/** Only while the Submissions tab is showing and no dialog is in the way. */
 const reviewingSubmissions = () =>
 	currentTab === "submissions" &&
 	_submissionView === "waiting" &&
@@ -277,3 +289,13 @@ addKeybinds("Reviewing submissions", [
 		() => (reviewingSubmissions() && _openSubmission ? openDenyModal(_openSubmission) : false),
 	],
 ]);
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, {
+	approveSubmission,
+	loadSubmissions,
+	openDenyModal,
+	setSubmissionUser,
+	setSubmissionView,
+	toggleSubmission,
+});

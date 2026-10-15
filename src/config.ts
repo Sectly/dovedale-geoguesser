@@ -37,7 +37,6 @@ export const PUSH = {
 export const OPERATOR_IDS = list(process.env.OPERATOR_IDS);
 export const MODERATOR_IDS = list(process.env.MODERATOR_IDS);
 
-/** discord_id of the fake account used when DEV_MODE is on. */
 export const DEV_DISCORD_ID = "0";
 
 export const LIMITS = {
@@ -48,6 +47,8 @@ export const LIMITS = {
 	hintsPerLocation: 3,
 	hintLength: 200,
 	uploadBytes: 8 * 1024 * 1024,
+	/** Messages a player may send in a row on a ticket (the opening one included) before staff must answer. */
+	ticketFollowUps: 3,
 };
 
 export const GAME = {
@@ -106,7 +107,6 @@ export const GAME = {
 		/** Shortest gap between two reactions from the same player, in milliseconds. */
 		emoteCooldownMs: 1500,
 	},
-	/** Elo ratings for Quick Play duels. */
 	rating: {
 		start: 1000,
 		floor: 100,

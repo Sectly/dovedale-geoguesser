@@ -1,17 +1,19 @@
-/** Staff panel: the Overview tab, where the panel opens. */
+import { avatarHtml, el, errorStateHtml, escHtml } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { currentTab } from "./core.js";
+import { AUDIT_ACTION_LABELS } from "./audit.js";
 
 const OVERVIEW_REFRESH_MS = 30_000;
 let _overviewTimer = null;
 
-/** "5m", "3h", "2d": how long ago, short enough for a card. */
-function shortAgo(seconds) {
+export function shortAgo(seconds) {
 	const diff = Math.max(0, Date.now() / 1000 - seconds);
 	if (diff < 3600) return `${Math.max(1, Math.floor(diff / 60))}m`;
 	if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
 	return `${Math.floor(diff / 86400)}d`;
 }
 
-async function loadOverview() {
+export async function loadOverview() {
 	clearInterval(_overviewTimer);
 	try {
 		renderOverview(await api("/api/admin/overview"));
@@ -119,3 +121,6 @@ function renderOverview({ waiting, flagged, live, notices, mine, recent }) {
 			${recent.length ? panel("Other staff", recent, "") : ""}
 		</div>`;
 }
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, { loadOverview });

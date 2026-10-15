@@ -10,7 +10,6 @@ export type Claim = { kind: ClaimKind; id: number; staff_id: number; name: strin
 /** A claim nobody has renewed for this long is dropped. The panel renews it while the item stays open. */
 const CLAIM_MS = 90_000;
 
-/** One per member of staff, so this can never outgrow the team. */
 const claims = new Map<number, Claim>();
 
 export function setClaim(staff: User, kind: ClaimKind, id: number) {

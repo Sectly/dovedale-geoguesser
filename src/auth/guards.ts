@@ -28,7 +28,6 @@ export function requireUser(c: Context): User {
 	return currentUser(c) ?? fail(401, "Login required");
 }
 
-/** A logged-in user who is not banned. */
 export function requirePlayer(c: Context): User {
 	const user = requireUser(c);
 	if (user.is_banned) fail(403, "You are banned");

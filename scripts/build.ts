@@ -27,7 +27,6 @@ async function format() {
 	if ((await proc.exited) !== 0) throw new Error("Formatting failed");
 }
 
-/** The compass mark on the brand blue, with enough margin to survive being cropped to a circle. */
 function iconSvg(size: number): string {
 	return `<svg width="${size}" height="${size}" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
 		<rect width="512" height="512" fill="#09090b"/>
@@ -38,7 +37,6 @@ function iconSvg(size: number): string {
 	</svg>`;
 }
 
-/** Wraps PNG images of the given sizes in an .ico file, which every browser reads. */
 function icoFile(images: { size: number; png: Buffer }[]): Buffer {
 	const header = Buffer.alloc(6 + 16 * images.length);
 	header.writeUInt16LE(1, 2);

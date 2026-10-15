@@ -18,7 +18,6 @@ export function findProfile(username: string): User | null {
 	return user;
 }
 
-/** The numbers shown on a profile page and its share card. */
 export function profileStats(userId: number) {
 	const one = <T>(sql: string, ...params: number[]) => db.query<T, number[]>(sql).get(...params)!;
 	return {
@@ -68,7 +67,6 @@ export function profileStats(userId: number) {
 	};
 }
 
-/** A player's latest games, for the history lists on their profile. */
 export function recentGames(userId: number) {
 	return {
 		solo: db

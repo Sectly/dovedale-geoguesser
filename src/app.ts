@@ -48,7 +48,6 @@ const wireClientJs = await bundleWireClient();
 
 export const app = new Hono();
 
-/** Compresses text responses, for servers with no proxy doing it. Never a socket upgrade. */
 const compressed = compress();
 /** Sockets and the event stream are left uncompressed: compression would buffer stream messages. */
 app.use("*", (c, next) => (c.req.header("Upgrade") || c.req.path === "/api/events" ? next() : compressed(c, next)));
@@ -119,7 +118,6 @@ app.use("/api/*", async (c, next) => {
 	if (!c.res.headers.has("Cache-Control")) c.header("Cache-Control", "no-store");
 });
 
-/** Pushes changes to open pages through the event stream. */
 app.use("/api/*", async (c, next) => {
 	await next();
 	if (c.req.method === "GET" || c.res.status >= 400) return;
@@ -171,7 +169,6 @@ const REFUSAL_TITLES: Record<number, string> = {
 	503: "Not available right now",
 };
 
-/** Turns anything thrown into a response: a page for pages, text for API calls. */
 export const handleError: ErrorHandler = (err, c) => {
 	/** Login and logout live under /api but are opened as pages, so they get the page too. */
 	const asPage = wantsPage(c) || (c.req.method === "GET" && c.req.path.startsWith("/api/auth/"));

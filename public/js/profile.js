@@ -1,3 +1,8 @@
+import "./lib/site.js";
+import { el, escHtml, scoreTone } from "./lib/dom.js";
+import { api, fetchUser } from "./lib/api.js";
+import { copyText } from "./lib/toast.js";
+
 const _pathMatch = location.pathname.match(/^\/u\/([^/]+)/);
 const username = _pathMatch ? decodeURIComponent(_pathMatch[1]) : new URLSearchParams(location.search).get("u") || "";
 
@@ -172,7 +177,6 @@ function render(p, me) {
 	el("share-btn")?.addEventListener("click", () => shareProfile(p.username));
 }
 
-/** Every achievement as a tile: the earned ones lit, the rest greyed out with how to get them. */
 function achievementsHtml(achievements) {
 	if (!achievements?.length) return "";
 	const earned = achievements.filter((a) => a.earned_at).length;
@@ -205,7 +209,6 @@ function historyCard(title, rows, empty) {
 	</div>`;
 }
 
-/** The latest solo games, daily results and duels: the history behind the totals above. */
 function recentGamesHtml(recent) {
 	if (!recent) return "";
 	const row = (left, right, extra = "") =>
@@ -246,7 +249,6 @@ function recentGamesHtml(recent) {
 	</div>`;
 }
 
-/** Expands a duel in the history list to show how each round went. */
 async function toggleDuelRounds(gameId, button) {
 	const box = el(`duel-rounds-${gameId}`);
 	if (!box.classList.toggle("hidden") || box.dataset.loaded) return;
@@ -272,7 +274,6 @@ async function toggleDuelRounds(gameId, button) {
 	}
 }
 
-/** Copies the profile link and confirms it on the button. */
 async function shareProfile(username) {
 	const btn = el("share-btn");
 	if (!(await copyText(`${location.origin}/u/${encodeURIComponent(username)}`)) || !btn) return;
@@ -282,3 +283,6 @@ async function shareProfile(username) {
 }
 
 init();
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, { toggleDuelRounds });

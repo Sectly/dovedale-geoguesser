@@ -38,10 +38,8 @@ adminRoutes.route("/duels", adminDuelRoutes);
 adminRoutes.route("/announcements", adminAnnouncementRoutes);
 adminRoutes.route("/chat", adminChatRoutes);
 
-/** How many days the activity chart covers. */
 const SERIES_DAYS = 14;
 
-/** One row per UTC day for the last two weeks: who arrived and what was played. */
 function activitySeries() {
 	const since = utcDate(-(SERIES_DAYS - 1));
 	const byDay = (sql: string) =>
@@ -71,6 +69,13 @@ function activitySeries() {
 		};
 	});
 }
+
+const liveCounts = () => ({
+	duels: duelsInProgress(),
+	spectators: [...duelRooms.values()].reduce((sum, room) => sum + room.spectators.size, 0),
+	team_games: teamGamesInProgress(),
+	solo_games: activeSoloGames(),
+});
 
 /** The panel's home tab. Each role gets only what its own tabs would show. */
 adminRoutes.get("/overview", (c) => {
@@ -124,12 +129,7 @@ adminRoutes.get("/overview", (c) => {
 					)
 					.all()
 			: [],
-		live: {
-			duels: duelsInProgress(),
-			spectators: [...duelRooms.values()].reduce((sum, room) => sum + room.spectators.size, 0),
-			team_games: teamGamesInProgress(),
-			solo_games: activeSoloGames(),
-		},
+		live: liveCounts(),
 		notices: {
 			maintenance: maintenance().enabled,
 			restart_in: restartIn(),
@@ -140,7 +140,6 @@ adminRoutes.get("/overview", (c) => {
 	});
 });
 
-/** Says what this staff member has open and answers with what others have. Also keeps the claim alive. */
 adminRoutes.post("/claims", async (c) => {
 	const staff = requireStaff(c, "helper");
 	const body = await readJson<{ kind: ClaimKind; id: number }>(c);
@@ -164,15 +163,10 @@ adminRoutes.get("/stats", (c) => {
 	const graded = difficultyCounts();
 	const activeLocations = count("SELECT COUNT(*) AS n FROM locations WHERE is_active = 1");
 	return c.json({
-		/** What is happening this minute. */
 		live: {
-			duels: duelsInProgress(),
+			...liveCounts(),
 			duel_rooms_waiting: [...duelRooms.values()].filter((room) => room.status === "waiting").length,
-			spectators: [...duelRooms.values()].reduce((sum, room) => sum + room.spectators.size, 0),
-			team_games: teamGamesInProgress(),
-			solo_games: activeSoloGames(),
 		},
-		/** What is waiting for staff. */
 		queues: staffQueue(),
 		users: {
 			total: count("SELECT COUNT(*) AS n FROM users WHERE username != '[deleted]'"),

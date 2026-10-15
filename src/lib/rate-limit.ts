@@ -26,7 +26,6 @@ export function checkUserRateLimit(user: User, action: string, max: number, wind
 	return checkRateLimit(`${action}:${user.id}`, isFullStaff(user) ? max * 5 : max, windowMs);
 }
 
-/** Drops every key whose hits have all aged out of its own window, so the map cannot grow for ever. */
 export function pruneRateLimits() {
 	const now = Date.now();
 	for (const [key, bucket] of buckets) {

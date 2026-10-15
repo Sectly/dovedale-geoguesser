@@ -1,5 +1,11 @@
 /** Signal Reflex: a reaction-time mini-game. The best average is kept on this device. */
 
+import "./lib/site.js";
+import { Sounds } from "./sounds.js";
+import { el } from "./lib/dom.js";
+import { addKeybinds } from "./lib/keys.js";
+import { celebrate } from "./lib/effects.js";
+
 const REFLEX_GOES = 5;
 const REFLEX_BEST_KEY = "reflex_best_ms";
 

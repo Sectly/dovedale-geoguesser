@@ -52,7 +52,6 @@ adminAnnouncementRoutes.get("/", (c) => {
 
 /* ---- Changelog ---- */
 
-/** A changelog entry as typed in the panel: a title, the changes one per line, and the day it shipped. */
 async function readEntry(c: Context) {
 	const body = await readJson<{ title: string; body: string; released_at: number }>(c);
 	const title = text(body.title, 120);
@@ -111,7 +110,6 @@ type Body = {
 	silent: boolean;
 	must_ack: boolean;
 	expire_days: number;
-	/** Save it without sending. */
 	draft: boolean;
 	/** The draft this was written from, which is removed once it is sent. */
 	from_draft: number;
@@ -208,7 +206,6 @@ adminAnnouncementRoutes.post("/", async (c) => {
 	return c.json({ success: true, sent: sent.sent_to, id: sent.id, scheduled: !!sendAt, draft });
 });
 
-/** Puts a banner up, extends it, shortens it or takes it down. */
 adminAnnouncementRoutes.post("/:id/banner", async (c) => {
 	const staff = requireStaff(c, "admin");
 	const hours = Number((await readJson<{ hours: number }>(c)).hours);
@@ -228,7 +225,6 @@ adminAnnouncementRoutes.post("/:id/recall", (c) => {
 	return c.json({ success: true, removed });
 });
 
-/** Fixes an announcement's wording in place, within its first day. */
 adminAnnouncementRoutes.post("/:id/correct", async (c) => {
 	const staff = requireStaff(c, "admin");
 	const body = await readJson<{ title: string; body: string; link: string }>(c);
@@ -241,13 +237,11 @@ adminAnnouncementRoutes.post("/:id/correct", async (c) => {
 	return c.json({ success: true, updated });
 });
 
-/** Which staff have not read a staff announcement yet. */
 adminAnnouncementRoutes.get("/:id/unread", (c) => {
 	requireStaff(c, "admin");
 	return c.json(unreadStaff(idParam(c)));
 });
 
-/** Removes an old announcement from the history. */
 adminAnnouncementRoutes.delete("/:id", (c) => {
 	const staff = requireStaff(c, "admin");
 	const title = deleteAnnouncement(idParam(c));

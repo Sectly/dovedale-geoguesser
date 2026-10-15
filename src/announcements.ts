@@ -4,8 +4,6 @@ import { fail } from "./lib/http";
 import { DAY, nowSec } from "./lib/time";
 import { notifyUser } from "./notifications";
 
-/** Announcements: one message to many accounts (or one), optionally pinned as a banner on every page. */
-
 /** "player" is a message to one account, named when it is sent. */
 export const ANNOUNCEMENT_AUDIENCES = [
 	"everyone",
@@ -26,7 +24,6 @@ export const BANNER_STYLES = ["info", "success", "warning"] as const;
 export type BannerStyle = (typeof BANNER_STYLES)[number];
 /** How long after sending an announcement can still be corrected or taken back. */
 export const RECALL_HOURS = 24;
-/** How far ahead an announcement may be scheduled. */
 export const SCHEDULE_DAYS = 30;
 /** After how many days a notification may be set to leave inboxes by itself. 0 means it stays. */
 export const EXPIRE_DAYS = [0, 1, 3, 7, 30];
@@ -68,14 +65,12 @@ export type Announcement = {
 	style: BannerStyle | null;
 	/** A banner only: nothing goes to any inbox. */
 	silent: number;
-	/** Written but not sent. */
 	draft: number;
 	repeat: Repeat | null;
 	/** How many times its link was followed from a notification or the banner. */
 	clicks: number;
 	/** Shown as a dialog the reader has to dismiss. */
 	must_ack: number;
-	/** When its notifications leave inboxes by themselves. */
 	expires_at: number | null;
 	expire_days: number | null;
 	/** Inbox only: nobody's phone or desktop is buzzed. */
@@ -92,7 +87,6 @@ function recipients(audience: Audience, targetId: number | null = null): number[
 		.map((user) => user.id);
 }
 
-/** How many accounts an announcement to each audience would reach right now. */
 export function audienceSizes(): Record<string, number> {
 	return Object.fromEntries(
 		ANNOUNCEMENT_AUDIENCES.filter((audience) => audience !== "player").map((audience) => [
@@ -102,10 +96,8 @@ export function audienceSizes(): Record<string, number> {
 	);
 }
 
-/** True for a link to another site, rather than a page on this one. */
 export const isExternalLink = (link: string | null | undefined): link is string => /^https:\/\//i.test(link ?? "");
 
-/** A link to another site goes by way of the page that warns about leaving. */
 export const linkHref = (link: string) => (isExternalLink(link) ? `/leaving?to=${encodeURIComponent(link)}` : link);
 
 /** A link is a page on this site (a path) or an https address on another one. */
@@ -139,7 +131,6 @@ export type Draft = {
 	silent?: boolean;
 	mustAck?: boolean;
 	expireDays?: number;
-	/** Save it without sending. */
 	draft?: boolean;
 	noPush?: boolean;
 };
@@ -179,7 +170,6 @@ function record(draft: Draft, sender: { id: number | null; name: string | null }
 	);
 }
 
-/** Puts a recorded announcement into its audience's inboxes and starts its banner. */
 function deliver(a: Announcement): Announcement {
 	const ids = a.silent ? [] : recipients(a.audience, a.target_user_id);
 	const now = nowSec();
@@ -204,13 +194,11 @@ function deliver(a: Announcement): Announcement {
 	return byId(a.id)!;
 }
 
-/** Records an announcement, then sends, schedules or keeps it as a draft. */
 export function sendAnnouncement(draft: Draft, sender: User, senderName: string): Announcement {
 	const a = byId(record(draft, { id: sender.id, name: senderName }))!;
 	return draft.sendAt || draft.draft ? a : deliver(a);
 }
 
-/** When a repeating announcement goes out next after `from`. */
 function nextRepeat(from: number, repeat: Repeat): number {
 	if (repeat === "weekly") return from + 7 * DAY;
 	const date = new Date(from * 1000);
@@ -272,7 +260,6 @@ const canRecall = (a: Pick<Announcement, "created_at" | "recalled_at" | "send_at
 type Listed = Announcement & {
 	banner_live: boolean;
 	can_recall: boolean;
-	/** Old enough and no longer doing anything, so it may be removed from the history. */
 	can_delete: boolean;
 	/** Copies still in inboxes, and how many of those have been read. */
 	in_inboxes: number;
@@ -340,7 +327,6 @@ export function followLink(id: number, count = true): string {
 	return linkHref(a.link);
 }
 
-/** An announcement that may still be corrected or taken back, or a refusal saying why not. */
 function recallable(id: number): Announcement {
 	const a = byId(id) ?? fail(404, "Announcement not found");
 	if (a.recalled_at) fail(409, "That announcement was already taken back");
@@ -400,7 +386,6 @@ export function deleteAnnouncement(id: number): string {
 	return a.title;
 }
 
-/** Who has not read a staff announcement yet. Staff audiences only. */
 export function unreadStaff(id: number): string[] {
 	const a = byId(id) ?? fail(404, "Announcement not found");
 	if (a.audience !== "staff" && a.audience !== "helpers")
@@ -414,7 +399,6 @@ export function unreadStaff(id: number): string[] {
 		.map((row) => row.username);
 }
 
-/** The oldest announcement this player must acknowledge, if any. */
 export function pendingAcknowledgement(userId: number) {
 	const pending = db
 		.query<
@@ -480,7 +464,6 @@ export function deleteChangelogEntry(id: number): string {
 	return entry.title;
 }
 
-/** The news page: public announcements and changelog entries, newest first. */
 export function publicNews(limit = 40) {
 	const announced = db
 		.query<{ id: number; title: string; body: string; link: string | null; at: number }, [number]>(

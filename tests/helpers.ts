@@ -62,7 +62,6 @@ type CallOptions = {
 	headers?: Record<string, string>;
 };
 
-/** Calls the app in-process and returns the status with the parsed body. */
 export async function call(path: string, opts: CallOptions = {}) {
 	const headers: Record<string, string> = { ...opts.headers };
 	if (opts.as) headers.Cookie = opts.as.cookie;
