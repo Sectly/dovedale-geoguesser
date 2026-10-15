@@ -1,9 +1,32 @@
-/** Staff panel: reviewing submitted locations. */
+import { el, errorStateHtml, escHtml, locId } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
+import { refreshAttention } from "../lib/attention.js";
+import { addKeybinds } from "../lib/keys.js";
+import {
+	LABEL_MAX_LENGTH,
+	LABEL_MIN_LENGTH,
+	bindPanelSearch,
+	claimChanged,
+	currentTab,
+	emptyQueueHtml,
+	mountReviewMap,
+	panelSearchInput,
+	restorePanelSearch,
+	reviewHeader,
+	reviewViewChips,
+	reviewedRowHtml,
+	openDenyDialog,
+	staffUserLink,
+	userFilterSelect,
+} from "./core.js";
+import { shortAgo } from "./overview.js";
+import { formatWhen } from "./users.js";
 
 let _submissions = [];
-let _openSubmission = null;
+export let _openSubmission = null;
 let _submissionUser = "";
-let _submissionView = "waiting";
+export let _submissionView = "waiting";
 let _submissionHistory = [];
 
 /** Closer than this and the row is marked as a possible duplicate before it is even opened. */
@@ -11,7 +34,7 @@ const DUPLICATE_UNITS = 150;
 
 const subCode = (id) => `SUB-${String(id).padStart(4, "0")}`;
 
-async function loadSubmissions() {
+export async function loadSubmissions() {
 	try {
 		_submissions = await api("/api/admin/submissions");
 		/** Open on the oldest, so the queue can be worked from the keyboard straight away. */
@@ -26,7 +49,6 @@ async function loadSubmissions() {
 	}
 }
 
-/** The queue as filtered by the user picker. */
 const shownSubmissions = () => _submissions.filter((s) => !_submissionUser || s.username === _submissionUser);
 
 function setSubmissionUser(name) {
@@ -88,7 +110,6 @@ function renderSubmissions() {
 	claimChanged();
 }
 
-/** Locations already in the game near a submitted pin, nearest first. The server sends only these few. */
 const nearbyLocations = (s) => (s.nearby ?? []).map((loc) => ({ loc, distance: loc.distance }));
 
 function nearbyHtml(near) {
@@ -102,7 +123,7 @@ function nearbyHtml(near) {
 						loc,
 						distance,
 					}) => `<a href="/uploads/${escHtml(loc.image_path)}" target="_blank" rel="noopener" class="block bg-zinc-800/60 hover:bg-zinc-800 transition rounded-xl overflow-hidden" title="Open full size">
-						<img loading="lazy" src="/uploads/${escHtml(loc.image_path)}" alt="" class="w-full h-20 object-cover" />
+						<img loading="lazy" decoding="async" src="/uploads/${escHtml(loc.image_path)}" alt="" class="w-full h-20 object-cover" />
 						<span class="block px-2 py-1.5 text-xs">
 							<span class="block truncate text-zinc-200">${escHtml(loc.label || locId(loc.id))}</span>
 							<span class="text-zinc-500">${locId(loc.id)} · ${Math.round(distance).toLocaleString()} units away${loc.is_active ? "" : " · out of play"}</span>
@@ -139,7 +160,7 @@ function submissionRowHtml(s) {
 	].join(" ");
 	return `<div class="bg-zinc-900 rounded-2xl overflow-hidden ${open ? "ring-1 ring-zinc-700" : ""}" id="sub-${s.id}" data-search="${escHtml(searchText)}">
 		<button onclick="toggleSubmission(${s.id})" aria-expanded="${open}" class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800/50 transition">
-			<img loading="lazy" src="/uploads/${escHtml(s.image_path)}" alt="" class="w-16 h-10 rounded-lg object-cover flex-shrink-0" />
+			<img loading="lazy" decoding="async" src="/uploads/${escHtml(s.image_path)}" alt="" class="w-16 h-10 rounded-lg object-cover flex-shrink-0" />
 			<span class="flex-1 min-w-0">
 				<span class="block text-sm font-semibold truncate">${s.label ? escHtml(s.label) : '<span class="text-zinc-500 font-normal">No label</span>'}</span>
 				<span class="block text-xs text-zinc-500 mt-0.5 truncate">@${escHtml(s.username || "unknown")} · ${shortAgo(s.created_at)} ago${hints.length ? ` · ${hints.length} hint${hints.length === 1 ? "" : "s"}` : ""}</span>
@@ -154,7 +175,7 @@ function submissionRowHtml(s) {
 				? `<div class="border-t border-zinc-800 p-4 flex flex-col gap-4">
 					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 						<a href="/uploads/${escHtml(s.image_path)}" target="_blank" rel="noopener" title="Open full size">
-							<img src="/uploads/${escHtml(s.image_path)}" alt="Submitted screenshot" class="w-full rounded-xl object-contain bg-black max-h-[26rem]" />
+							<img decoding="async" src="/uploads/${escHtml(s.image_path)}" alt="Submitted screenshot" class="w-full rounded-xl object-contain bg-black max-h-[26rem]" />
 						</a>
 						<div class="flex flex-col gap-2 min-h-[16rem]">
 							<div id="review-map-slot" class="relative flex-1 min-h-[14rem] rounded-xl overflow-hidden bg-zinc-800"></div>
@@ -197,13 +218,12 @@ function mountSubmissionMap() {
 	map.fitTo([{ x: s.world_x, y: s.world_y }, ...near.map(({ loc }) => ({ x: loc.world_x, y: loc.world_y }))]);
 }
 
-function toggleSubmission(id) {
+export function toggleSubmission(id) {
 	_openSubmission = _openSubmission === id ? null : id;
 	renderSubmissions();
 	el(`sub-${id}`)?.scrollIntoView({ block: "nearest" });
 }
 
-/** Opens the submission before or after the open one. */
 function stepSubmission(step) {
 	const shown = shownSubmissions();
 	if (!shown.length) return;
@@ -212,7 +232,6 @@ function stepSubmission(step) {
 	if (next && next.id !== _openSubmission) toggleSubmission(next.id);
 }
 
-/** Takes a reviewed submission off the list and opens the next one, so the queue keeps moving. */
 function submissionReviewed(id) {
 	const at = shownSubmissions().findIndex((s) => s.id === id);
 	_submissions = _submissions.filter((s) => s.id !== id);
@@ -239,16 +258,10 @@ async function approveSubmission(id) {
 }
 
 function openDenyModal(id) {
-	denyTargetId = id;
-	denyCallback = null;
-	el("deny-modal-title").textContent = `Deny ${subCode(id)}`;
-	el("deny-reason").value = "";
-	el("deny-reason").dispatchEvent(new Event("input"));
-	el("deny-modal").classList.remove("hidden");
-	setTimeout(() => el("deny-reason").focus(), 50);
+	openDenyDialog(`Deny ${subCode(id)}`, id);
 }
 
-async function denySubmission(id, reason) {
+export async function denySubmission(id, reason) {
 	try {
 		await api(`/api/admin/submissions/${id}/deny`, { json: { reason } });
 		showToast(`${subCode(id)} denied.`);
@@ -258,7 +271,6 @@ async function denySubmission(id, reason) {
 	}
 }
 
-/** Only while the Submissions tab is showing and no dialog is in the way. */
 const reviewingSubmissions = () =>
 	currentTab === "submissions" &&
 	_submissionView === "waiting" &&
@@ -277,3 +289,13 @@ addKeybinds("Reviewing submissions", [
 		() => (reviewingSubmissions() && _openSubmission ? openDenyModal(_openSubmission) : false),
 	],
 ]);
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, {
+	approveSubmission,
+	loadSubmissions,
+	openDenyModal,
+	setSubmissionUser,
+	setSubmissionView,
+	toggleSubmission,
+});

@@ -10,7 +10,6 @@ import { call, createUser } from "./helpers";
 
 const DAY_MS = 86_400_000;
 
-/** Writes a screenshot-shaped file into the uploads folder, last changed `daysOld` days ago. */
 function upload(name: string, daysOld: number) {
 	const path = join(UPLOADS_DIR, name);
 	writeFileSync(path, "x");
@@ -33,7 +32,6 @@ describe("orphaned screenshots", () => {
 
 		expect(await sweepOrphanedUploads()).toBe(1);
 		expect(existsSync(orphan)).toBe(false);
-		/** Still referenced, too new to judge, and not one of ours to delete. */
 		for (const kept of [inUse, fresh, foreign]) expect(existsSync(kept)).toBe(true);
 	});
 
@@ -70,7 +68,6 @@ describe("the daily check-up", () => {
 	});
 
 	test("runs once a day, and tells staff about a serious finding only once", async () => {
-		/** A test database has no backups, which is serious. */
 		const first = await dailyCheckUp("2026-01-01", { updates: false });
 		expect(first.some((finding) => finding.key === "no_backups")).toBe(true);
 		expect(await dailyCheckUp("2026-01-01", { updates: false })).toEqual([]);

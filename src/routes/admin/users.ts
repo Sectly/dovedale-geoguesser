@@ -29,7 +29,6 @@ import { deleteUserAccount, exportUserData } from "../account";
 
 const NOTE_MAX = 1000;
 
-/** Routes mounted at /api/admin/users. */
 export const adminUserRoutes = new Hono();
 /** Routes mounted at /api/admin/moderation: acting on a single past action. */
 export const adminModerationRoutes = new Hono();
@@ -55,7 +54,6 @@ function duration(value: unknown, max: number): number {
 	return Math.min(max, value);
 }
 
-/** Records an action against a user and leaves a trail in the audit log. */
 function act(
 	actor: User,
 	target: User,
@@ -132,7 +130,6 @@ adminUserRoutes.get("/", (c) => {
 	);
 });
 
-/** Accounts that share a device with a banned one and are waiting for a staff decision. */
 adminUserRoutes.get("/evasion", (c) => {
 	requireStaff(c);
 	return c.json(openEvasionFlags());
@@ -198,7 +195,6 @@ adminUserRoutes.post("/fairplay/:id/dismiss", (c) => {
 	return c.json({ success: true });
 });
 
-/** Everything staff need to judge a user. */
 adminUserRoutes.get("/:id/moderation", (c) => {
 	const staff = requireStaff(c);
 	const target = getUser(idParam(c));
@@ -360,7 +356,6 @@ adminUserRoutes.post("/:id/role", async (c) => {
 	return c.json({ success: true });
 });
 
-/** Suspends a lower-ranked staff member's staff access. Their role is kept and they can still play. */
 adminUserRoutes.post("/:id/staff-lock", async (c) => {
 	/** Anyone from moderator up may do this to staff ranked below them: a moderator to helpers only. */
 	const actor = requireStaff(c, "moderator");

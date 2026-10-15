@@ -12,7 +12,6 @@ import { requireFeature } from "../system/features";
 
 export const submissionRoutes = new Hono();
 
-/** Reads a pair of map coordinates from a form, or null when either is missing or not a number. */
 export function formCoords(form: FormData): { x: number; y: number } | null {
 	const x = parseFloat(String(form.get("world_x") ?? ""));
 	const y = parseFloat(String(form.get("world_y") ?? ""));

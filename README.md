@@ -29,14 +29,15 @@ Then open `http://localhost:4000`.
 
 Set `AUTH_DEV=true` in `.env` to skip Discord and log in as a built-in operator account. `bun run seed` adds placeholder locations so there is something to play.
 
-| Command             | What it does                                           |
-| ------------------- | ------------------------------------------------------ |
-| `bun run dev`       | Start the server and restart on changes                |
-| `bun run test`      | Run the tests, each file on its own throwaway database |
-| `bun run typecheck` | Type-check the server and tests                        |
-| `bun run build`     | Format the code and compile the stylesheet             |
-| `bun run vapid`     | Generate keys for push notifications (optional)        |
-| `bun run sync-map`  | Refresh map settings from the Dovedale map             |
+| Command             | What it does                                                        |
+| ------------------- | ------------------------------------------------------------------- |
+| `bun run dev`       | Start the server and restart on changes                             |
+| `bun run test`      | Run the tests, each file on its own throwaway database              |
+| `bun run typecheck` | Type-check the server and tests                                     |
+| `bun run build`     | Format the code and compile the stylesheet                          |
+| `bun run vapid`     | Generate keys for push notifications (optional)                     |
+| `bun run sync-map`  | Refresh map settings from the Dovedale map                          |
+| `bun run tiles`     | Build the map tiles in every size and format (`--force` redoes all) |
 
 ## Configuration
 
@@ -59,6 +60,7 @@ First time:
 ```bash
 bun install
 bun run build:css
+bun run tiles
 pm2 start pm2.config.js
 ```
 
@@ -111,12 +113,12 @@ To add a special or change the dates, see `src/specials.ts`.
 
 ## How it's built
 
-[Bun](https://bun.sh), [Hono](https://hono.dev), SQLite, [WebWire](https://github.com/Sectly/webwire) for duels, Discord login, and plain JavaScript with Tailwind in the browser.
+[Bun](https://bun.sh), [Hono](https://hono.dev), SQLite, [WebWire](https://github.com/Sectly/webwire) for duels, Discord login, and plain JavaScript modules with Tailwind in the browser.
 
 ```
 server.ts     Entry point
 src/          The server: config, database, auth, game logic, routes
-public/       Pages, styles and one script per page
+public/       Pages and styles; js/ has one module per page, and js/lib/ the parts every page shares
 tests/        Test suites
 scripts/      Build, seed and map tools
 ```

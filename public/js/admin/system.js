@@ -1,4 +1,10 @@
-/* ---- System (operators): maintenance mode, updates, backups and the server log ---- */
+import { el, escHtml } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
+import { renderMaintenanceBanner } from "../lib/notices.js";
+import { showConfirm } from "./core.js";
+import { shortAgo } from "./overview.js";
+import { formatWhen } from "./users.js";
 
 let systemLogLevel = "";
 let systemLogSearch = "";
@@ -23,7 +29,7 @@ function formatUptime(seconds) {
 	return days ? `${days}d ${hours}h` : hours ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
-function systemCard(title, icon, body, actions = "") {
+export function systemCard(title, icon, body, actions = "") {
 	return `<section class="bg-zinc-900 rounded-2xl p-5 mb-4">
 		<div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
 			<h2 class="font-bold flex items-center gap-2"><span class="material-symbols-outlined text-xl text-zinc-500">${icon}</span>${title}</h2>
@@ -33,7 +39,7 @@ function systemCard(title, icon, body, actions = "") {
 	</section>`;
 }
 
-async function loadSystem() {
+export async function loadSystem() {
 	clearInterval(systemUpdatePoll);
 	el("tab-content").innerHTML = `
 		<div id="system-info"></div>
@@ -277,7 +283,7 @@ async function loadUpdate(refresh) {
 		);
 		return;
 	}
-	if (box.dataset.restarting && status.job?.state === "idle") {
+	if (box.dataset.restarting && status.job && status.job.state !== "restarting") {
 		delete box.dataset.restarting;
 		showToast("The server is back up", "success");
 		loadSystemInfo();
@@ -313,18 +319,11 @@ async function loadUpdate(refresh) {
 		? `<div class="text-sm text-zinc-300 mb-1">${status.pending.length} update${status.pending.length === 1 ? "" : "s"} waiting on <code class="text-xs">${escHtml(status.tracking)}</code></div>
 			<div class="divide-y divide-zinc-800 max-h-64 overflow-y-auto mb-3">${status.pending.map(commitRow).join("")}</div>`
 		: `<p class="text-sm text-zinc-400 mb-3">${status.checked_at ? "Up to date." : "Press Check for updates to ask GitHub what is new."}</p>`;
-	const jobLog =
-		job.state !== "idle"
-			? `<div class="bg-black/30 rounded-xl p-3 mb-3">
-				<div class="text-sm font-semibold mb-1 ${job.state === "failed" ? "text-red-300" : ""}">${
-					job.state === "failed"
-						? `Update failed at "${escHtml(job.step)}". The server was not restarted.`
-						: escHtml(job.step || "Starting") +
-							(job.state === "restarting" && status.restart_in !== null ? ` (${status.restart_in}s)` : "")
-				}</div>
-				<pre class="text-xs text-zinc-400 whitespace-pre-wrap max-h-48 overflow-y-auto">${escHtml(job.log.join("\n"))}</pre>
-			</div>`
-			: "";
+	const jobLog = job.state !== "idle" ? updateJobHtml(job, status.restart_in) : "";
+	/** A redraw must not throw the reader back to the top of the output, or away from its end. */
+	const oldLog = box.querySelector(".update-log");
+	const followEnd = !oldLog || oldLog.scrollTop + oldLog.clientHeight >= oldLog.scrollHeight - 8;
+	const keptScroll = oldLog?.scrollTop ?? 0;
 
 	box.innerHTML = systemCard(
 		"Updates",
@@ -342,7 +341,56 @@ async function loadUpdate(refresh) {
 		</div>`,
 		check
 	);
-	if (busy) systemUpdatePoll = setInterval(() => loadUpdate(false), 2000);
+	const newLog = box.querySelector(".update-log");
+	if (newLog) newLog.scrollTop = followEnd ? newLog.scrollHeight : keptScroll;
+	if (busy) systemUpdatePoll = setInterval(() => loadUpdate(false), 1500);
+}
+
+const UPDATE_STEP_ICONS = {
+	waiting: ["radio_button_unchecked", "text-zinc-600"],
+	running: ["progress_activity", "text-blue-400 animate-spin"],
+	done: ["check_circle", "text-green-400"],
+	failed: ["error", "text-red-400"],
+};
+
+/** "1m 05s", or "12s" under a minute. */
+const durationText = (seconds) =>
+	seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s` : `${seconds}s`;
+
+/** The update in progress, or the last one: what it is doing, each step, and everything it printed. */
+function updateJobHtml(job, restartIn) {
+	const now = Math.floor(Date.now() / 1000);
+	const took = job.started_at ? durationText((job.ended_at ?? now) - job.started_at) : "";
+	const what =
+		job.kind === "restart"
+			? "Restart"
+			: `Update${job.from && job.to ? ` <code class="text-xs">${escHtml(job.from)}</code> to <code class="text-xs">${escHtml(job.to)}</code>` : ""}`;
+	const headline = {
+		running: `<span class="material-symbols-outlined text-base text-blue-400 animate-spin">progress_activity</span>Busy: ${escHtml(job.step || "starting")} <span class="text-zinc-500 font-normal">(${took} so far)</span>`,
+		restarting: `<span class="material-symbols-outlined text-base text-amber-300 animate-spin">progress_activity</span>${escHtml(job.step)}${restartIn !== null ? ` <span class="text-zinc-500 font-normal">(${restartIn}s)</span>` : ""}`,
+		failed: `<span class="material-symbols-outlined text-base text-red-400">error</span><span class="text-red-300">Failed at "${escHtml(job.step)}". The server was not restarted.</span>`,
+		needs_restart: `<span class="material-symbols-outlined text-base text-amber-300">restart_alt</span>${escHtml(job.step)}`,
+		done: `<span class="material-symbols-outlined text-base text-green-400">check_circle</span>${escHtml(job.step)}${job.ended_at ? ` <span class="text-zinc-500 font-normal">${formatWhen(job.ended_at)}</span>` : ""}`,
+	}[job.state];
+	const steps = job.steps?.length
+		? `<ol class="grid gap-1 my-2">${job.steps
+				.map((step) => {
+					const [icon, tone] = UPDATE_STEP_ICONS[step.state] ?? UPDATE_STEP_ICONS.waiting;
+					const time = step.started_at ? durationText((step.ended_at ?? now) - step.started_at) : "";
+					return `<li class="flex items-center gap-2 text-sm ${step.state === "waiting" ? "text-zinc-500" : ""}">
+						<span class="material-symbols-outlined text-base ${tone}">${icon}</span>
+						<span class="flex-1">${escHtml(step.name)}</span>
+						<span class="text-xs text-zinc-500 tabular-nums">${time}</span>
+					</li>`;
+				})
+				.join("")}</ol>`
+		: "";
+	return `<div class="bg-black/30 rounded-xl p-3 mb-3">
+		<div class="text-sm font-semibold flex items-center gap-2 flex-wrap">${headline}</div>
+		<div class="text-xs text-zinc-500 mt-0.5">${what}${job.started_by ? `, started by ${escHtml(job.started_by)}` : ""}${took && job.state !== "running" ? `, took ${took}` : ""}</div>
+		${steps}
+		${job.log?.length ? `<pre class="update-log text-xs text-zinc-400 whitespace-pre-wrap max-h-72 overflow-y-auto bg-black/30 rounded-lg p-2">${escHtml(job.log.join("\n"))}</pre>` : ""}
+	</div>`;
 }
 
 async function installUpdate(count) {
@@ -547,3 +595,21 @@ async function clearSystemLogs() {
 		showToast(err.message, "error");
 	}
 }
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, {
+	backfillAchievementsNow,
+	cancelRestartNow,
+	clearSystemLogs,
+	deleteBackupFile,
+	installUpdate,
+	loadBreakdown,
+	loadSystemInfo,
+	loadSystemLogs,
+	loadUpdate,
+	makeBackup,
+	restartServerNow,
+	setFeature,
+	setMaintenanceMode,
+	setSystemLogLevel,
+});

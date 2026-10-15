@@ -12,25 +12,37 @@ const REMOTE = "origin";
 /** Set PANEL_UPDATES=off to remove the feature entirely. */
 export const UPDATES_ENABLED = (process.env.PANEL_UPDATES ?? "on").toLowerCase() !== "off";
 
-type Result = { ok: boolean; out: string };
+type Result = { ok: boolean; out: string; streamed?: boolean };
 
-async function run(cmd: string[], timeoutMs = 60_000): Promise<Result> {
+/** Runs a command in the checkout. With `onLine`, each line of output is handed over as it is printed. */
+async function run(cmd: string[], timeoutMs = 60_000, onLine?: (line: string) => void): Promise<Result> {
 	try {
 		const proc = Bun.spawn({
 			cmd,
 			cwd: ROOT_DIR,
 			stdout: "pipe",
 			stderr: "pipe",
-			env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+			env: { ...process.env, GIT_TERMINAL_PROMPT: "0", NO_COLOR: "1", FORCE_COLOR: "0" },
 		});
 		const timer = setTimeout(() => proc.kill(), timeoutMs);
-		const [out, err, code] = await Promise.all([
-			new Response(proc.stdout).text(),
-			new Response(proc.stderr).text(),
-			proc.exited,
-		]);
+		const read = async (stream: ReadableStream<Uint8Array>) => {
+			let all = "";
+			let partial = "";
+			const decoder = new TextDecoder();
+			for await (const chunk of stream) {
+				const text = decoder.decode(chunk, { stream: true });
+				all += text;
+				if (!onLine) continue;
+				const lines = (partial + text).split(/\r?\n|\r/);
+				partial = lines.pop() ?? "";
+				for (const line of lines) if (line.trim()) onLine(line);
+			}
+			if (onLine && partial.trim()) onLine(partial);
+			return all;
+		};
+		const [out, err, code] = await Promise.all([read(proc.stdout), read(proc.stderr), proc.exited]);
 		clearTimeout(timer);
-		return { ok: code === 0, out: `${out}${err}`.trim() };
+		return { ok: code === 0, out: `${out}${err}`.trim(), streamed: !!onLine };
 	} catch (err) {
 		return { ok: false, out: err instanceof Error ? err.message : String(err) };
 	}
@@ -84,31 +96,132 @@ export async function updateStatus(refresh = false) {
 		local_changes: dirty.out ? dirty.out.split("\n").length : 0,
 		fetch_error: fetchError,
 		checked_at: lastFetch ? Math.floor(lastFetch / 1000) : null,
-		/** Seconds until the announced restart, while one is counting down. */
 		restart_in: restartIn(),
 		job,
 	};
 }
 
+type StepState = "waiting" | "running" | "done" | "failed";
+type Step = { name: string; state: StepState; started_at: number | null; ended_at: number | null };
+
 type Job = {
-	state: "idle" | "running" | "failed" | "restarting" | "needs_restart";
+	/** A panel update, or a restart on its own. */
+	kind: "update" | "restart";
+	state: "idle" | "running" | "failed" | "restarting" | "needs_restart" | "done";
 	step: string;
+	steps: Step[];
 	log: string[];
 	started_at: number | null;
+	ended_at: number | null;
 	started_by: string | null;
+	/** The version being installed, and the one it replaces. */
+	from: string | null;
+	to: string | null;
 };
 
-const job: Job = { state: "idle", step: "", log: [], started_at: null, started_by: null };
+const STEP_NAMES = [
+	"Backing up the database",
+	"Downloading the update",
+	"Installing dependencies",
+	"Building styles",
+	"Building map tiles",
+] as const;
+
+/** The last step of an update, and the only one of a plain restart. It ends when the new server is up. */
+const RESTART_STEP = "Restarting the server";
+
+const JOB_KEY = "last_update";
+const LOG_LINES = 400;
+const nowSecs = () => Math.floor(Date.now() / 1000);
+
+function blankJob(): Job {
+	return {
+		kind: "update",
+		state: "idle",
+		step: "",
+		steps: [],
+		log: [],
+		started_at: null,
+		ended_at: null,
+		started_by: null,
+		from: null,
+		to: null,
+	};
+}
+
+/** Kept in the database, so the record of an update survives the restart that finishes it. */
+function saveJob() {
+	try {
+		db.run("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", [JOB_KEY, JSON.stringify(job)]);
+	} catch {}
+}
+
+/** The last update, as left by the server before this one. One that was restarting has now finished. */
+function loadJob(): Job {
+	try {
+		const row = db.query<{ value: string }, [string]>("SELECT value FROM app_settings WHERE key = ?").get(JOB_KEY);
+		if (!row) return blankJob();
+		const saved = { ...blankJob(), ...(JSON.parse(row.value) as Partial<Job>) };
+		if (saved.state === "restarting" || saved.state === "needs_restart") {
+			saved.state = "done";
+			saved.step = saved.kind === "restart" ? "Restarted" : "Updated and restarted";
+			saved.ended_at = nowSecs();
+			const restart = restartStepOf(saved);
+			restart.state = "done";
+			restart.started_at ??= saved.ended_at;
+			restart.ended_at = saved.ended_at;
+			saved.log.push(`${stamp(saved)} The server is back up`);
+		}
+		/** Cut off mid-step by a crash or a stop: it did not finish. */
+		if (saved.state === "running") {
+			saved.state = "failed";
+			saved.log.push(`${stamp(saved)} The server stopped before the update finished`);
+			for (const step of saved.steps) if (step.state === "running") step.state = "failed";
+		}
+		return saved;
+	} catch {
+		return blankJob();
+	}
+}
+
+function restartStepOf(of: Job): Step {
+	let step = of.steps.find((s) => s.name === RESTART_STEP);
+	if (!step) of.steps.push((step = { name: RESTART_STEP, state: "waiting", started_at: null, ended_at: null }));
+	return step;
+}
+
+/** Marks the restart step as under way, from the start of the players' warning. */
+function beginRestartStep() {
+	const step = restartStepOf(job);
+	step.state = "running";
+	step.started_at = nowSecs();
+	step.ended_at = null;
+	note(`> ${RESTART_STEP}`);
+	logInfo(`[update] ${RESTART_STEP}`);
+}
+
+/** Time since the update started, as "1:05", for the start of each log line. */
+function stamp(of: Job = job): string {
+	const seconds = of.started_at ? Math.max(0, nowSecs() - of.started_at) : 0;
+	return `[${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}]`;
+}
+
+function note(line: string) {
+	for (const part of line.split("\n")) {
+		if (!part.trim()) continue;
+		job.log.push(`${stamp()} ${part}`);
+	}
+	if (job.log.length > LOG_LINES) job.log.splice(0, job.log.length - LOG_LINES);
+}
+
+const job: Job = loadJob();
 /** True once an update has been installed that the running server has not restarted into. */
 let installed = false;
 const INSTALLED_STEP = "Installed. Restart the server to finish.";
 
-function note(line: string) {
-	job.log.push(line);
-	if (job.log.length > 200) job.log.shift();
-}
+const shortHash = async () => (await git("rev-parse", "--short", "HEAD")).out || null;
 
-/** Backs up, fast-forwards, installs, rebuilds styles, restarts. Stops at the first failure. */
+/** Backs up, fast-forwards, installs, rebuilds styles and tiles, restarts. Stops at the first failure. */
 export async function runUpdate(startedBy: string): Promise<string | null> {
 	if (!UPDATES_ENABLED) return "Updates from the panel are switched off on this server.";
 	if (job.state === "running" || job.state === "restarting") return "An update is already running.";
@@ -119,45 +232,76 @@ export async function runUpdate(startedBy: string): Promise<string | null> {
 	if (status.ahead) return "The server has commits the remote does not. Sort that out by hand first.";
 	if (!status.pending.length) return "Already up to date.";
 
-	Object.assign(job, {
+	Object.assign(job, blankJob(), {
 		state: "running",
-		step: "",
-		log: [],
-		started_at: Math.floor(Date.now() / 1000),
+		steps: [...STEP_NAMES, RESTART_STEP].map((name) => ({
+			name,
+			state: "waiting",
+			started_at: null,
+			ended_at: null,
+		})),
+		started_at: nowSecs(),
 		started_by: startedBy,
+		from: await shortHash(),
+		to: status.pending[0].hash.slice(0, 7),
 	});
+	note(`Update started by ${startedBy}: ${status.pending.length} commit(s), ${job.from} to ${job.to}`);
+	logInfo(`[update] Started by ${startedBy}: ${status.pending.length} commit(s), ${job.from} to ${job.to}`);
+	saveJob();
+
 	void (async () => {
-		const steps: [string, () => Promise<Result>][] = [
-			["Backing up the database", async () => ({ ok: true, out: createBackup(db, "update") })],
-			["Downloading the update", () => git("pull", "--ff-only", REMOTE, BRANCH)],
-			["Installing dependencies", () => run([process.execPath, "install"], 300_000)],
-			["Building styles", () => run([process.execPath, "run", "build:css"], 300_000)],
-		];
-		for (const [name, step] of steps) {
-			job.step = name;
-			note(`> ${name}`);
+		const actions: Record<(typeof STEP_NAMES)[number], () => Promise<Result>> = {
+			"Backing up the database": async () => ({ ok: true, out: `Saved ${createBackup(db, "update")}` }),
+			"Downloading the update": () => git("pull", "--ff-only", REMOTE, BRANCH),
+			"Installing dependencies": () => run([process.execPath, "install"], 300_000, note),
+			"Building styles": () => run([process.execPath, "run", "build:css"], 300_000, note),
+			"Building map tiles": () => run([process.execPath, "run", "tiles"], 30 * 60_000, note),
+		};
+		for (const step of job.steps.filter((s) => s.name !== RESTART_STEP)) {
+			job.step = step.name;
+			step.state = "running";
+			step.started_at = nowSecs();
+			note(`> ${step.name}`);
+			logInfo(`[update] ${step.name}`);
+			saveJob();
 			let result: Result;
 			try {
-				result = await step();
+				result = await actions[step.name as (typeof STEP_NAMES)[number]]();
 			} catch (err) {
 				result = { ok: false, out: err instanceof Error ? err.message : String(err) };
 			}
-			if (result.out) note(result.out.slice(-2000));
+			step.ended_at = nowSecs();
+			/** Commands that stream their lines have already been noted as they ran. */
+			if (result.out && !result.streamed) note(result.out.slice(-4000));
 			if (!result.ok) {
+				step.state = "failed";
 				job.state = "failed";
-				console.error(`[update] "${name}" failed. The server was not restarted.\n${result.out}`);
+				job.ended_at = nowSecs();
+				note(`Failed at "${step.name}". The server was not restarted.`);
+				console.error(
+					`[update] "${step.name}" failed. The server was not restarted.\n${result.out.slice(-2000)}`
+				);
+				saveJob();
 				return;
 			}
+			step.state = "done";
+			note(`Done in ${step.ended_at - (step.started_at ?? step.ended_at)}s`);
+			saveJob();
 		}
-		logInfo(`[update] Installed ${status.pending.length} commit(s), started by ${startedBy}`, job.log.join("\n"));
+		logInfo(`[update] Installed ${job.to}, started by ${startedBy}`, job.log.join("\n"));
 		installed = true;
 		if (!SUPERVISED) {
 			job.state = "needs_restart";
 			job.step = INSTALLED_STEP;
+			note(INSTALLED_STEP);
+			saveJob();
 			return;
 		}
 		job.state = "restarting";
 		job.step = "Installed. Restarting once players have had their warning";
+		note(job.step);
+		beginRestartStep();
+		saveJob();
 		scheduleRestart("Update installed");
 	})();
 	return null;
@@ -169,8 +313,12 @@ export function restartServer(startedBy: string): string | null {
 	if (job.state === "running") return "An update is running. It will restart the server when it finishes.";
 	if (job.state === "restarting") return "The server is already about to restart.";
 	logInfo(`[server] Restart requested from the staff panel by ${startedBy}`);
+	if (!installed) Object.assign(job, blankJob(), { kind: "restart", started_at: nowSecs(), started_by: startedBy });
 	job.state = "restarting";
 	job.step = "Restarting once players have had their warning";
+	note(`Restart requested by ${startedBy}`);
+	beginRestartStep();
+	saveJob();
 	scheduleRestart("Restart requested from the staff panel");
 	return null;
 }
@@ -181,5 +329,8 @@ export function cancelPendingRestart(cancelledBy: string): string | null {
 	logInfo(`[server] Restart called off from the staff panel by ${cancelledBy}`);
 	job.state = installed ? "needs_restart" : "idle";
 	job.step = installed ? INSTALLED_STEP : "";
+	note(`Restart called off by ${cancelledBy}`);
+	Object.assign(restartStepOf(job), { state: "waiting", started_at: null, ended_at: null });
+	saveJob();
 	return null;
 }

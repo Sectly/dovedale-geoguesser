@@ -18,16 +18,13 @@ export type Finding = {
 	level: "problem" | "warning" | "upcoming" | "info";
 	title: string;
 	detail?: string;
-	/** How many times it happened, for log lines. */
 	count?: number;
 	/** When it last happened, in seconds. */
 	at?: number;
-	/** The staff panel tab that deals with it. */
 	tab?: string;
 };
 
 const ORDER = { problem: 0, warning: 1, upcoming: 2, info: 3 };
-/** How far back the server log is read. */
 const LOG_DAYS = 7;
 const LOG_MAX = 12;
 

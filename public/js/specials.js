@@ -1,4 +1,6 @@
-/** Specials hub: lists what is running for the logged-in player. */
+import "./lib/site.js";
+import { el, escHtml, skeletonRows } from "./lib/dom.js";
+import { api, fetchUser, loginUrl } from "./lib/api.js";
 
 const SPECIAL_KINDS = {
 	mode: ["Game mode", ""],
@@ -7,7 +9,6 @@ const SPECIAL_KINDS = {
 	event: ["Event", "info"],
 };
 
-/** "3 days", "5 hours", "20 minutes": how long until a date. */
 function timeUntil(iso) {
 	const minutes = Math.max(1, Math.round((Date.parse(iso) - Date.now()) / 60000));
 	const [n, unit] =

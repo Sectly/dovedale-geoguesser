@@ -1,5 +1,24 @@
 /** Solo: a run of rounds scored by the server. Works logged out; only logged-in games are saved. */
 
+import "./lib/site.js";
+import { MapCanvas } from "./map-canvas.js";
+import { Sounds } from "./sounds.js";
+import { countUp, el, escHtml, locId, scoreTone, show, streakBadgeHtml } from "./lib/dom.js";
+import { api, fetchUser, loginUrl } from "./lib/api.js";
+import { copyText, showToast } from "./lib/toast.js";
+import { checkAchievements } from "./lib/achievements.js";
+import { addKeybinds } from "./lib/keys.js";
+import { celebrate } from "./lib/effects.js";
+import {
+	RoundView,
+	difficultyText,
+	renderRoundResult,
+	reportLocation,
+	reportLocationUrl,
+	setupPills,
+} from "./round.js";
+import { PhotoEffects } from "./photo-effects.js";
+
 let user = null;
 let view = null;
 let replayMap = null;
@@ -11,9 +30,7 @@ let getRounds, getTimeLimit, getDifficulty;
 const DIFFICULTY_NAMES = [null, "easy", "medium", "hard"];
 /** Set when the page was opened from Specials (/play?special=blitz): the server picks the rules. */
 const special = new URLSearchParams(location.search).get("special");
-/** How this special changes the screenshot ("torch", "snow"), if it does. */
 let specialEffect = null;
-/** A setting for that effect, when it takes one (how long Flash shows the picture). */
 let specialEffectOption;
 
 async function init() {
@@ -65,7 +82,6 @@ async function init() {
 	if (special) setupSpecial();
 }
 
-/** Greys out a difficulty that has no locations yet, and says how many each one has. */
 async function loadDifficulties() {
 	const counts = await api("/api/solo/difficulties").catch(() => null);
 	if (!counts) return;
@@ -82,7 +98,6 @@ async function loadDifficulties() {
 	}
 }
 
-/** Swaps the usual options for the special's own description; its rules are fixed. */
 async function setupSpecial() {
 	if (!user) return location.replace("/specials");
 	const info = (await api("/api/specials").catch(() => [])).find(
@@ -164,7 +179,6 @@ function gameLost(err) {
 
 async function submitGuess(pin) {
 	view.stop();
-	/** The round is over, so the player may see the whole picture. */
 	PhotoEffects.clear();
 	let result;
 	try {

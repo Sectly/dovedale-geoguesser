@@ -2,6 +2,14 @@
  * Team Duels (Specials): two teams of up to two. The page polls the room's state about once a second and draws it.
  */
 
+import "./lib/site.js";
+import { Sounds } from "./sounds.js";
+import { avatarHtml, el, escHtml, show } from "./lib/dom.js";
+import { api, fetchUser } from "./lib/api.js";
+import { copyText, showToast } from "./lib/toast.js";
+import { celebrate } from "./lib/effects.js";
+import { RoundView, bindEmoteBar, renderEmoteBar, showEmoteBubble } from "./round.js";
+
 const TEAM_INFO = {
 	a: { name: "Blue team", color: "#42A5F5", text: "text-blue-300", bar: "bg-blue-500" },
 	b: { name: "Amber team", color: "#FFB300", text: "text-amber-300", bar: "bg-amber-500" },
@@ -260,7 +268,6 @@ function renderFinal() {
 	if (won) celebrate();
 }
 
-/** Shows any reactions that have arrived since the last poll, in each sender's team colour. */
 function renderEmotes() {
 	renderEmoteBar(room.emote_list, !!room.you.team);
 	for (const sent of room.emotes || []) {
@@ -276,7 +283,6 @@ function renderEmotes() {
 	}
 }
 
-/** Draws the room as the server last described it, acting once on each change. */
 function render() {
 	renderEmotes();
 	const changed = shown.status !== room.status || shown.phase !== room.phase || shown.round !== room.round_number;

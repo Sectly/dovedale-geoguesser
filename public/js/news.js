@@ -1,4 +1,6 @@
-/** The news page: announcements made to all players and the changelog, newest first. */
+import "./lib/site.js";
+import { EXTERNAL_ICON, el, errorStateHtml, escHtml, isExternalLink, linkHref } from "./lib/dom.js";
+import { api } from "./lib/api.js";
 
 let _news = [];
 let _newsKind = "";

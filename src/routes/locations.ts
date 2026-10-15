@@ -13,16 +13,13 @@ import { saveUploadedImage } from "../lib/uploads";
 import { displayName, notify } from "../lib/webhook";
 import { formCoords } from "./submissions";
 
-/** Routes mounted at /api/locations: browsing locations and suggesting changes to them. */
 export const locationRoutes = new Hono();
-/** Routes mounted at /api/suggestions. */
 export const suggestionRoutes = new Hono();
 
 const MIN_ACCOUNT_DAYS = 7;
 const MIN_GAMES_PLAYED = 5;
 const NOTE_MAX = 200;
 
-/** How far a player is towards being allowed to suggest changes. */
 function suggestionProgress(user: User) {
 	const played =
 		db
@@ -72,7 +69,6 @@ locationRoutes.get("/with-coords", (c) => {
 	);
 });
 
-/** Whether this user may suggest changes, and if not, what is still missing. */
 suggestionRoutes.get("/eligibility", (c) => {
 	const user = requireUser(c);
 	const reason = user.is_banned ? "You are banned" : suggestionBlocker(user);

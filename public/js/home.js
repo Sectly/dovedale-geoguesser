@@ -1,4 +1,6 @@
-/** Home page: profile card, what is on in Specials, and the repository credit. */
+import "./lib/site.js";
+import { el, escHtml, show } from "./lib/dom.js";
+import { api, fetchUser } from "./lib/api.js";
 
 fetchUser().then((user) => {
 	if (!user) return;
@@ -23,7 +25,6 @@ const HEART =
 const EGG = (shell, band) =>
 	`<svg viewBox="0 0 48 60" aria-hidden="true"><defs><clipPath id="egg-${shell.slice(1)}"><path d="M24 2C12 2 3 22 3 37c0 12 9 21 21 21s21-9 21-21C45 22 36 2 24 2z"/></clipPath></defs><g clip-path="url(#egg-${shell.slice(1)})"><rect width="48" height="60" fill="${shell}"/><path d="M0 24l6-5 6 5 6-5 6 5 6-5 6 5 6-5 6 5v9l-6-5-6 5-6-5-6 5-6-5-6 5-6-5-6 5z" fill="${band}"/><rect y="42" width="48" height="5" fill="${band}" opacity="0.7"/></g></svg>`;
 
-/** One decoration per theme, spread out by index so nothing looks like a pattern. */
 const SEASON_DECOR = {
 	halloween: () =>
 		[0, 1, 2].map((i) => `<span class="season-bat season-bat-${i}">${BAT}</span>`).join("") +
@@ -51,7 +52,6 @@ const SEASON_DECOR = {
 };
 SEASON_DECOR.newyear = SEASON_DECOR.bonfire = SEASON_DECOR.fireworks;
 
-/** Applies the seasonal theme to the homepage and points at the seasonal special. */
 function applySeason(season) {
 	if (!season || !SEASON_DECOR[season.theme]) return;
 	document.body.dataset.season = season.theme;

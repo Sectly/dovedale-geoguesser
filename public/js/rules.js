@@ -36,7 +36,7 @@ const RULES = [
 const RULE_GROUPS = { F: "Fair play", A: "Account", U: "Uploads" };
 
 /** Turns rule numbers in already-escaped text (e.g. "[F1]") into links to the rule. */
-function linkRuleCodes(escapedText) {
+export function linkRuleCodes(escapedText) {
 	return escapedText.replace(/\b([FAU]\d{1,2})\b/g, (match) => {
 		const rule = RULES.find((r) => r.code === match);
 		return rule
@@ -45,8 +45,7 @@ function linkRuleCodes(escapedText) {
 	});
 }
 
-/** Buttons for citing rules, grouped by the letters given (e.g. "FA" or "U"). */
-function ruleChipsHtml(groups) {
+export function ruleChipsHtml(groups) {
 	return [...groups]
 		.map(
 			(letter) => `<div class="flex gap-1 flex-wrap items-center mb-1.5">
@@ -62,8 +61,7 @@ function ruleChipsHtml(groups) {
 		.join("");
 }
 
-/** Wires rule buttons to a text box: clicking one adds or removes "[F1 Cheating]". */
-function bindRuleChips(container, textarea) {
+export function bindRuleChips(container, textarea) {
 	const sync = () => {
 		for (const chip of container.querySelectorAll("[data-rule]")) {
 			const cited = textarea.value.includes(`[${chip.dataset.rule} `);

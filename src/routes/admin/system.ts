@@ -137,7 +137,6 @@ adminSystemRoutes.delete("/email/settings", (c) => {
 	return c.json({ success: true });
 });
 
-/** Sends one email with the current details, and reports what the mail server said if it refused. */
 adminSystemRoutes.post("/email/test", async (c) => {
 	const actor = requireStaff(c, "operator");
 	if (!checkUserRateLimit(actor, "email-test", 5, 10 * 60 * 1000))
@@ -154,7 +153,6 @@ adminSystemRoutes.post("/email/test", async (c) => {
 	return c.json({ success: true });
 });
 
-/** Deletes every email address players have added. They can add one again whenever they like. */
 adminSystemRoutes.post("/email/clear", async (c) => {
 	const actor = requireStaff(c, "operator");
 	if ((await readJson<{ confirm: boolean }>(c)).confirm !== true) fail(400, "Confirmation required");
@@ -163,7 +161,6 @@ adminSystemRoutes.post("/email/clear", async (c) => {
 	return c.json({ success: true, removed });
 });
 
-/** Sends every summary that is due now, without waiting for the next run. */
 adminSystemRoutes.post("/email/run", async (c) => {
 	const actor = requireStaff(c, "operator");
 	if (!checkUserRateLimit(actor, "email-run", 4, 10 * 60 * 1000)) fail(429, "That was just run. Try again shortly.");
@@ -172,7 +169,6 @@ adminSystemRoutes.post("/email/run", async (c) => {
 	return c.json({ success: true, sent });
 });
 
-/** Everything worth knowing about the state of the site, without reading the log. */
 adminSystemRoutes.get("/breakdown", async (c) => {
 	requireStaff(c, "operator");
 	return c.json(await systemBreakdown());
@@ -304,7 +300,6 @@ adminSystemRoutes.post("/features", async (c) => {
 	return c.json(state);
 });
 
-/** Works out achievements from every player's history again. */
 adminSystemRoutes.post("/achievements/backfill", (c) => {
 	const actor = requireStaff(c, "operator");
 	if (!checkUserRateLimit(actor, "achievement-backfill", 3, 10 * 60 * 1000))

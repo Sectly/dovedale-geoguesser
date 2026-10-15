@@ -66,7 +66,6 @@ async function sendAttention(client: Client): Promise<boolean> {
 	return user ? send(client, "attention", attentionFor(user)) : false;
 }
 
-/** Once per burst of changes, after ATTENTION_DELAY_MS. */
 function queueAttention(client: Client) {
 	if (client.userId === null || client.attentionTimer) return;
 	client.attentionTimer = setTimeout(() => {

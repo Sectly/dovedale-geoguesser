@@ -139,7 +139,7 @@
                 maxlength="6"
                 placeholder="Room code"
                 style="text-transform: uppercase"
-                class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600 placeholder:tracking-normal placeholder:font-sans"
+                class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-zinc-600 placeholder:tracking-normal placeholder:font-[Inter]"
               />
               <button id="join-btn" class="m-btn m-btn-tonal">Join</button>
             </div>
@@ -263,7 +263,7 @@
 
     <div id="round-screen" class="hidden absolute inset-0 flex flex-col md:flex-row">
       <div id="photo-panel" class="flex-shrink-0 md:w-[40%] h-[38%] md:h-full relative overflow-hidden">
-        <img id="round-photo" src="" alt="Location screenshot" />
+        <img id="round-photo" fetchpriority="high" src="" alt="Location screenshot" />
 
         <div class="absolute top-3 left-3 flex items-center gap-2 z-10">
           <a href="/" class="bg-black/70 rounded-full w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-black/70 transition">
@@ -411,13 +411,6 @@
       </div>
     </div>
 
-    <script src="/js/map-config.js"></script>
-    <script src="/js/map-canvas.js"></script>
-
-    <script src="/js/sounds.js"></script>
-    <script src="/js/shared.js"></script>
-    <script src="/js/tooltips.js"></script>
-    <script src="/js/round.js"></script>
     <script type="module" src="/js/duels.js"></script>
   </body>
 </html>

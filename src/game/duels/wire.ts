@@ -43,10 +43,8 @@ export const wireServer = new WebWireServer({
 	},
 });
 
-/** The room each connection is in, as a player or a spectator. */
 const rooms = new WeakMap<WireConnection, DuelRoom>();
 
-/** Tells the client why it cannot be in this room, then drops it. */
 function reject(conn: WireConnection, message: string) {
 	send(conn, "rejected", { message });
 	conn.close(1008, message);
@@ -76,7 +74,6 @@ function clearRematch(room: DuelRoom) {
 wireServer.on("connection", (conn: WireConnection) => {
 	const userId = (conn.auth as WireAuth | null)?.userId ?? null;
 
-	/** The room and seat this connection is playing in, if any. */
 	function seat(): { room: DuelRoom; player: DuelPlayer } | null {
 		const room = rooms.get(conn);
 		const player = room?.players.find((p) => p.conn === conn);

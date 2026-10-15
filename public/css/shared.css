@@ -69,7 +69,6 @@
 	transform: translateY(0);
 }
 
-/* The last ten seconds: the timer is already red, so it just gets bolder. No flashing. */
 .timer-urgent {
 	font-weight: 800;
 }
@@ -364,7 +363,6 @@ body :focus-visible:not([class*="ring"]) {
 	outline-offset: 2px;
 }
 
-/* The round screen shared by solo, daily and duels. */
 #photo-panel {
 	background: #000;
 }
@@ -402,7 +400,6 @@ body :focus-visible:not([class*="ring"]) {
 	position: absolute;
 	inset: 0;
 }
-/* Shown in place of a screenshot that failed to load. Sits under the round counter and clock. */
 #photo-error {
 	position: absolute;
 	inset: 0;
@@ -493,7 +490,6 @@ main,
 .screen-fade > * {
 	animation: rise-in 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
-/* Lists arrive one row after another instead of all at once. */
 /* Filled backwards only: held at its end, the animation would pin `transform` and block the hover lift. */
 .stagger > * {
 	animation: rise-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
@@ -532,7 +528,6 @@ main,
 #toast-container > * {
 	animation: rise-in 0.2s ease-out both;
 }
-/* An error shakes its way in; a success ticks. */
 #toast-container > [data-type="error"]:not(.leaving) {
 	animation: toast-shake 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
@@ -603,7 +598,6 @@ main,
 	opacity: 1;
 	transform: translateX(100%);
 }
-/* The highlight behind the chosen tab, moved by the page's script. */
 .tab-pill {
 	position: absolute;
 	top: 0.25rem;
@@ -614,7 +608,6 @@ main,
 		left 0.3s cubic-bezier(0.2, 0, 0, 1),
 		width 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
-/* An earned achievement's icon on a profile, each a beat after the one before. */
 .achievement-lit {
 	animation: achievement-lit 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
@@ -628,7 +621,6 @@ main,
 #overlay-count {
 	animation: pop-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
-/* Interactive things answer the pointer the same way everywhere. */
 /* `manipulation` drops the wait a touch browser adds to tell a tap from a double-tap zoom. */
 a,
 button {
@@ -664,7 +656,6 @@ body.h-screen {
 	height: 100dvh;
 }
 @media (max-width: 639px) {
-	/* Comfortable tap targets for the small pill and icon buttons. */
 	button,
 	a[class*="rounded-lg"],
 	a[class*="rounded-full"] {
@@ -676,7 +667,6 @@ body.h-screen {
 	#hints-panel {
 		max-width: 60vw;
 	}
-	/* A bigger guess button for touch. */
 	#guess-btn {
 		min-height: 3rem;
 		padding-inline: 1.25rem;
@@ -720,7 +710,6 @@ body.h-screen {
 	}
 }
 
-/* The ripple from a button press, drawn in a layer above the button. */
 .ripple-layer {
 	position: fixed;
 	overflow: hidden;
@@ -735,7 +724,6 @@ body.h-screen {
 	transform: scale(0.15);
 	animation: ripple-out 0.5s ease-out forwards;
 }
-/* Spread to cover the whole button first, then fade, so the edges are reached while still visible. */
 @keyframes ripple-out {
 	0% {
 		transform: scale(0.15);
@@ -1004,7 +992,6 @@ a.rule-code:hover {
 		background-color 0.15s,
 		border-color 0.15s;
 }
-/* The halo behind the box on hover and focus. */
 .md-check-box::before {
 	content: "";
 	position: absolute;
@@ -1014,7 +1001,6 @@ a.rule-code:hover {
 	opacity: 0;
 	transition: opacity 0.15s;
 }
-/* The tick, drawn in as the box fills. */
 .md-check-box::after {
 	content: "";
 	position: absolute;
@@ -1051,7 +1037,6 @@ a.rule-code:hover {
 	color-scheme: dark;
 }
 
-/* Scrollbars, on every element. */
 * {
 	scrollbar-width: thin;
 	scrollbar-color: #3f3f46 transparent;
@@ -1073,7 +1058,6 @@ a.rule-code:hover {
 	background-color: #52525b;
 }
 
-/* Dropdowns: our own chevron instead of the system arrow. */
 select {
 	appearance: none;
 	-webkit-appearance: none;
@@ -1095,7 +1079,6 @@ select option {
 	color: #e4e4e7;
 }
 
-/* Number fields: no spinner arrows. */
 input[type="number"] {
 	appearance: textfield;
 	-moz-appearance: textfield;
@@ -1106,7 +1089,6 @@ input[type="number"]::-webkit-outer-spin-button {
 	margin: 0;
 }
 
-/* Search fields: a clear button drawn to match, instead of the browser's blue cross. */
 input[type="search"]::-webkit-search-cancel-button {
 	-webkit-appearance: none;
 	width: 1rem;
@@ -1116,7 +1098,6 @@ input[type="search"]::-webkit-search-cancel-button {
 		center / contain no-repeat;
 }
 
-/* Date fields: the calendar icon in the site's grey, with a pointer. */
 input[type="date"]::-webkit-calendar-picker-indicator {
 	cursor: pointer;
 	opacity: 0.6;
@@ -1125,7 +1106,6 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 	opacity: 1;
 }
 
-/* Text selection and the caret in the brand blue. */
 ::selection {
 	background: rgba(59, 130, 246, 0.35);
 }
@@ -1171,7 +1151,6 @@ textarea {
 	animation: pop-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
 }
 
-/* The greeting shown just after logging in. */
 @keyframes welcome-in {
 	from {
 		opacity: 0;
@@ -1207,7 +1186,6 @@ textarea {
 	transform: translate(-50%, -16px);
 }
 
-/* Cards lift under the pointer; results pop in. */
 .md-card {
 	transition:
 		transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1),
@@ -1229,7 +1207,6 @@ textarea {
 .md-card > .material-symbols-outlined:first-child {
 	transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-/* The header's menu on a phone. */
 #site-nav-menu:not(.hidden) {
 	animation: menu-in 0.18s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
@@ -1247,7 +1224,6 @@ textarea {
 	animation: pop-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
-/* A key cap, for showing shortcuts. */
 .kbd {
 	display: inline-block;
 	min-width: 1.6rem;
@@ -1363,7 +1339,6 @@ textarea {
 	font-size: 1.25rem;
 }
 
-/* Filter chips: outlined until chosen, then filled with a tick. */
 .m-chip {
 	display: inline-flex;
 	align-items: center;
@@ -1400,7 +1375,6 @@ textarea {
 	color: #93c5fd;
 }
 
-/* Status tags: colour only for meaning. */
 .m-tag {
 	display: inline-flex;
 	align-items: center;
@@ -1431,7 +1405,6 @@ textarea {
 	color: #fca5a5;
 }
 
-/* Two or three choices side by side. */
 .m-segmented {
 	display: inline-flex;
 	border: 1px solid #3f3f46;
@@ -1513,7 +1486,6 @@ textarea.m-field {
 	color: #a1a1aa;
 }
 
-/* Dialogs share one frame. */
 .m-dialog {
 	background: #18181b;
 	border: 1px solid #27272a;
@@ -1548,7 +1520,6 @@ textarea.m-field {
 	padding: 1rem 1.5rem 1.25rem;
 	flex-shrink: 0;
 }
-/* A row in a list of things you can open. */
 .m-list-item {
 	display: flex;
 	align-items: center;
@@ -1618,7 +1589,6 @@ textarea.m-field {
 #photo-panel.no-lens .photo-lens {
 	display: none !important;
 }
-/* The round counter and the clock stay readable over any effect. */
 #photo-panel > .top-3 {
 	z-index: 27;
 }
@@ -1711,11 +1681,9 @@ button.memory-card {
 	}
 }
 
-/* A reaction sent in a duel, shown beside the screenshot for a moment. */
 .emote-pop {
 	animation: emote-pop 3s ease-out forwards;
 }
-/* Large enough to read at a glance from across the screenshot. */
 .emote-bubble {
 	display: flex;
 	align-items: center;
@@ -1739,7 +1707,6 @@ button.memory-card {
 	line-height: 1;
 	font-variation-settings: "FILL" 1;
 }
-/* The picker: a button that opens a grid of reactions above it. */
 .emote-btn {
 	display: flex;
 	align-items: center;
@@ -1818,7 +1785,6 @@ button.memory-card {
 	}
 }
 
-/* Achievement unlocked: built like the welcome card. */
 .achievement-pop {
 	position: fixed;
 	top: 4rem;
@@ -1850,7 +1816,6 @@ button.memory-card {
 	opacity: 0;
 	transform: translate(-50%, -16px);
 }
-/* The same amber as streaks and warnings. */
 .achievement-icon {
 	position: relative;
 	flex-shrink: 0;
@@ -1868,7 +1833,6 @@ button.memory-card {
 	font-size: 1.625rem;
 	font-variation-settings: "FILL" 1;
 }
-/* One ripple out of the container as the icon lands. */
 .achievement-icon::after {
 	content: "";
 	position: absolute;
@@ -2008,7 +1972,7 @@ button.memory-card {
 	}
 }
 
-/* A pinned announcement (public/js/shared.js). Hidden while a round is on screen. */
+/* A pinned announcement (public/js/lib/announcements.js). Hidden while a round is on screen. */
 .site-announcement {
 	position: fixed;
 	left: 1rem;
@@ -2206,7 +2170,6 @@ html.intro-play .intro-splash {
 	height: 100%;
 	fill: currentColor;
 }
-/* One ripple as the mark lands, the same as an unlocked achievement's. */
 .intro-mark-pop::after {
 	content: "";
 	position: absolute;
@@ -2231,7 +2194,6 @@ html.intro-play .intro-splash {
 .intro-title span + span {
 	animation-delay: 0.4s;
 }
-/* Creeps while the page loads, then finishes once it is ready. */
 .intro-bar {
 	position: relative;
 	width: min(12rem, 60vw);
@@ -2291,7 +2253,6 @@ html.intro-hold #site-nav > a[href="/"] > .material-symbols-outlined,
 html.intro-morph #site-nav > a[href="/"] > .material-symbols-outlined {
 	visibility: hidden;
 }
-/* The tagline and cards wait, then arrive in turn once the title has passed over them. */
 html.intro-play #home-tagline,
 html.intro-play .stagger > * {
 	animation: intro-rise 0.5s cubic-bezier(0.05, 0.7, 0.1, 1) var(--intro-delay, 0ms) backwards;
@@ -2337,7 +2298,6 @@ html.intro-hold .stagger > * {
 		transform: none;
 	}
 }
-/* The needle spins and settles where it sits in the site's compass icon. */
 @keyframes intro-needle {
 	0% {
 		transform: rotate(-300deg);
@@ -2371,7 +2331,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* ---- Failed loads (errorStateHtml in shared.js) ---- */
+/* ---- Failed loads (errorStateHtml in js/lib/dom.js) ---- */
 .error-state {
 	display: flex;
 	flex-direction: column;
@@ -2430,7 +2390,6 @@ html.intro-hold .stagger > * {
 .err-late {
 	animation: rise-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--err-wait) + var(--i, 0) * 70ms) backwards;
 }
-/* The scene plays large in the middle of the screen, then shrinks into its place above the code. */
 .err-scene-box {
 	width: 6rem;
 	height: 6rem;
@@ -2473,7 +2432,7 @@ html.intro-hold .stagger > * {
 	animation-fill-mode: backwards;
 }
 
-/* 500: a server rack that flickers, shakes and breaks. */
+/* 500 */
 .srv-vent {
 	fill: none;
 	stroke: #52525b;
@@ -2559,7 +2518,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* 400: a form that gets stamped as rejected. */
+/* 400 */
 .doc {
 	animation-name: doc-in;
 }
@@ -2610,7 +2569,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* 403: a padlock that snaps shut and will not budge. */
+/* 403 */
 .lock {
 	transform-origin: 48px 62px;
 	animation-name: lock-deny;
@@ -2660,7 +2619,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* 429: a gauge whose needle runs into the red. */
+/* 429 */
 .gauge-track,
 .gauge-red {
 	fill: none;
@@ -2707,7 +2666,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* 503: a railway signal going from clear to danger. */
+/* 503 */
 .err-scene rect.sig-post {
 	fill: #3f3f46;
 	stroke: none;
@@ -2763,7 +2722,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* 404: a magnifying glass searches, gives up, and becomes the 0 between the two 4s. */
+/* 404 */
 .err-code-row {
 	display: flex;
 	align-items: center;
@@ -2819,7 +2778,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* ---- The restart screen (restartOverlay in shared.js) ---- */
+/* ---- The restart screen (restartOverlay in js/lib/restart.js) ---- */
 .restart-overlay {
 	position: fixed;
 	inset: 0;
@@ -2887,7 +2846,6 @@ html.intro-hold .stagger > * {
 	stroke-width: 3;
 	stroke-linecap: round;
 }
-/* While the server is away the lights run down the rack in turn; once it answers they all go green. */
 .restart-rack circle {
 	fill: #3f3f46;
 	animation: restart-led 1.2s linear infinite;
@@ -2972,7 +2930,6 @@ html.intro-hold .stagger > * {
 	display: inline-block;
 	animation: err-drop 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) calc(0.4s + var(--i) * 60ms) backwards;
 }
-/* The swords come in from either side and meet with a spark. */
 .sword {
 	transform-origin: 48px 48px;
 }
@@ -3027,7 +2984,6 @@ html.intro-hold .stagger > * {
 		transform: scale(1.7);
 	}
 }
-/* The eye opens, then looks left and right. */
 .invite-eye path {
 	transform-origin: 48px 48px;
 	animation: eye-open 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;

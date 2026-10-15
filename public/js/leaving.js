@@ -1,5 +1,3 @@
-/** The page shown before following a link to another site. */
-
 (function showDestination() {
 	const byId = (id) => document.getElementById(id);
 	let target = null;
@@ -8,7 +6,6 @@
 		if (url.protocol === "https:" && !url.username && !url.password) target = url;
 	} catch {}
 
-	/** This site's own address needs no warning. */
 	if (target?.origin === location.origin) return location.replace(target.href);
 
 	/** A new tab has no page to go back to, so there the button goes home. */
@@ -27,7 +24,6 @@
 		return;
 	}
 	byId("leaving-host").textContent = target.host;
-	/** The address as the browser will request it. */
 	const host = document.createElement("span");
 	host.className = "text-zinc-100 font-semibold";
 	host.textContent = target.host;

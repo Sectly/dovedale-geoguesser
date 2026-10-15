@@ -1,5 +1,11 @@
 /** Memory Match (Specials): pairs of screenshots. The best game is kept on this device. */
 
+import "./lib/site.js";
+import { Sounds } from "./sounds.js";
+import { el, escHtml } from "./lib/dom.js";
+import { api } from "./lib/api.js";
+import { celebrate } from "./lib/effects.js";
+
 const MEMORY_PAIRS = 8;
 const MEMORY_BEST_KEY = "memory_best_turns";
 
@@ -63,7 +69,7 @@ async function newMemoryGame() {
 				card,
 				index
 			) => `<button class="memory-card" data-index="${index}" data-state="down" aria-label="Card ${index + 1}, face down">
-				<img src="${escHtml(card.image)}" alt="" draggable="false" />
+				<img src="${escHtml(card.image)}" alt="" decoding="async" draggable="false" />
 				<span class="material-symbols-outlined">train</span>
 			</button>`
 		)

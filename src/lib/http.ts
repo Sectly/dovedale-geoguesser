@@ -15,14 +15,12 @@ export function fail(status: ContentfulStatusCode, message: string): never {
 	throw new HttpError(status, message);
 }
 
-/** Parses a positive integer route param, or responds 404. */
 export function idParam(c: Context, name = "id"): number {
 	const raw = c.req.param(name) ?? "";
 	if (!/^\d{1,15}$/.test(raw)) fail(404, "Not found");
 	return Number(raw);
 }
 
-/** Integer query param clamped to [min, max]; falls back when missing or not a number. */
 export function intQuery(c: Context, name: string, fallback: number, min: number, max: number): number {
 	const n = parseInt(c.req.query(name) ?? "", 10);
 	if (!Number.isFinite(n)) return fallback;

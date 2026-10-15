@@ -78,7 +78,7 @@ const WAITING_PAGE = `<!doctype html>
 			const res = await fetch("/api/status", { cache: "no-store" });
 			if (!res.ok || !res.headers.get("X-App")) return;
 			/**
-			 * Lights green, fade out, and tell the page that loads next to fade in from the same screen (shared.js).
+			 * Lights green, fade out, and tell the page that loads next to fade in from the same screen (js/lib/restart.js).
 			 */
 			document.querySelector("main").className = "back";
 			document.body.className = "leaving";

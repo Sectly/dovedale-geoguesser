@@ -1,15 +1,41 @@
-/** Staff panel core: shared state, dialogs, access checks and tab switching. */
+import { MapCanvas } from "../map-canvas.js";
+import { el, escHtml, skeletonRows } from "../lib/dom.js";
+import { api, fetchUser } from "../lib/api.js";
+import { refreshAttention } from "../lib/attention.js";
+import { setupPhotoLens } from "../lib/effects.js";
+import { bindRuleChips, ruleChipsHtml } from "../rules.js";
+import { loadOverview, shortAgo } from "./overview.js";
+import { loadChat } from "./chat.js";
+import { _openSubmission, _submissionView, denySubmission, loadSubmissions } from "./submissions.js";
+import { loadSuggestions } from "./suggestions.js";
+import { loadLocations, loadStats } from "./locations.js";
+import { loadAnnouncementsTab } from "./announcements.js";
+import { expandedTicketId, loadTickets } from "./tickets.js";
+import { loadDuels } from "./duels.js";
+import { loadStaff, loadUsers } from "./users.js";
+import { loadAudit } from "./audit.js";
+import { loadSystem } from "./system.js";
+import { loadEmail } from "./email.js";
 
-let currentUser = null;
-let currentTab = "";
+export let currentUser = null;
+export let currentTab = "";
 let denyTargetId = null;
 let denyCallback = null;
+
+/** Opens the deny dialog for a submission by id, or for anything else through `callback`. */
+export function openDenyDialog(title, id, callback = null) {
+	denyTargetId = id;
+	denyCallback = callback;
+	el("deny-modal-title").textContent = title;
+	el("deny-reason").value = "";
+	el("deny-reason").dispatchEvent(new Event("input"));
+	el("deny-modal").classList.remove("hidden");
+	setTimeout(() => el("deny-reason").focus(), 50);
+}
 /** Roles, lowest first. The server decides what each may do; this only decides what to show. */
-const ROLE_RANK_JS = { helper: 1, curator: 2, moderator: 3, supervisor: 4, admin: 5, operator: 6 };
+export const ROLE_RANK_JS = { helper: 1, curator: 2, moderator: 3, supervisor: 4, admin: 5, operator: 6 };
 const STAFF_ROLES = Object.keys(ROLE_RANK_JS);
-/** Whether whoever is logged in holds at least this role. */
-const atLeast = (role) => (ROLE_RANK_JS[currentUser?.role] ?? 0) >= ROLE_RANK_JS[role];
-/** The lowest role that may open each tab. */
+export const atLeast = (role) => (ROLE_RANK_JS[currentUser?.role] ?? 0) >= ROLE_RANK_JS[role];
 const TAB_MIN_ROLE = {
 	overview: "helper",
 	chat: "curator",
@@ -26,14 +52,13 @@ const TAB_MIN_ROLE = {
 	email: "operator",
 	system: "operator",
 };
-const canOpenTab = (tab) => atLeast(TAB_MIN_ROLE[tab] ?? "operator");
-/** Shortest reason the server accepts for denying a submission or a suggestion. */
+export const canOpenTab = (tab) => atLeast(TAB_MIN_ROLE[tab] ?? "operator");
 const DENY_REASON_MIN = 5;
 
-const LABEL_MIN_LENGTH = 5;
-const LABEL_MAX_LENGTH = 128;
+export let LABEL_MIN_LENGTH = 0;
+export let LABEL_MAX_LENGTH = 0;
 
-function panelSearchInput(placeholder) {
+export function panelSearchInput(placeholder) {
 	return `<label class="relative block mb-4">
         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-lg">search</span>
         <input id="panel-search" type="search" placeholder="${escHtml(placeholder)}" autocomplete="off"
@@ -41,8 +66,7 @@ function panelSearchInput(placeholder) {
     </label>`;
 }
 
-/** The title row of a review tab: name, how many are waiting, and a refresh button. */
-function reviewHeader(title, count, refresh) {
+export function reviewHeader(title, count, refresh) {
 	return `<div class="flex items-center gap-2 mb-4">
 		<h2 class="font-bold text-lg">${title}</h2>
 		${count ? `<span class="m-tag info">${count} waiting</span>` : ""}
@@ -50,7 +74,7 @@ function reviewHeader(title, count, refresh) {
 	</div>`;
 }
 
-function emptyQueueHtml(text) {
+export function emptyQueueHtml(text) {
 	return `<div class="flex flex-col items-center gap-2 py-16 text-center">
 		<span class="material-symbols-outlined text-4xl text-green-400/70" style="font-variation-settings:'FILL' 1">task_alt</span>
 		<p class="text-sm text-zinc-400">${text}</p>
@@ -58,15 +82,14 @@ function emptyQueueHtml(text) {
 }
 
 /** A player's name that opens their staff panel. Helpers cannot open it, so they get plain text. */
-function staffUserLink(userId, username) {
+export function staffUserLink(userId, username) {
 	const name = `@${escHtml(username || "unknown")}`;
 	return userId && atLeast("moderator")
 		? `<button onclick="openUserPanel(${userId})" class="text-blue-400 hover:underline">${name}</button>`
 		: `<span class="text-zinc-300">${name}</span>`;
 }
 
-/** A picker of everyone with something in the list, busiest first. */
-function userFilterSelect(items, nameOf, current, setter) {
+export function userFilterSelect(items, nameOf, current, setter) {
 	const counts = new Map();
 	for (const item of items) {
 		const name = nameOf(item);
@@ -80,22 +103,19 @@ function userFilterSelect(items, nameOf, current, setter) {
 	</select>`;
 }
 
-/** Puts a search back after a list is redrawn. */
-function restorePanelSearch(text) {
+export function restorePanelSearch(text) {
 	const input = el("panel-search");
 	if (!text || !input) return;
 	input.value = text;
 	input.dispatchEvent(new Event("input"));
 }
 
-/** The Waiting and Reviewed switch at the top of a review tab. */
-function reviewViewChips(view, setter, waiting) {
+export function reviewViewChips(view, setter, waiting) {
 	return `<button onclick="${setter}('waiting')" class="m-chip" aria-pressed="${view === "waiting"}">Waiting <span class="count">${waiting}</span></button>
 		<button onclick="${setter}('reviewed')" class="m-chip" aria-pressed="${view === "reviewed"}">Reviewed</button>`;
 }
 
-/** One line of a Reviewed list: what it was, who sent it, who reviewed it and why it was denied. */
-function reviewedRowHtml({
+export function reviewedRowHtml({
 	code,
 	title,
 	image,
@@ -119,7 +139,7 @@ function reviewedRowHtml({
 		reason,
 	].join(" ");
 	return `<div class="bg-zinc-900 rounded-2xl px-4 py-3 flex items-start gap-3" data-search="${escHtml(search)}">
-		${image ? `<img loading="lazy" src="/uploads/${escHtml(image)}" alt="" onerror="this.remove()" class="w-16 h-10 rounded-lg object-cover flex-shrink-0" />` : ""}
+		${image ? `<img loading="lazy" decoding="async" src="/uploads/${escHtml(image)}" alt="" onerror="this.remove()" class="w-16 h-10 rounded-lg object-cover flex-shrink-0" />` : ""}
 		<div class="flex-1 min-w-0">
 			<div class="flex items-center gap-2 flex-wrap">
 				${tag}
@@ -133,7 +153,6 @@ function reviewedRowHtml({
 	</div>`;
 }
 
-/** Shows a screenshot large, with the in-game magnifier. */
 function viewImage(src) {
 	el("image-viewer")?.remove();
 	const box = document.createElement("div");
@@ -169,7 +188,6 @@ const CLAIM_REFRESH_MS = 20_000;
 let _claims = [];
 let _claimKey = "";
 
-/** What this member of staff has open right now, if it is something others could also pick up. */
 function openClaim() {
 	if (currentTab === "submissions" && _submissionView === "waiting" && _openSubmission)
 		return { kind: "submission", id: _openSubmission };
@@ -185,7 +203,6 @@ function paintClaims() {
 	}
 }
 
-/** Tells the server what is open here and learns what others have open. Also keeps this claim alive. */
 async function syncClaims() {
 	const mine = openClaim();
 	_claimKey = `${mine.kind}:${mine.id}`;
@@ -197,8 +214,7 @@ async function syncClaims() {
 	paintClaims();
 }
 
-/** After a list is drawn: repaints the markers, and reports in if something else was opened. */
-function claimChanged() {
+export function claimChanged() {
 	const mine = openClaim();
 	if (`${mine.kind}:${mine.id}` !== _claimKey) syncClaims();
 	else paintClaims();
@@ -215,8 +231,7 @@ setInterval(() => {
 
 let _reviewMap = null;
 
-/** The one map the review tabs share, moved to whichever slot shows it. */
-function mountReviewMap(slot) {
+export function mountReviewMap(slot) {
 	const canvas =
 		_reviewMap?.canvas ??
 		Object.assign(document.createElement("canvas"), { className: "absolute inset-0 w-full h-full" });
@@ -226,7 +241,7 @@ function mountReviewMap(slot) {
 	return _reviewMap;
 }
 
-function bindPanelSearch(selector) {
+export function bindPanelSearch(selector) {
 	const input = el("panel-search");
 	if (!input) return;
 	input.addEventListener("input", () => {
@@ -242,7 +257,7 @@ function bindPanelSearch(selector) {
 	});
 }
 
-function showConfirm(title, message, { confirmLabel = "Confirm", confirmClass = "m-btn-danger" } = {}) {
+export function showConfirm(title, message, { confirmLabel = "Confirm", confirmClass = "m-btn-danger" } = {}) {
 	return new Promise((resolve) => {
 		el("confirm-title").textContent = title;
 		el("confirm-message").textContent = message;
@@ -263,7 +278,7 @@ function showConfirm(title, message, { confirmLabel = "Confirm", confirmClass = 
 	});
 }
 
-function showPrompt(title, placeholder = "", { note = "", type = "text", okLabel = "OK" } = {}) {
+export function showPrompt(title, placeholder = "", { note = "", type = "text", okLabel = "OK" } = {}) {
 	return new Promise((resolve) => {
 		el("input-title").textContent = title;
 		const noteEl = el("input-note");
@@ -302,8 +317,9 @@ function closeSidebar() {
 	_sidebarOverlay?.classList.add("hidden");
 }
 
-async function init() {
+export async function init() {
 	currentUser = await fetchUser();
+	if (currentUser) ({ label_min: LABEL_MIN_LENGTH, label_max: LABEL_MAX_LENGTH } = currentUser.limits);
 
 	if (!currentUser) {
 		el("access-msg").textContent = "You must be logged in to access this page.";
@@ -324,7 +340,6 @@ async function init() {
 
 	for (const btn of document.querySelectorAll(".tab-btn"))
 		btn.classList.toggle("hidden", !canOpenTab(btn.dataset.tab));
-	/** The group headings follow the tabs under them. */
 	for (const label of document.querySelectorAll("div.moderator-up"))
 		label.classList.toggle("hidden", !atLeast("moderator"));
 	for (const label of document.querySelectorAll("div.senior-only"))
@@ -371,7 +386,6 @@ async function init() {
 	handleHashNav();
 }
 
-/** Puts the number of items waiting on each tab that has a queue (for Users: possible ban evasion). */
 function renderQueueCounts(queue) {
 	for (const tab of ["submissions", "suggestions", "tickets", "users"]) {
 		const btn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
@@ -401,7 +415,7 @@ function handleHashNav() {
 	if (tab) switchTab(tab, true, id ? parseInt(id) : null);
 }
 
-function switchTab(tab, fromHash = false, autoOpenId = null) {
+export function switchTab(tab, fromHash = false, autoOpenId = null) {
 	if (currentTab === tab && !fromHash) {
 		location.hash = tab;
 		return;
@@ -437,3 +451,6 @@ function switchTab(tab, fromHash = false, autoOpenId = null) {
 	else if (tab === "system") loadSystem();
 	claimChanged();
 }
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, { switchTab, viewImage });

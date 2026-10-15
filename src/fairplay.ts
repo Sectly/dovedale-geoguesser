@@ -40,7 +40,6 @@ export function reviewGuess(userId: number | null, mode: string, locationId: num
 	}
 }
 
-/** Raises a flag for one signal if the evidence is there and none is already open. */
 function check(userId: number, signal: FairplaySignal) {
 	const latest = db
 		.query<{ dismissed_at: number | null; upto_guess: number }, [number, string]>(
@@ -99,7 +98,6 @@ export const FAIRPLAY_LABELS: Record<FairplaySignal, string> = {
 	clockwork: "Identical timing",
 };
 
-/** The flags on a player still waiting for staff to look at them. */
 export function openFairplayFlags(userId: number) {
 	return db
 		.query<{ id: number; signal: FairplaySignal; evidence: string; created_at: number }, [number]>(

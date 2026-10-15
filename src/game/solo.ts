@@ -22,7 +22,6 @@ type SoloGame = {
 	/** Set when the player asked for only easy, medium or hard locations: practice, never ranked. */
 	difficulty?: Difficulty | null;
 	locations: Location[];
-	/** The round being guessed, or null between rounds. */
 	round: Round | null;
 	outcomes: RoundOutcome[];
 	touchedAt: number;
@@ -39,7 +38,6 @@ export function pruneSoloGames() {
 	}
 }
 
-/** Ends every game a player has open without saving it, for when their account is deleted. */
 export function dropSoloGames(userId: number) {
 	for (const [id, game] of games) {
 		if (game.userId === userId) games.delete(id);
@@ -57,7 +55,6 @@ export function activeSoloGames(): number {
 	return active;
 }
 
-/** Every solo game held in memory, abandoned ones included. */
 export function soloGamesHeld(): number {
 	return games.size;
 }
@@ -117,7 +114,6 @@ function getGame(id: string, userId: number | null): SoloGame {
 	return game;
 }
 
-/** The player's browser has the screenshot on screen; start the clock. */
 export function beginSoloRound(id: string, userId: number | null) {
 	const game = getGame(id, userId);
 	if (!game.round) fail(409, "No round in progress");
@@ -234,7 +230,6 @@ function finishGame(game: SoloGame) {
 	const ranked = game.userId !== null && !game.special && !game.difficulty;
 
 	let streak: Streak | null = null;
-	/** Their best so far with these settings, to say when this game has beaten it. */
 	let previousBest: number | null = null;
 	if (game.userId !== null && ranked) {
 		previousBest =

@@ -1,5 +1,5 @@
 /** Sound effects, generated in the browser. On by default; remembered per device and account. */
-const Sounds = (() => {
+export const Sounds = (() => {
 	const STORAGE_KEY = "sounds";
 	let enabled = true;
 	try {
@@ -159,14 +159,12 @@ const Sounds = (() => {
 				localStorage.setItem(STORAGE_KEY, enabled ? "1" : "0");
 			} catch {}
 		},
-		/** Whether there is a sound by this name, for callers that want to fall back to another. */
 		has: (name) => !!LIBRARY[name],
 		play(name) {
 			if (!enabled || !LIBRARY[name]) return;
 			const audio = context();
 			if (audio) for (const n of LIBRARY[name]) note(audio, n);
 		},
-		/** The sound for a round score out of its maximum. */
 		forScore(score, max = 5000) {
 			this.play(score / max >= 0.8 ? "great" : score / max >= 0.4 ? "good" : "poor");
 		},

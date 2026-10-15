@@ -15,7 +15,6 @@ export type Special = {
 	id: string;
 	title: string;
 	blurb: string;
-	/** A Material Symbols icon name. */
 	icon: string;
 	kind: SpecialKind;
 	href: string;
@@ -24,12 +23,10 @@ export type Special = {
 	endsAt?: string;
 	/** A window that comes round every year, as "MM-DD" (inclusive). May run over New Year. */
 	season?: { from: string; to: string };
-	/** The homepage theme shown while this special is running. */
 	theme?: SeasonTheme;
 	/** Only staff see it: for trying things out before everyone gets them. */
 	staffOnly?: boolean;
 	effect?: PhotoEffect;
-	/** For the "flash" effect: how long the screenshot shows before it is covered. */
 	flashSeconds?: number;
 };
 
@@ -120,7 +117,6 @@ export const SPECIAL_MODES: Record<string, { rounds: number; rules: RoundRules }
 
 const DAY_MS = 86_400_000;
 
-/** When a special runs, as timestamps: its one-off dates, or the nearest turn of its yearly season. */
 function windowOf(special: Special, now: number): { start: number | null; end: number | null } {
 	if (!special.season) {
 		return {
@@ -161,7 +157,6 @@ export function specialsFor(user: User, now = Date.now()): Listed[] {
 	return listed.sort((a, b) => Number(a.status === "upcoming") - Number(b.status === "upcoming"));
 }
 
-/** The special if this user may play it right now (it is running, or they are staff previewing it). */
 export function liveSpecial(id: string, user: User): Special | null {
 	return specialsFor(user).find((s) => s.id === id && (s.status === "live" || s.preview)) ?? null;
 }
@@ -182,7 +177,6 @@ export const SEASONS: { theme: SeasonTheme; splash: string; when: SeasonWindow }
 	{ theme: "christmas", splash: "Merry Christmas!", when: { from: "11-24", to: "01-10" } },
 ];
 
-/** Easter Sunday (Gregorian) for a year, at midnight UTC. */
 export function easterSunday(year: number): number {
 	const a = year % 19;
 	const b = Math.floor(year / 100);
@@ -212,7 +206,6 @@ function inSeason(when: SeasonWindow, now: number): boolean {
 /** How far ahead a coming event is announced on the homepage. */
 const UPCOMING_DAYS = 14;
 
-/** The next seasonal event if it starts soon, for a small countdown on the homepage. */
 export function upcomingEvent(now = Date.now()) {
 	let next: { title: string; icon: string; starts_at: string; days: number } | null = null;
 	for (const special of SPECIALS) {

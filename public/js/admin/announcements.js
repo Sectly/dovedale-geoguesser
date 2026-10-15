@@ -1,8 +1,12 @@
-/** Staff panel: the Announcements tab and the changelog. */
+import { EXTERNAL_ICON, el, errorStateHtml, escHtml, isExternalLink, scrollBehavior, show } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
+import { checkAnnouncement } from "../lib/announcements.js";
+import { showConfirm } from "./core.js";
+import { formatWhen } from "./users.js";
 
 const BANNER_LABELS = { 0: "No banner", 1: "1 hour", 6: "6 hours", 24: "1 day", 72: "3 days", 168: "1 week" };
 
-/** Ready-made announcements. Staff can edit the text before sending. */
 const ANNOUNCEMENT_PRESETS = {
 	privacy: [
 		"Privacy Policy",
@@ -61,7 +65,6 @@ const ANNOUNCEMENT_PRESETS = {
 		"",
 	],
 };
-/** The presets about the published documents; the rest are grouped as general. */
 const DOCUMENT_PRESETS = ["privacy", "tos", "fairplay", "guidelines", "several"];
 /** Presets leave the parts only staff know in [brackets]; nothing is sent while one is still there. */
 const UNFILLED = /\[[^\]]+\]/;
@@ -109,11 +112,10 @@ let _announcements = null;
 let _changelog = [];
 let _announceLimit = 20;
 let _announceSearch = "";
-/** The draft the form was loaded from, so sending it also clears it out of the list. */
 let _fromDraft = null;
 let _editingEntry = null;
 
-function loadAnnouncementsTab() {
+export function loadAnnouncementsTab() {
 	el("tab-content").innerHTML = '<div id="announcements-panel"></div>';
 	loadAnnouncements();
 }
@@ -133,7 +135,6 @@ async function loadAnnouncements() {
 	renderAnnouncements();
 }
 
-/** The hour it is in the UK at a given moment, whatever the clock of whoever is sending says. */
 const ukHour = (date) =>
 	Number(
 		new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: "Europe/London" }).format(date)
@@ -143,7 +144,6 @@ const isQuietHour = (date) => {
 	return hour >= QUIET_HOURS[0] || hour < QUIET_HOURS[1];
 };
 
-/** Who got it, how many still have it, read it and followed its link. */
 function announcementReachHtml(a) {
 	if (a.draft) return "Draft, not sent";
 	if (a.send_at && !a.recalled_at)
@@ -408,7 +408,6 @@ function announcementDraft() {
 	};
 }
 
-/** Loads an earlier announcement (or a draft) back into the form. */
 function reuseAnnouncement(id, isDraft = false) {
 	const a = _announcements?.history.find((item) => item.id === id);
 	if (!a) return;
@@ -432,7 +431,6 @@ function reuseAnnouncement(id, isDraft = false) {
 	el("announce-title").focus();
 }
 
-/** Writes the picked date into the message in UK time, where the cursor is. */
 function insertAnnouncementDate() {
 	const picked = el("announce-date").value;
 	if (!picked) return showToast("Pick a date and time first.", "error");
@@ -444,7 +442,6 @@ function insertAnnouncementDate() {
 	updateAnnouncementPreview();
 }
 
-/** Shows the announcement everywhere it will appear, and holds the buttons back until it can be sent. */
 function updateAnnouncementPreview() {
 	const draft = announcementDraft();
 	const noBanner = PRIVATE_AUDIENCES.includes(draft.audience);
@@ -592,7 +589,6 @@ async function sendAnnouncement(test, asDraft = false) {
 	}
 }
 
-/** Runs something on one announcement, says how it went, and reloads the list. */
 async function announcementAction(request, done) {
 	try {
 		const result = await request();
@@ -604,7 +600,6 @@ async function announcementAction(request, done) {
 	}
 }
 
-/** Pulls a sent announcement back out of every inbox while it is new, or calls off one still waiting. */
 async function recallAnnouncement(id, scheduled = false) {
 	const ok = scheduled
 		? await showConfirm("Call off this announcement?", "It will not be sent.", { confirmLabel: "Call off" })
@@ -621,7 +616,6 @@ async function recallAnnouncement(id, scheduled = false) {
 	);
 }
 
-/** Puts a banner up, extends or shortens it, or takes it down. `hours` counts from now. */
 function setAnnouncementBanner(id, hours) {
 	if (hours === "") return;
 	announcementAction(
@@ -643,7 +637,6 @@ async function deleteAnnouncement(id) {
 		);
 }
 
-/** Lists the staff who were sent an announcement and have not opened it. */
 async function showUnreadStaff(id) {
 	try {
 		const names = await api(`/api/admin/announcements/${id}/unread`);
@@ -655,7 +648,6 @@ async function showUnreadStaff(id) {
 	}
 }
 
-/** Fixes the wording of a sent announcement where it sits. Nobody is notified a second time. */
 function correctAnnouncement(id) {
 	const a = _announcements?.history.find((item) => item.id === id);
 	if (!a || el("announcement-fix")) return;
@@ -734,3 +726,22 @@ async function deleteChangelogEntry(id) {
 		showToast(err.message, "error");
 	}
 }
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, {
+	cancelChangelogEdit,
+	correctAnnouncement,
+	deleteAnnouncement,
+	deleteChangelogEntry,
+	editChangelogEntry,
+	insertAnnouncementDate,
+	loadAnnouncements,
+	moreAnnouncements,
+	recallAnnouncement,
+	reuseAnnouncement,
+	saveChangelogEntry,
+	sendAnnouncement,
+	setAnnouncementBanner,
+	showUnreadStaff,
+	useAnnouncementPreset,
+});

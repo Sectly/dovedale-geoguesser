@@ -51,7 +51,6 @@ const store = (key: string, value: unknown) =>
 
 const NO_SMTP: SmtpSettings = { host: "", port: 465, user: "", pass: "", from: "" };
 
-/** The mail server saved from the staff panel, or blanks. */
 export function smtpSettings(): SmtpSettings {
 	const saved = stored<SmtpSettings>(SETTINGS_KEY);
 	return saved?.host ? { ...NO_SMTP, ...saved } : NO_SMTP;
@@ -91,10 +90,8 @@ export function emailStats(): Stats {
 	return stats.day === day ? stats : { ...stats, day, today: 0 };
 }
 
-/** Whether another email may go out today. */
 const underDailyCap = () => emailStats().today < DAILY_MAX;
 
-/** Whether the mail server details are all there. */
 export function smtpReady(): boolean {
 	const smtp = smtpSettings();
 	return !!(smtp.host && smtp.user && smtp.pass && smtp.from);
@@ -121,7 +118,6 @@ export function setTestSender(fn: Sender | null) {
 	testSender = fn;
 }
 
-/** Said at the foot of every email: nobody reads what is sent back. */
 const NO_REPLY =
 	"This is an automated email from an address nobody reads, so please don't reply to it. For help, open a ticket in Settings on the site.";
 
@@ -166,7 +162,6 @@ ${NO_REPLY}`,
 	}
 }
 
-/** Sends a short email to prove the mail server details work. For the staff panel. */
 export function sendTestEmail(to: string) {
 	return send({
 		to,
@@ -251,7 +246,6 @@ export function emailState(user: User): EmailState {
 	};
 }
 
-/** Saves an address as unconfirmed and emails a confirmation link. */
 export async function requestEmail(user: User, address: string) {
 	if (!emailAvailable()) fail(503, "Email isn't available right now.");
 	const email = address.trim().toLowerCase();
@@ -304,7 +298,6 @@ export function setDigestFrequency(user: User, frequency: string) {
 	db.run("UPDATE users SET email_digest = ?, email_digest_at = ? WHERE id = ?", [frequency, nowSec(), user.id]);
 }
 
-/** Forgets a player's address altogether. */
 export function removeEmail(userId: number) {
 	db.run(
 		"UPDATE users SET email = NULL, email_verified = 0, email_token = NULL, email_token_at = NULL, email_digest = NULL, email_digest_at = NULL, email_digest_upto = NULL WHERE id = ?",

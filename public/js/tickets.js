@@ -1,9 +1,9 @@
-/** Ticket threads, drawn the same way for players (settings) and staff (staff panel). */
+import { EXTERNAL_ICON, escHtml, isExternalLink, linkHref } from "./lib/dom.js";
+import { live, onLive } from "./lib/live.js";
 
 /** How many messages a player may send in a row before staff have to answer. */
-const TICKET_MAX_FOLLOW_UPS = 3;
 
-function ticketTime(seconds) {
+export function ticketTime(seconds) {
 	const date = new Date(seconds * 1000);
 	const today = new Date().toDateString() === date.toDateString();
 	return today
@@ -21,8 +21,7 @@ function ticketBubbleHtml({ mine, who, when, bodyHtml }) {
 	</div>`;
 }
 
-/** Escapes a message and links the addresses in it. One on another site goes by way of the leaving page. */
-function linkedTextHtml(text) {
+export function linkedTextHtml(text) {
 	return String(text ?? "")
 		.split(/(https?:\/\/[^\s<>"']+)/)
 		.map((part, i) => {
@@ -40,7 +39,7 @@ function linkedTextHtml(text) {
 }
 
 /** The whole conversation. `viewer` ("user" or "staff") decides whose messages sit on the right. */
-function ticketThreadHtml(ticket, viewer, openingHtml) {
+export function ticketThreadHtml(ticket, viewer, openingHtml) {
 	const replies = Array.isArray(ticket.replies) ? ticket.replies : [];
 	const name = (reply) => {
 		if (reply.type === "staff") return viewer === "staff" ? `Staff · @${reply.author_username || "?"}` : "Staff";
@@ -65,7 +64,7 @@ function ticketThreadHtml(ticket, viewer, openingHtml) {
 }
 
 /** Messages the player has sent since staff last spoke (the opening message counts as one). */
-function ticketFollowUps(ticket) {
+export function ticketFollowUps(ticket) {
 	const replies = Array.isArray(ticket.replies) ? ticket.replies : [];
 	let count = 1;
 	for (const reply of replies) count = reply.type === "staff" ? 0 : count + 1;
@@ -76,7 +75,7 @@ function ticketFollowUps(ticket) {
  * Calls `load` every few seconds while `isActive()` is true and the tab is visible. With `liveEvent`, it runs on that
  * event instead while the live stream is connected. Returns a function that stops it.
  */
-function pollWhile(isActive, load, everyMs = 5000, liveEvent = null) {
+export function pollWhile(isActive, load, everyMs = 5000, liveEvent = null) {
 	const timer = setInterval(() => {
 		if (document.hidden || !isActive() || (liveEvent && live.connected)) return;
 		load();
@@ -102,7 +101,7 @@ function pollWhile(isActive, load, everyMs = 5000, liveEvent = null) {
 }
 
 /** Scrolls a thread to its newest message, but only if the reader was already at the bottom. */
-function keepThreadAtBottom(container, render) {
+export function keepThreadAtBottom(container, render) {
 	const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
 	render();
 	if (atBottom) container.scrollTop = container.scrollHeight;

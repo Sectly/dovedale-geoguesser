@@ -35,7 +35,6 @@ export const REASON_MIN = 5;
 export const REASON_MAX = 500;
 const NO_REASON = "(no reason was recorded)";
 
-/** Validates the reason every moderation action must carry. */
 export function requireReason(value: unknown, what = "A reason"): string {
 	const reason = typeof value === "string" ? value.trim().slice(0, REASON_MAX) : "";
 	if (reason.length < REASON_MIN) fail(400, `${what} is required (at least ${REASON_MIN} characters)`);
@@ -70,12 +69,10 @@ function activeAction(userId: number, types: ActionType[], now: number): Moderat
 		.get(userId, ...types, now);
 }
 
-/** Why the user is banned right now, to show them on the ban notice. */
 export function activeBanReason(userId: number): string | null {
 	return activeAction(userId, ["ban_perm", "ban_temp"], nowSec())?.reason ?? null;
 }
 
-/** Recomputes a user's ban and limit flags from their active actions. */
 export function syncUser(userId: number) {
 	const now = nowSec();
 	const ban = activeAction(userId, ["ban_perm", "ban_temp"], now);
@@ -146,7 +143,6 @@ export function deleteAction(action: ModerationAction) {
 	syncUser(action.user_id);
 }
 
-/** A user's full history, newest first, in the shape sent to staff. */
 export function userHistory(userId: number, viewer: User | null = null) {
 	const now = nowSec();
 	return db

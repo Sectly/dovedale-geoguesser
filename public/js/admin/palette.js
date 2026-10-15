@@ -1,4 +1,8 @@
-/** Staff panel: the jump-to box (Ctrl+K). Finds tabs, players, locations and tickets. */
+import { el, escHtml, locId, show } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { KEYBIND_GROUPS } from "../lib/keys.js";
+import { atLeast, currentUser, switchTab } from "./core.js";
+import { openUserPanel } from "./users.js";
 
 const PALETTE_CACHE_MS = 60_000;
 const PALETTE_MAX = 8;
@@ -6,7 +10,6 @@ let _paletteData = null;
 let _paletteResults = [];
 let _paletteIndex = 0;
 
-/** Players and locations to search, cached for a minute. Each list only for roles that may see it. */
 async function paletteData() {
 	if (_paletteData && Date.now() - _paletteData.at < PALETTE_CACHE_MS) return _paletteData;
 	const [users, locations] = await Promise.all([
@@ -17,7 +20,6 @@ async function paletteData() {
 	return _paletteData;
 }
 
-/** Opens a tab, then types into its search box once the tab has drawn. */
 function jumpToSearch(tab, text) {
 	switchTab(tab);
 	let tries = 0;
@@ -160,3 +162,6 @@ document.addEventListener("keydown", (e) => {
 	openPalette();
 });
 KEYBIND_GROUPS.push({ title: "Staff panel", keys: [[["Ctrl", "K"], "Jump to a tab, player, location or ticket"]] });
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, { jumpToSearch, openPalette });

@@ -1,5 +1,14 @@
 /** Daily challenge: one round a day. The server keeps the clock, so a reload resumes the same attempt. */
 
+import "./lib/site.js";
+import { MapCanvas } from "./map-canvas.js";
+import { el, locId, scoreTone, show, streakBadgeHtml } from "./lib/dom.js";
+import { api, fetchUser } from "./lib/api.js";
+import { copyText, showToast } from "./lib/toast.js";
+import { checkAchievements } from "./lib/achievements.js";
+import { celebrate } from "./lib/effects.js";
+import { RoundView, difficultyText, renderRoundResult, reportLocation, reportLocationUrl } from "./round.js";
+
 let view = null;
 
 function fail(message) {

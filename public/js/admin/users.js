@@ -1,6 +1,20 @@
-/* ---- Users: the list, each user's moderation history, and the actions staff can take ---- */
+import { avatarHtml, avatarSrc, el, errorStateHtml, escHtml, show, skeletonRows } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
+import { refreshAttention } from "../lib/attention.js";
+import { bindRuleChips, linkRuleCodes, ruleChipsHtml } from "../rules.js";
+import {
+	ROLE_RANK_JS,
+	atLeast,
+	bindPanelSearch,
+	currentTab,
+	currentUser,
+	panelSearchInput,
+	showConfirm,
+	showPrompt,
+} from "./core.js";
 
-const ROLE_BADGE = {
+export const ROLE_BADGE = {
 	operator: "bg-yellow-900/70 text-yellow-300",
 	admin: "bg-orange-900/70 text-orange-300",
 	supervisor: "bg-purple-900/70 text-purple-300",
@@ -13,7 +27,7 @@ const assignableRoles = (role) =>
 	(ROLE_RANK_JS[role] ?? 0) >= ROLE_RANK_JS.supervisor
 		? ["admin", "supervisor", "moderator", "curator", "helper"].filter((r) => ROLE_RANK_JS[r] < ROLE_RANK_JS[role])
 		: [];
-const ROLE_NAMES = {
+export const ROLE_NAMES = {
 	operator: "Operator",
 	admin: "Administrator",
 	supervisor: "Supervisor",
@@ -21,9 +35,7 @@ const ROLE_NAMES = {
 	curator: "Curator",
 	helper: "Helper",
 };
-/** A role's proper name: "Operator", not "operator". */
-const roleName = (role) => ROLE_NAMES[role] ?? escHtml(String(role ?? ""));
-/** What each role is for, lowest first. Shown on the Staff tab. */
+export const roleName = (role) => ROLE_NAMES[role] ?? escHtml(String(role ?? ""));
 const ROLE_INFO = {
 	helper: {
 		summary: "A player trusted with the review queues. Not counted as staff.",
@@ -158,12 +170,19 @@ function formatHours(hours) {
 	return `${hours} hour${hours === 1 ? "" : "s"}`;
 }
 
-function formatWhen(seconds) {
+export function formatWhen(seconds) {
 	return new Date(seconds * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
 /** Asks for a reason, and a duration if the action has one. Resolves to { reason, hours } or null. */
-function askReason({ title, note = "", button = "Confirm", tone = "m-btn-filled", durations = null, rules = "" }) {
+export function askReason({
+	title,
+	note = "",
+	button = "Confirm",
+	tone = "m-btn-filled",
+	durations = null,
+	rules = "",
+}) {
 	return new Promise((resolve) => {
 		const reason = el("reason-text");
 		const hours = el("reason-hours");
@@ -230,7 +249,6 @@ let _users = [];
 
 let _evasionFlags = [];
 
-/** Accounts that share a device with a banned one. Nothing is done to them until staff decide. */
 function renderEvasionFlags() {
 	if (!_evasionFlags.length) return "";
 	const rows = _evasionFlags
@@ -294,7 +312,7 @@ const SIGNAL_INFO = {
 	},
 };
 
-async function loadUsers() {
+export async function loadUsers() {
 	try {
 		[_users, _evasionFlags] = await Promise.all([api("/api/admin/users"), api("/api/admin/users/evasion")]);
 		renderUsers(_users);
@@ -412,8 +430,7 @@ function renderUsers(users) {
 
 let _panelUserId = null;
 
-/** Opens the moderation panel for one user: status, context, actions and full history. */
-async function openUserPanel(userId) {
+export async function openUserPanel(userId) {
 	_panelUserId = userId;
 	el("user-panel-body").innerHTML = skeletonRows(4, "h-20");
 	show("user-panel");
@@ -429,7 +446,6 @@ function closeUserPanel() {
 	show("user-panel", false);
 }
 
-/** Clears a fair-play flag after looking at it, then redraws the panel it was on. */
 async function dismissFairplayFlag(flagId, userId) {
 	try {
 		await api(`/api/admin/users/fairplay/${flagId}/dismiss`, { method: "POST" });
@@ -461,7 +477,6 @@ async function removeStaffNote(noteId, userId) {
 	}
 }
 
-/** The quieter facts about an account, folded away until they are wanted. */
 function userAccountHtml(a) {
 	const line = (label, value) =>
 		`<div class="flex items-baseline gap-2 py-1 border-b border-zinc-800 last:border-0"><span class="flex-1 text-zinc-500">${label}</span><span class="text-zinc-200 text-right">${value}</span></div>`;
@@ -656,7 +671,6 @@ function renderUserPanel({
 		}`;
 }
 
-/** Refreshes whatever is showing a user after something about them changed. */
 async function refreshUsers() {
 	if (currentTab === "users") await loadUsers();
 	if (_panelUserId !== null) await openUserPanel(_panelUserId);
@@ -731,7 +745,7 @@ async function setUserRole(userId, role) {
 	}
 }
 
-async function loadStaff() {
+export async function loadStaff() {
 	try {
 		const r = await fetch("/api/admin/users");
 		if (!r.ok) throw new Error();
@@ -793,7 +807,7 @@ function renderStaff(staff) {
 						].join(" ");
 						return `
                     <div class="bg-zinc-900 rounded-xl px-4 py-3 flex items-center gap-3" data-search="${escHtml(searchText)}">
-                        ${u.avatar_url ? `<img src="${escHtml(u.avatar_url)}" class="w-8 h-8 rounded-full flex-shrink-0" />` : '<div class="w-8 h-8 rounded-full bg-zinc-700 flex-shrink-0"></div>'}
+                        ${u.avatar_url ? `<img src="${escHtml(avatarSrc(u.avatar_url, 32))}" alt="" loading="lazy" decoding="async" class="w-8 h-8 rounded-full flex-shrink-0" />` : '<div class="w-8 h-8 rounded-full bg-zinc-700 flex-shrink-0"></div>'}
                         <div class="flex-1 min-w-0">
                             <div class="font-medium text-sm truncate">${escHtml(u.display_name || u.username)}</div>
                             <div class="text-xs text-zinc-500">@${escHtml(u.username)} · User #${u.id} · Discord #${u.discord_id}</div>
@@ -941,7 +955,8 @@ async function deleteUserAccount(userId) {
 
 let _scoreTab = "solo";
 
-async function loadScoreManager(userId) {
+async function loadScoreManager(userId, list = _scoreTab) {
+	_scoreTab = list;
 	const box = el("score-manager");
 	if (!box) return;
 	let data;
@@ -995,7 +1010,7 @@ async function loadScoreManager(userId) {
 	};
 	const counts = { solo: data.solo.length, daily: data.daily.length, duels: data.duels.length };
 	const tab = (key, label) =>
-		`<button onclick="_scoreTab='${key}'; loadScoreManager(${userId})" aria-pressed="${_scoreTab === key}">${label} <span class="count">${counts[key]}</span></button>`;
+		`<button onclick="loadScoreManager(${userId}, '${key}')" aria-pressed="${_scoreTab === key}">${label} <span class="count">${counts[key]}</span></button>`;
 	const resetBtn = (scope, label) =>
 		`<button onclick="resetScores(${userId}, '${scope}', '${label}')" class="m-btn m-btn-text m-btn-sm danger">${label}</button>`;
 
@@ -1040,7 +1055,6 @@ async function loadScoreManager(userId) {
 		</div>`;
 }
 
-/** Sends one score change, then redraws the list and the numbers above it. */
 async function changeScores(userId, path, options, done) {
 	try {
 		await api(`/api/admin/scores/${userId}${path}`, options);
@@ -1150,7 +1164,6 @@ async function resetScores(userId, scope, label) {
 	changeScores(userId, "/reset", { json: { scope, reason: answer.reason } }, "Done");
 }
 
-/** Suspends or restores a lower-ranked member of staff's access to the panel and staff actions. */
 async function setStaffLock(userId, lock) {
 	const answer = await askReason(
 		lock
@@ -1176,3 +1189,28 @@ async function setStaffLock(userId, lock) {
 		showToast(err.message, "error");
 	}
 }
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, {
+	addStaffMember,
+	addStaffNote,
+	closeUserPanel,
+	deleteModerationRecord,
+	deleteUserAccount,
+	dismissEvasionFlag,
+	dismissFairplayFlag,
+	editRating,
+	editScore,
+	editStreak,
+	exportUserData,
+	loadScoreManager,
+	moderateUser,
+	openUserPanel,
+	overturnAction,
+	removeScore,
+	removeStaffNote,
+	resetScores,
+	setAchievement,
+	setStaffLock,
+	setUserRole,
+});

@@ -1,6 +1,7 @@
-/** Staff panel: the audit log. */
+import { el, errorStateHtml, escHtml } from "../lib/dom.js";
+import { ROLE_NAMES } from "./users.js";
 
-const AUDIT_ACTION_LABELS = {
+export const AUDIT_ACTION_LABELS = {
 	submission_approve: { label: "Approved submission", color: "text-green-400" },
 	submission_deny: { label: "Denied submission", color: "text-red-400" },
 	suggestion_approve: { label: "Approved suggestion", color: "text-green-400" },
@@ -230,7 +231,7 @@ const roleChangeText = (details) =>
 		role === "none" ? "no role" : ROLE_NAMES[role]
 	);
 
-async function loadAudit(reset = true) {
+export async function loadAudit(reset = true) {
 	if (reset) auditOffset = 0;
 	const cat = AUDIT_CATEGORIES.find((c) => c.key === auditCategory);
 	const params = new URLSearchParams({ limit: String(AUDIT_PAGE), offset: String(auditOffset) });
@@ -378,23 +379,26 @@ function renderAudit({ rows, total, offset }, reset) {
         ${showNext ? `<button onclick="auditPage(1)" class="m-btn m-btn-tonal m-btn-sm">Next</button>` : ""}`;
 }
 
-function toggleAuditGroup(id) {
+export function toggleAuditGroup(id) {
 	expandedAuditGroupId = expandedAuditGroupId === id ? null : id;
 	if (_lastAuditData) renderAudit(_lastAuditData, false);
 }
 
-function toggleAuditRoutine() {
+export function toggleAuditRoutine() {
 	auditShowRoutine = !auditShowRoutine;
 	if (_lastAuditData) renderAudit(_lastAuditData, false);
 }
 
-function setAuditCategory(cat) {
+export function setAuditCategory(cat) {
 	auditCategory = cat;
 	auditActionFilter = "";
 	loadAudit(true);
 }
 
-function auditPage(dir) {
+export function auditPage(dir) {
 	auditOffset = Math.max(0, auditOffset + dir * AUDIT_PAGE);
 	loadAudit(false);
 }
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, { auditPage, setAuditCategory, toggleAuditGroup, toggleAuditRoutine });

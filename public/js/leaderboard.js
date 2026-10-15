@@ -1,3 +1,8 @@
+import "./lib/site.js";
+import { avatarSrc, el, errorStateHtml, escHtml, show, skeletonRows } from "./lib/dom.js";
+import { fetchUser } from "./lib/api.js";
+import { showToast } from "./lib/toast.js";
+
 let currentTab = "solo";
 let currentUser = null;
 let soloSort = "total";
@@ -10,7 +15,6 @@ let dailySort = "score";
 let dailyDaysAgo = 0;
 
 const PAGE_SIZE = 50;
-/** The rows on screen, in order. "Load more" adds the next page to the end. */
 let entries = [];
 /** Counts board loads, so a page that arrives after the filters changed is dropped. */
 let loadId = 0;
@@ -21,7 +25,6 @@ function dailyDate() {
 	return d.toISOString().slice(0, 10);
 }
 
-/** Puts the highlight behind the current tab; it slides there unless told to jump. */
 function moveTabPill(slide = true) {
 	const tab = el(`tab-${currentTab}`);
 	const pill = el("tab-pill");
@@ -197,7 +200,7 @@ async function fetchPage(tab, offset) {
 	return { rows: rows.slice(0, PAGE_SIZE), more: rows.length > PAGE_SIZE };
 }
 
-async function loadLeaderboard(tab) {
+async function loadLeaderboard(tab = currentTab) {
 	const id = ++loadId;
 	el("leaderboard-content").innerHTML = skeletonRows(6);
 	show("load-more-wrap", false);
@@ -211,12 +214,11 @@ async function loadLeaderboard(tab) {
 		if (id !== loadId) return;
 		el("leaderboard-content").innerHTML = errorStateHtml(
 			err.message || "Couldn't load the leaderboard.",
-			"loadLeaderboard(currentTab)"
+			"loadLeaderboard()"
 		);
 	}
 }
 
-/** Adds the next page under the rows already showing. */
 async function loadMore() {
 	const id = loadId;
 	const tab = currentTab;
@@ -262,7 +264,6 @@ function renderLeaderboard(tab) {
 const medalIcons = ["emoji_events", "military_tech", "workspace_premium"];
 const medalColors = ["text-yellow-400", "text-zinc-300", "text-amber-600"];
 
-/** One row of the board; `i` is its place counting from zero. */
 function entryHtml(tab, e, i) {
 	const isMe = currentUser && e.user_id === currentUser.id;
 	const medal =
@@ -327,7 +328,7 @@ function entryHtml(tab, e, i) {
 	}
 	return `<div class="flex items-center gap-4 bg-zinc-900 rounded-2xl px-5 py-4 mb-2 ${isMe ? "ring-2 ring-blue-500" : ""}">
 		${medal}
-		${e.avatar_url ? `<img src="${escHtml(e.avatar_url)}" alt="" class="w-9 h-9 rounded-full" />` : `<div class="w-9 h-9 rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined text-sm">person</span></div>`}
+		${e.avatar_url ? `<img src="${escHtml(avatarSrc(e.avatar_url, 36))}" alt="" loading="lazy" decoding="async" class="w-9 h-9 rounded-full" />` : `<div class="w-9 h-9 rounded-full bg-zinc-700 flex items-center justify-center"><span class="material-symbols-outlined text-sm">person</span></div>`}
 		<div class="flex-1">
 			<div class="font-semibold">${escHtml(e.display_name || e.username)}${isMe ? ' <span class="text-xs text-blue-400">(you)</span>' : ""}</div>
 			<div class="text-xs text-zinc-500">${escHtml(e.username)}</div>
@@ -337,3 +338,6 @@ function entryHtml(tab, e, i) {
 }
 
 init();
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, { loadLeaderboard });

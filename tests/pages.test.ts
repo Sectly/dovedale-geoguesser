@@ -32,6 +32,49 @@ describe("pages and static files", () => {
 		}
 	});
 
+	test("every module a page imports is in its import map and served hashed", async () => {
+		for (const path of ["/", "/play", "/daily", "/duels", "/settings", "/submit", "/admin", "/tos", "/news"]) {
+			const html = String((await call(path)).data);
+			const map = html.match(/<script type="importmap">(.*?)<\/script>/)?.[1];
+			expect(map).toBeTruthy();
+			const imports: Record<string, string> = JSON.parse(map!).imports;
+			const entry = html.match(/<script type="module" src="([^"?]+)\?v=\w+"/)![1];
+			expect(html).toContain(`src="${imports[entry]}"`);
+
+			const seen = new Set<string>();
+			const visit = async (module: string) => {
+				if (seen.has(module)) return;
+				seen.add(module);
+				expect(imports[module]).toMatch(/\?v=\w+$/);
+				const res = await call(imports[module]);
+				expect(res.status).toBe(200);
+				expect(res.headers.get("cache-control")).toContain("immutable");
+				for (const [, spec] of String(res.data).matchAll(/^import (?:[^"]+ from )?"(\.[^"]+)";$/gm))
+					await visit(new URL(spec, `http://x${module}`).pathname);
+			};
+			await visit(entry);
+			expect(seen.has("/js/lib/site.js")).toBe(true);
+			for (const module of seen)
+				if (module !== entry) expect(html).toContain(`rel="modulepreload" href="${imports[module]}"`);
+		}
+	});
+
+	test("the icon font is asked for only the icons the pages use", async () => {
+		const html = String((await call("/play")).data);
+		const icons = html.match(/icon_names=([a-z0-9_,]+)/)?.[1].split(",") ?? [];
+		for (const used of ["explore", "swords", "progress_activity", "waving_hand"]) expect(icons).toContain(used);
+		expect(icons).toEqual([...icons].sort());
+		expect(icons.length).toBeLessThan(400);
+	});
+
+	test("map tiles are addressed by version and kept for 30 days", async () => {
+		const html = String((await call("/play")).data);
+		expect(html).toMatch(/<meta name="tile-version" content="\w+" \/>/);
+		const tile = await call("/images/row-1-column-1.png?v=1");
+		expect(tile.headers.get("cache-control")).toBe("public, max-age=2592000, immutable");
+		expect((await call("/images/row-1-column-1.png")).headers.get("cache-control")).toContain("max-age=3600");
+	});
+
 	test("unchanged pages answer conditional requests with 304", async () => {
 		const first = await call("/play");
 		const again = await call("/play", { headers: { "If-None-Match": first.headers.get("etag")! } });
@@ -84,13 +127,11 @@ describe("service worker", () => {
 		const waiting = await down("navigate")!;
 		expect(waiting.status).toBe(503);
 		expect(await waiting.text()).toContain("Back in a moment");
-		/** Scripts, images and API calls are never touched. */
 		expect(down("cors")).toBeNull();
 
 		const proxyError = await fetchHandler(async () => new Response("Bad gateway", { status: 502 }));
 		expect(await (await proxyError("navigate")!).text()).toContain("Back in a moment");
 
-		/** The game's own pages pass straight through, including its maintenance screen. */
 		const own = (status: number) =>
 			fetchHandler(async () => new Response("from the game", { status, headers: { "X-App": "dovedale" } }));
 		expect(await (await (await own(503))("navigate")!).text()).toBe("from the game");

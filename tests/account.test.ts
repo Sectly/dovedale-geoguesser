@@ -54,7 +54,6 @@ describe("account deletion", () => {
 			db.query<{ n: number }, [number]>(`SELECT COUNT(*) AS n FROM ${table} WHERE ${column} = ?`).get(user.id)!.n;
 		expect(left("solo_scores")).toBe(0);
 		expect(left("support_tickets")).toBe(0);
-		/** The approved submission became a location and stays, credited to the anonymised row. */
 		expect(left("submissions", "submitted_by")).toBe(1);
 	});
 
@@ -139,7 +138,6 @@ describe("suggestions", () => {
 		expect(await listed()).toMatchObject({ suggestions_agreed: 0, suggestions_agreed_at: null });
 		expect((await call("/api/suggestions/eligibility", { as: staff })).data.agreed).toBe(false);
 		await post("/api/suggestions/agree", staff);
-		/** Staff see it on the account, in the list and in the panel. */
 		expect((await call("/api/suggestions/eligibility", { as: staff })).data.agreed).toBe(true);
 		expect((await listed()).suggestions_agreed).toBe(1);
 		expect((await listed()).suggestions_agreed_at).toBeGreaterThan(0);
@@ -197,7 +195,6 @@ describe("leaderboards", () => {
 		const eager = createUser();
 		for (let i = 0; i < 60; i++) expect((await call("/api/leaderboard/daily", { as: eager })).status).toBe(200);
 		expect((await call("/api/leaderboard/daily", { as: eager })).status).toBe(429);
-		/** It is that player who is held back, not everyone. */
 		expect((await call("/api/leaderboard/daily", { as: createUser() })).status).toBe(200);
 	});
 	test("trimming old solo games never takes a player's best", () => {
@@ -219,7 +216,6 @@ describe("leaderboards", () => {
 			)
 			.all(player.id)
 			.map((row) => row.total_score);
-		/** The two newest stay, and so do the oldest two: each is the best for its time limit. */
 		expect(left).toEqual([6000, 7000, 9000, 24000]);
 	});
 });

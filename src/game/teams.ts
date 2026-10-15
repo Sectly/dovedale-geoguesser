@@ -5,6 +5,7 @@ import { auditLog } from "../lib/audit";
 import { fail } from "../lib/http";
 import { uploadUrl } from "../lib/uploads";
 import { features } from "../system/features";
+import { offeredEmotes } from "./duels/rooms";
 import { pickLocations } from "./locations";
 import { Round, type Guess, type RoundOutcome, type RoundRules } from "./round";
 
@@ -237,7 +238,6 @@ export function startTeamGame(code: string, user: User) {
 	});
 }
 
-/** Back to the lobby with the same players and teams, for another game. */
 export function resetTeamRoom(code: string, user: User) {
 	const room = getRoom(code);
 	getMember(room, user);
@@ -260,7 +260,6 @@ export function moveTeamPin(code: string, user: User, pin: Guess | null) {
 	if (room.phase === "guessing" && !me.outcome) me.pin = pin;
 }
 
-/** One player's reaction, shown to everyone in the room on their next poll. */
 export function sendTeamEmote(code: string, user: User, emote: unknown) {
 	const room = getRoom(code);
 	const me = getMember(room, user);
@@ -377,12 +376,10 @@ export function teamRoomState(code: string, user: User) {
 					.map((m) => ({ id: m.userId, x: m.pin!.x, y: m.pin!.y, locked: !!m.outcome }))
 			: [],
 		reveal: room.phase === "reveal" || room.status === "finished" ? room.reveal : null,
-		/** The reactions on offer (none when staff have switched them off) and the ones just sent. */
-		emote_list: features().duel_emotes ? GAME.duel.emotes : [],
+		emote_list: offeredEmotes(),
 		emotes: room.emotes
 			.filter((e) => now - e.at < EMOTE_TTL_MS)
 			.map(({ id, user_id, emote }) => ({ id, user_id, emote })),
-		/** Rounds taken by each side and each player's tallies, once the game is over. */
 		summary:
 			room.status === "finished"
 				? {
@@ -427,7 +424,6 @@ export function closeTeamRooms() {
 	rooms.clear();
 }
 
-/** Takes a banned player out of any team room at once. */
 export function removeFromTeamRooms(user: User) {
 	for (const room of [...rooms.values()]) if (room.members.has(user.id)) leaveTeamRoom(room.code, user);
 }

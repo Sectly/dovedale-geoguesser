@@ -1,4 +1,20 @@
-/** Staff panel: the location list and editor, the Stats tab and announcements. */
+import { el, errorStateHtml, escHtml, locId } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
+import {
+	LABEL_MAX_LENGTH,
+	atLeast,
+	bindPanelSearch,
+	currentUser,
+	mountReviewMap,
+	panelSearchInput,
+	restorePanelSearch,
+	showConfirm,
+	staffUserLink,
+	userFilterSelect,
+} from "./core.js";
+import { shortAgo } from "./overview.js";
+import { formatWhen } from "./users.js";
 
 let _locations = [];
 let _locationFilter = "all";
@@ -24,7 +40,7 @@ const LOCATION_SORTS = {
 };
 const DIFFICULTY_TONE = { easy: "success", medium: "warn", hard: "danger" };
 
-async function loadLocations() {
+export async function loadLocations() {
 	try {
 		_locations = await api("/api/admin/locations");
 		renderLocations();
@@ -44,7 +60,7 @@ function locationHints(loc) {
 
 function hintRowHtml(text = "") {
 	return `<div class="flex items-center gap-1.5">
-		<input type="text" value="${escHtml(text)}" placeholder="A clue players can reveal" maxlength="200" class="hint-input m-field" />
+		<input type="text" value="${escHtml(text)}" placeholder="A clue players can reveal" maxlength="${currentUser.limits.hint_length}" class="hint-input m-field" />
 		<button onclick="this.parentElement.remove()" class="m-icon-btn" aria-label="Remove hint"><span class="material-symbols-outlined">close</span></button>
 	</div>`;
 }
@@ -109,7 +125,7 @@ function locationCardHtml(loc) {
 	].join(" ");
 	return `<div class="bg-zinc-900 rounded-2xl overflow-hidden ${open ? "ring-1 ring-zinc-700 md:col-span-2 xl:col-span-2" : ""} ${loc.is_active ? "" : "opacity-70"}" id="loc-${loc.id}" data-search="${escHtml(searchText)}">
 		<button onclick="${open ? `viewImage('/uploads/${escHtml(loc.image_path)}')` : `toggleLocationEditor(${loc.id})`}" class="block w-full ${open ? "cursor-zoom-in" : ""}" title="${open ? "View larger" : "Open"}" aria-label="${open ? "View the screenshot larger" : "Open this location"}">
-			<img loading="lazy" src="/uploads/${escHtml(loc.image_path)}" alt="" class="w-full ${open ? "max-h-80 object-contain bg-black" : "h-40 object-cover"}" />
+			<img loading="lazy" decoding="async" src="/uploads/${escHtml(loc.image_path)}" alt="" class="w-full ${open ? "max-h-80 object-contain bg-black" : "h-40 object-cover"}" />
 		</button>
 		<button onclick="toggleLocationEditor(${loc.id})" aria-expanded="${open}" class="w-full text-left px-3 py-2.5 hover:bg-zinc-800/50 transition">
 			<span class="flex items-center gap-2">
@@ -196,7 +212,6 @@ function toggleLocationEditor(id) {
 	el(`loc-${id}`)?.scrollIntoView({ block: "nearest" });
 }
 
-/** Saves the label and the hints together, whichever of them changed. */
 async function saveLocation(id) {
 	const loc = _locations.find((item) => item.id === id);
 	const label = el(`loc-label-${id}`).value.trim();
@@ -216,7 +231,6 @@ async function saveLocation(id) {
 	}
 }
 
-/** Clears a location's difficulty record so it is graded afresh from the next guesses. */
 async function resetLocationStats(id) {
 	const ok = await showConfirm(
 		"Reset this location's difficulty?",
@@ -345,7 +359,7 @@ const STAT_SERIES = {
 	duels: ["Duels", (d) => d.duels, "duel"],
 };
 
-async function loadStats() {
+export async function loadStats() {
 	try {
 		_stats = await api("/api/admin/stats");
 	} catch (err) {
@@ -355,7 +369,7 @@ async function loadStats() {
 	renderStats(_stats);
 }
 
-function statCard(label, value, sub = "", href = "") {
+export function statCard(label, value, sub = "", href = "") {
 	const inner = `<div class="text-2xl font-bold font-mono">${value}</div>
 		<div class="text-zinc-400 text-sm mt-1">${label}</div>
 		${sub ? `<div class="text-zinc-600 text-xs mt-0.5">${sub}</div>` : ""}`;
@@ -364,10 +378,9 @@ function statCard(label, value, sub = "", href = "") {
 		: `<div class="bg-zinc-900 rounded-2xl px-5 py-4 text-center">${inner}</div>`;
 }
 
-const statHeading = (title, note = "") =>
+export const statHeading = (title, note = "") =>
 	`<div class="flex items-baseline gap-2 mb-3 mt-8"><h3 class="font-semibold text-zinc-300">${title}</h3>${note ? `<span class="text-xs text-zinc-600">${note}</span>` : ""}</div>`;
 
-/** A bar per day for the chosen series, with a table of the numbers. */
 function statChartHtml(series) {
 	const [title, valueOf, noun] = STAT_SERIES[_statSeries];
 	const values = series.map(valueOf);
@@ -473,3 +486,20 @@ function renderStats(s) {
 
 `;
 }
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, {
+	deleteLocation,
+	hintRowHtml,
+	loadLocations,
+	loadStats,
+	resetLocationStats,
+	saveLocation,
+	setLocationFilter,
+	setLocationSort,
+	setLocationUser,
+	setStatSeries,
+	showLocationBreakdown,
+	toggleLocation,
+	toggleLocationEditor,
+});

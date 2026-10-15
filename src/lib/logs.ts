@@ -1,8 +1,6 @@
 import { inspect } from "util";
 import { db } from "../db";
 
-/** A copy of the server log in the database, for the staff panel. */
-
 export type LogLevel = "info" | "warn" | "error";
 
 const MAX_ROWS = 3000;
@@ -56,7 +54,6 @@ export function pruneLogs() {
 	db.run("DELETE FROM server_logs WHERE id <= (SELECT MAX(id) FROM server_logs) - ?", [MAX_ROWS]);
 }
 
-/** From now on, everything sent to console.warn and console.error is also kept in the database. */
 export function captureConsole() {
 	for (const level of ["warn", "error"] as const) {
 		const original = console[level].bind(console);

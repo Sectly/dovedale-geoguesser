@@ -131,7 +131,6 @@ const Tooltips = (() => {
 		return found;
 	}
 
-	/** True when a control shows only an icon, so its accessible name is the only description it has. */
 	function iconOnly(element) {
 		if (!element.matches("button, a, [role='button']")) return false;
 		for (const node of element.childNodes) {
@@ -143,7 +142,6 @@ const Tooltips = (() => {
 		return true;
 	}
 
-	/** The tooltip for one element, or null when it has none. */
 	function tipFor(element) {
 		/** A title is taken over rather than read, or the browser would show its own tooltip as well. */
 		const title = element.getAttribute("title");
@@ -159,7 +157,6 @@ const Tooltips = (() => {
 		return label && iconOnly(element) ? { text: label, key: "" } : null;
 	}
 
-	/** The nearest element at or above `start` that has something to say. */
 	function findTarget(start) {
 		for (let node = start; node && node.nodeType === Node.ELEMENT_NODE && node !== document.body;) {
 			const tip = tipFor(node);

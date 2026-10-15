@@ -16,7 +16,6 @@ export function oauthConfigured(): boolean {
 	return !!(DISCORD.clientId && DISCORD.clientSecret && DISCORD.redirectUri);
 }
 
-/** Where to send the player to log in, and the state to remember in their browser until they come back. */
 export function createAuthUrl(): { url: string; state: string } {
 	const state = randomBytes(16).toString("hex");
 	oauthStates.set(state, Date.now() + STATE_TTL_MS);

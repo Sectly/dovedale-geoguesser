@@ -12,7 +12,6 @@ const ban = (target: TestUser, reason = "A1: testing bans") =>
 const isBanned = (user: TestUser) =>
 	!!db.query<{ is_banned: number }, [number]>("SELECT is_banned FROM users WHERE id = ?").get(user.id)?.is_banned;
 
-/** Reports in as `user` from a browser with the given device cookie and fingerprint. */
 const seenOn = (user: TestUser, device: string, fingerprint: string) =>
 	call("/api/fp", { json: { h: fingerprint }, headers: { Cookie: `${user.cookie}; device=${device}` } });
 const hex = (seed: string) => seed.repeat(32).slice(0, 32);
@@ -106,7 +105,6 @@ describe("ban evasion", () => {
 		expect(flag).toMatchObject({ banned_id: banned.id, signal: "device" });
 		expect((await call("/api/attention", { as: operator() })).data.staff.users).toBeGreaterThan(0);
 
-		/** Staff decide it is a sibling: the flag goes away and stays away. */
 		expect((await post(`/api/admin/users/evasion/${flag.id}/dismiss`, operator())).status).toBe(200);
 		await seenOn(second, hex("a1"), hex("b1"));
 		expect((await flags()).some((f) => f.user_id === second.id)).toBe(false);
@@ -206,7 +204,6 @@ describe("error handling", () => {
 	test("a login can only be finished by the browser that started it", async () => {
 		const { createAuthUrl } = await import("../src/auth/discord");
 		const { state } = createAuthUrl();
-		/** The right state, but arriving in a browser that never asked for it. */
 		const res = await call(`/api/auth/callback?code=abc&state=${state}`, { headers: { Accept: "text/html" } });
 		expect(res.status).toBe(400);
 		expect(res.data).toContain("Login link expired");

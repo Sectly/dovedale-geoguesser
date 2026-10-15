@@ -5,17 +5,24 @@
  * Optional: hints-panel, location-id-badge.
  */
 
+import { MapCanvas } from "./map-canvas.js";
+import { Sounds } from "./sounds.js";
+import { avatarHtml, countUp, el, escHtml, locId, scoreTone, show } from "./lib/dom.js";
+import { api, fetchUser } from "./lib/api.js";
+import { showToast } from "./lib/toast.js";
+import { _pageKeys, addKeybinds } from "./lib/keys.js";
+import { setupPhotoLens } from "./lib/effects.js";
+
 const GUESS_BTN_BASE =
 	"pointer-events-auto pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm whitespace-nowrap transition flex items-center gap-2 ";
 const GUESS_BTN_ON = "bg-blue-600 hover:bg-blue-500 active:scale-95 shadow-sm cursor-pointer";
 const GUESS_BTN_OFF = "bg-zinc-700 text-zinc-500 cursor-not-allowed";
 /** How many times a failed screenshot is asked for again before the player is told. */
 const PHOTO_RETRIES = 2;
-/** Touch screens get "tap" in the hints, and no keyboard tip. */
 const TOUCH = matchMedia("(pointer: coarse)").matches;
 const TIMER_TONES = ["text-green-400", "text-yellow-400", "text-orange-400", "text-red-400", "text-zinc-400"];
 
-class RoundView {
+export class RoundView {
 	/**
 	 * @param {object} handlers
 	 * @param {(pin: {x: number, y: number} | null) => void} handlers.onGuess
@@ -95,7 +102,6 @@ class RoundView {
 		return this.loaded;
 	}
 
-	/** Starts the clock on the round already on screen and hands control to the player. */
 	go(round) {
 		this.locked = !this.canGuess;
 		this.map.setPinEnabled(this.canGuess);
@@ -107,7 +113,6 @@ class RoundView {
 		this._startTimer(round.time_limit, round.time_remaining);
 	}
 
-	/** Shows a round that is already running, e.g. after a reload or when joining late. */
 	start(round, options) {
 		this.show(round, options);
 		this.go(round);
@@ -160,7 +165,6 @@ class RoundView {
 		return load.shown;
 	}
 
-	/** Shows the load error with its retry button, or clears it when given null. */
 	_setPhotoError(onRetry) {
 		const panel = el("photo-panel");
 		panel.classList.toggle("photo-failed", !!onRetry);
@@ -177,7 +181,6 @@ class RoundView {
 		panel.appendChild(box);
 	}
 
-	/** Submits the current pin (or no guess at all). Does nothing once the round is locked. */
 	submit() {
 		if (this.locked) return;
 		this.lock();
@@ -194,7 +197,6 @@ class RoundView {
 		if (hintBtn) hintBtn.disabled = true;
 	}
 
-	/** Freezes the clock where it is, e.g. while a duel waits for someone to reconnect. */
 	pause() {
 		clearInterval(this.timerId);
 		this.timerId = null;
@@ -213,7 +215,6 @@ class RoundView {
 		this._startTimer(this.timeLimit, remaining);
 	}
 
-	/** Ends the round on screen: no more input and no more clock. */
 	stop() {
 		this.lock();
 		clearInterval(this.timerId);
@@ -221,7 +222,6 @@ class RoundView {
 		el("timer-display").classList.remove("timer-urgent");
 	}
 
-	/** Drops the correct pin on the map, alongside the player's own if they placed one. */
 	showAnswer(answer, guess = this.pin) {
 		if (guess) this.map.showResult(answer.correct_x, answer.correct_y, guess.x, guess.y);
 		else this.map.showResult(answer.correct_x, answer.correct_y);
@@ -262,7 +262,6 @@ class RoundView {
 			display.classList.remove(...TIMER_TONES, "timer-urgent");
 			display.classList.add(TIMER_TONES[pct > 0.5 ? 0 : pct > 0.25 ? 1 : pct > 0.1 ? 2 : 3]);
 			if (left <= 10 && !this.locked) display.classList.add("timer-urgent");
-			/** One tick per second through the last five. */
 			if (left <= 5 && left > 0 && left !== this._lastTick && !this.locked) Sounds.play("tick");
 			this._lastTick = left;
 			if (left <= 0) {
@@ -321,8 +320,7 @@ class RoundView {
 	}
 }
 
-/** Fills the result sheet's score, distance and bar. Used by solo and daily. */
-function renderRoundResult(result, max = 5000) {
+export function renderRoundResult(result, max = 5000) {
 	const tone = scoreTone(result.score, max);
 	Sounds.forScore(result.score, max);
 	const score = el("result-score-display");
@@ -341,8 +339,7 @@ function renderRoundResult(result, max = 5000) {
 	requestAnimationFrame(() => requestAnimationFrame(() => (bar.style.width = `${(result.score / max) * 100}%`)));
 }
 
-/** "Hard location" and the like for a result line, or nothing while a location is still ungraded. */
-function difficultyText(difficulty) {
+export function difficultyText(difficulty) {
 	return difficulty ? `${difficulty[0].toUpperCase()}${difficulty.slice(1)} location` : "";
 }
 
@@ -350,14 +347,12 @@ function difficultyText(difficulty) {
 
 const EMOTE_COOLDOWN_MS = 1500;
 const EMOTE_SHOWN_MS = 3000;
-/** Keys that send each reaction while the picker is open: 1 to 9, 0, then - and +. */
 const EMOTE_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "+"];
 /** + is Shift and = on most keyboards; either one counts. */
 const EMOTE_KEY_ALIASES = { "=": "+" };
 let emoteList = [];
 
-/** Draws the reaction picker. An empty list or `canSend: false` hides it. */
-function renderEmoteBar(list, canSend = true) {
+export function renderEmoteBar(list, canSend = true) {
 	const offered = Array.isArray(list) ? list.filter((name) => /^[a-z0-9_]+$/.test(name)) : [];
 	const changed = offered.join() !== emoteList.join();
 	emoteList = offered;
@@ -375,8 +370,7 @@ function renderEmoteBar(list, canSend = true) {
 			.join("")}</div>`;
 }
 
-/** Wires the picker up once per page. `send` is handed the name of the chosen reaction. */
-function bindEmoteBar(send) {
+export function bindEmoteBar(send) {
 	const bar = el("emote-bar");
 	const choices = () => bar.querySelector("[data-emote-choices]");
 	const setOpen = (open) => {
@@ -415,8 +409,7 @@ function bindEmoteBar(send) {
 		_pageKeys.set(key, [sendNumbered, ...(_pageKeys.get(key) || []).filter((handler) => handler !== sendNumbered)]);
 }
 
-/** Pops one reaction up beside the screenshot for a moment, with its sound. */
-function showEmoteBubble(emote, { name, avatarUrl, color }) {
+export function showEmoteBubble(emote, { name, avatarUrl, color }) {
 	if (!emoteList.includes(emote)) return;
 	Sounds.play(Sounds.has(`emote_${emote}`) ? `emote_${emote}` : "emote");
 	const bubble = document.createElement("div");
@@ -427,12 +420,11 @@ function showEmoteBubble(emote, { name, avatarUrl, color }) {
 		<span class="material-symbols-outlined" style="color:${color}">${emote}</span>`;
 	const feed = el("emote-feed");
 	feed.appendChild(bubble);
-	/** Keep the stack short when players trade reactions quickly. */
 	while (feed.children.length > 4) feed.firstElementChild.remove();
 	setTimeout(() => bubble.remove(), EMOTE_SHOWN_MS);
 }
 
-function reportLocationUrl(locationId) {
+export function reportLocationUrl(locationId) {
 	return `/settings?ticket=report_location&loc=${locationId}`;
 }
 
@@ -445,7 +437,7 @@ const REPORT_REASONS = [
 ];
 
 /** Reports a location as a ticket without leaving the game. Logged-out players follow the link instead. */
-async function reportLocation(event, locationId) {
+export async function reportLocation(event, locationId) {
 	event.preventDefault();
 	const link = event.currentTarget;
 	if (!(await fetchUser())) return (location.href = link.href);
@@ -501,7 +493,7 @@ async function reportLocation(event, locationId) {
 }
 
 /** Makes a group of pill buttons act like a radio group. Returns a getter for the selected value. */
-function setupPills(selector, onChange) {
+export function setupPills(selector, onChange) {
 	const pills = [...document.querySelectorAll(selector)];
 	const ON = ["border-blue-500", "bg-blue-600/15", "text-blue-300"];
 	const OFF = ["border-zinc-700", "text-zinc-400", "hover:border-zinc-500", "hover:text-zinc-200"];
@@ -523,7 +515,6 @@ function setupPills(selector, onChange) {
 	return () => value;
 }
 
-/** Lets the player drag the divider between the screenshot and the map. */
 function setupResizeHandle() {
 	const handle = el("resize-handle");
 	const panel = el("photo-panel");
@@ -568,3 +559,6 @@ function setupResizeHandle() {
 	);
 	document.addEventListener("touchend", end);
 }
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, { reportLocation });

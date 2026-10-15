@@ -26,15 +26,20 @@ const brY = need("WORLD_BOUNDS.BOTTOM_RIGHT.y", /BOTTOM_RIGHT:\s*\{[^}]*?y:\s*(-
 
 const tileVersion = src.match(/\.png\?v=(\w+)/)?.[1] ?? "1";
 
-const output = `const MAP_CONFIG = { rows: ${rows}, columns: ${columns}, totalWidth: ${totalWidth}, totalHeight: ${totalHeight} };
-const WORLD_BOUNDS = { TOP_LEFT: { x: ${tlX}, y: ${tlY} }, BOTTOM_RIGHT: { x: ${brX}, y: ${brY} } };
-const WORLD_WIDTH = WORLD_BOUNDS.BOTTOM_RIGHT.x - WORLD_BOUNDS.TOP_LEFT.x;
-const WORLD_HEIGHT = WORLD_BOUNDS.BOTTOM_RIGHT.y - WORLD_BOUNDS.TOP_LEFT.y;
+const output = `export const MAP_CONFIG = { rows: ${rows}, columns: ${columns}, totalWidth: ${totalWidth}, totalHeight: ${totalHeight} };
+export const WORLD_BOUNDS = { TOP_LEFT: { x: ${tlX}, y: ${tlY} }, BOTTOM_RIGHT: { x: ${brX}, y: ${brY} } };
+export const WORLD_WIDTH = WORLD_BOUNDS.BOTTOM_RIGHT.x - WORLD_BOUNDS.TOP_LEFT.x;
+export const WORLD_HEIGHT = WORLD_BOUNDS.BOTTOM_RIGHT.y - WORLD_BOUNDS.TOP_LEFT.y;
 
-function tileUrl(row, col, quality) {
-    const name = \`row-\${row + 1}-column-\${col + 1}\`;
-    if (quality === 'high') return \`/images/\${name}.png?v=${tileVersion}\`;
-    return \`/images/generated/\${name}-\${quality}.webp\`;
+/** Set by the server; changes when the tiles do. */
+const TILE_VERSION = document.querySelector('meta[name="tile-version"]')?.content || "0";
+
+/** \`square\` picks one square of a sharper size; without it, the whole column. Full-size PNG is the original. */
+export function tileUrl(row, col, quality, format = "webp", square) {
+	const name = \`row-\${row + 1}-column-\${col + 1}\`;
+	if (square !== undefined) return \`/images/generated/\${name}-\${quality}-\${square}.\${format}?v=\${TILE_VERSION}\`;
+	if (quality === "high" && format === "png") return \`/images/\${name}.png?v=${tileVersion}\`;
+	return \`/images/generated/\${name}-\${quality}.\${format}?v=\${TILE_VERSION}\`;
 }
 `;
 

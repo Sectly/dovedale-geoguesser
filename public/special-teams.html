@@ -97,7 +97,7 @@
 
     <div id="round-screen" class="hidden absolute inset-0 flex flex-col md:flex-row">
       <div id="photo-panel" class="flex-shrink-0 md:w-[40%] h-[38%] md:h-full relative overflow-hidden">
-        <img id="round-photo" src="" alt="Location screenshot" />
+        <img id="round-photo" fetchpriority="high" src="" alt="Location screenshot" />
 
         <div class="absolute top-3 left-3 flex items-center gap-2">
           <a
@@ -196,12 +196,6 @@
       <p id="final-wait" class="text-zinc-500 text-sm mt-3 hidden">Waiting for the host to start another game.</p>
     </div>
 
-    <script src="/js/map-config.js"></script>
-    <script src="/js/map-canvas.js"></script>
-    <script src="/js/sounds.js"></script>
-    <script src="/js/shared.js"></script>
-    <script src="/js/tooltips.js"></script>
-    <script src="/js/round.js"></script>
-    <script src="/js/special-teams.js"></script>
+    <script type="module" src="/js/special-teams.js"></script>
   </body>
 </html>

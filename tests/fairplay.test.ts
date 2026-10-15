@@ -17,10 +17,8 @@ describe("fair-play review", () => {
 	test("a strong, fast, human player is never flagged", () => {
 		const player = createUser();
 		const places = Array.from({ length: 6 }, () => createLocation());
-		/** Sixty good guesses: close but not pixel-exact, quick but not instant, and never the same time twice. */
 		for (let i = 0; i < 60; i++)
 			reviewGuess(player.id, "solo", places[i % 6], guess(20 + (i % 9) * 35, 1.6 + (i % 7) * 0.9));
-		/** A couple of freak results on top do not make a pattern. */
 		reviewGuess(player.id, "solo", places[0], guess(1, 0.5));
 		reviewGuess(player.id, "solo", places[1], guess(0.5, 0.6));
 		expect(signals(player.id)).toEqual([]);
@@ -73,7 +71,6 @@ describe("fair-play review", () => {
 		const panel = (await call(`/api/admin/users/${player.id}/moderation`, { as: moderator })).data;
 		expect(panel.fairplay_flags).toHaveLength(1);
 		expect(panel.fairplay_flags[0].evidence).toContain("in under 0.7s");
-		/** Nothing was done to the account. */
 		expect(panel.user.is_banned).toBe(false);
 		expect(panel.actions).toEqual([]);
 

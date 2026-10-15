@@ -72,7 +72,6 @@ export class Round {
 		if (this.startedAt > now) this.startedAt = now;
 	}
 
-	/** True until the clock has started. */
 	pending(now = Date.now()): boolean {
 		return this.startedAt > now;
 	}
@@ -92,18 +91,15 @@ export class Round {
 		this.pausedAt = null;
 	}
 
-	/** Seconds the clock has actually been running. */
 	private running(now: number): number {
 		return Math.max(0, ((this.pausedAt ?? now) - this.startedAt) / 1000);
 	}
 
-	/** Seconds since the round started, capped at the time limit. */
 	elapsed(now = Date.now()): number {
 		const seconds = this.running(now);
 		return this.rules.timeLimit ? Math.min(this.rules.timeLimit, seconds) : seconds;
 	}
 
-	/** Seconds left on the clock, or null when the round is untimed. */
 	remaining(now = Date.now()): number | null {
 		if (!this.rules.timeLimit) return null;
 		return Math.max(0, this.rules.timeLimit - this.running(now));
@@ -115,7 +111,6 @@ export class Round {
 		return this.running(now) > this.rules.timeLimit + GAME.lateGuessGrace;
 	}
 
-	/** Reveals the next hint, or returns null when none are left. */
 	revealHint(): string | null {
 		if (this.hintsRevealed >= this.hints.length) return null;
 		return this.hints[this.hintsRevealed++];
@@ -150,7 +145,6 @@ export class Round {
 		};
 	}
 
-	/** The answer, sent once guessing is over. */
 	answer() {
 		return {
 			location_id: this.location.id,
@@ -162,12 +156,10 @@ export class Round {
 	}
 }
 
-/** Counts a real guess towards its location's difficulty. */
 export function recordOutcome(location: Location, outcome: RoundOutcome) {
 	if (outcome.distance !== null) recordLocationPlay(location.id, distanceScore(outcome.distance));
 }
 
-/** Wire format for a scored guess. */
 export function outcomeJson(outcome: RoundOutcome) {
 	return {
 		guessed_x: outcome.guess?.x ?? null,

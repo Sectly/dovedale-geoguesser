@@ -117,7 +117,6 @@ adminSuggestionRoutes.get("/", (c) => {
 	);
 });
 
-/** The latest reviewed suggestions, with who reviewed each and why any was denied. */
 adminSuggestionRoutes.get("/history", (c) => {
 	const staff = requireStaff(c, "helper");
 	const mine = isFullStaff(staff) ? "" : `AND ls.reviewed_by = ${staff.id}`;

@@ -92,7 +92,6 @@ export function dailyStatus(user: User | null) {
 	};
 }
 
-/** Starts the player's attempt, or resumes it with whatever time is left. */
 export function startDaily(user: User) {
 	const { date, location } = requireChallenge();
 	if (getScore(user.id, date)) fail(409, "Already played today");

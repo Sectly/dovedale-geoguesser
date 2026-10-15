@@ -41,7 +41,6 @@ soloRoutes.post("/games", async (c) => {
 	return c.json(startSoloGame(userId, rounds, timeLimit, null, difficulty));
 });
 
-/** How many locations of each difficulty can be played, so the page only offers what exists. */
 soloRoutes.get("/difficulties", (c) => c.json(difficultyCounts()));
 
 soloRoutes.post("/games/:id/begin", (c) => c.json(beginSoloRound(c.req.param("id"), playerId(c))));
@@ -55,7 +54,6 @@ soloRoutes.post("/games/:id/guess", async (c) => {
 
 soloRoutes.post("/games/:id/next", (c) => c.json(nextSoloRound(c.req.param("id"), playerId(c))));
 
-/** Routes mounted at /api/specials. */
 export const specialRoutes = new Hono();
 
 specialRoutes.get("/", (c) => c.json(specialsFor(requirePlayer(c))));

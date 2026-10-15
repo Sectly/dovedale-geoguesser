@@ -57,7 +57,6 @@ leaderboardRoutes.use("*", async (c, next) => {
 	await next();
 });
 
-/** Each player's single best solo game under the chosen filters. */
 leaderboardRoutes.get("/solo", (c) => {
 	const { limit, offset } = pageQuery(c);
 	const byAverage = c.req.query("sort") === "avg";

@@ -1,4 +1,9 @@
-/** Staff panel: the Email tab. The mail server, switching email on and off, and how it is going. */
+import { el, errorStateHtml, escHtml } from "../lib/dom.js";
+import { api } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
+import { showConfirm } from "./core.js";
+import { shortAgo } from "./overview.js";
+import { systemCard } from "./system.js";
 
 const EMAIL_STATE_LABELS = {
 	hourly: "Every hour",
@@ -10,7 +15,7 @@ const EMAIL_STATE_LABELS = {
 };
 
 /** Draws the tab. The mail server's details stay off the page until `reveal` asks for them. */
-async function loadEmail(reveal = false) {
+export async function loadEmail(reveal = false) {
 	let info;
 	try {
 		info = await api(`/api/admin/system/email${reveal ? "?reveal=1" : ""}`);
@@ -34,7 +39,6 @@ async function loadEmail(reveal = false) {
 					'<span class="m-tag warn">Off</span>',
 					"Nothing is sent, and the setting is hidden from players. Addresses already saved are kept.",
 				];
-	/** Why the switch cannot be used, when it cannot. */
 	const blocked = !info.smtp_ready
 		? "Save a mail server below first. Email cannot be switched on without one."
 		: !info.site_url
@@ -133,7 +137,6 @@ async function loadEmail(reveal = false) {
 		)}`;
 }
 
-/** Unlinks every player's email and deletes the addresses. */
 async function clearAllEmails() {
 	const ok = await showConfirm(
 		"Delete every player's email address?",
@@ -147,7 +150,6 @@ async function clearAllEmails() {
 	);
 }
 
-/** Runs an email action from the tab, says how it went, and redraws. */
 async function emailAction(request, done) {
 	try {
 		const result = await request();
@@ -205,3 +207,14 @@ const runEmailNow = () =>
 		() => api("/api/admin/system/email/run", { method: "POST" }),
 		({ sent }) => (sent ? `${sent} summar${sent === 1 ? "y" : "ies"} sent.` : "Nobody is due a summary right now.")
 	);
+
+/** Called from inline handlers in the markup. */
+Object.assign(window, {
+	clearAllEmails,
+	clearEmailSettings,
+	loadEmail,
+	runEmailNow,
+	saveEmailSettings,
+	sendTestEmail,
+	setEmailEnabled,
+});

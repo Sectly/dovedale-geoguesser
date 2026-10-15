@@ -3,7 +3,6 @@ import { DISCORD, SITE_URL } from "../config";
 export type WebhookCategory =
 	"submissions" | "suggestions" | "locations" | "users" | "bans" | "duels" | "support" | "system";
 
-/** Embed colour and footer label per category, so the channel can be read at a glance. */
 const STYLE: Record<WebhookCategory, [color: number, label: string]> = {
 	submissions: [0x42a5f5, "Submissions"],
 	suggestions: [0x26c6da, "Suggestions"],
@@ -45,7 +44,6 @@ async function drain(url: string) {
 	sending = false;
 }
 
-/** Stops user-controlled text from being read as Discord formatting. */
 export function md(value: string | null | undefined): string {
 	return (value ?? "").replace(/([\\*_~`|>\[\]()#-])/g, "\\$1");
 }

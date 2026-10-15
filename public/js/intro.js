@@ -26,7 +26,6 @@
 	/** "intro-play" is never removed: that would replay the home page's card animation. */
 	root.classList.add("intro-play", "intro-hold");
 
-	/** Resolves once the title screen is gone, for anything that should wait for it. */
 	let finished;
 	window.introDone = new Promise((resolve) => (finished = resolve));
 
@@ -34,7 +33,6 @@
 	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 	let left = false;
 
-	/** Sets how far a piece must move and scale to land on its counterpart on the page. */
 	function aim(piece, target) {
 		const from = piece?.getBoundingClientRect();
 		const to = target?.getBoundingClientRect();
@@ -82,9 +80,7 @@
 		/** Two frames, so the bar paints empty before it starts to fill. */
 		requestAnimationFrame(() => requestAnimationFrame(() => (splash.dataset.state ||= "loading")));
 
-		const loaded = Promise.all([document.fonts?.ready, typeof fetchUser === "function" ? fetchUser() : null]).catch(
-			() => {}
-		);
+		const loaded = Promise.all([document.fonts?.ready, window.userLoaded]).catch(() => {});
 		const elapsed = performance.now() - started;
 		Promise.race([Promise.all([loaded, wait(MIN_MS - elapsed)]), wait(MAX_MS - elapsed)]).then(async () => {
 			splash.dataset.state = "ready";

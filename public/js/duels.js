@@ -1,11 +1,27 @@
-/** Duels: lobby, waiting room, live rounds over WebWire, results and rematches. */
+import "./lib/site.js";
 import { WebWire } from "/webwire-client.js";
+import { MapCanvas } from "./map-canvas.js";
+import { Sounds } from "./sounds.js";
+import { avatarHtml, countUp, el, escHtml, locId, prefersReducedMotion, show, skeletonRows } from "./lib/dom.js";
+import { api, fetchUser, loginUrl } from "./lib/api.js";
+import { copyText, showToast } from "./lib/toast.js";
+import { checkAchievements } from "./lib/achievements.js";
+import { noteRestart } from "./lib/restart.js";
+import { addKeybinds } from "./lib/keys.js";
+import { celebrate } from "./lib/effects.js";
+import {
+	RoundView,
+	bindEmoteBar,
+	difficultyText,
+	renderEmoteBar,
+	reportLocationUrl,
+	setupPills,
+	showEmoteBubble,
+} from "./round.js";
 
 const SCREENS = ["login-gate", "lobby-screen", "waiting-screen", "round-screen", "end-screen"];
-/** Material 400-weight colours, one per player. */
 const PIN_COLORS = ["#42A5F5", "#FFA726", "#AB47BC", "#EC407A"];
 const QUIET_QUEUE_HINT_MS = 30_000;
-/** How long to keep retrying a lost connection before giving up on the room. */
 const RECONNECT_WINDOW_MS = 30_000;
 
 let user = null;
@@ -60,7 +76,6 @@ function liveDuelRowHtml(duel) {
 	</button>`;
 }
 
-/** Loads the duels anyone can watch. Updates the lobby button, and the dialog when it is open. */
 async function loadLiveDuels() {
 	let duels = [];
 	try {
@@ -93,7 +108,6 @@ function closeLiveDuels() {
 	clearInterval(liveDuelsTimer);
 }
 
-/** Tells a player their duel was ended by staff, that it cost them nothing, and where to ask about it. */
 function closedByStaffNotice() {
 	if (el("duel-closed-notice")) return;
 	const box = document.createElement("div");
@@ -119,7 +133,6 @@ function closedByStaffNotice() {
 	box.querySelector("button").focus();
 }
 
-/** Tears down the current room and returns to the lobby, optionally explaining why. */
 function backToLobby(message = "") {
 	closeWire();
 	clearInterval(countdownTimer);
@@ -278,7 +291,6 @@ function createRoom() {
 	});
 }
 
-/** How long the invite card stays up. */
 const INVITE_INTRO_MS = 1500;
 
 const INVITE_ART = {
@@ -294,7 +306,6 @@ const INVITE_ART = {
 };
 let inviteCard = null;
 
-/** Title card for an invite or spectate link. Takes no input and removes itself on a timer. */
 function inviteIntro(code, watching) {
 	if (prefersReducedMotion() || !/^[A-Z0-9]{6}$/.test(code)) return;
 	const card = document.createElement("div");
@@ -312,7 +323,6 @@ function inviteIntro(code, watching) {
 	}, INVITE_INTRO_MS + 400);
 }
 
-/** Switches the card to "Spectating" when the invite is watch-only. */
 function inviteIntroWatching() {
 	if (!inviteCard?.querySelector(".invite-swords")) return;
 	inviteCard.querySelector("svg").outerHTML = INVITE_ART.watch;
@@ -382,7 +392,6 @@ function leaveRoom() {
 	backToLobby();
 }
 
-/** Full-screen notice over the game: connection trouble, a paused duel, the countdown back in. */
 function showOverlay(title, detail = "", countdown = 0) {
 	clearInterval(overlayTimer);
 	el("overlay-title").textContent = title;
@@ -487,13 +496,11 @@ async function connect(joinEvent) {
 	});
 	on("closed_by_staff", () => {
 		const onEndScreen = !el("end-screen").classList.contains("hidden");
-		/** A finished duel keeps its result on screen; the room behind it is gone. */
 		if (onEndScreen) {
 			closeWire();
 			return rematchUnavailable("Room closed");
 		}
 		backToLobby();
-		/** The code in the Join box now leads nowhere. */
 		el("join-code").value = "";
 		closedByStaffNotice();
 	});
@@ -538,7 +545,6 @@ async function connect(joinEvent) {
 	w.connect().catch(() => {});
 }
 
-/** Pops a player's reaction up beside the screenshot. Spectators see them too. */
 function showEmote(data) {
 	const player = lastPlayers.find((p) => p.user_id === data.user_id);
 	if (!player) return;
@@ -556,7 +562,6 @@ function pinColor(userId) {
 	return pinColors.get(userId);
 }
 
-/** The win streak flame, or nothing below the length the server shows it from. */
 function streakHtml(streak) {
 	return streak >= user?.limits?.streak_shown
 		? `<span class="inline-flex items-center gap-0.5 text-orange-400 font-bold" title="${streak} Quick Play wins in a row"><span class="material-symbols-outlined text-base leading-none" style="font-variation-settings:'FILL' 1" role="img" aria-label="Win streak">local_fire_department</span>${streak}</span>`
@@ -823,14 +828,12 @@ function showRoundResult(result) {
 let lastRoundWasFinal = false;
 let nextRoundLabel = "Next round";
 
-/** Every round seen in this duel, kept for the replay on the end screen. */
 let roundHistory = [];
 let lastPlayers = [];
 let introShown = false;
 let replayMap = null;
 
 function versusHtml(players) {
-	/** Quick Play only: rating, streak and what the result would do to the rating. */
 	const ranked = (p) =>
 		p.rating == null
 			? ""
@@ -846,7 +849,6 @@ function versusHtml(players) {
 		: "";
 }
 
-/** The versus card shown to someone who joins a duel already under way, e.g. a spectator. */
 function showJoinIntro() {
 	if (introShown || lastPlayers.length !== 2) return;
 	introShown = true;
@@ -862,7 +864,6 @@ function showJoinIntro() {
 	setTimeout(() => show("start-countdown", false), 1600);
 }
 
-/** Plays the whole duel back on the end-screen map, one round after another. */
 function playReplay() {
 	show("end-replay", roundHistory.length > 0);
 	if (!roundHistory.length) return;
@@ -922,13 +923,11 @@ function rematchUnavailable(reason) {
 	btn.textContent = reason;
 }
 
-/** The running score across rematches, once the same two players have met more than once. */
 function showSeries(result) {
 	const series = result.series;
 	const players = result.scores || [];
 	show("end-series", !!series && series.games > 1 && players.length === 2);
 	if (!series || series.games <= 1 || players.length !== 2) return;
-	/** Your own score first; a spectator sees the two in the order they sit. */
 	const [first, second] = [...players].sort((a, b) => (b.user_id === user?.id) - (a.user_id === user?.id));
 	const name = (p) => (p.user_id === user?.id && !isSpectator() ? "You" : p.display_name || p.username);
 	const wins = (p) => series.wins[p.user_id] ?? 0;
