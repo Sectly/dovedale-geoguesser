@@ -18,6 +18,10 @@ const KEEPALIVE_MS = 30_000;
 const ATTENTION_DELAY_MS = 2000;
 /** Per account, or per address when logged out. Beyond this, pages fall back to polling. */
 const MAX_PER_KEY = 8;
+/** A watch party can have many tournament pages open behind one address. */
+const MAX_WATCHING_PER_KEY = 40;
+/** Viewer counts are sent at most this often. */
+const WATCHING_DELAY_MS = 3000;
 
 type Client = {
 	stream: SSEStreamingApi;
@@ -29,6 +33,7 @@ type Client = {
 	/** Last value per event, so unchanged values are not resent. */
 	sent: Map<string, string>;
 	attentionTimer: ReturnType<typeof setTimeout> | null;
+	watching: number | null;
 };
 
 const clients = new Set<Client>();
@@ -50,7 +55,21 @@ async function send(client: Client, event: string, data: unknown, { always = fal
 
 function forget(client: Client) {
 	if (client.attentionTimer) clearTimeout(client.attentionTimer);
-	clients.delete(client);
+	if (clients.delete(client) && client.watching !== null) queueWatching();
+}
+
+let watchingTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Tells each tournament page how many are watching. */
+function queueWatching() {
+	watchingTimer ??= setTimeout(() => {
+		watchingTimer = null;
+		const counts = new Map<number, number>();
+		for (const client of clients)
+			if (client.watching !== null) counts.set(client.watching, (counts.get(client.watching) ?? 0) + 1);
+		for (const client of clients)
+			if (client.watching !== null) void send(client, "watching", { count: counts.get(client.watching) ?? 0 });
+	}, WATCHING_DELAY_MS);
 }
 
 /** Null once logged out, banned or deleted. */
@@ -81,11 +100,15 @@ function banner() {
 	return bannerCache.value;
 }
 
+/** Set by src/game/tournaments.ts. */
+let tournament: unknown = null;
+
 /** Returns true if anything was sent. */
 async function refresh(client: Client): Promise<boolean> {
+	const tournamentSent = await send(client, "tournament", tournament);
 	const bannerSent = await send(client, "banner", banner());
 	const attentionSent = client.sessionId !== null && (await sendAttention(client));
-	return bannerSent || attentionSent;
+	return tournamentSent || bannerSent || attentionSent;
 }
 
 /** GET /api/events. Sends the current state on connect, then only changes. */
@@ -93,7 +116,10 @@ export function eventStream(c: Context) {
 	const sessionId = sessionIdFromCookies(c.req.header("Cookie"));
 	const user = sessionId ? userFromSessionId(sessionId) : null;
 	const key = user ? `user:${user.id}` : `ip:${clientIp(c)}`;
-	if ([...clients].filter((client) => client.key === key).length >= MAX_PER_KEY)
+	const watch = Number(c.req.query("watch"));
+	const watching = Number.isInteger(watch) && watch > 0 ? watch : null;
+	const limit = watching !== null && !user ? MAX_WATCHING_PER_KEY : MAX_PER_KEY;
+	if ([...clients].filter((client) => client.key === key).length >= limit)
 		fail(429, "Too many open pages. Close a few and reload.");
 	/** Stops proxies from buffering the stream. */
 	c.header("X-Accel-Buffering", "no");
@@ -107,8 +133,10 @@ export function eventStream(c: Context) {
 			may: { chat: hasRole(user, STAFF_CHAT_ROLE), tickets: hasRole(user, "moderator") },
 			sent: new Map(),
 			attentionTimer: null,
+			watching,
 		};
 		clients.add(client);
+		if (watching !== null) queueWatching();
 		stream.onAbort(() => forget(client));
 
 		await stream.writeSSE({ retry: 5000, event: "hello", data: JSON.stringify(restartState()) });
@@ -132,6 +160,11 @@ const restartState = () => ({ restart_in: restartIn(), restarted: justRestarted(
 
 export function nudgeUser(userId: number) {
 	for (const client of clients) if (client.userId === userId) queueAttention(client);
+}
+
+export function nudgeTournament(summary: unknown) {
+	tournament = summary;
+	for (const client of clients) void send(client, "tournament", summary);
 }
 
 export function nudgeBanner() {

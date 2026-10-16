@@ -21,6 +21,7 @@ import { adminSubmissionRoutes } from "./submissions";
 import { adminSuggestionRoutes } from "./suggestions";
 import { adminSupportRoutes } from "./support";
 import { adminScoreRoutes } from "./scores";
+import { adminTournamentRoutes } from "./tournaments";
 import { adminSystemRoutes } from "./system";
 import { adminModerationRoutes, adminUserRoutes } from "./users";
 
@@ -35,6 +36,7 @@ adminRoutes.route("/support", adminSupportRoutes);
 adminRoutes.route("/system", adminSystemRoutes);
 adminRoutes.route("/scores", adminScoreRoutes);
 adminRoutes.route("/duels", adminDuelRoutes);
+adminRoutes.route("/tournaments", adminTournamentRoutes);
 adminRoutes.route("/announcements", adminAnnouncementRoutes);
 adminRoutes.route("/chat", adminChatRoutes);
 

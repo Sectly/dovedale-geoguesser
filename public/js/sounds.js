@@ -84,6 +84,42 @@ export const Sounds = (() => {
 			[392, 0.24, 0.3, "triangle", 0.06],
 		],
 		reveal: [[523, 0, 0.07, "triangle", 0.05]],
+		/* Tournaments. */
+		chime: [
+			[784, 0, 0.5, "sine", 0.06],
+			[1175, 0.18, 0.7, "sine", 0.05],
+		],
+		alert: [
+			[880, 0, 0.12, "square", 0.03],
+			[880, 0.16, 0.12, "square", 0.03],
+			[1319, 0.32, 0.3, "triangle", 0.06],
+		],
+		horn: [
+			[196, 0, 0.5, "sawtooth", 0.035],
+			[294, 0, 0.5, "sawtooth", 0.025],
+			[392, 0.12, 0.6, "triangle", 0.05],
+		],
+		whoosh: [
+			[220, 0, 0.25, "triangle", 0.03],
+			[440, 0.06, 0.25, "triangle", 0.03],
+			[880, 0.12, 0.3, "sine", 0.03],
+		],
+		cheer: [
+			[659, 0, 0.1, "triangle", 0.05],
+			[784, 0.08, 0.1, "triangle", 0.05],
+			[988, 0.16, 0.1, "triangle", 0.05],
+			[1319, 0.24, 0.35, "sine", 0.06],
+		],
+		fanfare: [
+			[523, 0, 0.14, "triangle", 0.06],
+			[523, 0.15, 0.08, "triangle", 0.06],
+			[523, 0.25, 0.08, "triangle", 0.06],
+			[659, 0.35, 0.3, "triangle", 0.06],
+			[523, 0.7, 0.14, "triangle", 0.06],
+			[659, 0.85, 0.14, "triangle", 0.06],
+			[784, 1, 0.7, "sine", 0.07],
+			[1047, 1, 0.7, "sine", 0.04],
+		],
 		notify: [
 			[988, 0, 0.1],
 			[1319, 0.09, 0.24],
@@ -159,6 +195,11 @@ export const Sounds = (() => {
 				localStorage.setItem(STORAGE_KEY, enabled ? "1" : "0");
 			} catch {}
 		},
+		/** False until a click or key press lets the page play sound. */
+		get unlocked() {
+			return ctx?.state === "running";
+		},
+		unlock: () => !!context(),
 		has: (name) => !!LIBRARY[name],
 		play(name) {
 			if (!enabled || !LIBRARY[name]) return;

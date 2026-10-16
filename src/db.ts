@@ -46,7 +46,7 @@ function openDatabase(): Database {
 export const db = openDatabase();
 
 /** Bumped when a release changes existing data. An older database is copied aside first. */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 function backupBeforeUpgrade() {
 	const version = db.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version ?? 0;
@@ -381,6 +381,28 @@ const SCHEMA_STATEMENTS = [
   score_sum INTEGER NOT NULL DEFAULT 0,
   updated_at INTEGER DEFAULT (unixepoch())
 )`,
+	`CREATE TABLE IF NOT EXISTS tournaments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'draft',
+  starts_at INTEGER,
+  settings TEXT NOT NULL DEFAULT '{}',
+  state TEXT,
+  winner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at INTEGER DEFAULT (unixepoch()),
+  started_at INTEGER,
+  finished_at INTEGER
+)`,
+	`CREATE TABLE IF NOT EXISTS tournament_players (
+  tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  checked_in INTEGER NOT NULL DEFAULT 0,
+  added_at INTEGER DEFAULT (unixepoch()),
+  PRIMARY KEY (tournament_id, user_id)
+)`,
 ];
 
 for (const sql of SCHEMA_STATEMENTS) {
@@ -450,6 +472,8 @@ const MIGRATIONS: string[] = [
 	"ALTER TABLE staff_chat ADD COLUMN pinned_at INTEGER",
 	"ALTER TABLE staff_chat ADD COLUMN pinned_by INTEGER REFERENCES users(id) ON DELETE SET NULL",
 	"ALTER TABLE staff_chat ADD COLUMN pinned_by_username TEXT",
+	"ALTER TABLE duel_games ADD COLUMN tournament_id INTEGER",
+	"ALTER TABLE tournaments ADD COLUMN results_until INTEGER",
 ];
 
 for (const sql of MIGRATIONS) {

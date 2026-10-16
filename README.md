@@ -9,6 +9,7 @@ Play it at [dovedalegeoguesser.com](https://dovedalegeoguesser.com).
 - **Solo:** 3, 5 or 10 rounds at your own pace. No login needed.
 - **Daily challenge:** one location a day, with a streak to keep going.
 - **Duels:** real-time 1v1 by invite link or quick play. Anyone can watch.
+- **Tournaments:** knockout brackets for game nights, run by staff and played one match at a time so everyone watches the same duel.
 - **Specials:** side modes, mini-games and seasonal events, just for fun.
 - **Leaderboards and profiles:** for solo, duels and the daily.
 - **Submissions:** players add their own screenshots and suggest fixes; staff review them.
@@ -29,15 +30,16 @@ Then open `http://localhost:4000`.
 
 Set `AUTH_DEV=true` in `.env` to skip Discord and log in as a built-in operator account. `bun run seed` adds placeholder locations so there is something to play.
 
-| Command             | What it does                                                        |
-| ------------------- | ------------------------------------------------------------------- |
-| `bun run dev`       | Start the server and restart on changes                             |
-| `bun run test`      | Run the tests, each file on its own throwaway database              |
-| `bun run typecheck` | Type-check the server and tests                                     |
-| `bun run build`     | Format the code and compile the stylesheet                          |
-| `bun run vapid`     | Generate keys for push notifications (optional)                     |
-| `bun run sync-map`  | Refresh map settings from the Dovedale map                          |
-| `bun run tiles`     | Build the map tiles in every size and format (`--force` redoes all) |
+| Command             | What it does                                                           |
+| ------------------- | ---------------------------------------------------------------------- |
+| `bun run dev`       | Start the server and restart on changes                                |
+| `bun run test`      | Run the tests, each file on its own throwaway database                 |
+| `bun run typecheck` | Type-check the server and tests                                        |
+| `bun run build`     | Format the code and compile the stylesheet                             |
+| `bun run build:css` | Compile the stylesheet only (run after pulling if pages look unstyled) |
+| `bun run vapid`     | Generate keys for push notifications (optional)                        |
+| `bun run sync-map`  | Refresh map settings from the Dovedale map                             |
+| `bun run tiles`     | Build the map tiles in every size and format (`--force` redoes all)    |
 
 ## Configuration
 
@@ -66,7 +68,7 @@ pm2 start pm2.config.js
 
 After that, run `./deploy.sh`, or use the System tab in the staff panel.
 
-If you sit behind a proxy, it needs to pass WebSocket connections through (duels use them) and set `X-Forwarded-For`.
+If you sit behind a proxy, it needs to pass WebSocket connections through (duels use them), not buffer `/api/events` (live updates, tournament pages included), and set `X-Forwarded-For`.
 
 > **Upgrading from a version before the restructure?** Do that one deploy by hand, because the old `deploy.sh` will stop partway:
 >
@@ -85,7 +87,7 @@ The server is built to be left running.
 
 - **Upgrades are automatic.** The database updates itself on start, after taking a backup.
 - **Backups are automatic.** One a day goes into `data/backups/`, and old ones are cleared out.
-- **Restarts are safe.** Stopping or killing the server only loses games in progress.
+- **Restarts are safe.** Solo games carry on afterwards and a running tournament waits for staff to continue; only duels being played are lost.
 - **A damaged database stops the server** rather than starting empty. To recover, stop the server, copy the newest backup over `data/geoguesser.sqlite`, delete any `-wal` and `-shm` files beside it, and start again.
 
 Operators also get a **System** tab in the staff panel to switch on maintenance mode, install updates and restart, manage backups, and read the server log.
@@ -94,14 +96,14 @@ Operators also get a **System** tab in the staff panel to switch on maintenance 
 
 Each role can do everything the one above it can. The Staff tab in the staff panel has the full list.
 
-| Role          | Adds                                                                                    |
-| ------------- | --------------------------------------------------------------------------------------- |
-| Helper        | Review submissions and suggested changes. A player, not counted as staff                |
-| Curator       | Browse and edit locations, see every review, staff chat and announcements               |
-| Moderator     | Answer tickets, warn, limit and temporarily ban, review ban-evasion and fair-play flags |
-| Supervisor    | Ban permanently, overturn most actions, manage moderators and below, read the audit log |
-| Administrator | Correct scores and ratings, send announcements, delete locations, watch or close duels  |
-| Operator      | Everything, including exporting or deleting player data and the System tab. Set in .env |
+| Role          | Adds                                                                                                                          |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Helper        | Review submissions and suggested changes. A player, not counted as staff                                                      |
+| Curator       | Browse and edit locations, see every review, staff chat and announcements                                                     |
+| Moderator     | Answer tickets, warn, limit and temporarily ban, review ban-evasion and fair-play flags, run tournaments                      |
+| Supervisor    | Ban permanently, overturn most actions, manage moderators and below, read the audit log, create, start and cancel tournaments |
+| Administrator | Correct scores and ratings, send announcements, delete locations, watch or close duels                                        |
+| Operator      | Everything, including exporting or deleting player data and the System tab. Set in .env                                       |
 
 ## Specials and seasons
 
@@ -113,7 +115,7 @@ To add a special or change the dates, see `src/specials.ts`.
 
 ## How it's built
 
-[Bun](https://bun.sh), [Hono](https://hono.dev), SQLite, [WebWire](https://github.com/Sectly/webwire) for duels, Discord login, and plain JavaScript modules with Tailwind in the browser.
+[Bun](https://bun.sh), [Hono](https://hono.dev), SQLite, [WebWire](https://github.com/Sectly/webwire) for duels, one server-sent event stream per page for live updates, Discord login, and plain JavaScript modules with Tailwind in the browser.
 
 ```
 server.ts     Entry point
@@ -123,7 +125,7 @@ tests/        Test suites
 scripts/      Build, seed and map tools
 ```
 
-Solo, daily and duels all run on one round engine (`src/game/round.ts`), so a change to scoring, hints or timing there applies everywhere. Scores are always worked out on the server, and the answer is only sent once a guess is in.
+Solo, daily, duels, Team Duels and tournaments all run on one round engine (`src/game/round.ts`), so a change to scoring, hints or timing there applies everywhere. Tournaments are built on duels (`src/game/tournaments.ts`). Scores are always worked out on the server, and the answer is only sent once a guess is in.
 
 ## Contributing
 

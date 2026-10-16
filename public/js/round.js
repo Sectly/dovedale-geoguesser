@@ -29,9 +29,12 @@ export class RoundView {
 	 *   Called once per round, when the player submits or the timer runs out.
 	 * @param {() => Promise<{hint: string}>} [handlers.onHint]
 	 *   Fetches the next hint from the server. Hints are hidden without it.
+	 * @param {(x: number, y: number) => void} [handlers.onPinMoved]
+	 *   Each time the pin is placed or moved.
 	 */
-	constructor({ onGuess, onHint }) {
+	constructor({ onGuess, onHint, onPinMoved }) {
 		this.onGuess = onGuess;
+		this.onPinMoved = onPinMoved || null;
 		this.onHint = onHint || null;
 		this.pin = null;
 		this.locked = true;
@@ -46,6 +49,7 @@ export class RoundView {
 		this.map = new MapCanvas(el("map-canvas"), {
 			onPinPlaced: (x, y) => {
 				this.pin = { x, y };
+				this.onPinMoved?.(x, y);
 				Sounds.play("pin");
 				this._setGuessEnabled(true);
 				el("click-hint").innerHTML = TOUCH
@@ -65,8 +69,8 @@ export class RoundView {
 				"Reveal a hint",
 				duringRound(() => (el("hint-btn") && !el("hint-btn").disabled ? el("hint-btn").click() : false)),
 			],
-			[["+", "="], "Zoom the map in", duringRound(() => el("zoom-in")?.click())],
-			[["-"], "Zoom the map out", duringRound(() => el("zoom-out")?.click())],
+			[["+", "="], "Zoom the map in", duringRound(() => this.map.zoomBy(1.3))],
+			[["-"], "Zoom the map out", duringRound(() => this.map.zoomBy(1 / 1.3))],
 		]);
 		setupPhotoLens(el("round-photo"));
 		setupResizeHandle();

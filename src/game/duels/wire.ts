@@ -17,7 +17,9 @@ import {
 	playerDisconnected,
 	playerLoaded,
 	playerReconnected,
+	previewPin,
 	send,
+	sendCrowdEmote,
 	sendEmote,
 	sendSnapshot,
 	sendToSpectators,
@@ -124,8 +126,8 @@ wireServer.on("connection", (conn: WireConnection) => {
 			sendSnapshot(room, conn, userId);
 			playerReconnected(room);
 
-			/** Quickplay rooms have no host to press start. */
-			if (room.quickplay && room.status === "waiting" && room.players.length === 2) {
+			/** Quick Play and tournament rooms have no host to press start. */
+			if ((room.quickplay || room.tournament) && room.status === "waiting" && room.players.length === 2) {
 				setTimeout(() => {
 					if (room.players.length === 2 && room.players.every((p) => p.connected)) startDuel(room);
 				}, QUICKPLAY_START_DELAY_MS);
@@ -138,7 +140,8 @@ wireServer.on("connection", (conn: WireConnection) => {
 		handler("spectate", (data) => {
 			const room = duelRooms.get(roomCode(data));
 			if (!room || room.status === "finished") return reject(conn, "Room not found or already finished");
-			if (room.spectators.size >= GAME.duel.maxSpectators)
+			/** Everyone watches a tournament match. */
+			if (!room.tournament && room.spectators.size >= GAME.duel.maxSpectators)
 				return reject(conn, "This duel has too many spectators");
 
 			room.spectators.add(conn);
@@ -191,12 +194,24 @@ wireServer.on("connection", (conn: WireConnection) => {
 		})
 	);
 
+	conn.on(
+		"pin_move",
+		handler("pin_move", (data) => {
+			const s = seat();
+			const body = data as { world_x?: unknown; world_y?: unknown } | null;
+			if (s) previewPin(s.room, s.player, parseGuess(body?.world_x, body?.world_y));
+		})
+	);
+
 	/** Not named "emote" like the event sent back: this library also fires handlers on connections the server sends that event to, so every receiver would appear to send it too. */
 	conn.on(
 		"send_emote",
 		handler("send_emote", (data) => {
 			const s = seat();
-			if (s) sendEmote(s.room, s.player.userId, (data as { emote?: unknown } | null)?.emote);
+			const emote = (data as { emote?: unknown } | null)?.emote;
+			if (s) return sendEmote(s.room, s.player.userId, emote);
+			const room = rooms.get(conn);
+			if (room?.spectators.has(conn) && userId !== null) sendCrowdEmote(room, userId, emote);
 		})
 	);
 
@@ -216,7 +231,7 @@ wireServer.on("connection", (conn: WireConnection) => {
 		"play_again",
 		handler("play_again", () => {
 			const s = seat();
-			if (!s || s.room.status !== "finished") return;
+			if (!s || s.room.status !== "finished" || s.room.tournament) return;
 			const { room, player } = s;
 			const opponent = room.players.find((p) => p !== player);
 			if (!opponent?.connected) return send(conn, "play_again_declined", {});

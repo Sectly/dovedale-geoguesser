@@ -130,7 +130,7 @@ leaderboardRoutes.get("/duels", (c) => {
 			FROM duel_participants dp
 			JOIN users u ON u.id = dp.user_id
 			JOIN duel_games dg ON dg.id = dp.game_id
-			WHERE dg.status = 'finished' AND u.is_banned = 0 ${modeFilter}
+			WHERE dg.status = 'finished' AND dg.tournament_id IS NULL AND u.is_banned = 0 ${modeFilter}
 			GROUP BY dp.user_id
 			${sort === "rating" ? "HAVING rated_games > 0" : ""}
 			ORDER BY ${orderBy}, u.id ASC

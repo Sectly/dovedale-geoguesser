@@ -7,6 +7,7 @@ import { reportProblem } from "./src/lib/problems";
 import { notify } from "./src/lib/webhook";
 import { backfillAchievementsOnce } from "./src/achievements";
 import { resetDuelsOnStartup } from "./src/game/duels/rooms";
+import { restoreTournaments } from "./src/game/tournaments";
 import { restoreSoloGames } from "./src/game/solo";
 import { startCleanupJobs } from "./src/jobs/cleanup";
 import { migrateLegacyModeration } from "./src/moderation";
@@ -40,6 +41,7 @@ await ensureStyles();
 if (DEV_MODE) watchStyles();
 
 resetDuelsOnStartup();
+restoreTournaments();
 backfillAchievementsOnce();
 const restoredGames = restoreSoloGames();
 if (restoredGames) console.log(`[server] Picked up ${restoredGames} solo game(s) from before the restart`);

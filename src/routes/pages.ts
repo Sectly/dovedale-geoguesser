@@ -188,6 +188,31 @@ pageRoutes.get("/duel/:code", (c) => {
 	);
 });
 
+/** A tournament plays out on the duels page. */
+pageRoutes.get("/tournament/:id", (c) => {
+	const id = Number(c.req.param("id"));
+	const row = Number.isInteger(id)
+		? db
+				.query<{ title: string; description: string; status: string }, [number]>(
+					"SELECT title, description, status FROM tournaments WHERE id = ?"
+				)
+				.get(id)
+		: null;
+	const visible = row && row.status !== "draft";
+	return sendHtml(
+		c,
+		withMeta(loadPage("duels.html").html, {
+			title: visible ? `${row.title} | Dovedale GeoGuesser` : "Tournament | Dovedale GeoGuesser",
+			description: visible
+				? row.description || "A Dovedale GeoGuesser tournament. Watch every match live."
+				: "A Dovedale GeoGuesser tournament.",
+			image: "/og.png?type=duels",
+			url: `/tournament/${id}`,
+			type: "website",
+		})
+	);
+});
+
 pageRoutes.get("/u/:username", (c) => {
 	const username = c.req.param("username");
 	const profile = findProfile(username);

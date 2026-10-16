@@ -6,12 +6,14 @@ const LIVE_JITTER_MS = 2500;
 /** A hidden tab closes its stream after this long and reopens it when shown again. */
 const LIVE_HIDDEN_MS = 60_000;
 /** Handlers rerun after a reconnect, in case an event was missed. */
-const LIVE_CATCH_UP = ["ticket", "staff_chat"];
+const LIVE_CATCH_UP = ["ticket", "staff_chat", "tournament"];
 
 export const live = {
 	connected: false,
 	source: null,
 	opened: false,
+	/** Set on load, even if the page was hidden then. */
+	wanted: false,
 	retries: 0,
 	retryTimer: null,
 	hiddenTimer: null,
@@ -47,7 +49,9 @@ function deliverLive(event, raw) {
 function openLive() {
 	if (live.source || !("EventSource" in window) || document.hidden) return;
 	clearTimeout(live.retryTimer);
-	const source = new EventSource("/api/events");
+	/** A tournament page is counted as watching, and allowed more pages per address. */
+	const watch = location.pathname.match(/^\/tournament\/(\d+)/)?.[1];
+	const source = new EventSource(watch ? `/api/events?watch=${watch}` : "/api/events");
 	live.source = source;
 	for (const event of live.handlers.keys()) source.addEventListener(event, (e) => deliverLive(event, e.data));
 	source.addEventListener("open", () => {
@@ -78,10 +82,19 @@ export function whenNotLive(fn) {
 
 /** Opened after load and idle plus a random delay, to spread out page loads. */
 window.addEventListener("load", () =>
-	whenIdle(() => setTimeout(openLive, LIVE_DELAY_MS + Math.random() * LIVE_JITTER_MS))
+	whenIdle(() =>
+		setTimeout(
+			() => {
+				live.wanted = true;
+				openLive();
+			},
+			LIVE_DELAY_MS + Math.random() * LIVE_JITTER_MS
+		)
+	)
 );
 document.addEventListener("visibilitychange", () => {
 	clearTimeout(live.hiddenTimer);
 	if (document.hidden) live.hiddenTimer = setTimeout(closeLive, LIVE_HIDDEN_MS);
-	else if (!live.source && live.opened) setTimeout(openLive, 300 + Math.random() * 1200);
+	/** Also a page that loaded while hidden. */
+	else if (!live.source && live.wanted) setTimeout(openLive, 300 + Math.random() * 1200);
 });

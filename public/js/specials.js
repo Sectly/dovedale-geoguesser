@@ -42,6 +42,57 @@ function specialCard(special) {
 		: `<a href="${escHtml(special.href)}" class="md-card p-5 text-left flex items-center gap-4">${inner}</a>`;
 }
 
+const TOURNAMENT_LINES = {
+	open: "Tournament starting soon. Players, check in now.",
+	live: "Tournament on now. Come and watch.",
+	finished: "Tournament results. See who won.",
+};
+
+/** Shown logged in or not. */
+api("/api/tournaments/past")
+	.then((past) => {
+		if (!past.length) return;
+		el("past-tournaments").innerHTML =
+			`<div class="text-xs text-zinc-500 uppercase tracking-widest font-medium mt-10 mb-3">Past tournaments</div>
+			<div class="flex flex-col gap-2">${past
+				.map((t) => {
+					const winner = t.winner_display_name || t.winner_username;
+					const when = t.finished_at
+						? new Date(t.finished_at * 1000).toLocaleDateString(undefined, {
+								day: "numeric",
+								month: "short",
+								year: "numeric",
+							})
+						: "";
+					return `<a href="/tournament/${t.id}" class="md-card px-5 py-3 text-left flex items-center gap-4">
+						<span class="material-symbols-outlined text-2xl text-zinc-500 flex-shrink-0">trophy</span>
+						<div class="flex-1 min-w-0">
+							<div class="font-semibold truncate">${escHtml(t.title)}</div>
+							<div class="text-zinc-500 text-xs mt-0.5">${[winner ? `Won by ${escHtml(winner)}` : "", `${t.players} players`, when].filter(Boolean).join(" · ")}</div>
+						</div>
+						<span class="material-symbols-outlined text-zinc-500 flex-shrink-0">chevron_right</span>
+					</a>`;
+				})
+				.join("")}</div>`;
+	})
+	.catch(() => {});
+
+/** A tournament that is on, or has just finished, goes first. */
+api("/api/tournaments/current")
+	.then((t) => {
+		if (!t) return;
+		el("tournament-feature").innerHTML =
+			`<a href="/tournament/${t.id}" class="md-card specials-tournament p-5 mb-6 text-left flex items-center gap-4">
+			<span class="material-symbols-outlined text-4xl flex-shrink-0" style="font-variation-settings:'FILL' 1">trophy</span>
+			<div class="flex-1 min-w-0">
+				<div class="font-bold text-lg">${escHtml(t.title)}</div>
+				<div class="text-zinc-400 text-sm mt-0.5">${TOURNAMENT_LINES[t.status] ?? ""}</div>
+			</div>
+			<span class="material-symbols-outlined text-zinc-500 flex-shrink-0">chevron_right</span>
+		</a>`;
+	})
+	.catch(() => {});
+
 (async function loadSpecials() {
 	const list = el("specials-list");
 	list.innerHTML = skeletonRows(2);
