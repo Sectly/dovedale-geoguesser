@@ -31,14 +31,23 @@ async function popIn(card) {
 				easing: "cubic-bezier(0.2, 0, 0, 1)",
 			});
 	}
-	card.animate(
+	/** Squeezed flat into the gap, stretches up, then wiggles itself into place. */
+	const entrance = card.animate(
 		[
-			{ transform: "scale(0.6)", opacity: 0 },
-			{ transform: "scale(1.03)", opacity: 1, offset: 0.7 },
+			{ transform: "scale(1.15, 0.05)", opacity: 0 },
+			{ transform: "scale(0.9, 1.18)", opacity: 1, offset: 0.3 },
+			{ transform: "scale(1.06, 0.9)", offset: 0.45 },
+			{ transform: "scale(0.98, 1.03) rotate(-1.6deg)", offset: 0.6 },
+			{ transform: "scale(1.01, 0.99) rotate(1.2deg)", offset: 0.72 },
+			{ transform: "rotate(-0.6deg)", offset: 0.84 },
 			{ transform: "none", opacity: 1 },
 		],
-		{ duration: 550, delay: 120, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "backwards" }
+		{ duration: 900, delay: 120, easing: "ease-out", fill: "backwards" }
 	);
+	entrance.finished.then(() => {
+		card.classList.add("glint");
+		card.addEventListener("animationend", () => card.classList.remove("glint"), { once: true });
+	});
 }
 
 /** While a tournament is on, it gets its own card above Specials. */
