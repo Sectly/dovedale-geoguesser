@@ -357,7 +357,7 @@ function auditTargetHtml(e) {
 	if (e.target_type === "ticket")
 		return e.target_id ? ` <span class="text-zinc-600">on Ticket #${e.target_id}</span>` : "";
 	if (e.target_type === "tournament" && e.target_id)
-		return `${player} <span class="text-zinc-600">in</span> <a href="/admin#tournaments:${e.target_id}" onclick="switchTab('tournaments', false, ${e.target_id}); return false;" class="hover:underline">Tournament #${e.target_id}</a>`;
+		return `${player} <span class="text-zinc-600">in</span> <a href="/admin#tournaments:${e.target_id}" data-on-click="switchTab('tournaments', false, ${e.target_id}); return false;" class="hover:underline">Tournament #${e.target_id}</a>`;
 	return player || (e.target_id ? ` <span class="text-zinc-600">#${e.target_id}</span>` : "");
 }
 
@@ -389,7 +389,7 @@ function renderAudit({ rows, total, offset }, reset) {
                 <span id="audit-total" class="text-zinc-500 text-sm ml-auto">${total.toLocaleString()} entries</span>
             </div>
             <div class="flex gap-1.5 mb-4 flex-wrap">
-                ${AUDIT_CATEGORIES.map((c) => `<button onclick="setAuditCategory('${c.key}')" class="audit-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition ${auditCategory === c.key ? "bg-blue-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700"}" data-cat="${c.key}">${c.label}</button>`).join("")}
+                ${AUDIT_CATEGORIES.map((c) => `<button data-on-click="setAuditCategory('${c.key}')" class="audit-cat-btn px-3 py-1.5 rounded-full text-xs font-semibold transition ${auditCategory === c.key ? "bg-blue-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700"}" data-cat="${c.key}">${c.label}</button>`).join("")}
             </div>
             <div class="flex flex-wrap gap-2 mb-4">
                 <input id="audit-search" type="search" value="${escHtml(auditSearch)}" placeholder="Search by name, action, target, details..."
@@ -453,7 +453,7 @@ function renderAudit({ rows, total, offset }, reset) {
 			const latest = events[events.length - 1];
 			const info = AUDIT_ACTION_LABELS[latest.action] || { label: latest.action, color: "text-zinc-300" };
 			return `<div class="bg-zinc-900 rounded-xl overflow-hidden">
-                <button onclick="toggleAuditGroup(${ticketId})" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-zinc-800/50 transition">
+                <button data-on-click="toggleAuditGroup(${ticketId})" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-zinc-800/50 transition">
                     <span class="text-zinc-600 w-36 flex-shrink-0 text-xs">${new Date(latest.created_at * 1000).toLocaleString()}</span>
                     <span class="${info.color} font-medium flex-1">Ticket #${ticketId} · ${events.length} event${events.length !== 1 ? "s" : ""}</span>
                     <span class="material-symbols-outlined text-zinc-500 text-base transition-transform ${isOpen ? "rotate-180" : ""}">expand_more</span>
@@ -466,7 +466,7 @@ function renderAudit({ rows, total, offset }, reset) {
 	let routineHtml = "";
 	if (routineRows.length > 0) {
 		routineHtml = `<div class="mt-1 border border-zinc-800 rounded-xl overflow-hidden">
-            <button onclick="toggleAuditRoutine()" class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-zinc-800/40 transition text-zinc-500">
+            <button data-on-click="toggleAuditRoutine()" class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-zinc-800/40 transition text-zinc-500">
                 <span class="material-symbols-outlined text-base leading-none">expand_more</span>
                 <span>${routineRows.length} routine event${routineRows.length !== 1 ? "s" : ""} - logins, registrations, ticket replies</span>
             </button>
@@ -483,8 +483,8 @@ function renderAudit({ rows, total, offset }, reset) {
 	const showPrev = offset > 0;
 	const showNext = offset + rows.length < total;
 	pagination.innerHTML = `
-        ${showPrev ? `<button onclick="auditPage(-1)" class="m-btn m-btn-tonal m-btn-sm">Previous</button>` : ""}
-        ${showNext ? `<button onclick="auditPage(1)" class="m-btn m-btn-tonal m-btn-sm">Next</button>` : ""}`;
+        ${showPrev ? `<button data-on-click="auditPage(-1)" class="m-btn m-btn-tonal m-btn-sm">Previous</button>` : ""}
+        ${showNext ? `<button data-on-click="auditPage(1)" class="m-btn m-btn-tonal m-btn-sm">Next</button>` : ""}`;
 }
 
 export function toggleAuditGroup(id) {

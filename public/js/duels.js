@@ -882,7 +882,7 @@ function showRoundResult(result) {
 			.join("") +
 		`<div class="flex items-center justify-between mt-2 pt-2 border-t border-zinc-700">
 			<span class="text-xs font-mono text-zinc-500">${[locId(result.location_id), difficultyText(result.difficulty)].filter(Boolean).join(" · ")}</span>
-			<a href="${reportLocationUrl(result.location_id)}" onclick="reportLocation(event, ${Number(result.location_id)})" target="_blank" rel="noopener" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline">Report location</a>
+			<a href="${reportLocationUrl(result.location_id)}" data-on-click="reportLocation(event, ${Number(result.location_id)})" target="_blank" rel="noopener" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline">Report location</a>
 		</div>`;
 
 	for (const node of el("result-rows").querySelectorAll("[data-count]")) {

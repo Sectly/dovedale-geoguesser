@@ -88,7 +88,7 @@ async function loadBreakdown() {
 				${f.detail ? `<div class="text-xs text-zinc-500 break-words">${escHtml(f.detail)}</div>` : ""}
 			</div>
 			${f.at ? `<span class="text-xs text-zinc-600 flex-shrink-0">${f.at > Date.now() / 1000 ? formatWhen(f.at) : `${shortAgo(f.at)} ago`}</span>` : ""}
-			${f.tab ? `<button onclick="switchTab('${f.tab}')" class="m-btn m-btn-text m-btn-sm flex-shrink-0 -my-1">Open</button>` : ""}
+			${f.tab ? `<button data-on-click="switchTab('${f.tab}')" class="m-btn m-btn-text m-btn-sm flex-shrink-0 -my-1">Open</button>` : ""}
 		</div>`;
 	};
 	const urgent = findings.filter((f) => f.level === "problem").length;
@@ -104,7 +104,7 @@ async function loadBreakdown() {
 					.join("")
 			: '<p class="text-sm text-zinc-400">Nothing to report. Everything is running as it should.</p>',
 		`${urgent ? `<span class="m-tag danger">${urgent} to fix</span>` : '<span class="m-tag success">No problems</span>'}
-		<button onclick="loadBreakdown()" class="m-icon-btn" aria-label="Refresh" title="Refresh"><span class="material-symbols-outlined">refresh</span></button>`
+		<button data-on-click="loadBreakdown()" class="m-icon-btn" aria-label="Refresh" title="Refresh"><span class="material-symbols-outlined">refresh</span></button>`
 	);
 }
 
@@ -130,7 +130,7 @@ async function loadSystemInfo() {
 				${stat("Solo games held", info.live.solo_games)}
 				${stat("Errors, last 24h", info.logs.errors_24h, info.logs.errors_24h ? "See the log below" : "")}
 			</div>`,
-			`<button onclick="loadSystemInfo()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>`
+			`<button data-on-click="loadSystemInfo()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>`
 		);
 	} catch (err) {
 		box.innerHTML = systemCard("Server", "dns", `<p class="text-red-300 text-sm">${escHtml(err.message)}</p>`);
@@ -156,8 +156,8 @@ async function loadMaintenance() {
 		<div class="flex justify-end">
 			${
 				state.enabled
-					? '<button onclick="setMaintenanceMode(false)" class="m-btn m-btn-filled">Switch off and reopen the site</button>'
-					: '<button onclick="setMaintenanceMode(true)" class="m-btn m-btn-tonal">Switch on</button>'
+					? '<button data-on-click="setMaintenanceMode(false)" class="m-btn m-btn-filled">Switch off and reopen the site</button>'
+					: '<button data-on-click="setMaintenanceMode(true)" class="m-btn m-btn-tonal">Switch on</button>'
 			}
 		</div>`
 	);
@@ -219,7 +219,7 @@ async function loadFeatures() {
 						<div class="text-sm font-semibold">${title} ${state[key] ? '<span class="m-tag success ml-1">On</span>' : '<span class="m-tag ml-1">Off</span>'}</div>
 						<div class="text-xs text-zinc-500">${blurb}</div>
 					</div>
-					<button onclick="setFeature('${key}', ${!state[key]})" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0">${state[key] ? "Switch off" : "Switch on"}</button>
+					<button data-on-click="setFeature('${key}', ${!state[key]})" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0">${state[key] ? "Switch off" : "Switch on"}</button>
 				</div>`
 			)
 			.join("") +
@@ -228,7 +228,7 @@ async function loadFeatures() {
 					<div class="text-sm font-semibold">Achievements from history</div>
 					<div class="text-xs text-zinc-500">Gives players any achievement their saved scores, streaks and duels show they earned. Done automatically once; run it again after restoring or correcting scores. Nothing is taken away.</div>
 				</div>
-				<button onclick="backfillAchievementsNow()" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0">Recalculate</button>
+				<button data-on-click="backfillAchievementsNow()" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0">Recalculate</button>
 			</div>`
 	);
 }
@@ -268,7 +268,7 @@ async function loadUpdate(refresh) {
 	clearInterval(systemUpdatePoll);
 	const box = el("system-update");
 	if (!box) return;
-	const check = `<button onclick="loadUpdate(true)" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">sync</span>Check for updates</button>`;
+	const check = `<button data-on-click="loadUpdate(true)" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">sync</span>Check for updates</button>`;
 	let status;
 	try {
 		if (refresh) box.querySelector("button")?.setAttribute("disabled", "");
@@ -337,9 +337,9 @@ async function loadUpdate(refresh) {
 		${jobLog}
 		${pending}
 		<div class="flex items-center justify-end gap-2 flex-wrap">
-			${job.state === "restarting" && status.restart_in ? '<button onclick="cancelRestartNow()" class="m-btn m-btn-tonal">Cancel restart</button>' : ""}
-			${status.supervised ? `<button onclick="restartServerNow()" class="m-btn m-btn-text" ${busy ? "disabled" : ""}>Restart server</button>` : '<span class="text-xs text-zinc-500 mr-auto">Not running under PM2, so the panel cannot restart the server.</span>'}
-			<button onclick="installUpdate(${status.pending.length})" class="m-btn m-btn-filled" ${busy || blockers.length || !status.pending.length ? "disabled" : ""}>
+			${job.state === "restarting" && status.restart_in ? '<button data-on-click="cancelRestartNow()" class="m-btn m-btn-tonal">Cancel restart</button>' : ""}
+			${status.supervised ? `<button data-on-click="restartServerNow()" class="m-btn m-btn-text" ${busy ? "disabled" : ""}>Restart server</button>` : '<span class="text-xs text-zinc-500 mr-auto">Not running under PM2, so the panel cannot restart the server.</span>'}
+			<button data-on-click="installUpdate(${status.pending.length})" class="m-btn m-btn-filled" ${busy || blockers.length || !status.pending.length ? "disabled" : ""}>
 				<span class="material-symbols-outlined">download</span>${status.supervised ? "Update and restart" : "Install update"}
 			</button>
 		</div>`,
@@ -459,7 +459,7 @@ async function loadBackups() {
 					<span class="flex-1 min-w-0 truncate font-mono text-xs text-zinc-400">${escHtml(b.name)}</span>
 					<span class="text-xs text-zinc-500">${formatWhen(b.created_at)} · ${formatBytes(b.size)}</span>
 					<a href="/api/admin/system/backups/${encodeURIComponent(b.name)}/download" class="m-icon-btn" title="Download" aria-label="Download ${escHtml(b.name)}"><span class="material-symbols-outlined">download</span></a>
-					<button onclick="deleteBackupFile('${escHtml(b.name)}')" class="m-icon-btn" title="Delete" aria-label="Delete ${escHtml(b.name)}"><span class="material-symbols-outlined">delete</span></button>
+					<button data-on-click="deleteBackupFile('${escHtml(b.name)}')" class="m-icon-btn" title="Delete" aria-label="Delete ${escHtml(b.name)}"><span class="material-symbols-outlined">delete</span></button>
 				</div>`
 			)
 			.join("");
@@ -468,7 +468,7 @@ async function loadBackups() {
 			"backup",
 			`<p class="text-xs text-zinc-500 mb-2">Kept automatically: the last ${limits.daily} daily, ${limits.upgrade} before upgrades, ${limits.update} before updates and ${limits.manual} manual. Older ones are removed. A backup holds every account, so downloads are logged.</p>
 			<div class="divide-y divide-zinc-800">${rows || '<p class="text-zinc-500 text-sm py-3">No backups yet. The first daily one is made within the hour.</p>'}</div>`,
-			`<button onclick="makeBackup()" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">add</span>Back up now</button>`
+			`<button data-on-click="makeBackup()" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">add</span>Back up now</button>`
 		);
 	} catch (err) {
 		box.innerHTML = systemCard("Backups", "backup", `<p class="text-red-300 text-sm">${escHtml(err.message)}</p>`);
@@ -542,7 +542,7 @@ async function loadSystemLogs(before = 0) {
 		el("system-log-rows").insertAdjacentHTML("beforeend", rows);
 	} else {
 		const level = (key, label) =>
-			`<button onclick="setSystemLogLevel('${key}')" aria-pressed="${systemLogLevel === key}">${label}${key && data.counts[key] ? ` <span class="count">${data.counts[key]}</span>` : ""}</button>`;
+			`<button data-on-click="setSystemLogLevel('${key}')" aria-pressed="${systemLogLevel === key}">${label}${key && data.counts[key] ? ` <span class="count">${data.counts[key]}</span>` : ""}</button>`;
 		box.innerHTML = systemCard(
 			"Server log",
 			"terminal",
@@ -555,8 +555,8 @@ async function loadSystemLogs(before = 0) {
 				</label>
 			</div>
 			<div class="divide-y divide-zinc-800" id="system-log-rows">${rows || '<p class="text-zinc-500 text-sm py-3">Nothing logged.</p>'}</div>`,
-			`<button onclick="loadSystemLogs()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>
-			<button onclick="clearSystemLogs()" class="m-icon-btn" title="Clear the log" aria-label="Clear the log"><span class="material-symbols-outlined">delete_sweep</span></button>`
+			`<button data-on-click="loadSystemLogs()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>
+			<button data-on-click="clearSystemLogs()" class="m-icon-btn" title="Clear the log" aria-label="Clear the log"><span class="material-symbols-outlined">delete_sweep</span></button>`
 		);
 		let debounce;
 		el("system-log-search").addEventListener("input", (e) => {
@@ -574,7 +574,7 @@ async function loadSystemLogs(before = 0) {
 		const last = data.logs[data.logs.length - 1].id;
 		el("system-log-rows").insertAdjacentHTML(
 			"afterend",
-			`<div id="system-log-more" class="text-center mt-3"><button onclick="loadSystemLogs(${last})" class="m-btn m-btn-text m-btn-sm">Show older</button></div>`
+			`<div id="system-log-more" class="text-center mt-3"><button data-on-click="loadSystemLogs(${last})" class="m-btn m-btn-text m-btn-sm">Show older</button></div>`
 		);
 	}
 }

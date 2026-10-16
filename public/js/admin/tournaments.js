@@ -68,7 +68,7 @@ export async function loadTournaments(openId = null) {
 	el("tab-content").innerHTML = `
 		${reviewHeader("Tournaments", 0, "loadTournaments()")}
 		<p class="text-sm text-zinc-400 mb-4 max-w-2xl">A knockout bracket for game nights, with spectators and chat. Pick the players, open check-in, then start it when everyone is here.</p>
-		${atLeast("supervisor") ? '<button onclick="newTournament()" class="m-btn m-btn-filled mb-5"><span class="material-symbols-outlined">add</span>New tournament</button>' : '<p class="text-xs text-zinc-500 mb-5">Supervisors create, open, start and cancel tournaments. You can run them once they are set up.</p>'}
+		${atLeast("supervisor") ? '<button data-on-click="newTournament()" class="m-btn m-btn-filled mb-5"><span class="material-symbols-outlined">add</span>New tournament</button>' : '<p class="text-xs text-zinc-500 mb-5">Supervisors create, open, start and cancel tournaments. You can run them once they are set up.</p>'}
 		${guideHtml(rules)}
 		<div id="tournament-form-slot"></div>
 		<div class="flex flex-col gap-2">${
@@ -77,7 +77,7 @@ export async function loadTournaments(openId = null) {
 						.map(
 							(
 								t
-							) => `<button onclick="openTournament(${t.id})" class="bg-zinc-900 hover:bg-zinc-800 transition rounded-2xl px-4 py-3 flex items-center gap-3 text-left">
+							) => `<button data-on-click="openTournament(${t.id})" class="bg-zinc-900 hover:bg-zinc-800 transition rounded-2xl px-4 py-3 flex items-center gap-3 text-left">
 								<span class="material-symbols-outlined text-zinc-400">trophy</span>
 								<span class="flex-1 min-w-0">
 									<span class="block font-semibold truncate">${escHtml(t.title)}</span>
@@ -94,7 +94,7 @@ export async function loadTournaments(openId = null) {
 		${
 			atLeast("operator") && list.length
 				? `<div class="mt-10 pt-4 border-t border-zinc-800 flex items-center gap-3 flex-wrap max-w-3xl">
-					<button onclick="resetTournamentHistory()" class="m-btn m-btn-text m-btn-sm danger"><span class="material-symbols-outlined">delete_sweep</span>Clear all tournament history</button>
+					<button data-on-click="resetTournamentHistory()" class="m-btn m-btn-text m-btn-sm danger"><span class="material-symbols-outlined">delete_sweep</span>Clear all tournament history</button>
 					<span class="text-xs text-zinc-500">Operators only. Deletes every tournament and its matches, and the next one starts from number 1.</span>
 				</div>`
 				: ""
@@ -204,7 +204,7 @@ function formHtml(t) {
 			.map((n) => `<option value="${n}" ${n === s.breaks[key] ? "selected" : ""}>${seconds(n)}</option>`)
 			.join("")}</select>`;
 	const field = (label, input) => `<label class="flex flex-col gap-1 text-xs text-zinc-400">${label}${input}</label>`;
-	return `<form onsubmit="saveTournament(event)" class="bg-zinc-900 rounded-2xl p-5 mb-5 flex flex-col gap-4 max-w-3xl">
+	return `<form data-on-submit="saveTournament(event)" class="bg-zinc-900 rounded-2xl p-5 mb-5 flex flex-col gap-4 max-w-3xl">
 		<h3 class="font-bold">${t ? "Edit tournament" : "New tournament"}</h3>
 		${field("Name", `<input name="title" required maxlength="80" class="m-field" value="${escHtml(t?.title || "")}" placeholder="Friday game night" />`)}
 		${field("Description <span class='text-zinc-600'>Optional. Shown on the tournament page.</span>", `<textarea name="description" maxlength="500" rows="2" class="m-field">${escHtml(t?.description || "")}</textarea>`)}
@@ -237,7 +237,7 @@ function formHtml(t) {
 		</label>
 		<div class="flex gap-2">
 			<button class="m-btn m-btn-filled">${t ? "Save" : "Create"}</button>
-			<button type="button" onclick="${t ? "toggleTournamentEdit(false)" : "loadTournaments()"}" class="m-btn m-btn-text">Cancel</button>
+			<button type="button" data-on-click="${t ? "toggleTournamentEdit(false)" : "loadTournaments()"}" class="m-btn m-btn-text">Cancel</button>
 		</div>
 	</form>`;
 }
@@ -312,15 +312,17 @@ function renderTournament() {
 	if (!t || currentTab !== "tournaments") return;
 	/** Supervisors only; the server checks too. */
 	const senior = atLeast("supervisor");
-	const del = senior ? `<button onclick="deleteTournament()" class="m-btn m-btn-text danger">Delete</button>` : "";
+	const del = senior
+		? `<button data-on-click="deleteTournament()" class="m-btn m-btn-text danger">Delete</button>`
+		: "";
 	const cancel = senior
-		? `<button onclick="cancelTournament()" class="m-btn m-btn-text danger">Cancel tournament</button>`
+		? `<button data-on-click="cancelTournament()" class="m-btn m-btn-text danger">Cancel tournament</button>`
 		: "";
 	const actions = {
-		draft: `${senior ? `<button onclick="tournamentAction('open')" class="m-btn m-btn-filled">Open check-in</button>` : ""}${del}`,
+		draft: `${senior ? `<button data-on-click="tournamentAction('open')" class="m-btn m-btn-filled">Open check-in</button>` : ""}${del}`,
 		open: senior
-			? `<button onclick="startTournament()" class="m-btn m-btn-success">Start tournament</button>
-				<button onclick="tournamentAction('unpublish')" class="m-btn m-btn-tonal">Back to draft</button>
+			? `<button data-on-click="startTournament()" class="m-btn m-btn-success">Start tournament</button>
+				<button data-on-click="tournamentAction('unpublish')" class="m-btn m-btn-tonal">Back to draft</button>
 				${cancel}`
 			: "",
 		live: cancel,
@@ -329,12 +331,12 @@ function renderTournament() {
 	}[t.status];
 	const over = t.status === "finished" || t.status === "cancelled";
 	el("tab-content").innerHTML = `
-		<button onclick="backToTournaments()" class="text-sm text-zinc-400 hover:text-white flex items-center gap-1 mb-3"><span class="material-symbols-outlined text-base">arrow_back</span>All tournaments</button>
+		<button data-on-click="backToTournaments()" class="text-sm text-zinc-400 hover:text-white flex items-center gap-1 mb-3"><span class="material-symbols-outlined text-base">arrow_back</span>All tournaments</button>
 		<div class="flex items-center gap-3 flex-wrap mb-1">
 			<h2 class="font-bold text-xl">${escHtml(t.title)}</h2>
 			${statusTag(t.status)}
 			<a href="/tournament/${t.id}" target="_blank" rel="noopener" class="m-btn m-btn-tonal m-btn-sm ml-auto"><span class="material-symbols-outlined">open_in_new</span>Open page</a>
-			${over ? "" : `<button onclick="toggleTournamentEdit(${!_editing})" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">edit</span>Edit</button>`}
+			${over ? "" : `<button data-on-click="toggleTournamentEdit(${!_editing})" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">edit</span>Edit</button>`}
 		</div>
 		<p class="text-xs text-zinc-500 mb-4">${settingsSummary(t)}</p>
 		${_editing ? formHtml(t) : ""}
@@ -352,16 +354,16 @@ const inviteLink = (t) => `${location.origin}/tournament/${t.id}?invite=${t.invi
 function inviteHtml(t) {
 	if (!t.invite_code)
 		return `<div class="flex items-center gap-3 flex-wrap mb-3 max-w-2xl">
-			<button onclick="setTournamentInvite(true)" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">link</span>Make an invite link</button>
+			<button data-on-click="setTournamentInvite(true)" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">link</span>Make an invite link</button>
 			<span class="text-xs text-zinc-500">Players with the link can join themselves while check-in is open.</span>
 		</div>`;
 	return `<div class="bg-zinc-900 rounded-2xl px-4 py-3 mb-3 max-w-2xl">
 		<div class="flex items-center gap-2 flex-wrap">
 			<span class="text-sm font-semibold">Invite code</span>
 			<span class="font-mono tracking-widest text-lg">${escHtml(t.invite_code)}</span>
-			<button onclick="copyTournamentInvite()" class="m-btn m-btn-tonal m-btn-sm ml-auto"><span class="material-symbols-outlined">content_copy</span>Copy link</button>
-			<button onclick="setTournamentInvite(true)" class="m-btn m-btn-text m-btn-sm">New code</button>
-			<button onclick="setTournamentInvite(false)" class="m-btn m-btn-text m-btn-sm">Turn off</button>
+			<button data-on-click="copyTournamentInvite()" class="m-btn m-btn-tonal m-btn-sm ml-auto"><span class="material-symbols-outlined">content_copy</span>Copy link</button>
+			<button data-on-click="setTournamentInvite(true)" class="m-btn m-btn-text m-btn-sm">New code</button>
+			<button data-on-click="setTournamentInvite(false)" class="m-btn m-btn-text m-btn-sm">Turn off</button>
 		</div>
 		<p class="text-xs text-zinc-500 mt-1 break-all">${escHtml(inviteLink(t))}</p>
 		<p class="text-xs text-zinc-500 mt-1">${t.status === "open" ? "Players who open the link can join, checked in straight away." : "The link starts working once check-in is open."} A new code stops the old one working.</p>
@@ -380,11 +382,11 @@ function rosterHtml(t) {
 		<div class="flex items-center gap-2 mb-2">
 			<h3 class="font-bold">Players</h3>
 			<span class="text-xs text-zinc-500">${t.roster.length} on the list · ${checked} checked in${t.roster.some((r) => r.invite_code) ? ` · ${t.roster.filter((r) => r.invite_code).length} joined by invite` : ""}</span>
-			<button onclick="shuffleTournament()" class="m-btn m-btn-text m-btn-sm ml-auto"><span class="material-symbols-outlined">shuffle</span>Shuffle</button>
+			<button data-on-click="shuffleTournament()" class="m-btn m-btn-text m-btn-sm ml-auto"><span class="material-symbols-outlined">shuffle</span>Shuffle</button>
 		</div>
 		<p class="text-xs text-zinc-500 mb-3">The order is the seeding: the first player meets the last in the opening round, and the top two can only meet in the final. Players check in on the tournament page; you can tick them in here too.</p>
 		${inviteHtml(t)}
-		<form onsubmit="addTournamentPlayers(event)" class="flex gap-2 mb-3 max-w-2xl">
+		<form data-on-submit="addTournamentPlayers(event)" class="flex gap-2 mb-3 max-w-2xl">
 			<input name="usernames" class="m-field flex-1" placeholder="Usernames, separated by spaces or commas" autocomplete="off" />
 			<button class="m-btn m-btn-filled">Add</button>
 		</form>
@@ -396,12 +398,12 @@ function rosterHtml(t) {
 							return `<div class="bg-zinc-900 rounded-xl px-3 py-2 flex items-center gap-3">
 								<span class="text-xs font-mono text-zinc-600 w-5 text-right">${i + 1}</span>
 								${avatarHtml(p.avatar_url, "w-7 h-7")}
-								<button onclick="openUserPanel(${r.user_id})" class="flex-1 min-w-0 text-left text-sm truncate hover:underline">${escHtml(p.display_name || p.username || "Player")} <span class="text-zinc-500">@${escHtml(p.username || "")}</span></button>
+								<button data-on-click="openUserPanel(${r.user_id})" class="flex-1 min-w-0 text-left text-sm truncate hover:underline">${escHtml(p.display_name || p.username || "Player")} <span class="text-zinc-500">@${escHtml(p.username || "")}</span></button>
 								${r.invite_code ? `<span class="text-xs text-zinc-500 flex-shrink-0" title="Joined with this invite code">via <span class="font-mono">${escHtml(r.invite_code)}</span></span>` : ""}
-								<button onclick="setTournamentCheckIn(${r.user_id}, ${!r.checked_in})" class="m-tag ${r.checked_in ? "success" : ""}" title="${r.checked_in ? "Mark as not here" : "Check them in"}">${r.checked_in ? "Checked in" : "Not checked in"}</button>
-								<button onclick="moveTournamentPlayer(${r.user_id}, -1)" class="m-icon-btn" aria-label="Move up" ${i === 0 ? "disabled" : ""}><span class="material-symbols-outlined">arrow_upward</span></button>
-								<button onclick="moveTournamentPlayer(${r.user_id}, 1)" class="m-icon-btn" aria-label="Move down" ${i === t.roster.length - 1 ? "disabled" : ""}><span class="material-symbols-outlined">arrow_downward</span></button>
-								<button onclick="removeTournamentPlayer(${r.user_id})" class="m-icon-btn" aria-label="Remove"><span class="material-symbols-outlined">close</span></button>
+								<button data-on-click="setTournamentCheckIn(${r.user_id}, ${!r.checked_in})" class="m-tag ${r.checked_in ? "success" : ""}" title="${r.checked_in ? "Mark as not here" : "Check them in"}">${r.checked_in ? "Checked in" : "Not checked in"}</button>
+								<button data-on-click="moveTournamentPlayer(${r.user_id}, -1)" class="m-icon-btn" aria-label="Move up" ${i === 0 ? "disabled" : ""}><span class="material-symbols-outlined">arrow_upward</span></button>
+								<button data-on-click="moveTournamentPlayer(${r.user_id}, 1)" class="m-icon-btn" aria-label="Move down" ${i === t.roster.length - 1 ? "disabled" : ""}><span class="material-symbols-outlined">arrow_downward</span></button>
+								<button data-on-click="removeTournamentPlayer(${r.user_id})" class="m-icon-btn" aria-label="Remove"><span class="material-symbols-outlined">close</span></button>
 							</div>`;
 						})
 						.join("")
@@ -469,7 +471,7 @@ function playerHtml(t, m, side, { ready = false } = {}) {
 }
 
 const smallBtn = (onclick, label, tone = "m-btn-text") =>
-	`<button onclick="${onclick}" class="m-btn ${tone} m-btn-sm">${label}</button>`;
+	`<button data-on-click="${onclick}" class="m-btn ${tone} m-btn-sm">${label}</button>`;
 
 /** One match as a row: label, the two players, and the actions that fit its state. */
 function matchRow(t, m, { ready = false, actions = "" } = {}) {
@@ -557,16 +559,16 @@ function liveHtml(t) {
 			${timed ? `<div class="text-3xl font-mono font-bold tabular-nums" ${paused ? "" : `data-ends="${phase.ends_at}" data-offset="${t.now - Date.now()}"`}>${paused ? "Paused" : ""}</div>` : ""}
 		</div>
 		<div class="flex gap-2 flex-wrap mt-4">
-			${timed ? `<button onclick="tournamentControl('skip')" class="m-btn m-btn-filled m-btn-sm">${phase.kind === "break" ? "Start now" : "Move on"}</button>` : ""}
-			${timed ? `<button onclick="tournamentControl('add_time')" class="m-btn m-btn-tonal m-btn-sm">+1 minute</button>` : ""}
-			${timed ? `<button onclick="tournamentControl('${paused ? "resume" : "pause"}')" class="m-btn m-btn-tonal m-btn-sm">${paused ? "Resume" : "Pause"}</button>` : ""}
-			${phase.kind === "hold" || (phase.kind === "batch" && waiting.length) ? `<button onclick="tournamentControl('continue')" class="m-btn m-btn-success m-btn-sm">${phase.kind === "batch" ? "Start all waiting" : "Continue"}</button>` : ""}
-			${!played ? `<button onclick="redrawTournament()" class="m-btn m-btn-text m-btn-sm">Draw the bracket again</button>` : ""}
+			${timed ? `<button data-on-click="tournamentControl('skip')" class="m-btn m-btn-filled m-btn-sm">${phase.kind === "break" ? "Start now" : "Move on"}</button>` : ""}
+			${timed ? `<button data-on-click="tournamentControl('add_time')" class="m-btn m-btn-tonal m-btn-sm">+1 minute</button>` : ""}
+			${timed ? `<button data-on-click="tournamentControl('${paused ? "resume" : "pause"}')" class="m-btn m-btn-tonal m-btn-sm">${paused ? "Resume" : "Pause"}</button>` : ""}
+			${phase.kind === "hold" || (phase.kind === "batch" && waiting.length) ? `<button data-on-click="tournamentControl('continue')" class="m-btn m-btn-success m-btn-sm">${phase.kind === "batch" ? "Start all waiting" : "Continue"}</button>` : ""}
+			${!played ? `<button data-on-click="redrawTournament()" class="m-btn m-btn-text m-btn-sm">Draw the bracket again</button>` : ""}
 		</div>
-		<form onsubmit="sendTournamentMessage(event)" class="flex gap-2 mt-4 pt-4 border-t border-zinc-800">
+		<form data-on-submit="sendTournamentMessage(event)" class="flex gap-2 mt-4 pt-4 border-t border-zinc-800">
 			<input name="text" maxlength="200" class="m-field flex-1" placeholder="Message everyone watching" value="${escHtml(t.message?.text || "")}" />
 			<button class="m-btn m-btn-tonal">Post</button>
-			${t.message ? `<button type="button" onclick="clearTournamentMessage()" class="m-btn m-btn-text">Clear</button>` : ""}
+			${t.message ? `<button type="button" data-on-click="clearTournamentMessage()" class="m-btn m-btn-text">Clear</button>` : ""}
 		</form>
 	</section>`;
 
@@ -597,12 +599,12 @@ function resultsHtml(t) {
 		<div class="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Results</div>
 		<p class="font-semibold mt-1">${showing ? `On the home page and Specials until ${escHtml(new Date(until).toLocaleString())}` : "Not on the home page"}</p>
 		<p class="text-xs text-zinc-500 mt-1">The results page stays at its link either way.</p>
-		<form onsubmit="setTournamentResults(event)" class="flex gap-2 flex-wrap items-center mt-4">
+		<form data-on-submit="setTournamentResults(event)" class="flex gap-2 flex-wrap items-center mt-4">
 			<label class="text-xs text-zinc-400 flex items-center gap-2">Show until
 				<input name="until" type="datetime-local" class="m-field !w-auto" value="${toLocalInput(Math.floor((showing ? until : later.getTime()) / 1000))}" required />
 			</label>
 			<button class="m-btn m-btn-filled m-btn-sm">${showing ? "Change" : "Show"}</button>
-			${showing ? '<button type="button" onclick="hideTournamentResults()" class="m-btn m-btn-text m-btn-sm">Hide now</button>' : ""}
+			${showing ? '<button type="button" data-on-click="hideTournamentResults()" class="m-btn m-btn-text m-btn-sm">Hide now</button>' : ""}
 		</form>
 	</section>`;
 }

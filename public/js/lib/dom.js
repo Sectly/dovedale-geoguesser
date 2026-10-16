@@ -1,3 +1,5 @@
+import "./handlers.js";
+
 export const el = (id) => document.getElementById(id);
 
 export const escHtml = (s) =>
@@ -44,7 +46,7 @@ export function errorStateHtml(message, retry = "") {
 	return `<div class="error-state" role="alert">
 		<span class="error-state-icon" aria-hidden="true"><span class="material-symbols-outlined">cloud_off</span></span>
 		<p>${escHtml(message)}</p>
-		${retry ? `<button class="m-btn m-btn-tonal m-btn-sm" onclick="${escHtml(retry)}"><span class="err-retry material-symbols-outlined">refresh</span>Try again</button>` : ""}
+		${retry ? `<button class="m-btn m-btn-tonal m-btn-sm" data-on-click="${escHtml(retry)}"><span class="err-retry material-symbols-outlined">refresh</span>Try again</button>` : ""}
 	</div>`;
 }
 

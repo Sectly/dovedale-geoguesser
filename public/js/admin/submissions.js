@@ -159,7 +159,7 @@ function submissionRowHtml(s) {
 		s.image_path,
 	].join(" ");
 	return `<div class="bg-zinc-900 rounded-2xl overflow-hidden ${open ? "ring-1 ring-zinc-700" : ""}" id="sub-${s.id}" data-search="${escHtml(searchText)}">
-		<button onclick="toggleSubmission(${s.id})" aria-expanded="${open}" class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800/50 transition">
+		<button data-on-click="toggleSubmission(${s.id})" aria-expanded="${open}" class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800/50 transition">
 			<img loading="lazy" decoding="async" src="/uploads/${escHtml(s.image_path)}" alt="" class="w-16 h-10 rounded-lg object-cover flex-shrink-0" />
 			<span class="flex-1 min-w-0">
 				<span class="block text-sm font-semibold truncate">${s.label ? escHtml(s.label) : '<span class="text-zinc-500 font-normal">No label</span>'}</span>
@@ -197,8 +197,8 @@ function submissionRowHtml(s) {
 						<input id="sub-label-${s.id}" type="text" value="${escHtml(s.label || "")}" placeholder="e.g. Near Dovedale Central" maxlength="${LABEL_MAX_LENGTH}" class="m-field" />
 					</div>
 					<div class="flex gap-2 justify-end">
-						<button onclick="openDenyModal(${s.id})" class="m-btn m-btn-text danger">Deny</button>
-						<button onclick="approveSubmission(${s.id})" class="m-btn m-btn-filled"><span class="material-symbols-outlined">check</span>Approve</button>
+						<button data-on-click="openDenyModal(${s.id})" class="m-btn m-btn-text danger">Deny</button>
+						<button data-on-click="approveSubmission(${s.id})" class="m-btn m-btn-filled"><span class="material-symbols-outlined">check</span>Approve</button>
 					</div>
 				</div>`
 				: ""

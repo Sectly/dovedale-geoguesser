@@ -43,7 +43,7 @@ export async function loadDuels() {
 	const row = (left, right) =>
 		`<div class="flex items-baseline gap-2 py-1.5 border-b border-zinc-800 last:border-0 text-sm"><span class="flex-1 min-w-0 truncate">${left}</span><span class="text-xs text-zinc-500 flex-shrink-0">${right}</span></div>`;
 	const player = (id, username) =>
-		`<button onclick="openUserPanel(${id})" class="hover:underline">@${escHtml(username)}</button>`;
+		`<button data-on-click="openUserPanel(${id})" class="hover:underline">@${escHtml(username)}</button>`;
 
 	el("tab-content").innerHTML = `
 		${reviewHeader("Duels", 0, "loadDuels()")}
@@ -74,7 +74,7 @@ export async function loadDuels() {
 			${Object.entries(DUEL_KINDS)
 				.map(
 					([key, label]) =>
-						`<button onclick="setDuelKind('${key}')" class="m-chip" data-duel-kind="${key}" aria-pressed="${_duelKind === key}">${label}</button>`
+						`<button data-on-click="setDuelKind('${key}')" class="m-chip" data-duel-kind="${key}" aria-pressed="${_duelKind === key}">${label}</button>`
 				)
 				.join("")}
 			<input id="duel-search" type="search" value="${escHtml(_duelSearch)}" placeholder="Username or room code" autocomplete="off" class="m-field ml-auto text-xs" style="width: 14rem; padding-block: 0.375rem" />
@@ -100,7 +100,7 @@ function openDuelsHtml() {
 			const players = room.players
 				.map(
 					(p) =>
-						`<button onclick="openUserPanel(${p.user_id})" class="hover:underline ${p.connected ? "" : "text-zinc-500"}">@${escHtml(p.username)}</button>${playing ? ` <span class="font-mono text-xs text-zinc-400">${p.total_score.toLocaleString()}</span>` : ""}${p.connected ? "" : ' <span class="text-xs text-zinc-600">(away)</span>'}`
+						`<button data-on-click="openUserPanel(${p.user_id})" class="hover:underline ${p.connected ? "" : "text-zinc-500"}">@${escHtml(p.username)}</button>${playing ? ` <span class="font-mono text-xs text-zinc-400">${p.total_score.toLocaleString()}</span>` : ""}${p.connected ? "" : ' <span class="text-xs text-zinc-600">(away)</span>'}`
 				)
 				.join('<span class="text-zinc-600"> vs </span>');
 			return `<div class="bg-zinc-900 rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap">
@@ -110,7 +110,7 @@ function openDuelsHtml() {
 				</span>
 				<span class="m-tag ${room.quickplay ? "info" : ""}">${room.quickplay ? "Quick Play" : room.listed ? "Open room" : "Private"}</span>
 				<a href="/duel/${encodeURIComponent(room.code)}?spectate" target="_blank" rel="noopener" class="m-btn m-btn-tonal m-btn-sm" title="Opens the duel in a new tab. Players see one more person watching"><span class="material-symbols-outlined">visibility</span>Watch</a>
-				<button onclick="closeOpenDuel('${escHtml(room.code)}')" class="m-btn m-btn-text m-btn-sm danger">Close</button>
+				<button data-on-click="closeOpenDuel('${escHtml(room.code)}')" class="m-btn m-btn-text m-btn-sm danger">Close</button>
 			</div>`;
 		})
 		.join("");
@@ -203,7 +203,7 @@ function duelRowHtml(game) {
 		})
 		.join('<span class="text-zinc-600"> vs </span>');
 	return `<div class="bg-zinc-900 rounded-2xl overflow-hidden ${open ? "ring-1 ring-zinc-700" : ""}">
-		<button onclick="toggleDuel(${game.id})" aria-expanded="${open}" class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800/50 transition">
+		<button data-on-click="toggleDuel(${game.id})" aria-expanded="${open}" class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800/50 transition">
 			<span class="flex-1 min-w-0">
 				<span class="block text-sm truncate">${players || '<span class="text-zinc-500">Nobody joined</span>'}</span>
 				<span class="block text-xs text-zinc-500 mt-0.5">${game.rounds} round${game.rounds === 1 ? "" : "s"}${finished ? ` · ${duelLength(game)}` : ""} · ${formatWhen(game.finished_at ?? game.created_at)}</span>
@@ -223,7 +223,7 @@ function renderDuelList() {
 	list.innerHTML = _duelGames.length
 		? _duelGames.map(duelRowHtml).join("") +
 			(_duelMore
-				? '<button onclick="moreDuels()" class="m-btn m-btn-tonal m-btn-sm self-center mt-2">Load more</button>'
+				? '<button data-on-click="moreDuels()" class="m-btn m-btn-tonal m-btn-sm self-center mt-2">Load more</button>'
 				: "")
 		: '<p class="text-sm text-zinc-500 text-center py-8">No duels match.</p>';
 }

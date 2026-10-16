@@ -101,7 +101,7 @@ function chatCardHtml() {
 	if (!c) return `${head}<p class="px-4 pb-4 text-sm text-zinc-500">Loading...</p>`;
 	const select = (name, values, current, label) =>
 		`<label class="flex items-center gap-2 text-xs text-zinc-400">${label}
-			<select onchange="setStaffChat({ ${name}: Number(this.value) })" class="m-field !py-1 !w-auto">${values
+			<select data-on-change="setStaffChat({ ${name}: Number(this.value) })" class="m-field !py-1 !w-auto">${values
 				.map(
 					(v) =>
 						`<option value="${v}" ${v === current ? "selected" : ""}>${name === "delay_ms" ? seconds(v) : v ? `${v} s` : "Off"}</option>`
@@ -111,17 +111,17 @@ function chatCardHtml() {
 	const controls = `<div class="px-4 pb-3 flex items-center gap-3 flex-wrap">
 		${
 			c.on
-				? `<button onclick="setStaffChat({ on: false })" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">comments_disabled</span>Turn chat off</button>`
-				: `<button onclick="setStaffChat({ on: true })" class="m-btn m-btn-filled m-btn-sm" ${c.open ? "" : "disabled"}><span class="material-symbols-outlined">chat</span>Turn chat on</button>`
+				? `<button data-on-click="setStaffChat({ on: false })" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">comments_disabled</span>Turn chat off</button>`
+				: `<button data-on-click="setStaffChat({ on: true })" class="m-btn m-btn-filled m-btn-sm" ${c.open ? "" : "disabled"}><span class="material-symbols-outlined">chat</span>Turn chat on</button>`
 		}
 		${select("delay_ms", DELAYS, c.delay_ms, "Delay")}
 		${select("slow_seconds", SLOW, c.slow_seconds, "Slow mode")}
 		<label class="md-check">
-			<input type="checkbox" ${c.staff_only ? "checked" : ""} onchange="setStaffChat({ staff_only: this.checked })" />
+			<input type="checkbox" ${c.staff_only ? "checked" : ""} data-on-change="setStaffChat({ staff_only: this.checked })" />
 			<span class="md-check-box" aria-hidden="true"></span>
 			<span class="text-sm text-zinc-200">Only staff can write</span>
 		</label>
-		<button onclick="clearStaffChat()" class="m-btn m-btn-text m-btn-sm danger ml-auto">Clear chat</button>
+		<button data-on-click="clearStaffChat()" class="m-btn m-btn-text m-btn-sm danger ml-auto">Clear chat</button>
 	</div>`;
 	const counts = {
 		all: c.messages.length,
@@ -132,7 +132,7 @@ function chatCardHtml() {
 	};
 	const tabs = `<div class="px-4 pb-2 flex gap-1 flex-wrap border-b border-zinc-800">${FILTERS.map(
 		([key, label]) =>
-			`<button onclick="filterStaffChat('${key}')" class="m-btn m-btn-sm ${_filter === key ? "m-btn-tonal" : "m-btn-text"}">${label}${
+			`<button data-on-click="filterStaffChat('${key}')" class="m-btn m-btn-sm ${_filter === key ? "m-btn-tonal" : "m-btn-text"}">${label}${
 				key !== "all" && counts[key] ? ` ${counts[key]}` : ""
 			}</button>`
 	).join("")}</div>`;
@@ -148,7 +148,7 @@ function chatCardHtml() {
 function messageRow(m, timeouts) {
 	const [tag, tone] = STATUS_TAGS[m.status] || [];
 	const btn = (onclick, label, extra = "") =>
-		`<button onclick="${onclick}" class="m-btn m-btn-text m-btn-sm ${extra}">${label}</button>`;
+		`<button data-on-click="${onclick}" class="m-btn m-btn-text m-btn-sm ${extra}">${label}</button>`;
 	const actions = [
 		m.status === "held" ? btn(`approveStaffChat(${m.id})`, "Approve") : "",
 		m.status === "shown" || m.status === "held" ? btn(`deleteStaffChat(${m.id})`, "Delete", "danger") : "",
@@ -215,7 +215,7 @@ let _filterData = null;
 
 /** Loads when opened. */
 export function wordFilterHtml() {
-	return `<details id="word-filter" class="bg-zinc-900 rounded-2xl mt-8 max-w-4xl" ontoggle="this.open && loadWordFilter()">
+	return `<details id="word-filter" class="bg-zinc-900 rounded-2xl mt-8 max-w-4xl" data-on-toggle="loadWordFilterWhenOpen(this)">
 		<summary class="px-4 py-3 cursor-pointer font-semibold text-sm flex items-center gap-2"><span class="material-symbols-outlined text-zinc-400">filter_alt</span>Chat filter</summary>
 		<div id="word-filter-body" class="px-4 pb-4 text-sm text-zinc-500">Loading...</div>
 	</details>`;
@@ -249,7 +249,7 @@ function paintFilter() {
 			w.kind === "block"
 				? `<span class="text-xs text-zinc-500">${w.match === "contains" ? "anywhere" : "word"} · ${w.action === "refuse" ? "refuse" : w.action === "mask" ? "hide" : "hold"}</span>`
 				: ""
-		}<button onclick="removeFilterWord(${w.id})" class="w-6 h-6 rounded-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-700" aria-label="Remove ${escHtml(w.word)}"><span class="material-symbols-outlined text-base">close</span></button></span>`;
+		}<button data-on-click="removeFilterWord(${w.id})" class="w-6 h-6 rounded-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-700" aria-label="Remove ${escHtml(w.word)}"><span class="material-symbols-outlined text-base">close</span></button></span>`;
 	const senior = atLeast("supervisor");
 	const listRow = (l) => {
 		const change =
@@ -267,9 +267,9 @@ function paintFilter() {
 				senior
 					? `<div class="flex items-center gap-1 flex-wrap -ml-2">
 						${actionSelect("", l.action, `updateFilterList(${l.id}, { action: this.value })`)}
-						<button onclick="updateFilterList(${l.id}, { enabled: ${!l.enabled} })" class="m-btn m-btn-text m-btn-sm">${l.enabled ? "Turn off" : "Turn on"}</button>
-						<button onclick="refreshFilterList(${l.id})" class="m-btn m-btn-text m-btn-sm">Download again</button>
-						<button onclick="removeFilterList(${l.id})" class="m-btn m-btn-text m-btn-sm danger">Remove</button>
+						<button data-on-click="updateFilterList(${l.id}, { enabled: ${!l.enabled} })" class="m-btn m-btn-text m-btn-sm">${l.enabled ? "Turn off" : "Turn on"}</button>
+						<button data-on-click="refreshFilterList(${l.id})" class="m-btn m-btn-text m-btn-sm">Download again</button>
+						<button data-on-click="removeFilterList(${l.id})" class="m-btn m-btn-text m-btn-sm danger">Remove</button>
 					</div>`
 					: ""
 			}
@@ -281,7 +281,7 @@ function paintFilter() {
 
 		<div class="flex flex-col gap-2">
 			<h4 class="font-semibold text-sm text-zinc-200">Try a message</h4>
-			<form onsubmit="testFilter(event)" class="flex gap-2 max-w-xl">
+			<form data-on-submit="testFilter(event)" class="flex gap-2 max-w-xl">
 				<input name="text" class="m-field flex-1 min-w-0" maxlength="200" placeholder="Type a message" />
 				<button class="m-btn m-btn-tonal">Check</button>
 			</form>
@@ -290,7 +290,7 @@ function paintFilter() {
 
 		<div class="flex flex-col gap-2">
 			<h4 class="font-semibold text-sm text-zinc-200">Blocked words <span class="text-zinc-500 font-normal">${blocked.length}</span></h4>
-			<form onsubmit="addFilterWords(event, 'block')" class="flex gap-2 flex-wrap items-center">
+			<form data-on-submit="addFilterWords(event, 'block')" class="flex gap-2 flex-wrap items-center">
 				<input name="words" class="m-field flex-1 min-w-[12rem]" maxlength="2000" placeholder="Words or phrases, separated by commas" />
 				<select name="match" class="m-field !py-1 !w-auto"><option value="word">Whole word</option><option value="contains">Anywhere in a word</option></select>
 				${actionSelect("action", "refuse")}
@@ -302,7 +302,7 @@ function paintFilter() {
 		<div class="flex flex-col gap-2">
 			<h4 class="font-semibold text-sm text-zinc-200">Always allowed <span class="text-zinc-500 font-normal">${allowed.length}</span></h4>
 			<p class="text-xs text-zinc-500">Real words that contain a blocked word, such as place names.</p>
-			<form onsubmit="addFilterWords(event, 'allow')" class="flex gap-2 max-w-xl">
+			<form data-on-submit="addFilterWords(event, 'allow')" class="flex gap-2 max-w-xl">
 				<input name="words" class="m-field flex-1 min-w-0" maxlength="2000" placeholder="Words, separated by commas" />
 				<button class="m-btn m-btn-tonal">Add</button>
 			</form>
@@ -314,7 +314,7 @@ function paintFilter() {
 			<p class="text-xs text-zinc-500">A word list at an http or https address, such as a file in a GitHub repository. One word per line, separated by commas, or a JSON list. Downloaded again every day. Up to ${Math.round(limits.listBytes / 1024 / 1024)} MB and ${limits.listEntries.toLocaleString()} words each.</p>
 			${
 				senior
-					? `<form onsubmit="addFilterList(event)" class="flex gap-2 flex-wrap items-center">
+					? `<form data-on-submit="addFilterList(event)" class="flex gap-2 flex-wrap items-center">
 						<input name="url" type="url" required class="m-field flex-1 min-w-[16rem]" placeholder="https://github.com/owner/repo/blob/main/words.txt" />
 						${actionSelect("action", "refuse")}
 						<button class="m-btn m-btn-filled">Add list</button>
@@ -393,6 +393,7 @@ Object.assign(window, {
 	dismissStaffChat,
 	filterStaffChat,
 	loadWordFilter,
+	loadWordFilterWhenOpen: (details) => details.open && loadWordFilter(),
 	refreshFilterList,
 	removeFilterList,
 	removeFilterWord,

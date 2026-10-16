@@ -274,9 +274,9 @@ function renderEvasionFlags() {
 				${avatarHtml(f.avatar_url, "w-9 h-9 flex-shrink-0")}
 				<div class="flex-1 min-w-0 text-sm">
 					<div>
-						<button onclick="openUserPanel(${f.user_id})" class="font-semibold hover:underline">@${escHtml(f.username)}</button>
+						<button data-on-click="openUserPanel(${f.user_id})" class="font-semibold hover:underline">@${escHtml(f.username)}</button>
 						<span class="text-zinc-400">may be</span>
-						<button onclick="openUserPanel(${f.banned_id})" class="font-semibold text-red-300 hover:underline">@${escHtml(f.banned_username)}</button>
+						<button data-on-click="openUserPanel(${f.banned_id})" class="font-semibold text-red-300 hover:underline">@${escHtml(f.banned_username)}</button>
 						<span class="text-zinc-500">(${f.ban_type === "perm" ? "permanently banned" : `banned until ${formatWhen(f.ban_expires_at)}`})</span>
 					</div>
 					<div class="flex items-center gap-1.5 flex-wrap mt-1.5">
@@ -287,8 +287,8 @@ function renderEvasionFlags() {
 					${f.ban_reason ? `<div class="text-xs text-zinc-500 mt-1.5 truncate">Ban reason: ${escHtml(f.ban_reason)}</div>` : ""}
 				</div>
 				<div class="flex gap-2 flex-shrink-0 ml-auto">
-					<button onclick="dismissEvasionFlag(${f.id})" class="m-btn m-btn-text m-btn-sm">Not evading</button>
-					<button onclick="openUserPanel(${f.user_id})" class="m-btn m-btn-tonal m-btn-sm">Review</button>
+					<button data-on-click="dismissEvasionFlag(${f.id})" class="m-btn m-btn-text m-btn-sm">Not evading</button>
+					<button data-on-click="openUserPanel(${f.user_id})" class="m-btn m-btn-tonal m-btn-sm">Review</button>
 				</div>
 			</div>`;
 		})
@@ -411,15 +411,15 @@ function renderUsers(users) {
 								? assignable
 										.map(
 											(r) =>
-												`<button onclick="setUserRole(${u.id}, '${r}')" class="m-btn m-btn-sm bg-purple-900/60 hover:bg-purple-800">Make ${roleName(r)}</button>`
+												`<button data-on-click="setUserRole(${u.id}, '${r}')" class="m-btn m-btn-sm bg-purple-900/60 hover:bg-purple-800">Make ${roleName(r)}</button>`
 										)
 										.join("") +
 									(u.role
-										? `<button onclick="setUserRole(${u.id}, 'none')" class="m-btn m-btn-tonal m-btn-sm">Remove role</button>`
+										? `<button data-on-click="setUserRole(${u.id}, 'none')" class="m-btn m-btn-tonal m-btn-sm">Remove role</button>`
 										: "")
 								: ""
 						}
-						<button onclick="openUserPanel(${u.id})" class="m-btn m-btn-filled m-btn-sm">
+						<button data-on-click="openUserPanel(${u.id})" class="m-btn m-btn-filled m-btn-sm">
 							<span class="material-symbols-outlined text-sm leading-none">gavel</span> Moderation${u.moderation_count ? ` (${u.moderation_count})` : ""}
 						</button>
 					</div>
@@ -541,7 +541,7 @@ function renderUserPanel({
 	const stat = (label, value) =>
 		`<div class="bg-zinc-800/60 rounded-xl px-3 py-2"><div class="text-sm font-bold">${value}</div><div class="text-[11px] text-zinc-500">${label}</div></div>`;
 	const actionBtn = (key, label, tone) =>
-		`<button onclick="moderateUser(${user.id}, '${key}')" class="m-btn m-btn-sm ${tone}">${label}</button>`;
+		`<button data-on-click="moderateUser(${user.id}, '${key}')" class="m-btn m-btn-sm ${tone}">${label}</button>`;
 
 	el("user-panel-title").textContent = user.display_name || user.username;
 	el("user-panel-body").innerHTML = `
@@ -571,7 +571,7 @@ function renderUserPanel({
 			linked_accounts.length
 				? `<div class="bg-zinc-800/50 border border-zinc-700/60 rounded-xl px-3 py-2 mb-4 text-xs text-zinc-400">
 					<span class="font-semibold text-zinc-300">Linked accounts:</span>
-					${linked_accounts.map((a) => `<button onclick="openUserPanel(${a.id})" class="underline hover:text-white ${a.is_banned ? "text-red-300" : ""}" title="${escHtml((SIGNAL_INFO[a.signal] || SIGNAL_INFO.browser).help)}">@${escHtml(a.username)}</button> <span class="text-zinc-500">(${(SIGNAL_INFO[a.signal] || SIGNAL_INFO.browser).label.toLowerCase()}${a.is_banned ? ", banned" : ""})</span>`).join(", ")}
+					${linked_accounts.map((a) => `<button data-on-click="openUserPanel(${a.id})" class="underline hover:text-white ${a.is_banned ? "text-red-300" : ""}" title="${escHtml((SIGNAL_INFO[a.signal] || SIGNAL_INFO.browser).help)}">@${escHtml(a.username)}</button> <span class="text-zinc-500">(${(SIGNAL_INFO[a.signal] || SIGNAL_INFO.browser).label.toLowerCase()}${a.is_banned ? ", banned" : ""})</span>`).join(", ")}
 				</div>`
 				: ""
 		}
@@ -585,7 +585,7 @@ function renderUserPanel({
 						.map(
 							(flag) => `<div class="flex items-start gap-2 py-1.5 border-t border-purple-900/40">
 								<div class="flex-1 min-w-0"><span class="font-semibold">${escHtml(flag.label)}.</span> ${escHtml(flag.evidence)} <span class="text-zinc-500">${formatWhen(flag.created_at)}</span></div>
-								<button onclick="dismissFairplayFlag(${flag.id}, ${user.id})" class="m-btn m-btn-text m-btn-sm flex-shrink-0">Dismiss</button>
+								<button data-on-click="dismissFairplayFlag(${flag.id}, ${user.id})" class="m-btn m-btn-text m-btn-sm flex-shrink-0">Dismiss</button>
 							</div>`
 						)
 						.join("")}
@@ -601,14 +601,14 @@ function renderUserPanel({
 						<div class="whitespace-pre-wrap break-words">${escHtml(note.body)}</div>
 						<div class="flex items-center gap-2 text-xs text-zinc-500 mt-1">
 							<span class="flex-1">@${escHtml(note.author_username || "staff")} · ${formatWhen(note.created_at)}</span>
-							${note.author_id === currentUser.id || myRank >= ROLE_RANK_JS.supervisor ? `<button onclick="removeStaffNote(${note.id}, ${user.id})" class="hover:text-red-300 transition">Remove</button>` : ""}
+							${note.author_id === currentUser.id || myRank >= ROLE_RANK_JS.supervisor ? `<button data-on-click="removeStaffNote(${note.id}, ${user.id})" class="hover:text-red-300 transition">Remove</button>` : ""}
 						</div>
 					</div>`
 				)
 				.join("")}
 			<div class="flex gap-2 items-end">
 				<textarea id="note-input" rows="2" maxlength="1000" placeholder="Add a note for other staff" class="m-field flex-1"></textarea>
-				<button onclick="addStaffNote(${user.id})" class="m-btn m-btn-tonal m-btn-sm">Add</button>
+				<button data-on-click="addStaffNote(${user.id})" class="m-btn m-btn-tonal m-btn-sm">Add</button>
 			</div>
 		</div>
 
@@ -654,8 +654,8 @@ function renderUserPanel({
 									${
 										a.can_overturn || a.can_delete
 											? `<div class="flex gap-2 mt-2">
-												${a.can_overturn ? `<button onclick="overturnAction(${a.id}, '${escHtml(a.label)}')" class="m-btn m-btn-success m-btn-sm">Overturn</button>` : ""}
-												${a.can_delete ? `<button onclick="deleteModerationRecord(${a.id})" class="m-btn m-btn-tonal m-btn-sm">Remove record</button>` : ""}
+												${a.can_overturn ? `<button data-on-click="overturnAction(${a.id}, '${escHtml(a.label)}')" class="m-btn m-btn-success m-btn-sm">Overturn</button>` : ""}
+												${a.can_delete ? `<button data-on-click="deleteModerationRecord(${a.id})" class="m-btn m-btn-tonal m-btn-sm">Remove record</button>` : ""}
 											</div>`
 											: ""
 									}
@@ -671,14 +671,14 @@ function renderUserPanel({
 				? `<div class="mt-6 pt-4 border-t border-zinc-800">
 					<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-2">Scores and history</div>
 					<div id="score-manager" class="mb-5">
-						<button onclick="loadScoreManager(${user.id})" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">leaderboard</span>View and manage scores</button>
+						<button data-on-click="loadScoreManager(${user.id})" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">leaderboard</span>View and manage scores</button>
 					</div>
 					${
 						isOp
 							? `<div class="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-2">Account data</div>
 								<div class="flex gap-2 flex-wrap">
-									<button onclick="exportUserData(${user.id})" class="m-btn m-btn-tonal m-btn-sm">Export data</button>
-									${can_moderate ? `<button onclick="deleteUserAccount(${user.id})" class="m-btn m-btn-danger m-btn-sm">Delete account</button>` : ""}
+									<button data-on-click="exportUserData(${user.id})" class="m-btn m-btn-tonal m-btn-sm">Export data</button>
+									${can_moderate ? `<button data-on-click="deleteUserAccount(${user.id})" class="m-btn m-btn-danger m-btn-sm">Delete account</button>` : ""}
 								</div>`
 							: ""
 					}
@@ -802,14 +802,14 @@ function renderStaff(staff) {
 										.filter((r) => r !== u.role)
 										.map(
 											(r) =>
-												`<button onclick="setUserRole(${u.id}, '${r}')" class="m-btn m-btn-sm bg-purple-900/60 hover:bg-purple-800">Make ${roleName(r)}</button>`
+												`<button data-on-click="setUserRole(${u.id}, '${r}')" class="m-btn m-btn-sm bg-purple-900/60 hover:bg-purple-800">Make ${roleName(r)}</button>`
 										),
 									canAppoint && u.role !== "operator"
-										? `<button onclick="setUserRole(${u.id}, 'none')" class="m-btn m-btn-tonal m-btn-sm">Remove role</button>`
+										? `<button data-on-click="setUserRole(${u.id}, 'none')" class="m-btn m-btn-tonal m-btn-sm">Remove role</button>`
 										: "",
 									u.staff_locked
-										? `<button onclick="setStaffLock(${u.id}, false)" class="m-btn m-btn-success m-btn-sm">Restore access</button>`
-										: `<button onclick="setStaffLock(${u.id}, true)" class="m-btn m-btn-danger m-btn-sm" title="Stops them opening the staff panel or taking staff actions. Their role is kept.">Lock out</button>`,
+										? `<button data-on-click="setStaffLock(${u.id}, false)" class="m-btn m-btn-success m-btn-sm">Restore access</button>`
+										: `<button data-on-click="setStaffLock(${u.id}, true)" class="m-btn m-btn-danger m-btn-sm" title="Stops them opening the staff panel or taking staff actions. Their role is kept.">Lock out</button>`,
 								].join("")
 							: "";
 						const searchText = [
@@ -853,7 +853,7 @@ function renderStaff(staff) {
 					)
 					.join("")}
             </select>
-            <button onclick="addStaffMember()" class="m-btn m-btn-filled">Add</button>
+            <button data-on-click="addStaffMember()" class="m-btn m-btn-filled">Add</button>
         </div>
         <p id="staff-add-error" class="text-red-400 text-xs mt-2 hidden"></p>
     </div>`
@@ -983,7 +983,7 @@ async function loadScoreManager(userId, list = _scoreTab) {
 		return;
 	}
 	const icon = (name, onclick, title) =>
-		`<button onclick="${onclick}" class="m-icon-btn" title="${title}" aria-label="${title}"><span class="material-symbols-outlined">${name}</span></button>`;
+		`<button data-on-click="${onclick}" class="m-icon-btn" title="${title}" aria-label="${title}"><span class="material-symbols-outlined">${name}</span></button>`;
 	const row = (main, sub, actions) => `<div class="flex items-center gap-2 py-1.5">
 		<div class="flex-1 min-w-0"><div class="text-sm font-mono">${main}</div><div class="text-[11px] text-zinc-500 truncate">${sub}</div></div>${actions}
 	</div>`;
@@ -1026,9 +1026,9 @@ async function loadScoreManager(userId, list = _scoreTab) {
 	};
 	const counts = { solo: data.solo.length, daily: data.daily.length, duels: data.duels.length };
 	const tab = (key, label) =>
-		`<button onclick="loadScoreManager(${userId}, '${key}')" aria-pressed="${_scoreTab === key}">${label} <span class="count">${counts[key]}</span></button>`;
+		`<button data-on-click="loadScoreManager(${userId}, '${key}')" aria-pressed="${_scoreTab === key}">${label} <span class="count">${counts[key]}</span></button>`;
 	const resetBtn = (scope, label) =>
-		`<button onclick="resetScores(${userId}, '${scope}', '${label}')" class="m-btn m-btn-text m-btn-sm danger">${label}</button>`;
+		`<button data-on-click="resetScores(${userId}, '${scope}', '${label}')" class="m-btn m-btn-text m-btn-sm danger">${label}</button>`;
 
 	box.innerHTML = `
 		<div class="bg-zinc-800/50 rounded-xl px-3 py-2.5 mb-3 flex items-center gap-3 flex-wrap">
@@ -1211,6 +1211,7 @@ Object.assign(window, {
 	addStaffMember,
 	addStaffNote,
 	closeUserPanel,
+	closeUserPanelFromBackdrop: (e) => e.target === el("user-panel") && closeUserPanel(),
 	deleteModerationRecord,
 	deleteUserAccount,
 	dismissEvasionFlag,

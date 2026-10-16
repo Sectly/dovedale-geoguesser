@@ -250,7 +250,7 @@
       </div>
     </div>
 
-    <div id="user-panel" class="hidden fixed inset-0 bg-black/60 z-50 flex justify-end modal-fade" onclick="if (event.target === this) closeUserPanel();">
+    <div id="user-panel" class="hidden fixed inset-0 bg-black/60 z-50 flex justify-end modal-fade" data-on-click="closeUserPanelFromBackdrop(event)">
       <div
         class="bg-zinc-900 border-l border-zinc-800 w-full max-w-xl h-full flex flex-col panel-slide"
         role="dialog"
@@ -261,7 +261,7 @@
           <span class="material-symbols-outlined text-xl text-blue-400">gavel</span>
           <h3 class="font-bold flex-1 truncate" id="user-panel-title">User</h3>
           <button
-            onclick="closeUserPanel()"
+            data-on-click="closeUserPanel()"
             aria-label="Close"
             class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition"
           >

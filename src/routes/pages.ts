@@ -57,6 +57,13 @@ function assetVersion(path: string): string {
 }
 
 let importMapTag = "";
+let importMapSource = "";
+
+/** Lets the page policy allow the import map, the one inline script. */
+export function importMapHash(): string {
+	importMap();
+	return `'sha256-${new Bun.CryptoHasher("sha256").update(importMapSource).digest("base64")}'`;
+}
 
 /** Hashed addresses for every module, so imports cache like script tags and no module loads twice. */
 function importMap(): string {
@@ -66,7 +73,8 @@ function importMap(): string {
 		const path = `/${file.replace(/\\/g, "/")}`;
 		imports[path] = `${path}?v=${assetVersion(path)}`;
 	}
-	importMapTag = `<script type="importmap">${JSON.stringify({ imports })}</script>`;
+	importMapSource = JSON.stringify({ imports });
+	importMapTag = `<script type="importmap">${importMapSource}</script>`;
 	return importMapTag;
 }
 
@@ -347,6 +355,19 @@ function notFound(c: Context) {
 	if (c.req.path.startsWith("/api/")) return c.json({ error: "Not found" }, 404);
 	return sendHtml(c, loadPage("404.html").html, undefined, 404);
 }
+
+/** Never /api links: following one does something. */
+const SPECULATION_RULES = JSON.stringify({
+	prefetch: [
+		{ where: { and: [{ href_matches: "/*" }, { not: { href_matches: "/api/*" } }] }, eagerness: "moderate" },
+	],
+});
+
+pageRoutes.get("/speculation-rules.json", (c) => {
+	c.header("Content-Type", "application/speculationrules+json");
+	c.header("Cache-Control", "public, max-age=86400");
+	return c.body(SPECULATION_RULES);
+});
 
 /** Named after the icon set they hold, so they never change once written. */
 pageRoutes.get("/fonts/:file", (c) => sendFile(c, ICON_FONT_DIR, c.req.param("file"), IMMUTABLE) ?? notFound(c));

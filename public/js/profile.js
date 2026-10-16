@@ -231,7 +231,7 @@ function recentGamesHtml(recent) {
 	const duels = recent.duels.map(
 		(d) =>
 			`<div class="border-b border-zinc-800 last:border-0">${row(
-				`<button class="text-left text-zinc-400 hover:text-white transition min-w-0 truncate" onclick="toggleDuelRounds(${d.id}, this)" title="Show each round">
+				`<button class="text-left text-zinc-400 hover:text-white transition min-w-0 truncate" data-on-click="toggleDuelRounds(${d.id}, this)" title="Show each round">
 					<span class="font-semibold ${resultTone[d.result]}">${d.result === "win" ? "Won" : d.result === "loss" ? "Lost" : "Tied"}</span>
 					vs ${escHtml(d.opponent_display_name || d.opponent_username || "a deleted player")}
 					<span class="text-zinc-600 text-xs">${d.finished_at ? shortDate(d.finished_at) : ""}${d.quickplay ? " · quick play" : ""}</span>

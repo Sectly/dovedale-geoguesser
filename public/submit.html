@@ -488,15 +488,12 @@
       id="suggest-lightbox"
       style="display: none"
       class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
-      onclick="el('suggest-lightbox').style.display = 'none'"
+      data-on-click="el('suggest-lightbox').style.setProperty('display', 'none')"
     >
       <img id="suggest-lightbox-img" class="max-w-full max-h-full object-contain" style="max-width: 95vw; max-height: 95vh; touch-action: pinch-zoom" alt="" />
       <button
         class="absolute top-4 right-4 text-zinc-400 hover:text-white transition"
-        onclick="
-          event.stopPropagation();
-          el('suggest-lightbox').style.display = 'none';
-        "
+        data-on-click="event.stopPropagation(); el('suggest-lightbox').style.setProperty('display', 'none')"
       >
         <span class="material-symbols-outlined text-3xl">close</span>
       </button>

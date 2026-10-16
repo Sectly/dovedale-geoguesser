@@ -108,7 +108,7 @@ function renderSiteFooter() {
 				.map(([href, label]) => `<a href="${href}" class="hover:text-zinc-400 transition">${label}</a>`)
 				.join("")}
 		</div>
-		<button onclick="toggleShortcuts(true)" class="hidden sm:flex items-center gap-1.5 hover:text-zinc-400 transition">Press <kbd class="kbd">?</kbd> for shortcuts</button>
+		<button data-on-click="toggleShortcuts(true)" class="hidden sm:flex items-center gap-1.5 hover:text-zinc-400 transition">Press <kbd class="kbd">?</kbd> for shortcuts</button>
 		<p class="text-center text-zinc-700">Dovedale GeoGuesser is in <span class="text-yellow-700 font-medium">beta</span>. Not an official Dovedale Railway project.</p>`;
 }
 

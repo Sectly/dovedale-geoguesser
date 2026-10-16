@@ -41,19 +41,4 @@
 		if (!nameIcon(icon)) return;
 		e.viewTransition.finished.finally(() => (icon.style.viewTransitionName = ""));
 	});
-
-	/** Prefetches a page when its link is hovered. Never /api links: following one does something. */
-	if (HTMLScriptElement.supports?.("speculationrules")) {
-		const rules = document.createElement("script");
-		rules.type = "speculationrules";
-		rules.textContent = JSON.stringify({
-			prefetch: [
-				{
-					where: { and: [{ href_matches: "/*" }, { not: { href_matches: "/api/*" } }] },
-					eagerness: "moderate",
-				},
-			],
-		});
-		document.head.appendChild(rules);
-	}
 })();

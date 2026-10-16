@@ -22,7 +22,7 @@ import { notificationRoutes } from "./routes/notifications";
 import { ogRoutes } from "./routes/og";
 import { DEFAULT_MAINTENANCE_MESSAGE, maintenance } from "./system/maintenance";
 import { blockedByRestart, justRestarted, restartIn } from "./system/restart";
-import { errorPage, notFound, pageRoutes, wantsPage } from "./routes/pages";
+import { errorPage, importMapHash, notFound, pageRoutes, wantsPage } from "./routes/pages";
 import { profileRoutes } from "./routes/profile";
 import { soloRoutes, specialRoutes } from "./routes/solo";
 import { submissionRoutes } from "./routes/submissions";
@@ -61,14 +61,17 @@ app.use("*", async (c, next) => {
 	c.header("X-Frame-Options", "DENY");
 	c.header("Referrer-Policy", "strict-origin-when-cross-origin");
 	c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
-	/** Inline handlers rule out a stricter script policy; this still stops framing, plugins and <base> hijacking. */
+	/** No inline scripts but the import map; pages' handlers are read by public/js/lib/handlers.js. */
+	const isPage = c.res.headers.get("Content-Type")?.startsWith("text/html");
 	c.header(
 		"Content-Security-Policy",
-		"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+		`default-src 'self'; script-src 'self'${isPage ? ` ${importMapHash()}` : ""}; style-src 'self' 'unsafe-inline'; ` +
 			"font-src 'self'; img-src 'self' data: blob: https://cdn.discordapp.com; " +
 			"connect-src 'self' ws: wss:; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 	);
 	if (SECURE_COOKIES) c.header("Strict-Transport-Security", "max-age=31536000");
+	/** Prefetches a page when its link is hovered, without an inline script. */
+	if (isPage) c.header("Speculation-Rules", '"/speculation-rules.json"');
 });
 
 /** Refuses state changes and sockets from other sites, behind the SameSite=Lax cookie. */
