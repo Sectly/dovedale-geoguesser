@@ -1,3 +1,5 @@
+import "./handlers.js";
+
 export const el = (id) => document.getElementById(id);
 
 export const escHtml = (s) =>
@@ -44,7 +46,7 @@ export function errorStateHtml(message, retry = "") {
 	return `<div class="error-state" role="alert">
 		<span class="error-state-icon" aria-hidden="true"><span class="material-symbols-outlined">cloud_off</span></span>
 		<p>${escHtml(message)}</p>
-		${retry ? `<button class="m-btn m-btn-tonal m-btn-sm" onclick="${escHtml(retry)}"><span class="err-retry material-symbols-outlined">refresh</span>Try again</button>` : ""}
+		${retry ? `<button class="m-btn m-btn-tonal m-btn-sm" data-on-click="${escHtml(retry)}"><span class="err-retry material-symbols-outlined">refresh</span>Try again</button>` : ""}
 	</div>`;
 }
 
@@ -92,4 +94,19 @@ export function streakBadgeHtml(streak, { best = false } = {}) {
 }
 
 /** Called from inline handlers in the markup. */
+/** Read out by screen readers, for results that only appear on screen. */
+export function announce(text) {
+	let region = el("sr-announcer");
+	if (!region) {
+		region = document.createElement("div");
+		region.id = "sr-announcer";
+		region.className = "sr-only";
+		region.setAttribute("aria-live", "polite");
+		document.body.appendChild(region);
+	}
+	/** Cleared first, so the same words twice in a row are still read. */
+	region.textContent = "";
+	setTimeout(() => (region.textContent = text), 50);
+}
+
 Object.assign(window, { el });

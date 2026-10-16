@@ -81,12 +81,12 @@ function renderTickets(tickets, counts) {
 	]
 		.map(
 			([key, label, total]) =>
-				`<button onclick="setTicketStatus('${key}')" aria-pressed="${supportStatus === key}">${label} <span class="count">${total}</span></button>`
+				`<button data-on-click="setTicketStatus('${key}')" aria-pressed="${supportStatus === key}">${label} <span class="count">${total}</span></button>`
 		)
 		.join("");
 
 	const chip = (key, label, count) =>
-		`<button onclick="setTicketCategory('${key}')" class="m-chip" aria-pressed="${supportCategory === key}">${label}${count ? ` <span class="count">${count}</span>` : ""}</button>`;
+		`<button data-on-click="setTicketCategory('${key}')" class="m-chip" aria-pressed="${supportCategory === key}">${label}${count ? ` <span class="count">${count}</span>` : ""}</button>`;
 	const categoryFilters = [
 		chip("", "All"),
 		...Object.entries(TICKET_CATEGORY_LABELS).map(([key, label]) =>
@@ -128,10 +128,10 @@ function renderTickets(tickets, counts) {
 			</label>
 			${
 				atLeast("admin")
-					? `<button onclick="cleanupTickets()" class="m-icon-btn" title="Delete closed tickets older than six months" aria-label="Clean up old tickets"><span class="material-symbols-outlined">auto_delete</span></button>`
+					? `<button data-on-click="cleanupTickets()" class="m-icon-btn" title="Delete closed tickets older than six months" aria-label="Clean up old tickets"><span class="material-symbols-outlined">auto_delete</span></button>`
 					: ""
 			}
-			<button onclick="loadTickets()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>
+			<button data-on-click="loadTickets()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>
 		</div>
 		<div class="flex gap-2 flex-wrap mb-5">${categoryFilters}</div>
 		<div class="flex flex-col gap-3">${ticketHtml}</div>`;
@@ -190,13 +190,13 @@ function renderTicketCard(t) {
 
 	return `
 	<div class="bg-zinc-900 rounded-2xl overflow-hidden" id="ticket-${t.id}">
-		<button onclick="toggleTicket(${t.id})" class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800/50 transition" aria-expanded="${isExpanded}">
+		<button data-on-click="toggleTicket(${t.id})" class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800/50 transition" aria-expanded="${isExpanded}">
 			${avatarHtml(t.avatar_url, "w-10 h-10 flex-shrink-0")}
 			<div class="flex-1 min-w-0">
 				<div class="font-semibold text-sm truncate">${escHtml(t.subject)}</div>
 				<div class="text-xs text-zinc-500 mt-0.5 truncate">
 					@${escHtml(t.username)} · #${t.id} · ${ticketTime(t.created_at)} ·
-					<span role="link" tabindex="0" onclick="event.stopPropagation(); openUserPanel(${t.user_id})" class="underline hover:text-zinc-200 transition cursor-pointer" title="Open this user's moderation history">history</span>
+					<span role="link" tabindex="0" data-on-click="event.stopPropagation(); openUserPanel(${t.user_id})" class="underline hover:text-zinc-200 transition cursor-pointer" title="Open this user's moderation history">history</span>
 				</div>
 				<div class="flex sm:hidden items-center gap-1.5 flex-wrap mt-1.5">${tags}</div>
 			</div>
@@ -222,23 +222,23 @@ function renderTicketBody(t, isOpen) {
 		${closeRequestBanner}
 		${
 			isOpen
-				? `<select onchange="useSavedReply(${t.id}, this)" class="m-field" aria-label="Saved replies">
+				? `<select data-on-change="useSavedReply(${t.id}, this)" class="m-field" aria-label="Saved replies">
 					<option value="">Start from a saved reply...</option>
 					${savedReplyOptions()}
 				</select>
 				<div class="flex gap-2 items-end">
 					<textarea id="reply-${t.id}" rows="2" maxlength="2000" placeholder="Write a reply"
-						onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();replyTicket(${t.id},false);}"
+						data-on-keydown="replyTicketOnShortcut(event, ${t.id})"
 						class="m-field flex-1"></textarea>
-					<button onclick="replyTicket(${t.id}, false)" class="m-icon-btn filled" aria-label="Send reply" title="Send (Ctrl+Enter)"><span class="material-symbols-outlined">send</span></button>
+					<button data-on-click="replyTicket(${t.id}, false)" class="m-icon-btn filled" aria-label="Send reply" title="Send (Ctrl+Enter)"><span class="material-symbols-outlined">send</span></button>
 				</div>
 				<div class="flex gap-2 flex-wrap justify-end">
-					<button onclick="closeTicket(${t.id})" class="m-btn m-btn-text m-btn-sm">Close without replying</button>
-					<button onclick="replyTicket(${t.id}, true)" class="m-btn m-btn-tonal m-btn-sm">Reply and close</button>
+					<button data-on-click="closeTicket(${t.id})" class="m-btn m-btn-text m-btn-sm">Close without replying</button>
+					<button data-on-click="replyTicket(${t.id}, true)" class="m-btn m-btn-tonal m-btn-sm">Reply and close</button>
 				</div>`
 				: `<div class="flex gap-2 flex-wrap justify-end">
-					${isOp ? `<button onclick="deleteTicket(${t.id})" class="m-btn m-btn-text m-btn-sm danger">Delete</button>` : ""}
-					<button onclick="reopenTicket(${t.id})" class="m-btn m-btn-tonal m-btn-sm">Reopen</button>
+					${isOp ? `<button data-on-click="deleteTicket(${t.id})" class="m-btn m-btn-text m-btn-sm danger">Delete</button>` : ""}
+					<button data-on-click="reopenTicket(${t.id})" class="m-btn m-btn-tonal m-btn-sm">Reopen</button>
 				</div>`
 		}
 	</div>`;
@@ -488,6 +488,12 @@ Object.assign(window, {
 	loadTickets,
 	reopenTicket,
 	replyTicket,
+	/** Ctrl+Enter (or Cmd+Enter) sends the reply. */
+	replyTicketOnShortcut: (e, id) => {
+		if (!(e.ctrlKey || e.metaKey) || e.key !== "Enter") return;
+		e.preventDefault();
+		replyTicket(id, false);
+	},
 	setTicketCategory,
 	setTicketStatus,
 	toggleTicket,

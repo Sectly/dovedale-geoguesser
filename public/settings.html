@@ -32,7 +32,7 @@
         <div class="m-dialog-head">
           <h2 id="list-dialog-title"></h2>
           <span id="list-dialog-actions" class="flex items-center gap-2"></span>
-          <button onclick="closeListDialog()" class="m-icon-btn" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+          <button data-on-click="closeListDialog()" class="m-icon-btn" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div id="list-dialog-body" class="m-dialog-body" style="padding-left: 0.5rem; padding-right: 0.5rem"></div>
       </div>
@@ -40,7 +40,7 @@
     <div id="ticket-view-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4 modal-fade">
       <div class="m-dialog max-w-lg" style="height: 85vh" role="dialog" aria-modal="true" aria-labelledby="tvm-subject">
         <div class="m-dialog-head border-b border-zinc-800">
-          <button onclick="closeTicketView()" class="m-icon-btn -ml-2" aria-label="Back to my tickets">
+          <button data-on-click="closeTicketView()" class="m-icon-btn -ml-2" aria-label="Back to my tickets">
             <span class="material-symbols-outlined">arrow_back</span>
           </button>
           <div class="flex-1 min-w-0">
@@ -56,7 +56,7 @@
       <div class="m-dialog max-w-md" role="dialog" aria-modal="true" aria-labelledby="ticket-info-title">
         <div class="m-dialog-head">
           <h2 id="ticket-info-title">New ticket</h2>
-          <button onclick="closeTicketInfoModal()" class="m-icon-btn" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+          <button data-on-click="closeTicketInfoModal()" class="m-icon-btn" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="m-dialog-body">
           <p class="text-sm text-zinc-400 mb-4">For ban appeals, denied submissions, reports and account problems.</p>
@@ -78,7 +78,7 @@
             </li>
           </ul>
           <label class="m-label" for="modal-category">What is it about?</label>
-          <select id="modal-category" class="m-field" onchange="onModalCategoryChange()">
+          <select id="modal-category" class="m-field" data-on-change="onModalCategoryChange()">
             <option value="">Select a category...</option>
             <option value="ban_appeal">Ban Appeal</option>
             <option value="submission_appeal">Submission Denied Appeal</option>
@@ -98,8 +98,8 @@
           </div>
         </div>
         <div class="m-dialog-foot">
-          <button onclick="closeTicketInfoModal()" class="m-btn m-btn-text">Cancel</button>
-          <button id="modal-continue" onclick="proceedToTicketForm()" class="m-btn m-btn-filled" disabled>Continue</button>
+          <button data-on-click="closeTicketInfoModal()" class="m-btn m-btn-text">Cancel</button>
+          <button id="modal-continue" data-on-click="proceedToTicketForm()" class="m-btn m-btn-filled" disabled>Continue</button>
         </div>
       </div>
     </div>
@@ -107,7 +107,7 @@
       <div class="m-dialog max-w-lg" role="dialog" aria-modal="true" aria-labelledby="ticket-form-title">
         <div class="m-dialog-head">
           <h2 id="ticket-form-title">New ticket</h2>
-          <button onclick="hideTicketForm()" class="m-icon-btn" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+          <button data-on-click="hideTicketForm()" class="m-icon-btn" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="m-dialog-body" id="ticket-form-slot"></div>
       </div>

@@ -7,7 +7,7 @@
 
 import { MapCanvas } from "./map-canvas.js";
 import { Sounds } from "./sounds.js";
-import { avatarHtml, countUp, el, escHtml, locId, scoreTone, show } from "./lib/dom.js";
+import { announce, avatarHtml, countUp, el, escHtml, locId, scoreTone, show } from "./lib/dom.js";
 import { api, fetchUser } from "./lib/api.js";
 import { showToast } from "./lib/toast.js";
 import { _pageKeys, addKeybinds } from "./lib/keys.js";
@@ -71,6 +71,10 @@ export class RoundView {
 			],
 			[["+", "="], "Zoom the map in", duringRound(() => this.map.zoomBy(1.3))],
 			[["-"], "Zoom the map out", duringRound(() => this.map.zoomBy(1 / 1.3))],
+			/** Listed only: the map handles these itself while it has focus. */
+			[["Tab"], "Focus the map", () => false],
+			[["Arrows"], "Move the focused map", () => false],
+			[["P"], "Drop the pin at the crosshair", () => false],
 		]);
 		setupPhotoLens(el("round-photo"));
 		setupResizeHandle();
@@ -336,6 +340,7 @@ export function renderRoundResult(result, max = 5000) {
 	];
 	if (result.hints_used) details.push(`${result.hints_used} hint${result.hints_used === 1 ? "" : "s"} used`);
 	el("result-distance-display").textContent = details.join(" · ");
+	announce(`${result.score.toLocaleString()} points. ${details.join(". ").replace("~", "about ")}.`);
 
 	const bar = el("result-score-bar");
 	bar.style.width = "0%";

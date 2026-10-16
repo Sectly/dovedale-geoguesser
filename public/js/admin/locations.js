@@ -61,7 +61,7 @@ function locationHints(loc) {
 function hintRowHtml(text = "") {
 	return `<div class="flex items-center gap-1.5">
 		<input type="text" value="${escHtml(text)}" placeholder="A clue players can reveal" maxlength="${currentUser.limits.hint_length}" class="hint-input m-field" />
-		<button onclick="this.parentElement.remove()" class="m-icon-btn" aria-label="Remove hint"><span class="material-symbols-outlined">close</span></button>
+		<button data-on-click="this.parentElement.remove()" class="m-icon-btn" aria-label="Remove hint"><span class="material-symbols-outlined">close</span></button>
 	</div>`;
 }
 
@@ -76,7 +76,7 @@ function locationEditorHtml(loc) {
 			${loc.approved_by_username ? `<span>Approved by <span class="text-zinc-300">@${escHtml(loc.approved_by_username)}</span></span>` : ""}
 		</div>
 		<div id="loc-breakdown-${loc.id}" class="flex flex-col gap-3">
-			<button onclick="showLocationBreakdown(${loc.id})" class="m-btn m-btn-tonal m-btn-sm self-start"><span class="material-symbols-outlined">query_stats</span>How it has played</button>
+			<button data-on-click="showLocationBreakdown(${loc.id})" class="m-btn m-btn-tonal m-btn-sm self-start"><span class="material-symbols-outlined">query_stats</span>How it has played</button>
 		</div>
 		${
 			readOnly
@@ -94,13 +94,13 @@ function locationEditorHtml(loc) {
 				<div>
 					<div class="m-label">Hints</div>
 					<div id="hints-${loc.id}" class="flex flex-col gap-1.5">${locationHints(loc).map(hintRowHtml).join("")}</div>
-					<button onclick="el('hints-${loc.id}').insertAdjacentHTML('beforeend', hintRowHtml())" class="m-btn m-btn-text m-btn-sm mt-1"><span class="material-symbols-outlined">add</span>Add hint</button>
+					<button data-on-click="el('hints-${loc.id}').insertAdjacentHTML('beforeend', hintRowHtml())" class="m-btn m-btn-text m-btn-sm mt-1"><span class="material-symbols-outlined">add</span>Add hint</button>
 				</div>
 				<div class="flex gap-2 flex-wrap justify-end">
-					${atLeast("admin") ? `<button onclick="deleteLocation(${loc.id})" class="m-btn m-btn-text m-btn-sm danger mr-auto">Delete</button>` : ""}
-					${loc.plays ? `<button onclick="resetLocationStats(${loc.id})" class="m-btn m-btn-text m-btn-sm" title="Forget how players have done here, e.g. after fixing the pin or the screenshot">Reset difficulty</button>` : ""}
-					<button onclick="toggleLocation(${loc.id})" class="m-btn m-btn-tonal m-btn-sm">${loc.is_active ? "Take out of play" : "Put back in play"}</button>
-					<button onclick="saveLocation(${loc.id})" class="m-btn m-btn-filled m-btn-sm">Save</button>
+					${atLeast("admin") ? `<button data-on-click="deleteLocation(${loc.id})" class="m-btn m-btn-text m-btn-sm danger mr-auto">Delete</button>` : ""}
+					${loc.plays ? `<button data-on-click="resetLocationStats(${loc.id})" class="m-btn m-btn-text m-btn-sm" title="Forget how players have done here, e.g. after fixing the pin or the screenshot">Reset difficulty</button>` : ""}
+					<button data-on-click="toggleLocation(${loc.id})" class="m-btn m-btn-tonal m-btn-sm">${loc.is_active ? "Take out of play" : "Put back in play"}</button>
+					<button data-on-click="saveLocation(${loc.id})" class="m-btn m-btn-filled m-btn-sm">Save</button>
 				</div>`
 		}
 	</div>`;
@@ -124,10 +124,10 @@ function locationCardHtml(loc) {
 		loc.approved_by_username && `@${loc.approved_by_username}`,
 	].join(" ");
 	return `<div class="bg-zinc-900 rounded-2xl overflow-hidden ${open ? "ring-1 ring-zinc-700 md:col-span-2 xl:col-span-2" : ""} ${loc.is_active ? "" : "opacity-70"}" id="loc-${loc.id}" data-search="${escHtml(searchText)}">
-		<button onclick="${open ? `viewImage('/uploads/${escHtml(loc.image_path)}')` : `toggleLocationEditor(${loc.id})`}" class="block w-full ${open ? "cursor-zoom-in" : ""}" title="${open ? "View larger" : "Open"}" aria-label="${open ? "View the screenshot larger" : "Open this location"}">
+		<button data-on-click="${open ? `viewImage('/uploads/${escHtml(loc.image_path)}')` : `toggleLocationEditor(${loc.id})`}" class="block w-full ${open ? "cursor-zoom-in" : ""}" title="${open ? "View larger" : "Open"}" aria-label="${open ? "View the screenshot larger" : "Open this location"}">
 			<img loading="lazy" decoding="async" src="/uploads/${escHtml(loc.image_path)}" alt="" class="w-full ${open ? "max-h-80 object-contain bg-black" : "h-40 object-cover"}" />
 		</button>
-		<button onclick="toggleLocationEditor(${loc.id})" aria-expanded="${open}" class="w-full text-left px-3 py-2.5 hover:bg-zinc-800/50 transition">
+		<button data-on-click="toggleLocationEditor(${loc.id})" aria-expanded="${open}" class="w-full text-left px-3 py-2.5 hover:bg-zinc-800/50 transition">
 			<span class="flex items-center gap-2">
 				<span class="flex-1 min-w-0 truncate text-sm font-semibold">${loc.label ? escHtml(loc.label) : '<span class="text-zinc-500 font-normal">No label</span>'}</span>
 				<span class="text-xs font-mono text-zinc-600 flex-shrink-0">${locId(loc.id)}</span>
@@ -154,19 +154,19 @@ function renderLocations() {
 		<div class="flex items-center gap-2 mb-4 flex-wrap">
 			<h2 class="font-bold text-lg">Locations</h2>
 			<span class="m-tag">${_locations.length} in total</span>
-			<button onclick="loadLocations()" class="m-icon-btn ml-auto"aria-label="Refresh" title="Refresh"><span class="material-symbols-outlined">refresh</span></button>
+			<button data-on-click="loadLocations()" class="m-icon-btn ml-auto"aria-label="Refresh" title="Refresh"><span class="material-symbols-outlined">refresh</span></button>
 		</div>
 		${panelSearchInput("Search location ID, label, hints, status or who submitted it...")}
 		<div class="flex items-center gap-1.5 flex-wrap mb-4">
 			${Object.entries(LOCATION_FILTERS)
 				.map(
 					([key, [label, test]]) =>
-						`<button onclick="setLocationFilter('${key}')" class="m-chip" aria-pressed="${_locationFilter === key}">${label} <span class="count">${_locations.filter(test).length}</span></button>`
+						`<button data-on-click="setLocationFilter('${key}')" class="m-chip" aria-pressed="${_locationFilter === key}">${label} <span class="count">${_locations.filter(test).length}</span></button>`
 				)
 				.join("")}
 			<span class="ml-auto"></span>
 			${userFilterSelect(_locations, (loc) => loc.submitted_by_username, _locationUser, "setLocationUser")}
-			<select onchange="setLocationSort(this.value)" class="m-field !w-auto !py-1.5 text-xs" aria-label="Sort by">
+			<select data-on-change="setLocationSort(this.value)" class="m-field !w-auto !py-1.5 text-xs" aria-label="Sort by">
 				${Object.entries(LOCATION_SORTS)
 					.map(
 						([key, [label]]) =>
@@ -392,7 +392,7 @@ function statChartHtml(series) {
 	const tabs = Object.entries(STAT_SERIES)
 		.map(
 			([key, [label]]) =>
-				`<button onclick="setStatSeries('${key}')" aria-pressed="${_statSeries === key}">${label}</button>`
+				`<button data-on-click="setStatSeries('${key}')" aria-pressed="${_statSeries === key}">${label}</button>`
 		)
 		.join("");
 	return `<div class="bg-zinc-900 rounded-2xl p-5">
@@ -438,7 +438,7 @@ function renderStats(s) {
 	el("tab-content").innerHTML = `
 		<div class="flex items-center justify-between gap-3 mb-1">
 			<h2 class="font-bold text-lg">Site Stats</h2>
-			<button onclick="loadStats()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>
+			<button data-on-click="loadStats()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>
 		</div>
 
 		${statHeading("Right now")}

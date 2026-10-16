@@ -72,7 +72,7 @@ export function reviewHeader(title, count, refresh) {
 	return `<div class="flex items-center gap-2 mb-4">
 		<h2 class="font-bold text-lg">${title}</h2>
 		${count ? `<span class="m-tag info">${count} waiting</span>` : ""}
-		<button onclick="${refresh}" class="m-icon-btn ml-auto" aria-label="Refresh" title="Refresh"><span class="material-symbols-outlined">refresh</span></button>
+		<button data-on-click="${refresh}" class="m-icon-btn ml-auto" aria-label="Refresh" title="Refresh"><span class="material-symbols-outlined">refresh</span></button>
 	</div>`;
 }
 
@@ -87,7 +87,7 @@ export function emptyQueueHtml(text) {
 export function staffUserLink(userId, username) {
 	const name = `@${escHtml(username || "unknown")}`;
 	return userId && atLeast("moderator")
-		? `<button onclick="openUserPanel(${userId})" class="text-blue-400 hover:underline">${name}</button>`
+		? `<button data-on-click="openUserPanel(${userId})" class="text-blue-400 hover:underline">${name}</button>`
 		: `<span class="text-zinc-300">${name}</span>`;
 }
 
@@ -99,7 +99,7 @@ export function userFilterSelect(items, nameOf, current, setter) {
 	}
 	if (counts.size < 2 && !current) return "";
 	const names = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-	return `<select onchange="${setter}(this.value)" class="m-field !w-auto !py-1.5 text-xs" aria-label="Filter by user">
+	return `<select data-on-change="${setter}(this.value)" class="m-field !w-auto !py-1.5 text-xs" aria-label="Filter by user">
 		<option value="">From anyone</option>
 		${names.map(([name, count]) => `<option value="${escHtml(name)}" ${name === current ? "selected" : ""}>@${escHtml(name)} (${count})</option>`).join("")}
 	</select>`;
@@ -113,8 +113,8 @@ export function restorePanelSearch(text) {
 }
 
 export function reviewViewChips(view, setter, waiting) {
-	return `<button onclick="${setter}('waiting')" class="m-chip" aria-pressed="${view === "waiting"}">Waiting <span class="count">${waiting}</span></button>
-		<button onclick="${setter}('reviewed')" class="m-chip" aria-pressed="${view === "reviewed"}">Reviewed</button>`;
+	return `<button data-on-click="${setter}('waiting')" class="m-chip" aria-pressed="${view === "waiting"}">Waiting <span class="count">${waiting}</span></button>
+		<button data-on-click="${setter}('reviewed')" class="m-chip" aria-pressed="${view === "reviewed"}">Reviewed</button>`;
 }
 
 export function reviewedRowHtml({
@@ -141,7 +141,7 @@ export function reviewedRowHtml({
 		reason,
 	].join(" ");
 	return `<div class="bg-zinc-900 rounded-2xl px-4 py-3 flex items-start gap-3" data-search="${escHtml(search)}">
-		${image ? `<img loading="lazy" decoding="async" src="/uploads/${escHtml(image)}" alt="" onerror="this.remove()" class="w-16 h-10 rounded-lg object-cover flex-shrink-0" />` : ""}
+		${image ? `<img loading="lazy" decoding="async" src="/uploads/${escHtml(image)}" alt="" data-on-error="this.remove()" class="w-16 h-10 rounded-lg object-cover flex-shrink-0" />` : ""}
 		<div class="flex-1 min-w-0">
 			<div class="flex items-center gap-2 flex-wrap">
 				${tag}

@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { usedIcons } from "../src/icons";
 import { call, createUser, resetReviewQueues } from "./helpers";
 
 beforeAll(resetReviewQueues);
@@ -59,12 +60,27 @@ describe("pages and static files", () => {
 		}
 	});
 
-	test("the icon font is asked for only the icons the pages use", async () => {
-		const html = String((await call("/play")).data);
-		const icons = html.match(/icon_names=([a-z0-9_,]+)/)?.[1].split(",") ?? [];
+	test("the icon font is copied with only the icons the pages use", () => {
+		const icons = usedIcons().split(",");
 		for (const used of ["explore", "swords", "progress_activity", "waving_hand"]) expect(icons).toContain(used);
 		expect(icons).toEqual([...icons].sort());
 		expect(icons.length).toBeLessThan(400);
+	});
+
+	test("pages never load anything from Google Fonts", async () => {
+		const html = String((await call("/play")).data);
+		expect(html).not.toContain("fonts.googleapis.com");
+		expect(html).not.toContain("fonts.gstatic.com");
+	});
+
+	test("pages allow no inline script but the import map", async () => {
+		const page = await call("/play");
+		const policy = page.headers.get("content-security-policy")!;
+		const scriptSrc = policy.match(/script-src ([^;]+)/)![1];
+		expect(scriptSrc).not.toContain("unsafe-inline");
+		const map = String(page.data).match(/<script type="importmap">([^<]+)<\/script>/)![1];
+		const hash = new Bun.CryptoHasher("sha256").update(map).digest("base64");
+		expect(scriptSrc).toContain(`'sha256-${hash}'`);
 	});
 
 	test("map tiles are addressed by version and kept for 30 days", async () => {

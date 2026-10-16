@@ -2,7 +2,17 @@ import "./lib/site.js";
 import { WebWire } from "/webwire-client.js";
 import { MapCanvas } from "./map-canvas.js";
 import { Sounds } from "./sounds.js";
-import { avatarHtml, countUp, el, escHtml, locId, prefersReducedMotion, show, skeletonRows } from "./lib/dom.js";
+import {
+	announce,
+	avatarHtml,
+	countUp,
+	el,
+	escHtml,
+	locId,
+	prefersReducedMotion,
+	show,
+	skeletonRows,
+} from "./lib/dom.js";
 import { api, fetchUser, loginUrl } from "./lib/api.js";
 import { copyText, showToast } from "./lib/toast.js";
 import { checkAchievements } from "./lib/achievements.js";
@@ -860,6 +870,15 @@ function showRoundResult(result) {
 	const best = Math.max(...result.results.map((r) => r.score));
 	const mine = result.results.find((r) => r.user_id === user?.id);
 	if (mine) Sounds.forScore(mine.score, 6000);
+	announce(
+		[...result.results]
+			.sort((a, b) => b.score - a.score)
+			.map(
+				(r) =>
+					`${r.user_id === user?.id ? "You" : r.display_name || r.username}: ${r.score.toLocaleString()} points`
+			)
+			.join(". ")
+	);
 	el("round-score-display").textContent = result.label || locId(result.location_id);
 	el("result-rows").innerHTML =
 		[...result.results]
@@ -882,7 +901,7 @@ function showRoundResult(result) {
 			.join("") +
 		`<div class="flex items-center justify-between mt-2 pt-2 border-t border-zinc-700">
 			<span class="text-xs font-mono text-zinc-500">${[locId(result.location_id), difficultyText(result.difficulty)].filter(Boolean).join(" · ")}</span>
-			<a href="${reportLocationUrl(result.location_id)}" onclick="reportLocation(event, ${Number(result.location_id)})" target="_blank" rel="noopener" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline">Report location</a>
+			<a href="${reportLocationUrl(result.location_id)}" data-on-click="reportLocation(event, ${Number(result.location_id)})" target="_blank" rel="noopener" class="text-xs text-zinc-500 hover:text-zinc-300 transition underline">Report location</a>
 		</div>`;
 
 	for (const node of el("result-rows").querySelectorAll("[data-count]")) {

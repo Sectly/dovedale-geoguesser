@@ -108,12 +108,28 @@ function renderSiteFooter() {
 				.map(([href, label]) => `<a href="${href}" class="hover:text-zinc-400 transition">${label}</a>`)
 				.join("")}
 		</div>
-		<button onclick="toggleShortcuts(true)" class="hidden sm:flex items-center gap-1.5 hover:text-zinc-400 transition">Press <kbd class="kbd">?</kbd> for shortcuts</button>
-		<p class="text-center text-zinc-700">Dovedale GeoGuesser is in <span class="text-yellow-700 font-medium">beta</span>. Not an official Dovedale Railway project.</p>`;
+		<button data-on-click="toggleShortcuts(true)" class="hidden sm:flex items-center gap-1.5 hover:text-zinc-400 transition">Press <kbd class="kbd">?</kbd> for shortcuts</button>
+		<p class="text-center text-zinc-600">Dovedale GeoGuesser is in <span class="text-yellow-700 font-medium">beta</span>. Not an official Dovedale Railway project.</p>`;
+}
+
+/** The first thing Tab reaches: jumps past the header to the page itself. */
+function addSkipLink() {
+	const main = document.querySelector("main");
+	const nav = el("site-nav");
+	if (!main || !nav) return;
+	main.id ||= "main";
+	main.tabIndex = -1;
+	main.classList.add("outline-none");
+	const link = document.createElement("a");
+	link.href = `#${main.id}`;
+	link.textContent = "Skip to content";
+	link.className = "sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] m-btn m-btn-filled";
+	nav.before(link);
 }
 
 renderSiteNav();
 renderSiteFooter();
+addSkipLink();
 for (const area of document.querySelectorAll("[data-auth-area]")) {
 	area.innerHTML = '<div class="skeleton h-8 w-36 rounded-full"></div>';
 }

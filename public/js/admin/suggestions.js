@@ -76,7 +76,7 @@ function suggestionBodyHtml(s, content) {
 		? changeRow(
 				"Pin",
 				`${Math.round(s.location_x)}, ${Math.round(s.location_y)} <span class="text-zinc-500">to</span> <span class="text-zinc-100">${Math.round(pin.x)}, ${Math.round(pin.y)}</span> <span class="text-zinc-500">(${moved.toLocaleString()} units)</span>
-				<button onclick="showSuggestionMap(${s.id})" class="m-btn m-btn-text m-btn-sm ml-1">Show on map</button>`
+				<button data-on-click="showSuggestionMap(${s.id})" class="m-btn m-btn-text m-btn-sm ml-1">Show on map</button>`
 			)
 		: "";
 	const mapSlot = pin
@@ -164,7 +164,7 @@ function suggestionCardHtml(s) {
 			<span class="m-tag ${tone}">${typeName}</span>
 			${
 				atLeast("curator")
-					? `<button onclick="jumpToSearch('locations', '${locId(s.location_id)}')" class="text-sm font-semibold hover:underline truncate" title="Find this location">${escHtml(s.location_label || locId(s.location_id))}</button>`
+					? `<button data-on-click="jumpToSearch('locations', '${locId(s.location_id)}')" class="text-sm font-semibold hover:underline truncate" title="Find this location">${escHtml(s.location_label || locId(s.location_id))}</button>`
 					: `<span class="text-sm font-semibold truncate">${escHtml(s.location_label || locId(s.location_id))}</span>`
 			}
 			<span class="text-xs font-mono text-zinc-600">${locId(s.location_id)}</span>
@@ -172,8 +172,8 @@ function suggestionCardHtml(s) {
 		</div>
 		${suggestionBodyHtml(s, content)}
 		<div class="flex gap-2 justify-end">
-			<button onclick="denySuggestion(${s.id})" class="m-btn m-btn-text danger">Deny</button>
-			<button onclick="approveSuggestion(${s.id})" class="m-btn m-btn-filled"><span class="material-symbols-outlined">check</span>Approve</button>
+			<button data-on-click="denySuggestion(${s.id})" class="m-btn m-btn-text danger">Deny</button>
+			<button data-on-click="approveSuggestion(${s.id})" class="m-btn m-btn-filled"><span class="material-symbols-outlined">check</span>Approve</button>
 		</div>
 	</div>`;
 }

@@ -57,6 +57,13 @@ function assetVersion(path: string): string {
 }
 
 let importMapTag = "";
+let importMapSource = "";
+
+/** Lets the page policy allow the import map, the one inline script. */
+export function importMapHash(): string {
+	importMap();
+	return `'sha256-${new Bun.CryptoHasher("sha256").update(importMapSource).digest("base64")}'`;
+}
 
 /** Hashed addresses for every module, so imports cache like script tags and no module loads twice. */
 function importMap(): string {
@@ -66,7 +73,8 @@ function importMap(): string {
 		const path = `/${file.replace(/\\/g, "/")}`;
 		imports[path] = `${path}?v=${assetVersion(path)}`;
 	}
-	importMapTag = `<script type="importmap">${JSON.stringify({ imports })}</script>`;
+	importMapSource = JSON.stringify({ imports });
+	importMapTag = `<script type="importmap">${importMapSource}</script>`;
 	return importMapTag;
 }
 
@@ -86,8 +94,23 @@ function moduleGraph(entry: string, seen = new Set<string>()): Set<string> {
 }
 
 /** Loads a page from public/: hashes script and style URLs, makes share-image URLs absolute. */
-function loadPage(file: string): Page {
-	const cached = pageCache.get(file);
+/** The page's own address for search engines and link previews, in place of any written in the file. */
+function withAddress(html: string, path: string): string {
+	if (!SITE_URL) return html;
+	const url = escapeXml(SITE_URL + path);
+	return html
+		.replace(/\s*<link\s+rel="canonical"[^>]*>/gi, "")
+		.replace(/\s*<meta\s+property="og:url"[^>]*>/gi, "")
+		.replace(
+			"</head>",
+			() => `<link rel="canonical" href="${url}" />\n<meta property="og:url" content="${url}" />\n</head>`
+		);
+}
+
+/** `path` is the address it is served at, when it has one of its own. */
+function loadPage(file: string, path?: string): Page {
+	const key = path ? `${file} ${path}` : file;
+	const cached = pageCache.get(key);
 	if (cached && !DEV_MODE) return cached;
 
 	let html = readFileSync(join(PUBLIC_DIR, file), "utf8")
@@ -115,8 +138,9 @@ function loadPage(file: string): Page {
 			`<meta name="tile-version" content="${tileVersion()}" />\n${importMap()}\n${preload.join("\n")}\n</head>`
 		);
 	}
+	if (path) html = withAddress(html, path);
 	const page = { html, etag: `"${Bun.hash(html).toString(36)}"` };
-	pageCache.set(file, page);
+	pageCache.set(key, page);
 	return page;
 }
 
@@ -140,12 +164,11 @@ function withMeta(html: string, meta: Meta): string {
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:type" content="${meta.type}" />
-<meta property="og:url" content="${e(SITE_URL + meta.url)}" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${e(meta.title)}" />
 <meta name="twitter:description" content="${e(meta.description)}" />
 <meta name="twitter:image" content="${e(image)}" />`;
-	return html
+	const page = html
 		.replace(/\s*<meta\s+(?:property="og:|name="twitter:)[^>]*>/gi, "")
 		.replace(/<title>[^<]*<\/title>/, () => `<title>${e(meta.title)}</title>`)
 		.replace(
@@ -153,13 +176,14 @@ function withMeta(html: string, meta: Meta): string {
 			() => `<meta name="description" content="${e(meta.description)}" />`
 		)
 		.replace("</head>", () => `${tags}\n</head>`);
+	return withAddress(page, meta.url);
 }
 
 for (const [route, file] of Object.entries(PAGES)) {
 	pageRoutes.get(route, (c) => {
 		/** Specials need a login; the hub is where logged-out visitors are asked. */
 		if (route.startsWith("/specials/") && !currentUser(c)) return c.redirect("/specials");
-		const page = loadPage(file);
+		const page = loadPage(file, route);
 		return sendHtml(c, page.html, page.etag);
 	});
 }
@@ -347,6 +371,19 @@ function notFound(c: Context) {
 	if (c.req.path.startsWith("/api/")) return c.json({ error: "Not found" }, 404);
 	return sendHtml(c, loadPage("404.html").html, undefined, 404);
 }
+
+/** Never /api links: following one does something. */
+const SPECULATION_RULES = JSON.stringify({
+	prefetch: [
+		{ where: { and: [{ href_matches: "/*" }, { not: { href_matches: "/api/*" } }] }, eagerness: "moderate" },
+	],
+});
+
+pageRoutes.get("/speculation-rules.json", (c) => {
+	c.header("Content-Type", "application/speculationrules+json");
+	c.header("Cache-Control", "public, max-age=86400");
+	return c.body(SPECULATION_RULES);
+});
 
 /** Named after the icon set they hold, so they never change once written. */
 pageRoutes.get("/fonts/:file", (c) => sendFile(c, ICON_FONT_DIR, c.req.param("file"), IMMUTABLE) ?? notFound(c));

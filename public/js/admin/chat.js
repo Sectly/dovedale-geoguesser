@@ -66,7 +66,7 @@ function chatPinHtml(m) {
 	if (m.pinned_at && !m.can_unpin)
 		return `<span class="material-symbols-outlined text-base text-amber-300 flex-shrink-0" style="font-variation-settings:'FILL' 1" role="img" aria-label="Pinned" title="Pinned by ${escHtml(m.pinned_by_username || "staff")}">push_pin</span>`;
 	const label = m.pinned_at ? "Unpin this message" : "Pin this message";
-	return `<button onclick="pinChatMessage(${m.id}, ${!m.pinned_at})" class="${m.pinned_at ? "text-amber-300 hover:text-amber-200" : "text-zinc-700 hover:text-zinc-300"} transition flex-shrink-0" aria-label="${label}" title="${label}"><span class="material-symbols-outlined text-base" ${m.pinned_at ? `style="font-variation-settings:'FILL' 1"` : ""}>push_pin</span></button>`;
+	return `<button data-on-click="pinChatMessage(${m.id}, ${!m.pinned_at})" class="${m.pinned_at ? "text-amber-300 hover:text-amber-200" : "text-zinc-600 hover:text-zinc-300"} transition flex-shrink-0" aria-label="${label}" title="${label}"><span class="material-symbols-outlined text-base" ${m.pinned_at ? `style="font-variation-settings:'FILL' 1"` : ""}>push_pin</span></button>`;
 }
 
 function chatMessageHtml(m, previous) {
@@ -90,7 +90,7 @@ function chatMessageHtml(m, previous) {
 			<div class="text-sm text-zinc-200 whitespace-pre-wrap break-words">${chatBodyHtml(m.body)}</div>
 		</div>
 		${chatPinHtml(m)}
-		${m.can_delete ? `<button onclick="deleteChatMessage(${m.id})" class="text-zinc-700 hover:text-red-300 transition flex-shrink-0" aria-label="Delete this message" title="Delete"><span class="material-symbols-outlined text-base">delete</span></button>` : ""}
+		${m.can_delete ? `<button data-on-click="deleteChatMessage(${m.id})" class="text-zinc-600 hover:text-red-300 transition flex-shrink-0" aria-label="Delete this message" title="Delete"><span class="material-symbols-outlined text-base">delete</span></button>` : ""}
 	</div>`;
 }
 
@@ -106,8 +106,8 @@ function chatPinRowHtml(m) {
 		</div>
 		<div class="text-sm text-zinc-200 whitespace-pre-wrap break-words mt-0.5">${chatBodyHtml(m.body)}</div>
 		<div class="flex gap-1 -ml-3 mt-1">
-			${inRoom ? `<button onclick="jumpToChatMessage(${m.id})" class="m-btn m-btn-text m-btn-sm">Show in chat</button>` : ""}
-			${m.can_unpin ? `<button onclick="pinChatMessage(${m.id}, false)" class="m-btn m-btn-text m-btn-sm">Unpin</button>` : ""}
+			${inRoom ? `<button data-on-click="jumpToChatMessage(${m.id})" class="m-btn m-btn-text m-btn-sm">Show in chat</button>` : ""}
+			${m.can_unpin ? `<button data-on-click="pinChatMessage(${m.id}, false)" class="m-btn m-btn-text m-btn-sm">Unpin</button>` : ""}
 		</div>
 	</div>`;
 }
@@ -121,7 +121,7 @@ function renderChatPins() {
 		<p class="text-xs text-zinc-500">You have pinned ${used} of the ${limit} your role allows.</p>
 		${
 			pins.length > 3
-				? `<input id="chat-pin-search" type="search" placeholder="Search pinned messages" autocomplete="off" class="m-field" aria-label="Search pinned messages" value="${escHtml(_chatPinSearch)}" oninput="filterChatPins(this.value)" />`
+				? `<input id="chat-pin-search" type="search" placeholder="Search pinned messages" autocomplete="off" class="m-field" aria-label="Search pinned messages" value="${escHtml(_chatPinSearch)}" data-on-input="filterChatPins(this.value)" />`
 				: ""
 		}
 		${pins.map(chatPinRowHtml).join("") || '<p class="text-sm text-zinc-500 py-2">Nothing is pinned.</p>'}
@@ -284,7 +284,7 @@ export function loadChat() {
 				<p class="text-xs text-zinc-500">For curators and above. Messages are deleted after ${currentUser.limits.chat_retention_days} days unless pinned.</p>
 			</div>
 			<div class="flex items-center gap-2 flex-wrap justify-end flex-shrink-0">
-				<select id="chat-alerts" onchange="setChatAlerts(this.value)" class="m-field !w-auto !py-1.5 text-xs" aria-label="How to be told about new messages" title="How to be told about new messages">
+				<select id="chat-alerts" data-on-change="setChatAlerts(this.value)" class="m-field !w-auto !py-1.5 text-xs" aria-label="How to be told about new messages" title="How to be told about new messages">
 					${Object.entries(CHAT_ALERTS)
 						.map(
 							([value, label]) =>
@@ -292,7 +292,7 @@ export function loadChat() {
 						)
 						.join("")}
 				</select>
-				<button id="chat-pins-toggle" onclick="toggleChatPins()" class="m-btn m-btn-tonal m-btn-sm" aria-expanded="false" aria-controls="chat-pins">
+				<button id="chat-pins-toggle" data-on-click="toggleChatPins()" class="m-btn m-btn-tonal m-btn-sm" aria-expanded="false" aria-controls="chat-pins">
 					<span class="material-symbols-outlined">push_pin</span>Pinned <span id="chat-pin-count">0</span>
 				</button>
 			</div>
@@ -307,7 +307,7 @@ export function loadChat() {
 				<button id="chat-emote-toggle" class="m-icon-btn hidden" aria-label="Add a reaction" title="Add a reaction" aria-expanded="false"><span class="material-symbols-outlined">add_reaction</span></button>
 				<div id="chat-emotes" class="hidden absolute bottom-full right-0 mb-2 z-10 w-52 flex flex-wrap gap-0.5 bg-zinc-800 border border-zinc-700 rounded-2xl p-1.5 shadow-xl"></div>
 			</div>
-			<button id="chat-send" onclick="sendChatMessage()" class="m-icon-btn filled" aria-label="Send" title="Send (Enter)"><span class="material-symbols-outlined">send</span></button>
+			<button id="chat-send" data-on-click="sendChatMessage()" class="m-icon-btn filled" aria-label="Send" title="Send (Enter)"><span class="material-symbols-outlined">send</span></button>
 		</div>
 		<p class="text-[11px] text-zinc-600 mt-1.5">**bold** &nbsp; *italic* &nbsp; ~~struck~~ &nbsp; \`code\` &nbsp; :thumb_up:</p>
 	</div>`;

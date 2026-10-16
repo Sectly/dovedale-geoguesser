@@ -72,7 +72,7 @@ async function openMySubmissions() {
 		body.innerHTML = `<div class="stagger">${subs
 			.map(
 				(sub) => `<div class="flex items-center gap-3 py-2.5 border-b border-zinc-800 last:border-0">
-					<img src="/uploads/${escHtml(sub.image_path)}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'" class="w-16 h-10 rounded-lg object-cover flex-shrink-0 bg-zinc-800" />
+					<img src="/uploads/${escHtml(sub.image_path)}" alt="" loading="lazy" decoding="async" data-on-error="this.style.setProperty('visibility', 'hidden')" class="w-16 h-10 rounded-lg object-cover flex-shrink-0 bg-zinc-800" />
 					<div class="flex-1 min-w-0">
 						<div class="text-sm font-medium truncate">${escHtml(sub.label || "No label")}</div>
 						<div class="text-xs text-zinc-500">SUB-${String(sub.id).padStart(4, "0")} · ${new Date(sub.created_at * 1000).toLocaleDateString()}</div>
@@ -175,7 +175,7 @@ function sectionMenu() {
 }
 
 function toggleHtml(on, onclick, label) {
-	return `<button role="switch" aria-checked="${on}" aria-label="${escHtml(label)}" onclick="${onclick}"
+	return `<button role="switch" aria-checked="${on}" aria-label="${escHtml(label)}" data-on-click="${onclick}"
 		class="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${on ? "bg-blue-600" : "bg-zinc-600"}">
 		<span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${on ? "translate-x-5" : "translate-x-0"}"></span>
 	</button>`;
@@ -231,7 +231,7 @@ const EMAIL_FREQUENCIES = {
 function emailSettingHtml() {
 	const email = currentUser.email;
 	const remove =
-		'<button onclick="removeEmail()" class="m-btn m-btn-text m-btn-sm danger flex-shrink-0">Remove email</button>';
+		'<button data-on-click="removeEmail()" class="m-btn m-btn-text m-btn-sm danger flex-shrink-0">Remove email</button>';
 	/** While email is switched off the setting is hidden, but a saved address can always be taken away. */
 	if (!email?.available)
 		return email?.address
@@ -247,8 +247,8 @@ function emailSettingHtml() {
 			"One email with your unread notifications",
 			`<span class="flex gap-2 flex-shrink-0">
 				<input id="email-input" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" class="m-field" style="width: 11rem" aria-label="Email address"
-					onkeydown="if (event.key === 'Enter') saveEmail()" />
-				<button onclick="saveEmail()" class="m-btn m-btn-tonal m-btn-sm">Confirm</button>
+					data-on-keydown="saveEmailOnEnter(event)" />
+				<button data-on-click="saveEmail()" class="m-btn m-btn-tonal m-btn-sm">Confirm</button>
 			</span>`
 		);
 	if (!email.verified)
@@ -257,7 +257,7 @@ function emailSettingHtml() {
 		"Email summary",
 		`One email with your unread notifications, to ${escHtml(email.address)}`,
 		`<span class="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
-		<select onchange="setEmailFrequency(this.value)" class="m-field flex-shrink-0" style="width: auto" aria-label="How often">
+		<select data-on-change="setEmailFrequency(this.value)" class="m-field flex-shrink-0" style="width: auto" aria-label="How often">
 			${Object.entries(EMAIL_FREQUENCIES)
 				.map(
 					([key, label]) =>
@@ -279,6 +279,9 @@ async function changeEmail(request, done) {
 		showToast(err.message, "error");
 	}
 }
+
+const saveEmailOnEnter = (e) => e.key === "Enter" && saveEmail();
+const countMessage = (input) => (el("msg-counter").textContent = `${input.value.length}/2000`);
 
 const saveEmail = () =>
 	changeEmail(
@@ -304,7 +307,7 @@ function preferencesHtml() {
 			${Object.entries(NOTIFY_PRESETS)
 				.map(
 					([key, [label, on]]) =>
-						`<button onclick="setNotifyPreset('${key}')" class="m-chip" aria-pressed="${NOTIFY_OPTIONS.every(([option]) => !!prefs.notify[option] === on.includes(option))}">${label}</button>`
+						`<button data-on-click="setNotifyPreset('${key}')" class="m-chip" aria-pressed="${NOTIFY_OPTIONS.every(([option]) => !!prefs.notify[option] === on.includes(option))}">${label}</button>`
 				)
 				.join("")}
 		</div>
@@ -501,7 +504,7 @@ function renderSettings() {
 		</div>
 		<div class="flex items-center justify-between gap-3 mt-3">
 			<p class="text-xs text-zinc-600"><span id="notifications-note"></span>Kept for 90 days.</p>
-			<button id="notifications-clear" onclick="clearNotifications()" class="hidden flex-shrink-0 text-xs text-zinc-500 hover:text-zinc-300 transition">Clear all</button>
+			<button id="notifications-clear" data-on-click="clearNotifications()" class="hidden flex-shrink-0 text-xs text-zinc-500 hover:text-zinc-300 transition">Clear all</button>
 		</div>
 	`
 	)}
@@ -513,8 +516,8 @@ function renderSettings() {
 		`
 		<p class="text-zinc-400 text-sm mb-4">Appeal a ban, report a problem or ask staff for help.</p>
 		<div class="flex gap-2 flex-wrap">
-			<button onclick="openTicketInfoModal()" class="m-btn m-btn-filled"><span class="material-symbols-outlined">add</span>New ticket</button>
-			<button onclick="openMyTickets()" class="m-btn m-btn-tonal"><span class="material-symbols-outlined">forum</span>My tickets</button>
+			<button data-on-click="openTicketInfoModal()" class="m-btn m-btn-filled"><span class="material-symbols-outlined">add</span>New ticket</button>
+			<button data-on-click="openMyTickets()" class="m-btn m-btn-tonal"><span class="material-symbols-outlined">forum</span>My tickets</button>
 		</div>
 	`
 	)}
@@ -523,7 +526,7 @@ function renderSettings() {
 		"submissions",
 		`
 		<p class="text-zinc-400 text-sm mb-4">Your submitted locations. Denied ones are removed after 30 days.</p>
-		<button onclick="openMySubmissions()" class="m-btn m-btn-tonal"><span class="material-symbols-outlined">photo_library</span>My submissions</button>
+		<button data-on-click="openMySubmissions()" class="m-btn m-btn-tonal"><span class="material-symbols-outlined">photo_library</span>My submissions</button>
 	`
 	)}
 
@@ -544,7 +547,7 @@ function renderSettings() {
 				<div class="font-medium text-sm">Export your data</div>
 				<div class="text-zinc-500 text-xs mt-0.5">Download everything we hold about your account as a JSON file.</div>
 			</div>
-			<button onclick="exportData()" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0">
+			<button data-on-click="exportData()" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0">
 				Export
 			</button>
 		</div>
@@ -560,7 +563,7 @@ function renderSettings() {
 				<div class="font-medium text-sm">Delete account</div>
 				<div class="text-zinc-500 text-xs mt-0.5">Permanently removes your name, scores and personal data. Moderation records are kept.</div>
 			</div>
-			<button onclick="deleteAccount()" class="m-btn m-btn-danger m-btn-sm flex-shrink-0">
+			<button data-on-click="deleteAccount()" class="m-btn m-btn-danger m-btn-sm flex-shrink-0">
 				Delete
 			</button>
 		</div>
@@ -569,8 +572,8 @@ function renderSettings() {
 			<div class="flex gap-2">
 				<input id="delete-confirm-input" type="text" placeholder="Type DELETE" maxlength="10"
 					class="flex-1 bg-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 placeholder:text-zinc-600" />
-				<button onclick="confirmDeleteAccount()" class="m-btn m-btn-danger m-btn-sm">Confirm</button>
-				<button onclick="el('delete-confirm-row').classList.add('hidden')" class="m-btn m-btn-tonal m-btn-sm">Cancel</button>
+				<button data-on-click="confirmDeleteAccount()" class="m-btn m-btn-danger m-btn-sm">Confirm</button>
+				<button data-on-click="el('delete-confirm-row').classList.add('hidden')" class="m-btn m-btn-tonal m-btn-sm">Cancel</button>
 			</div>
 		</div>
 	`
@@ -648,7 +651,7 @@ async function openMyTickets(openId = null) {
 	openListDialog(
 		"tickets",
 		"My tickets",
-		'<button onclick="closeListDialog(); openTicketInfoModal()" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">add</span>New</button>'
+		'<button data-on-click="closeListDialog(); openTicketInfoModal()" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">add</span>New</button>'
 	);
 	try {
 		_ticketsSignature = "";
@@ -698,7 +701,7 @@ function renderTicketList() {
 		.map((ticket) => {
 			const last = ticket.replies.at(-1);
 			const preview = last ? `${last.type === "staff" ? "Staff" : "You"}: ${last.body}` : ticket.message;
-			return `<button onclick="openTicketView(${ticket.id})" class="m-list-item">
+			return `<button data-on-click="openTicketView(${ticket.id})" class="m-list-item">
 				<span class="material-symbols-outlined text-xl text-zinc-500 flex-shrink-0">${ticket.status === "closed" ? "mark_chat_read" : "chat"}</span>
 				<div class="flex-1 min-w-0">
 					<div class="font-medium text-sm truncate">${escHtml(ticket.subject)}</div>
@@ -745,14 +748,14 @@ function renderTicketView() {
 	} else {
 		actions.innerHTML = `<div class="flex gap-2 items-end">
 				<textarea id="tvm-reply-input" rows="2" maxlength="2000" placeholder="Write a message" class="m-field flex-1"></textarea>
-				<button onclick="sendUserReply()" id="tvm-send" class="m-icon-btn filled" aria-label="Send" title="Send (Ctrl+Enter)"><span class="material-symbols-outlined">send</span></button>
+				<button data-on-click="sendUserReply()" id="tvm-send" class="m-icon-btn filled" aria-label="Send" title="Send (Ctrl+Enter)"><span class="material-symbols-outlined">send</span></button>
 			</div>
 			<div class="flex items-center justify-between gap-3 min-h-[2rem]">
 				<p id="tvm-error" class="text-red-300 text-xs"></p>
 				${
 					ticket.close_requested
 						? '<span class="text-xs text-zinc-500 flex-shrink-0">You asked for this to be closed</span>'
-						: '<button onclick="requestTicketClose()" class="m-btn m-btn-text m-btn-sm flex-shrink-0">Mark as resolved</button>'
+						: '<button data-on-click="requestTicketClose()" class="m-btn m-btn-text m-btn-sm flex-shrink-0">Mark as resolved</button>'
 				}
 			</div>`;
 		el("tvm-reply-input").addEventListener("keydown", (e) => {
@@ -1031,7 +1034,7 @@ const TICKET_FORM_HTML = `
 			<div class="flex items-center gap-2 bg-zinc-800 rounded-xl pl-4 pr-2 py-2">
 				<span class="material-symbols-outlined text-lg text-zinc-500">label</span>
 				<span id="ticket-category-name" class="flex-1 min-w-0 truncate text-sm font-semibold"></span>
-				<button onclick="changeTicketCategory()" class="m-btn m-btn-text m-btn-sm">Change</button>
+				<button data-on-click="changeTicketCategory()" class="m-btn m-btn-text m-btn-sm">Change</button>
 			</div>
 			<div id="ticket-structured-fields" class="space-y-3 empty:hidden"></div>
 			<div>
@@ -1042,7 +1045,7 @@ const TICKET_FORM_HTML = `
 			<div>
 				<label class="m-label" for="ticket-message">Message</label>
 				<textarea id="ticket-message" rows="5" minlength="20" maxlength="2000" placeholder="What happened? Include dates, IDs and links where you can."
-					oninput="el('msg-counter').textContent=this.value.length+'/2000'"
+					data-on-input="countMessage(this)"
 					class="m-field"></textarea>
 				<div class="flex justify-between mt-1">
 					<p class="text-zinc-600 text-xs">Minimum 20 characters. Links are allowed.</p>
@@ -1051,8 +1054,8 @@ const TICKET_FORM_HTML = `
 			</div>
 			<p id="ticket-error" class="text-red-300 text-xs hidden" role="alert"></p>
 			<div class="flex gap-2 justify-end">
-				<button onclick="hideTicketForm()" class="m-btn m-btn-text">Cancel</button>
-				<button id="ticket-send" onclick="submitTicket()" class="m-btn m-btn-filled">Send ticket</button>
+				<button data-on-click="hideTicketForm()" class="m-btn m-btn-text">Cancel</button>
+				<button id="ticket-send" data-on-click="submitTicket()" class="m-btn m-btn-filled">Send ticket</button>
 			</div>
 		</div>
 `;
@@ -1183,6 +1186,8 @@ Object.assign(window, {
 	removeEmail,
 	requestTicketClose,
 	saveEmail,
+	saveEmailOnEnter,
+	countMessage,
 	sendUserReply,
 	setDesktopNotifications,
 	setEmailFrequency,

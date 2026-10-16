@@ -70,7 +70,7 @@ const DOCUMENT_PRESETS = ["privacy", "tos", "fairplay", "guidelines", "several"]
 const UNFILLED = /\[[^\]]+\]/;
 
 const presetChip = (key) =>
-	`<button onclick="useAnnouncementPreset('${key}')" class="m-chip">${ANNOUNCEMENT_PRESETS[key][0]}</button>`;
+	`<button data-on-click="useAnnouncementPreset('${key}')" class="m-chip">${ANNOUNCEMENT_PRESETS[key][0]}</button>`;
 
 function useAnnouncementPreset(key) {
 	const [, title, body, link] = ANNOUNCEMENT_PRESETS[key];
@@ -175,14 +175,14 @@ function announcementRowHtml(a) {
 			: "",
 	].join(" ");
 	const button = (handler, label, tone = "") =>
-		`<button onclick="${handler}" class="m-btn m-btn-text m-btn-sm ${tone}">${label}</button>`;
+		`<button data-on-click="${handler}" class="m-btn m-btn-text m-btn-sm ${tone}">${label}</button>`;
 	const publicOne = !PRIVATE_AUDIENCES.includes(a.audience);
 	const actions = [
 		a.draft
 			? button(`reuseAnnouncement(${a.id}, true)`, "Open draft")
 			: button(`reuseAnnouncement(${a.id})`, "Use again"),
 		sent && publicOne
-			? `<select onchange="setAnnouncementBanner(${a.id}, this.value)" class="m-field text-xs" style="width:auto;padding-block:0.25rem" aria-label="Banner">
+			? `<select data-on-change="setAnnouncementBanner(${a.id}, this.value)" class="m-field text-xs" style="width:auto;padding-block:0.25rem" aria-label="Banner">
 				<option value="">${a.banner_live ? "Change banner" : "Put up a banner"}</option>
 				${_announcements.banner_hours
 					.filter((h) => h > 0)
@@ -223,8 +223,8 @@ function changelogRowHtml(entry) {
 			.map((line) => `<li>${escHtml(line.replace(/^[-*]\s*/, ""))}</li>`)
 			.join("")}</ul>
 		<div class="flex gap-1 -ml-3 mt-1">
-			<button onclick="editChangelogEntry(${entry.id})" class="m-btn m-btn-text m-btn-sm">Edit</button>
-			<button onclick="deleteChangelogEntry(${entry.id})" class="m-btn m-btn-text m-btn-sm danger">Remove</button>
+			<button data-on-click="editChangelogEntry(${entry.id})" class="m-btn m-btn-text m-btn-sm">Edit</button>
+			<button data-on-click="deleteChangelogEntry(${entry.id})" class="m-btn m-btn-text m-btn-sm danger">Remove</button>
 		</div>
 	</div>`;
 }
@@ -269,7 +269,7 @@ function renderAnnouncements() {
 				<textarea id="announce-body" rows="4" maxlength="400" placeholder="What do players need to know?" class="${field} resize-none">${escHtml(draft.body)}</textarea>
 				<div class="flex items-center gap-2 flex-wrap">
 					<input id="announce-date" type="datetime-local" class="m-field text-xs" style="width:auto;padding-block:0.3rem" aria-label="A date and time to put in the message" />
-					<button onclick="insertAnnouncementDate()" class="m-btn m-btn-text m-btn-sm" title="Adds the date to the message, written out in UK time">Put this date in the message</button>
+					<button data-on-click="insertAnnouncementDate()" class="m-btn m-btn-text m-btn-sm" title="Adds the date to the message, written out in UK time">Put this date in the message</button>
 				</div>
 				<label class="m-label mt-1" for="announce-link">Link <span class="text-zinc-600 font-normal">(optional, a page on this site or an https:// address)</span></label>
 				<input id="announce-link" maxlength="200" placeholder="/daily" class="${field}" value="${escHtml(draft.link)}" />
@@ -308,9 +308,9 @@ function renderAnnouncements() {
 				<p id="announce-hint" class="text-xs text-zinc-500 min-h-[1rem]"></p>
 				<p id="announce-quiet" class="hidden text-xs text-amber-300"></p>
 				<div class="flex justify-end gap-2 flex-wrap">
-					<button id="announce-draft" onclick="sendAnnouncement(false, true)" class="m-btn m-btn-text mr-auto" title="Keeps it here for you or another administrator to finish">Save as draft</button>
-					<button id="announce-test" onclick="sendAnnouncement(true)" class="m-btn m-btn-text" title="Sends it to you alone, so you can see it in your inbox first">Send me a test</button>
-					<button id="announce-send" onclick="sendAnnouncement(false)" class="m-btn m-btn-filled"><span class="material-symbols-outlined">campaign</span><span id="announce-send-label">Send</span></button>
+					<button id="announce-draft" data-on-click="sendAnnouncement(false, true)" class="m-btn m-btn-text mr-auto" title="Keeps it here for you or another administrator to finish">Save as draft</button>
+					<button id="announce-test" data-on-click="sendAnnouncement(true)" class="m-btn m-btn-text" title="Sends it to you alone, so you can see it in your inbox first">Send me a test</button>
+					<button id="announce-send" data-on-click="sendAnnouncement(false)" class="m-btn m-btn-filled"><span class="material-symbols-outlined">campaign</span><span id="announce-send-label">Send</span></button>
 				</div>
 			</div>
 			<div>
@@ -323,7 +323,7 @@ function renderAnnouncements() {
 				<div id="announce-history" class="bg-zinc-900 rounded-2xl px-4 divide-y divide-zinc-800 max-h-[36rem] overflow-y-auto">
 					${_announcements.history.map(announcementRowHtml).join("") || '<p class="text-zinc-500 text-sm py-3">Nothing has been sent yet.</p>'}
 				</div>
-				${_announcements.history.length >= _announceLimit ? '<button onclick="moreAnnouncements()" class="m-btn m-btn-text m-btn-sm mt-1">Show older</button>' : ""}
+				${_announcements.history.length >= _announceLimit ? '<button data-on-click="moreAnnouncements()" class="m-btn m-btn-text m-btn-sm mt-1">Show older</button>' : ""}
 				<p class="text-[11px] text-zinc-600 mt-1">One that went out can be removed from this list once it is ${_announcements.keep_days} days old and has no banner showing.</p>
 			</div>
 		</div>
@@ -339,8 +339,8 @@ function renderAnnouncements() {
 				<label class="m-label mt-1" for="changelog-date">Date</label>
 				<input id="changelog-date" type="date" class="m-field" value="${today}" />
 				<div class="flex justify-end gap-2">
-					${_editingEntry ? '<button onclick="cancelChangelogEdit()" class="m-btn m-btn-text">Cancel</button>' : ""}
-					<button onclick="saveChangelogEntry()" class="m-btn m-btn-filled">${_editingEntry ? "Save changes" : "Add entry"}</button>
+					${_editingEntry ? '<button data-on-click="cancelChangelogEdit()" class="m-btn m-btn-text">Cancel</button>' : ""}
+					<button data-on-click="saveChangelogEntry()" class="m-btn m-btn-filled">${_editingEntry ? "Save changes" : "Add entry"}</button>
 				</div>
 			</div>
 			<div class="bg-zinc-900 rounded-2xl px-4 divide-y divide-zinc-800 max-h-[30rem] overflow-y-auto">

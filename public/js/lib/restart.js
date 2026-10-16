@@ -119,7 +119,7 @@ function restartOverlay(state) {
 		</svg>
 		<div class="restart-overlay-title"></div>
 		<p></p>
-		<button class="m-btn m-btn-tonal m-btn-sm" onclick="location.reload()">Reload now</button>`;
+		<button class="m-btn m-btn-tonal m-btn-sm" data-on-click="location.reload()">Reload now</button>`;
 		document.body.appendChild(overlay);
 	}
 	const back = state === "back";

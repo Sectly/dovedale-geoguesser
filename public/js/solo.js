@@ -38,7 +38,7 @@ async function init() {
 	getTimeLimit = setupPills(".time-pill", (s) => {
 		el("time-preview").innerHTML = s
 			? `${s}s`
-			: '<span class="material-symbols-outlined text-2xl leading-none">all_inclusive</span>';
+			: '<span class="material-symbols-outlined text-2xl leading-none" title="No time limit">all_inclusive</span>';
 	});
 	getDifficulty = setupPills(".difficulty-pill", (level) => {
 		el("difficulty-note").textContent = level

@@ -50,7 +50,7 @@ function renderOverview({ waiting, flagged, live, notices, mine, recent }) {
 	el("tab-content").innerHTML = `
 		<div class="flex items-center gap-3 flex-wrap mb-1">
 			<h2 class="font-bold text-lg flex-1">Overview</h2>
-			<button onclick="openPalette()" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">search</span>Jump to <kbd class="kbd ml-1">Ctrl</kbd><kbd class="kbd">K</kbd></button>
+			<button data-on-click="openPalette()" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">search</span>Jump to <kbd class="kbd ml-1">Ctrl</kbd><kbd class="kbd">K</kbd></button>
 		</div>
 		<p class="text-sm text-zinc-500">${total ? `${total} thing${total === 1 ? "" : "s"} waiting for staff.` : "Nothing is waiting. All caught up."}</p>
 
@@ -71,7 +71,7 @@ function renderOverview({ waiting, flagged, live, notices, mine, recent }) {
 				.map(
 					(
 						queue
-					) => `<button onclick="switchTab('${queue.tab}')" class="md-card px-5 py-4 text-left !rounded-2xl">
+					) => `<button data-on-click="switchTab('${queue.tab}')" class="md-card px-5 py-4 text-left !rounded-2xl">
 						<div class="text-3xl font-bold font-mono ${queue.count ? "text-white" : "text-zinc-600"}">${queue.count}</div>
 						<div class="text-sm text-zinc-300 mt-0.5">${queue.label}</div>
 						<div class="text-xs mt-1 ${queue.count ? "text-zinc-500" : "text-green-400/80"}">${queue.count ? (queue.oldest ? `Oldest ${shortAgo(queue.oldest)} ago` : "Open to review") : "All clear"}</div>
@@ -88,7 +88,7 @@ function renderOverview({ waiting, flagged, live, notices, mine, recent }) {
 							.map(
 								(
 									u
-								) => `<button onclick="openUserPanel(${u.id})" class="bg-zinc-900 hover:bg-zinc-800 transition rounded-2xl px-4 py-2.5 flex items-center gap-3 text-left">
+								) => `<button data-on-click="openUserPanel(${u.id})" class="bg-zinc-900 hover:bg-zinc-800 transition rounded-2xl px-4 py-2.5 flex items-center gap-3 text-left">
 									${avatarHtml(u.avatar_url, "w-8 h-8 flex-shrink-0")}
 									<span class="flex-1 min-w-0 truncate"><span class="font-semibold">${escHtml(u.display_name || u.username)}</span> <span class="text-xs text-zinc-500">@${escHtml(u.username)}</span></span>
 									<span class="m-tag info">${u.flags} flag${u.flags === 1 ? "" : "s"}</span>

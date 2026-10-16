@@ -5,7 +5,7 @@
 import { WebWire } from "/webwire-client.js";
 import "./lib/site.js";
 import { Sounds } from "./sounds.js";
-import { avatarHtml, el, escHtml, show } from "./lib/dom.js";
+import { announce, avatarHtml, el, escHtml, show } from "./lib/dom.js";
 import { api, fetchUser } from "./lib/api.js";
 import { copyText, showToast } from "./lib/toast.js";
 import { celebrate } from "./lib/effects.js";
@@ -254,6 +254,9 @@ function renderReveal() {
 		el("team-reveal")
 	);
 	el("click-hint").textContent = reveal.label || "";
+	announce(
+		`${el("reveal-title").textContent}. ${TEAM_INFO.a.name} ${a.toLocaleString()}, ${TEAM_INFO.b.name} ${b.toLocaleString()} points.`
+	);
 	const mine = reveal.team_scores[room.you.team] ?? 0;
 	const theirs = reveal.team_scores[room.you.team === "a" ? "b" : "a"] ?? 0;
 	Sounds.play(mine > theirs ? "great" : mine === theirs ? "good" : "poor");

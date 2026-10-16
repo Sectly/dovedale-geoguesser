@@ -55,7 +55,7 @@ export async function loadEmail(reveal = false) {
 			"mark_email_read",
 			`<div class="flex items-center gap-3">
 				<div class="flex-1 min-w-0 text-sm text-zinc-400">${status[1]}</div>
-				<button onclick="setEmailEnabled(${!info.enabled})" class="m-btn ${info.enabled ? "m-btn-tonal" : "m-btn-filled"} m-btn-sm flex-shrink-0" ${blocked && !info.enabled ? "disabled" : ""}><span class="material-symbols-outlined">power_settings_new</span>${info.enabled ? "Switch email off" : "Switch email on"}</button>
+				<button data-on-click="setEmailEnabled(${!info.enabled})" class="m-btn ${info.enabled ? "m-btn-tonal" : "m-btn-filled"} m-btn-sm flex-shrink-0" ${blocked && !info.enabled ? "disabled" : ""}><span class="material-symbols-outlined">power_settings_new</span>${info.enabled ? "Switch email off" : "Switch email on"}</button>
 			</div>
 			${blocked ? `<p class="text-xs text-amber-300 mt-2 flex items-start gap-1.5"><span class="material-symbols-outlined text-sm leading-4">warning</span>${blocked}</p>` : ""}
 			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
@@ -81,7 +81,7 @@ export async function loadEmail(reveal = false) {
 			info.saved && !info.revealed
 				? `<div class="flex items-center gap-3">
 					<div class="flex-1 min-w-0 text-sm text-zinc-400">A mail server is saved. Its details are hidden.</div>
-					<button onclick="loadEmail(true)" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0"><span class="material-symbols-outlined">visibility</span>Show details</button>
+					<button data-on-click="loadEmail(true)" class="m-btn m-btn-tonal m-btn-sm flex-shrink-0"><span class="material-symbols-outlined">visibility</span>Show details</button>
 				</div>`
 				: `<p class="text-xs text-zinc-500 mb-3">Any SMTP server works. For Purelymail: smtp.purelymail.com, port 465, and the full mailbox address as the username. Use a mailbox nobody reads: every email says replies are not read and points to tickets instead.</p>
 				<div class="grid sm:grid-cols-2 gap-3">
@@ -104,8 +104,8 @@ export async function loadEmail(reveal = false) {
 					<div class="sm:col-span-2"><label class="m-label" for="smtp-from">From</label><input id="smtp-from" class="m-field" maxlength="200" placeholder="Dovedale GeoGuesser &lt;noreply@dovedalegeoguesser.com&gt;" value="${escHtml(info.from ?? "")}" /></div>
 				</div>
 				<div class="flex gap-2 flex-wrap justify-end mt-3">
-					${info.saved ? '<button onclick="clearEmailSettings()" class="m-btn m-btn-text m-btn-sm danger mr-auto">Remove mail server</button><button onclick="loadEmail()" class="m-btn m-btn-text m-btn-sm">Hide</button>' : ""}
-					<button onclick="saveEmailSettings()" class="m-btn m-btn-filled m-btn-sm">Save</button>
+					${info.saved ? '<button data-on-click="clearEmailSettings()" class="m-btn m-btn-text m-btn-sm danger mr-auto">Remove mail server</button><button data-on-click="loadEmail()" class="m-btn m-btn-text m-btn-sm">Hide</button>' : ""}
+					<button data-on-click="saveEmailSettings()" class="m-btn m-btn-filled m-btn-sm">Save</button>
 				</div>`
 		)}
 
@@ -114,8 +114,8 @@ export async function loadEmail(reveal = false) {
 			"send",
 			`<div class="flex gap-2 flex-wrap items-end">
 				<div class="flex-1 min-w-[12rem]"><label class="m-label" for="smtp-test-to">Send a test email to</label><input id="smtp-test-to" type="email" class="m-field" maxlength="254" placeholder="you@example.com" /></div>
-				<button id="smtp-test-btn" onclick="sendTestEmail()" class="m-btn m-btn-tonal m-btn-sm" ${info.smtp_ready ? "" : "disabled"}>Send test</button>
-				<button onclick="runEmailNow()" class="m-btn m-btn-text m-btn-sm" ${live ? "" : "disabled"} title="Summaries normally go out every 15 minutes to whoever is due">Send due summaries now</button>
+				<button id="smtp-test-btn" data-on-click="sendTestEmail()" class="m-btn m-btn-tonal m-btn-sm" ${info.smtp_ready ? "" : "disabled"}>Send test</button>
+				<button data-on-click="runEmailNow()" class="m-btn m-btn-text m-btn-sm" ${live ? "" : "disabled"} title="Summaries normally go out every 15 minutes to whoever is due">Send due summaries now</button>
 			</div>`
 		)}
 
@@ -132,7 +132,7 @@ export async function loadEmail(reveal = false) {
 						.join("")
 				: '<p class="text-sm text-zinc-500">Nobody has added an email address yet.</p>',
 			saved
-				? '<button onclick="clearAllEmails()" class="m-btn m-btn-text m-btn-sm danger"><span class="material-symbols-outlined">delete_sweep</span>Delete all addresses</button>'
+				? '<button data-on-click="clearAllEmails()" class="m-btn m-btn-text m-btn-sm danger"><span class="material-symbols-outlined">delete_sweep</span>Delete all addresses</button>'
 				: ""
 		)}`;
 }

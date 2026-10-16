@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Solo | Dovedale GeoGuesser</title>
     <meta name="description" content="Identify locations across the Dovedale Railway from screenshots. Pick your rounds and time limit; no login needed." />
     <meta property="og:title" content="Solo GeoGuesser | Dovedale Railway" />
@@ -136,8 +136,10 @@
                 <button
                   class="time-pill flex-1 py-2 rounded-xl text-sm font-semibold transition border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 flex items-center justify-center"
                   data-val="0"
+                  aria-label="No time limit"
+                  title="No time limit"
                 >
-                  <span class="material-symbols-outlined text-base leading-none">all_inclusive</span>
+                  <span class="material-symbols-outlined text-base leading-none" aria-hidden="true">all_inclusive</span>
                 </button>
               </div>
             </div>
@@ -192,7 +194,12 @@
         <img id="round-photo" fetchpriority="high" src="" alt="Location screenshot" />
 
         <div class="absolute top-3 left-3 flex items-center gap-2">
-          <a href="/" class="bg-black/70 rounded-full w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-black/70 transition">
+          <a
+            href="/"
+            aria-label="Home"
+            title="Home"
+            class="bg-black/70 rounded-full w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-black/70 transition"
+          >
             <span class="material-symbols-outlined text-base leading-none">home</span>
           </a>
           <div class="bg-black/70 rounded-full px-3 py-1.5 text-sm font-semibold">

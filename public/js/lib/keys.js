@@ -76,7 +76,7 @@ async function toggleShortcuts(open) {
 		<div class="flex items-center gap-3 px-6 py-4 border-b border-zinc-800 flex-shrink-0">
 			<span class="material-symbols-outlined text-xl text-zinc-400">keyboard</span>
 			<h2 class="font-bold flex-1">Shortcuts</h2>
-			<button onclick="toggleShortcuts(false)" aria-label="Close" class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition">
+			<button data-on-click="toggleShortcuts(false)" aria-label="Close" class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition">
 				<span class="material-symbols-outlined text-xl leading-none">close</span>
 			</button>
 		</div>
