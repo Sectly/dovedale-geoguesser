@@ -6,7 +6,7 @@ import { checkForEvasion } from "./evasion";
 
 /** One row per moderation action. The flags on the users table are derived from these by `syncUser`. */
 
-export type ActionType = "warning" | "limit_upload" | "limit_duel" | "ban_temp" | "ban_perm";
+export type ActionType = "warning" | "limit_upload" | "limit_duel" | "limit_chat" | "ban_temp" | "ban_perm";
 
 export type ModerationAction = {
 	id: number;
@@ -27,6 +27,7 @@ export const ACTION_LABELS: Record<ActionType, string> = {
 	warning: "Warning",
 	limit_upload: "Upload limit",
 	limit_duel: "Duel limit",
+	limit_chat: "Chat limit",
 	ban_temp: "Temporary ban",
 	ban_perm: "Permanent ban",
 };
@@ -71,6 +72,11 @@ function activeAction(userId: number, types: ActionType[], now: number): Moderat
 
 export function activeBanReason(userId: number): string | null {
 	return activeAction(userId, ["ban_perm", "ban_temp"], nowSec())?.reason ?? null;
+}
+
+/** Not mirrored on the users table; chat checks it directly. */
+export function activeChatLimit(userId: number): ModerationAction | null {
+	return activeAction(userId, ["limit_chat"], nowSec());
 }
 
 export function syncUser(userId: number) {

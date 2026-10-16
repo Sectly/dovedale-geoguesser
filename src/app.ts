@@ -28,6 +28,7 @@ import { soloRoutes, specialRoutes } from "./routes/solo";
 import { submissionRoutes } from "./routes/submissions";
 import { supportRoutes } from "./routes/support";
 import { teamRoutes } from "./routes/teams";
+import { tournamentRoutes } from "./routes/tournaments";
 
 /** The WebWire browser client, bundled once at startup and served to the duels page. */
 async function bundleWireClient(): Promise<string> {
@@ -138,6 +139,7 @@ app.route("/api/specials", specialRoutes);
 app.route("/api/teams", teamRoutes);
 app.route("/api/daily", dailyRoutes);
 app.route("/api/duels", duelRoutes);
+app.route("/api/tournaments", tournamentRoutes);
 app.route("/api/leaderboard", leaderboardRoutes);
 app.route("/api/submissions", submissionRoutes);
 app.route("/api/locations", locationRoutes);

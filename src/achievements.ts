@@ -132,13 +132,18 @@ export function backfillAchievements(): number {
 			SELECT h.user_id, '${id}', COALESCE(h.earned_at, unixepoch()), unixepoch() FROM (${select}) h
 			JOIN users u ON u.id = h.user_id WHERE u.username != '[deleted]'`
 		).changes;
+	/** Tournament matches earn nothing. */
+	const notTournament = (table: string) =>
+		table === "duel_round_scores"
+			? "AND game_id NOT IN (SELECT id FROM duel_games WHERE tournament_id IS NOT NULL)"
+			: "";
 	const close = (table: string) =>
-		`SELECT user_id, MIN(created_at) AS earned_at FROM ${table} WHERE distance <= 150 GROUP BY user_id`;
+		`SELECT user_id, MIN(created_at) AS earned_at FROM ${table} WHERE distance <= 150 ${notTournament(table)} GROUP BY user_id`;
 	const quick = (table: string) =>
-		`SELECT user_id, MIN(created_at) AS earned_at FROM ${table} WHERE time_taken < 5 AND score >= 4000 AND distance IS NOT NULL GROUP BY user_id`;
+		`SELECT user_id, MIN(created_at) AS earned_at FROM ${table} WHERE time_taken < 5 AND score >= 4000 AND distance IS NOT NULL ${notTournament(table)} GROUP BY user_id`;
 	const wins = (atLeast: number) =>
 		`SELECT winner_id AS user_id, MIN(finished_at) AS earned_at FROM duel_games
-		WHERE status = 'finished' AND winner_id IS NOT NULL GROUP BY winner_id HAVING COUNT(*) >= ${atLeast}`;
+		WHERE status = 'finished' AND winner_id IS NOT NULL AND tournament_id IS NULL GROUP BY winner_id HAVING COUNT(*) >= ${atLeast}`;
 	const streak = (days: number) =>
 		`SELECT id AS user_id, NULL AS earned_at FROM users WHERE longest_streak >= ${days}`;
 
@@ -166,7 +171,7 @@ export function backfillAchievements(): number {
 		given += give(
 			"duel_sweep",
 			`SELECT dg.winner_id AS user_id, MIN(dg.finished_at) AS earned_at FROM duel_games dg
-			WHERE dg.status = 'finished' AND dg.winner_id IS NOT NULL
+			WHERE dg.status = 'finished' AND dg.winner_id IS NOT NULL AND dg.tournament_id IS NULL
 				AND (SELECT COUNT(*) FROM duel_round_scores w WHERE w.game_id = dg.id AND w.user_id = dg.winner_id) >= 3
 				AND NOT EXISTS (
 					SELECT 1 FROM duel_round_scores w
@@ -263,7 +268,7 @@ export function checkDuel(userId: number, { won, sweep, rating, margin, lostLast
 		award(userId, "duel_win");
 		const wins = db
 			.query<{ n: number }, [number]>(
-				"SELECT COUNT(*) AS n FROM duel_games WHERE winner_id = ? AND status = 'finished'"
+				"SELECT COUNT(*) AS n FROM duel_games WHERE winner_id = ? AND status = 'finished' AND tournament_id IS NULL"
 			)
 			.get(userId)!.n;
 		if (wins >= 10) award(userId, "duel_wins_10");

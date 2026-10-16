@@ -321,16 +321,13 @@
             <option value="medium">Medium</option>
             <option value="low">Low</option>
           </select>
-          <button
-            id="zoom-in"
-            class="bg-zinc-800 w-10 h-10 rounded-full flex items-center justify-center hover:bg-zinc-700 transition shadow-sm border border-zinc-700/60"
-          >
+        </div>
+        <div id="map-zoom" class="absolute right-3 bottom-16 z-10 flex flex-col bg-zinc-800 border border-zinc-700/60 rounded-full shadow-sm overflow-hidden">
+          <button id="zoom-in" title="Zoom in" aria-label="Zoom in" class="w-10 h-10 flex items-center justify-center hover:bg-zinc-700 transition">
             <span class="material-symbols-outlined text-lg">add</span>
           </button>
-          <button
-            id="zoom-out"
-            class="bg-zinc-800 w-10 h-10 rounded-full flex items-center justify-center hover:bg-zinc-700 transition shadow-sm border border-zinc-700/60"
-          >
+          <div class="h-px bg-zinc-700/60 mx-2"></div>
+          <button id="zoom-out" title="Zoom out" aria-label="Zoom out" class="w-10 h-10 flex items-center justify-center hover:bg-zinc-700 transition">
             <span class="material-symbols-outlined text-lg">remove</span>
           </button>
         </div>

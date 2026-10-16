@@ -92,12 +92,17 @@
             <div class="text-zinc-400 text-sm">One location a day. Keep your streak going.<span data-guest-only> Login required.</span></div>
           </a>
           <a id="season-card" href="/specials" class="md-card season-card hidden p-6 text-left group sm:col-span-2 items-center gap-4"></a>
-          <a href="/specials" class="md-card p-6 text-left group sm:col-span-2 flex items-center gap-4">
-            <span class="material-symbols-outlined text-4xl text-[var(--md-primary-bright)] flex-shrink-0" style="font-variation-settings: &quot;FILL&quot; 1"
+          <a id="specials-card" href="/specials" class="md-card p-6 text-left group sm:col-span-2 flex items-center gap-4">
+            <span
+              id="specials-card-icon"
+              class="material-symbols-outlined text-4xl text-[var(--md-primary-bright)] flex-shrink-0"
+              style="font-variation-settings: &quot;FILL&quot; 1"
               >celebration</span
             >
             <div class="flex-1 min-w-0">
-              <div class="font-bold text-xl mb-1">Specials <span id="upcoming-tag" class="m-tag info ml-1 align-middle hidden"></span></div>
+              <div class="font-bold text-xl mb-1">
+                <span id="specials-card-title">Specials</span> <span id="upcoming-tag" class="m-tag info ml-1 align-middle hidden"></span>
+              </div>
               <div class="text-zinc-400 text-sm" id="specials-card-sub">Side modes, mini-games and events.<span data-guest-only> Login required.</span></div>
             </div>
             <span class="material-symbols-outlined text-zinc-500 flex-shrink-0">chevron_right</span>

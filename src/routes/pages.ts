@@ -7,6 +7,7 @@ import { currentUser } from "../auth/sessions";
 import { db } from "../db";
 import { DEV_DISCORD_ID, DEV_MODE, PUBLIC_DIR, SITE_URL, UPLOADS_DIR } from "../config";
 import { duelRooms } from "../game/duels/rooms";
+import { tournamentShare } from "../game/tournaments";
 import { escapeXml } from "../og/cards";
 import { OG_VERSION } from "./og";
 import { tileVersion } from "../tile-images";
@@ -183,6 +184,36 @@ pageRoutes.get("/duel/:code", (c) => {
 					: `${host} is hosting a ${room.rounds}-round duel. ${room.players.length}/2 players - ${state}.`,
 			image: `/og.png?type=${spectate ? "spectate" : "duel"}&code=${code}`,
 			url: `/duel/${code}`,
+			type: "website",
+		})
+	);
+});
+
+/** A tournament plays out on the duels page. Its share card follows how far it has got. */
+pageRoutes.get("/tournament/:id", (c) => {
+	const id = Number(c.req.param("id"));
+	const share = Number.isInteger(id) && id > 0 ? tournamentShare(id) : null;
+	const invite = !!share && share.status === "open" && c.req.query("invite") !== undefined;
+	const line = !share
+		? "A Dovedale GeoGuesser tournament."
+		: invite
+			? `You're invited to play in ${share.title}. Open the link to join.`
+			: share.status === "open"
+				? `Check-in is open. ${share.players} player${share.players === 1 ? "" : "s"} so far.${share.detail ? ` ${share.detail}.` : ""}`
+				: share.status === "live"
+					? `Live now: ${share.detail}. Watch every match.`
+					: share.status === "finished"
+						? `${share.champion ? `Won by ${share.champion.name}. ` : ""}See the final standings and bracket.`
+						: "This tournament was called off.";
+	return sendHtml(
+		c,
+		withMeta(loadPage("duels.html").html, {
+			title: share
+				? `${invite ? "Join " : ""}${share.title} | Dovedale GeoGuesser`
+				: "Tournament | Dovedale GeoGuesser",
+			description: share?.description ? `${line} ${share.description}` : line,
+			image: share ? `/og.png?type=tournament&id=${id}${invite ? "&invite" : ""}` : "/og.png?type=duels",
+			url: `/tournament/${id}`,
 			type: "website",
 		})
 	);

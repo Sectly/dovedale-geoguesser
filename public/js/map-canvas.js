@@ -137,9 +137,13 @@ export class MapCanvas {
 		this.pinEnabled = enabled;
 	}
 
-	setNamePin(id, worldX, worldY, color, name, avatarUrl = "", { ripple = false } = {}) {
-		const pin = { worldX, worldY, color, name, avatar: null };
-		if (avatarUrl) {
+	/** `status`: "placing" draws the pin faded, "locked" adds a tick. */
+	setNamePin(id, worldX, worldY, color, name, avatarUrl = "", { ripple = false, status = null } = {}) {
+		const pin = { worldX, worldY, color, name, avatar: null, avatarUrl, status };
+		/** Keeps the picture of a pin that moves often. */
+		const old = this.namePins.get(id);
+		if (old?.avatar && old.avatarUrl === avatarUrl) pin.avatar = old.avatar;
+		else if (avatarUrl) {
 			const img = new Image();
 			img.onload = () => {
 				pin.avatar = img;
@@ -675,15 +679,17 @@ export class MapCanvas {
 		ctx.restore();
 	}
 
-	_drawNamePin({ worldX, worldY, color, name, avatar }) {
+	_drawNamePin({ worldX, worldY, color, name, avatar, status }) {
 		const ctx = this.ctx;
 		const { x: sx, y: sy } = this._screenPos(worldX, worldY);
 		const r = avatar ? 15 : 10;
+		const placing = status === "placing";
 
 		ctx.save();
 		const _scale = this.currentScale;
 		ctx.resetTransform();
 		this.currentScale = _scale;
+		if (placing) ctx.globalAlpha = 0.6;
 
 		ctx.beginPath();
 		ctx.arc(sx, sy, r + 2.5, 0, Math.PI * 2);
@@ -711,24 +717,50 @@ export class MapCanvas {
 		ctx.arc(sx, sy, r + 2.5, 0, Math.PI * 2);
 		ctx.strokeStyle = "#fff";
 		ctx.lineWidth = 1.5;
+		if (placing) ctx.setLineDash([3, 3]);
 		ctx.stroke();
+		ctx.setLineDash([]);
 
 		const label = name.length > 12 ? name.slice(0, 9) + "..." : name;
 		ctx.font = `bold 11px Inter, sans-serif`;
 		const tw = ctx.measureText(label).width;
 		const pad = 5;
+		const mark = status ? 14 : 0;
 		const tagH = 18;
 		const tagY = sy - r - tagH - 7;
+		const left = sx - (tw + mark) / 2 - pad;
 
 		ctx.fillStyle = "rgba(0,0,0,0.75)";
 		ctx.beginPath();
-		ctx.roundRect(sx - tw / 2 - pad, tagY, tw + pad * 2, tagH, 4);
+		ctx.roundRect(left, tagY, tw + mark + pad * 2, tagH, 4);
 		ctx.fill();
+
+		if (status) {
+			const cx = left + pad + 5;
+			const cy = tagY + tagH / 2;
+			ctx.beginPath();
+			ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+			if (placing) {
+				ctx.strokeStyle = "#a1a1aa";
+				ctx.lineWidth = 1.5;
+				ctx.stroke();
+			} else {
+				ctx.fillStyle = "#4CAF50";
+				ctx.fill();
+				ctx.beginPath();
+				ctx.moveTo(cx - 2.5, cy);
+				ctx.lineTo(cx - 0.5, cy + 2);
+				ctx.lineTo(cx + 2.5, cy - 2);
+				ctx.strokeStyle = "#fff";
+				ctx.lineWidth = 1.5;
+				ctx.stroke();
+			}
+		}
 
 		ctx.fillStyle = "#fff";
 		ctx.textAlign = "center";
 		ctx.textBaseline = "middle";
-		ctx.fillText(label, sx, tagY + tagH / 2);
+		ctx.fillText(label, sx + mark / 2, tagY + tagH / 2);
 
 		ctx.restore();
 	}
@@ -895,14 +927,27 @@ export class MapCanvas {
 			);
 		};
 		ctx.getTransform = () => transform;
+		/** Zoom is saved with the transform, since overlays reset it between save and restore. */
 		ctx.save = () => {
-			savedStack.push(
-				new DOMMatrix([transform.a, transform.b, transform.c, transform.d, transform.e, transform.f])
-			);
+			savedStack.push({
+				transform: new DOMMatrix([
+					transform.a,
+					transform.b,
+					transform.c,
+					transform.d,
+					transform.e,
+					transform.f,
+				]),
+				scale: this.currentScale,
+			});
 			original.save();
 		};
 		ctx.restore = () => {
-			if (savedStack.length > 0) transform = savedStack.pop();
+			const saved = savedStack.pop();
+			if (saved) {
+				transform = saved.transform;
+				this.currentScale = saved.scale;
+			}
 			original.restore();
 		};
 		ctx.scale = (sx, sy) => {
@@ -924,6 +969,21 @@ export class MapCanvas {
 			apply();
 		};
 		ctx.transformedPoint = (x, y) => new DOMPoint(x, y).matrixTransform(transform.inverse());
+	}
+
+	/** Zooms on the middle of the view. */
+	zoomBy(factor) {
+		this._busy();
+		this._zoomAt(this.viewWidth / 2, this.viewHeight / 2, factor);
+	}
+
+	/** Hides the zoom buttons while the map is moved some other way. */
+	_busy() {
+		const zoom = this.canvas.id === "map-canvas" && document.getElementById("map-zoom");
+		if (!zoom) return;
+		zoom.classList.add("map-busy");
+		clearTimeout(this._busyTimer);
+		this._busyTimer = setTimeout(() => zoom.classList.remove("map-busy"), MapCanvas.BUSY_FADE_MS);
 	}
 
 	_zoomAt(sx, sy, factor) {
@@ -989,6 +1049,7 @@ export class MapCanvas {
 			/** Hold still until it is clearly a drag, so a click never nudges the map. */
 			if (pressedAt && moved(pos, pressedAt) <= MapCanvas.CLICK_SLOP) return;
 			pressedAt = null;
+			this._busy();
 			const cur = this.ctx.transformedPoint(pos.x, pos.y);
 			this.ctx.translate(cur.x - this.dragStart.x, cur.y - this.dragStart.y);
 			this._scheduleDraw();
@@ -1014,6 +1075,7 @@ export class MapCanvas {
 				e.preventDefault();
 				const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
 				const pos = this._canvasCoords(e);
+				this._busy();
 				this._zoomAt(pos.x, pos.y, factor);
 			},
 			{ passive: false }
@@ -1052,6 +1114,7 @@ export class MapCanvas {
 					const pos = this._canvasCoords(e.touches[0]);
 					if (tapAt && moved(pos, tapAt) <= MapCanvas.TAP_SLOP) return;
 					tapAt = null;
+					this._busy();
 					const cur = this.ctx.transformedPoint(pos.x, pos.y);
 					this.ctx.translate(cur.x - this.dragStart.x, cur.y - this.dragStart.y);
 					this._scheduleDraw();
@@ -1064,6 +1127,7 @@ export class MapCanvas {
 						clientX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
 						clientY: (e.touches[0].clientY + e.touches[1].clientY) / 2,
 					});
+					this._busy();
 					this._zoomAt(mid.x, mid.y, dist / lastDist);
 					lastDist = dist;
 				}
@@ -1082,8 +1146,10 @@ export class MapCanvas {
 						moved(pos, lastTap) <= 3 * MapCanvas.TAP_SLOP;
 					lastTap = double ? null : { ...pos, at: now };
 					/** The first tap has already put the pin there; the second only zooms. */
-					if (double) this._zoomAt(pos.x, pos.y, 1.8);
-					else this._placePinAt(pos);
+					if (double) {
+						this._busy();
+						this._zoomAt(pos.x, pos.y, 1.8);
+					} else this._placePinAt(pos);
 				}
 			}
 			tapAt = null;
@@ -1094,6 +1160,8 @@ export class MapCanvas {
 			this.isDragging = false;
 		});
 
+		/** Replay and review maps on the same page leave the zoom buttons and pickers alone. */
+		if (this.canvas.id !== "map-canvas") return;
 		document
 			.getElementById("zoom-in")
 			?.addEventListener("click", () => this._zoomAt(this.viewWidth / 2, this.viewHeight / 2, 1.3));
@@ -1139,3 +1207,5 @@ MapCanvas.reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").m
 MapCanvas.CLICK_SLOP = 4;
 MapCanvas.TAP_SLOP = 10;
 MapCanvas.DOUBLE_TAP_MS = 300;
+/** How long the zoom buttons stay hidden after the map stops moving. */
+MapCanvas.BUSY_FADE_MS = 700;

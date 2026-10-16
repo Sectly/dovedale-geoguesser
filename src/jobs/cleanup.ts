@@ -8,6 +8,8 @@ import { logInfo, pruneLogs } from "../lib/logs";
 import { reportProblem } from "../lib/problems";
 import { pruneOauthStates } from "../auth/discord";
 import { liftExpiredRestrictions } from "../auth/sessions";
+import { pruneTournamentChat } from "../game/chat";
+import { refreshDueLists, seedDefaultList } from "../game/chat-filter";
 import { pruneMatchmaking } from "../game/duels/matchmaking";
 import { duelsInProgress, pruneDuelRooms } from "../game/duels/rooms";
 import { pruneSoloGames } from "../game/solo";
@@ -114,6 +116,8 @@ const maintain = job("maintenance", () => {
 
 const checkUp = job("check-up", () => dailyCheckUp());
 
+const refreshWordLists = job("word lists", () => refreshDueLists());
+
 const pruneDatabase = job("database", async () => {
 	db.run("DELETE FROM sessions WHERE expires_at < unixepoch()");
 	liftExpiredRestrictions();
@@ -130,6 +134,7 @@ const pruneDatabase = job("database", async () => {
 	);
 	deleteOldClosedTickets();
 	pruneStaffChat();
+	pruneTournamentChat();
 	pruneNotifications();
 	pruneLogs();
 	sendStreakReminders();
@@ -152,9 +157,12 @@ const pruneDatabase = job("database", async () => {
 
 export function startCleanupJobs() {
 	pruneDatabase().then(maintain).then(checkUp);
+	seedDefaultList();
+	refreshWordLists();
 	setInterval(pruneMemory, 5 * MINUTE_MS);
 	setInterval(() => tickTeamRooms(), 1000);
 	setInterval(() => pruneDatabase().then(maintain).then(checkUp), 60 * MINUTE_MS);
+	setInterval(refreshWordLists, 60 * MINUTE_MS);
 	/** Summaries go out on a quarter-hour beat, so an hourly one is never much more than an hour apart. */
 	setInterval(() => sendDueDigests().catch((err) => console.error("[email] job failed:", err)), 15 * MINUTE_MS);
 	setInterval(sendScheduledAnnouncements, MINUTE_MS);

@@ -31,7 +31,7 @@ export function profileStats(userId: number) {
 				COALESCE(SUM(dp.total_score), 0) AS total_score
 			FROM duel_participants dp
 			JOIN duel_games dg ON dg.id = dp.game_id
-			WHERE dp.user_id = ? AND dg.status = 'finished'`,
+			WHERE dp.user_id = ? AND dg.status = 'finished' AND dg.tournament_id IS NULL`,
 			userId
 		),
 		submissions: one<{ total: number; approved: number }>(
@@ -88,7 +88,7 @@ export function recentGames(userId: number) {
 				JOIN duel_games dg ON dg.id = dp.game_id
 				LEFT JOIN duel_participants o ON o.game_id = dg.id AND o.user_id != dp.user_id
 				LEFT JOIN users ou ON ou.id = o.user_id
-				WHERE dp.user_id = ? AND dg.status = 'finished'
+				WHERE dp.user_id = ? AND dg.status = 'finished' AND dg.tournament_id IS NULL
 				ORDER BY dg.finished_at DESC LIMIT 10`
 			)
 			.all(userId),

@@ -12,6 +12,7 @@ import { loadLocations, loadStats } from "./locations.js";
 import { loadAnnouncementsTab } from "./announcements.js";
 import { expandedTicketId, loadTickets } from "./tickets.js";
 import { loadDuels } from "./duels.js";
+import { loadTournaments } from "./tournaments.js";
 import { loadStaff, loadUsers } from "./users.js";
 import { loadAudit } from "./audit.js";
 import { loadSystem } from "./system.js";
@@ -45,6 +46,7 @@ const TAB_MIN_ROLE = {
 	users: "moderator",
 	tickets: "moderator",
 	duels: "moderator",
+	tournaments: "moderator",
 	staff: "moderator",
 	announcements: "admin",
 	stats: "supervisor",
@@ -443,6 +445,7 @@ export function switchTab(tab, fromHash = false, autoOpenId = null) {
 	else if (tab === "users") loadUsers();
 	else if (tab === "tickets") loadTickets(true, autoOpenId);
 	else if (tab === "duels") loadDuels();
+	else if (tab === "tournaments") loadTournaments(autoOpenId);
 	else if (tab === "announcements") loadAnnouncementsTab();
 	else if (tab === "staff") loadStaff();
 	else if (tab === "stats") loadStats();

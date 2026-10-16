@@ -21,8 +21,10 @@ import { adminSubmissionRoutes } from "./submissions";
 import { adminSuggestionRoutes } from "./suggestions";
 import { adminSupportRoutes } from "./support";
 import { adminScoreRoutes } from "./scores";
+import { adminTournamentRoutes } from "./tournaments";
 import { adminSystemRoutes } from "./system";
 import { adminModerationRoutes, adminUserRoutes } from "./users";
+import { adminWordFilterRoutes } from "./word-filter";
 
 export const adminRoutes = new Hono();
 
@@ -35,7 +37,9 @@ adminRoutes.route("/support", adminSupportRoutes);
 adminRoutes.route("/system", adminSystemRoutes);
 adminRoutes.route("/scores", adminScoreRoutes);
 adminRoutes.route("/duels", adminDuelRoutes);
+adminRoutes.route("/tournaments", adminTournamentRoutes);
 adminRoutes.route("/announcements", adminAnnouncementRoutes);
+adminRoutes.route("/word-filter", adminWordFilterRoutes);
 adminRoutes.route("/chat", adminChatRoutes);
 
 const SERIES_DAYS = 14;

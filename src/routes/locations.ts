@@ -12,6 +12,7 @@ import { DAY, HOUR, nowSec } from "../lib/time";
 import { saveUploadedImage } from "../lib/uploads";
 import { displayName, notify } from "../lib/webhook";
 import { formCoords } from "./submissions";
+import { suggestionsClosed } from "../game/tournaments";
 
 export const locationRoutes = new Hono();
 export const suggestionRoutes = new Hono();
@@ -36,6 +37,8 @@ function suggestionProgress(user: User) {
 /** Why this user may not suggest changes yet, or null when they may. Staff and helpers are always allowed. */
 function suggestionBlocker(user: User): string | null {
 	if (isStaff(user)) return null;
+	const closed = suggestionsClosed();
+	if (closed) return closed;
 	const { days, games } = suggestionProgress(user);
 	if (days.have < days.need) return `Your account must be at least ${days.need} days old to suggest changes`;
 	if (games.have < games.need) return `You must have played at least ${games.need} games to suggest changes`;
@@ -71,12 +74,14 @@ locationRoutes.get("/with-coords", (c) => {
 
 suggestionRoutes.get("/eligibility", (c) => {
 	const user = requireUser(c);
+	const closed = isStaff(user) ? null : suggestionsClosed();
 	const reason = user.is_banned ? "You are banned" : suggestionBlocker(user);
 	return c.json({
 		eligible: !reason,
 		reason,
+		closed: !!closed,
 		agreed: !!user.suggestions_agreed,
-		progress: reason && !user.is_banned ? suggestionProgress(user) : null,
+		progress: reason && !closed && !user.is_banned ? suggestionProgress(user) : null,
 	});
 });
 

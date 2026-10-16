@@ -39,6 +39,8 @@ let quietQueueTimer = null;
 let reconnectTimer = null;
 let overlayTimer = null;
 let getRounds;
+/** On a tournament page: the bracket, which hands each match to these screens. */
+let stage = null;
 
 const isSpectator = () => role === "spectator";
 
@@ -133,7 +135,25 @@ function closedByStaffNotice() {
 	box.querySelector("button").focus();
 }
 
+function leaveTournamentMatch() {
+	closeWire();
+	clearInterval(countdownTimer);
+	clearInterval(nextRoundTimer);
+	clearTimeout(reconnectTimer);
+	reconnectTimer = null;
+	hideOverlay();
+	view?.stop();
+	roomCode = null;
+	shownRound = 0;
+	switchScreen(null);
+}
+
 function backToLobby(message = "") {
+	if (stage) {
+		leaveTournamentMatch();
+		if (message) showToast(message, "error");
+		return stage.matchLeft();
+	}
 	closeWire();
 	clearInterval(countdownTimer);
 	clearInterval(nextRoundTimer);
@@ -214,7 +234,7 @@ async function init() {
 	setInterval(() => el("lobby-screen").classList.contains("hidden") || loadLiveDuels(), 15_000);
 
 	/** Built up front so the map tiles are already loaded when the duel starts. */
-	view = new RoundView({ onGuess: sendGuess });
+	view = new RoundView({ onGuess: sendGuess, onPinMoved: sharePin });
 	const visible = (id) => !el(id).classList.contains("hidden");
 	const press = (id) => (visible(id) && !el(id).disabled ? el(id).click() : false);
 	addKeybinds("Duels", [
@@ -236,6 +256,23 @@ async function init() {
 			() => (visible("end-screen") && visible("end-actions") ? press("play-again-btn") : false),
 		],
 	]);
+	const tournamentId = Number(location.pathname.match(/^\/tournament\/(\d+)/)?.[1]);
+	if (tournamentId) {
+		user = await fetchUser();
+		const { startStage } = await import("./tournament.js");
+		stage = startStage(tournamentId, user, {
+			join(code, asPlayer) {
+				if (roomCode === code && wire) return;
+				roomCode = code;
+				role = asPlayer ? "player" : "spectator";
+				isHost = false;
+				isQuickPlay = false;
+				connect(asPlayer ? "join" : "spectate");
+			},
+			leave: leaveTournamentMatch,
+		});
+		return;
+	}
 	const params = new URLSearchParams(location.search);
 	const pathCode = location.pathname.match(/^\/duel\/([A-Z0-9]+)/i)?.[1];
 	const wantsSpectate = params.get("spectate") !== null;
@@ -431,7 +468,8 @@ async function connect(joinEvent) {
 		if (state.players?.length) lastPlayers = state.players;
 		/** Colours go by seat, so a player keeps theirs from round to round and into the replay. */
 		for (const p of lastPlayers) pinColor(p.user_id);
-		renderEmoteBar(state.emotes, !isSpectator());
+		/** Logged-in spectators of a tournament match can react too. */
+		renderEmoteBar(state.emotes, !isSpectator() || (!!stage && !!user));
 		showSpectatorCount(state.spectators);
 		showWaitingRoom(state);
 	});
@@ -465,6 +503,18 @@ async function connect(joinEvent) {
 		Sounds.play("opponent");
 		setOpponentBadge("check_circle", "Opponent guessed");
 	});
+	on("pin_preview", (data) => {
+		if (!isSpectator()) return;
+		view?.map.setNamePin(
+			data.user_id,
+			data.world_x,
+			data.world_y,
+			pinColor(data.user_id),
+			data.display_name || data.username,
+			data.avatar_url,
+			{ status: "placing" }
+		);
+	});
 	on("player_pin", (data) => {
 		if (isSpectator()) {
 			view?.map.setNamePin(
@@ -474,11 +524,12 @@ async function connect(joinEvent) {
 				pinColor(data.user_id),
 				data.display_name || data.username,
 				data.avatar_url,
-				{ ripple: true }
+				{ ripple: true, status: stage ? "locked" : null }
 			);
 		}
 	});
 	on("emote", showEmote);
+	on("crowd_emote", (data) => showCrowdEmote(data.emote));
 	on("round_result", showRoundResult);
 	on("game_end", (data) => showGameEnd(data));
 	on("opponent_disconnected", (data) => showGameEnd(data, { forfeit: true }));
@@ -501,6 +552,7 @@ async function connect(joinEvent) {
 			return rematchUnavailable("Room closed");
 		}
 		backToLobby();
+		if (stage) return;
 		el("join-code").value = "";
 		closedByStaffNotice();
 	});
@@ -556,6 +608,21 @@ function showEmote(data) {
 	});
 }
 
+const CROWD_MAX = 24;
+
+/** A tournament spectator's reaction, floating up the side. */
+function showCrowdEmote(emote) {
+	if (!/^[a-z0-9_]+$/.test(emote || "") || document.querySelectorAll(".crowd-emote").length >= CROWD_MAX) return;
+	const icon = document.createElement("span");
+	icon.className = "crowd-emote material-symbols-outlined";
+	icon.setAttribute("aria-hidden", "true");
+	icon.textContent = emote;
+	icon.style.right = `${8 + Math.random() * 64}px`;
+	icon.style.setProperty("--drift", `${Math.round((Math.random() - 0.5) * 40)}px`);
+	document.body.appendChild(icon);
+	setTimeout(() => icon.remove(), 3200);
+}
+
 const pinColors = new Map();
 function pinColor(userId) {
 	if (!pinColors.has(userId)) pinColors.set(userId, PIN_COLORS[pinColors.size % PIN_COLORS.length]);
@@ -600,6 +667,7 @@ const EMPTY_SEAT_HTML = `<div class="flex flex-col items-center gap-2 w-28 opaci
 function showWaitingRoom(state) {
 	hideOverlay();
 	if (state.status !== "waiting") return;
+	if (stage) return showOverlay("Match starting", "Waiting for both players to connect...");
 	switchScreen("waiting-screen");
 	el("room-code-display").textContent = roomCode;
 	isQuickPlay = !!state.quickplay && !isSpectator();
@@ -657,13 +725,11 @@ function showWaitingRoom(state) {
 
 function showStartCountdown(seconds) {
 	clearInterval(countdownTimer);
+	hideOverlay();
 	let left = seconds;
 	introShown = true;
 	el("versus").innerHTML = versusHtml(lastPlayers);
-	show(
-		"versus-tag",
-		lastPlayers.some((p) => p.rating != null)
-	);
+	tagVersus();
 	el("start-countdown-label").textContent = "Get ready";
 	el("start-countdown-value").textContent = left;
 	Sounds.play("versus");
@@ -731,6 +797,7 @@ function startRound(round) {
 	showJoinIntro();
 	Sounds.play("start");
 	view.go(round);
+	if (stage && isSpectator()) el("click-hint").textContent = "Faded pin: still placing. Tick: guess submitted.";
 	/** Rejoining a round we already answered: the guess stands, so just wait for the other player. */
 	if (round.guessed) {
 		view.lock();
@@ -741,7 +808,25 @@ function startRound(round) {
 	}
 }
 
+const PIN_SHARE_MS = 200;
+let pinShareAt = 0;
+let pinShareTimer = null;
+
+/** Tournament spectators see the pin before it is submitted; the opponent never does. */
+function sharePin(x, y) {
+	if (!stage || isSpectator()) return;
+	clearTimeout(pinShareTimer);
+	const wait = pinShareAt + PIN_SHARE_MS - Date.now();
+	const emit = () => {
+		pinShareAt = Date.now();
+		wire?.emit("pin_move", { world_x: x, world_y: y });
+	};
+	if (wait <= 0) emit();
+	else pinShareTimer = setTimeout(emit, wait);
+}
+
 function sendGuess(pin) {
+	clearTimeout(pinShareTimer);
 	/** The clock keeps running: the round only ends when both players are in or time is up. */
 	el("click-hint").textContent = pin ? "Guess locked in" : "Time's up. No pin placed";
 	setOpponentBadge("hourglass_top", "Waiting for your opponent...");
@@ -849,14 +934,17 @@ function versusHtml(players) {
 		: "";
 }
 
+/** Ranked, or which tournament match this is. */
+function tagVersus() {
+	if (stage) el("versus-tag").textContent = stage.label();
+	show("versus-tag", !!stage || lastPlayers.some((p) => p.rating != null));
+}
+
 function showJoinIntro() {
 	if (introShown || lastPlayers.length !== 2) return;
 	introShown = true;
 	el("versus").innerHTML = versusHtml(lastPlayers);
-	show(
-		"versus-tag",
-		lastPlayers.some((p) => p.rating != null)
-	);
+	tagVersus();
 	el("start-countdown-label").textContent = isSpectator() ? "Now watching" : "Back in the duel";
 	el("start-countdown-value").textContent = "";
 	Sounds.play("versus");
@@ -951,6 +1039,20 @@ function showOwnRating(result) {
 	Object.assign(user, { duel_rating: mine.rating, duel_rated_games: (user.duel_rated_games || 0) + 1 });
 }
 
+/** The closest guess of the match. */
+function bestGuessText(result) {
+	let best = null;
+	for (const round of result.rounds || roundHistory) {
+		for (const r of round.results || []) {
+			if (r.distance === null || r.distance === undefined) continue;
+			if (!best || r.distance < best.distance) best = { ...r, round: round.round };
+		}
+	}
+	if (!best) return "";
+	const name = best.user_id === user?.id && !isSpectator() ? "yours" : best.display_name || best.username;
+	return `Best guess: ${name}, ~${best.distance.toLocaleString()} units away in round ${best.round}`;
+}
+
 function showGameEnd(result, { forfeit = false } = {}) {
 	/** The server's record covers rounds played before we joined or reloaded. */
 	if (result.rounds?.length) roundHistory = result.rounds;
@@ -981,9 +1083,22 @@ function showGameEnd(result, { forfeit = false } = {}) {
 			? result.is_tie
 				? "Still level after sudden death."
 				: "Decided in sudden death."
-			: "";
+			: result.tiebreak
+				? "Level on points. The closer guesses overall decided it."
+				: "";
 	showSeries(result);
 	showOwnRating(result);
+	if (stage) {
+		showEndPanel(null);
+		show("end-leave-btn", false);
+		el("end-series").textContent = [
+			bestGuessText(result),
+			isSpectator() ? stage.pickResult(result.winner?.user_id) : "",
+		]
+			.filter(Boolean)
+			.join(". ");
+		show("end-series", !!el("end-series").textContent);
+	}
 
 	const medals = [
 		["emoji_events", "text-yellow-400"],

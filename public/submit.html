@@ -238,10 +238,10 @@
         <div id="panel-suggest" class="hidden flex-1 overflow-y-auto flex flex-col gap-4 p-4">
           <div id="suggest-locked" style="display: none" class="flex-col gap-3 items-center text-center py-8 px-2">
             <span class="material-symbols-outlined text-4xl text-zinc-600" style="font-variation-settings: &quot;FILL&quot; 1">lock_clock</span>
-            <div class="font-semibold">Suggestions aren't open to you yet</div>
+            <div class="font-semibold" id="suggest-locked-title">Suggestions aren't open to you yet</div>
             <p class="text-zinc-400 text-sm" id="suggest-locked-reason"></p>
             <div id="suggest-locked-progress" class="w-full max-w-xs flex flex-col gap-3 text-left"></div>
-            <p class="text-zinc-600 text-xs">You can still submit new locations.</p>
+            <p class="text-zinc-600 text-xs" id="suggest-locked-note">You can still submit new locations.</p>
           </div>
 
           <div id="suggest-policy-gate" style="display: none" class="flex flex-col gap-4">
@@ -467,10 +467,13 @@
             <option value="medium">Medium</option>
             <option value="low">Low</option>
           </select>
-          <button id="zoom-in" class="bg-zinc-800/90 w-9 h-9 rounded-full flex items-center justify-center hover:bg-zinc-700 transition">
+        </div>
+        <div id="map-zoom" class="absolute right-3 bottom-16 z-10 flex flex-col bg-zinc-800 border border-zinc-700/60 rounded-full shadow-sm overflow-hidden">
+          <button id="zoom-in" title="Zoom in" aria-label="Zoom in" class="w-10 h-10 flex items-center justify-center hover:bg-zinc-700 transition">
             <span class="material-symbols-outlined text-lg">add</span>
           </button>
-          <button id="zoom-out" class="bg-zinc-800/90 w-9 h-9 rounded-full flex items-center justify-center hover:bg-zinc-700 transition">
+          <div class="h-px bg-zinc-700/60 mx-2"></div>
+          <button id="zoom-out" title="Zoom out" aria-label="Zoom out" class="w-10 h-10 flex items-center justify-center hover:bg-zinc-700 transition">
             <span class="material-symbols-outlined text-lg">remove</span>
           </button>
         </div>

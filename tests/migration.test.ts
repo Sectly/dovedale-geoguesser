@@ -99,10 +99,19 @@ describe("upgrading a database from the previous release", () => {
 			"fairplay_flags",
 			"location_stats",
 			"announcements",
+			"tournaments",
+			"tournament_players",
 		])
 			expect([table, count(db, table) >= 0]).toEqual([table, true]);
 		const columns = db.query<{ name: string }, []>("PRAGMA table_info(location_stats)").all();
 		expect(columns.map((column) => column.name)).toContain("recent_sum");
+		const duelColumns = db.query<{ name: string }, []>("PRAGMA table_info(duel_games)").all();
+		expect(duelColumns.map((column) => column.name)).toContain("tournament_id");
+		const tournamentColumns = db.query<{ name: string }, []>("PRAGMA table_info(tournaments)").all();
+		expect(tournamentColumns.map((column) => column.name)).toContain("results_until");
+		expect(tournamentColumns.map((column) => column.name)).toContain("invite_code");
+		const playerColumns = db.query<{ name: string }, []>("PRAGMA table_info(tournament_players)").all();
+		expect(playerColumns.map((column) => column.name)).toContain("invite_code");
 		expect(
 			db.query<{ user_version: number }, []>("PRAGMA user_version").get()!.user_version
 		).toBeGreaterThanOrEqual(3);
