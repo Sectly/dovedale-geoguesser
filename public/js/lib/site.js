@@ -1,3 +1,4 @@
+import "./icons.js";
 import "./restart.js";
 import "./header.js";
 import "./keys.js";

@@ -151,11 +151,13 @@
           <div id="step2" class="step-idle">
             <div class="flex items-center gap-3 mb-2">
               <div class="step-num">2</div>
-              <span class="text-sm font-semibold">Label</span>
+              <span id="label-input-name" class="text-sm font-semibold">Label</span>
               <span class="text-red-400/80 text-xs ml-auto">Required</span>
             </div>
             <input
               id="label-input"
+              aria-labelledby="label-input-name"
+              aria-required="true"
               type="text"
               placeholder="e.g. Near Dovedale Central"
               maxlength="128"

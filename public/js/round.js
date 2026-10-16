@@ -71,6 +71,10 @@ export class RoundView {
 			],
 			[["+", "="], "Zoom the map in", duringRound(() => this.map.zoomBy(1.3))],
 			[["-"], "Zoom the map out", duringRound(() => this.map.zoomBy(1 / 1.3))],
+			/** Listed only: the map handles these itself while it has focus. */
+			[["Tab"], "Focus the map", () => false],
+			[["Arrows"], "Move the focused map", () => false],
+			[["P"], "Drop the pin at the crosshair", () => false],
 		]);
 		setupPhotoLens(el("round-photo"));
 		setupResizeHandle();

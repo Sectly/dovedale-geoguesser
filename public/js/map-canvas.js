@@ -520,7 +520,31 @@ export class MapCanvas {
 		for (const pin of this.namePins.values()) this._drawNamePin(pin);
 		/** The answer goes on last so nothing covers it. */
 		for (const drawAnswer of this._deferredPins) drawAnswer();
+		if (this._aiming && this.pinEnabled) this._drawCrosshair();
 		if (animating) this._scheduleDraw();
+	}
+
+	/** Where P drops the pin when the map is used from the keyboard. */
+	_drawCrosshair() {
+		const ctx = this.ctx;
+		const x = this.viewWidth / 2;
+		const y = this.viewHeight / 2;
+		const r = 10;
+		ctx.save();
+		ctx.resetTransform();
+		ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+		/** A dark outline under a white cross, so it shows on any part of the map. */
+		for (const width of [3, 1.5]) {
+			ctx.lineWidth = width;
+			ctx.beginPath();
+			ctx.moveTo(x - r, y);
+			ctx.lineTo(x + r, y);
+			ctx.moveTo(x, y - r);
+			ctx.lineTo(x, y + r);
+			ctx.stroke();
+			ctx.strokeStyle = "#fff";
+		}
+		ctx.restore();
 	}
 
 	_screenPos(worldX, worldY) {
@@ -1028,8 +1052,44 @@ export class MapCanvas {
 		this.onPinPlaced(world.x, world.y);
 	}
 
+	/** Moves the view by a distance in canvas units. */
+	_panBy(dx, dy) {
+		this._busy();
+		const from = this.ctx.transformedPoint(0, 0);
+		const to = this.ctx.transformedPoint(dx, dy);
+		this.ctx.translate(from.x - to.x, from.y - to.y);
+		this._scheduleDraw();
+	}
+
+	/** Arrow keys move the map and P drops the pin under the crosshair, once the map has keyboard focus. */
+	_setupKeyboard() {
+		const canvas = this.canvas;
+		canvas.tabIndex = 0;
+		canvas.setAttribute("role", "application");
+		canvas.setAttribute("aria-label", "Map");
+		/** Only for focus from the keyboard: a click focuses the map too, and must leave other arrow-key uses alone. */
+		const aim = () => {
+			this._aiming = canvas.matches(":focus-visible");
+			this._scheduleDraw();
+		};
+		canvas.addEventListener("focus", aim);
+		canvas.addEventListener("blur", aim);
+		canvas.addEventListener("keydown", (e) => {
+			if (!this._aiming || e.ctrlKey || e.metaKey || e.altKey) return;
+			const step = Math.min(this.viewWidth, this.viewHeight) / 6;
+			const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+			if (moves[e.key]) this._panBy(...moves[e.key]);
+			else if (e.key === "p" || e.key === "P")
+				this._placePinAt({ x: this.viewWidth / 2, y: this.viewHeight / 2 });
+			else return;
+			e.preventDefault();
+			e.stopPropagation();
+		});
+	}
+
 	_setupEvents() {
 		const canvas = this.canvas;
+		this._setupKeyboard();
 
 		/** A press that ends where it began places the pin, however long it took; one that moves is a pan. */
 		const moved = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);

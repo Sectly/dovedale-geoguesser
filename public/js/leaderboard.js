@@ -60,7 +60,10 @@ function renderSortToggle() {
 			[60, "60s"],
 			[90, "90s"],
 			[120, "120s"],
-			[0, '<span class="material-symbols-outlined text-sm leading-none align-middle">all_inclusive</span>'],
+			[
+				0,
+				'<span class="material-symbols-outlined text-sm leading-none align-middle" title="No time limit">all_inclusive</span>',
+			],
 		];
 		wrap.innerHTML = `
 		<div class="flex items-center gap-1 overflow-x-auto pb-1">
@@ -279,7 +282,7 @@ function entryHtml(tab, e, i) {
 		const tlLabel =
 			e.time_limit > 0
 				? `${e.time_limit}s`
-				: '<span class="material-symbols-outlined text-xs align-middle leading-none">all_inclusive</span>';
+				: '<span class="material-symbols-outlined text-xs align-middle leading-none" title="No time limit">all_inclusive</span>';
 		score = `<div class="font-mono font-bold text-lg">${mainVal}</div><div class="text-xs text-zinc-500">${e.rounds}R · ${tlLabel} · ${Math.round(((e.total_score || 0) / (e.max_possible || 25000)) * 100)}%</div>`;
 	} else if (tab === "duels") {
 		const qp = e.quickplay_games || 0;
