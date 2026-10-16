@@ -1091,11 +1091,13 @@ function showGameEnd(result, { forfeit = false } = {}) {
 	if (stage) {
 		showEndPanel(null);
 		show("end-leave-btn", false);
-		el("end-series").textContent =
-			[bestGuessText(result), isSpectator() ? stage.pickResult(result.winner?.user_id) : ""]
-				.filter(Boolean)
-				.join(". ") || "Back to the bracket shortly";
-		show("end-series");
+		el("end-series").textContent = [
+			bestGuessText(result),
+			isSpectator() ? stage.pickResult(result.winner?.user_id) : "",
+		]
+			.filter(Boolean)
+			.join(". ");
+		show("end-series", !!el("end-series").textContent);
 	}
 
 	const medals = [

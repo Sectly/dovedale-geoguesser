@@ -9,7 +9,7 @@ Play it at [dovedalegeoguesser.com](https://dovedalegeoguesser.com).
 - **Solo:** 3, 5 or 10 rounds at your own pace. No login needed.
 - **Daily challenge:** one location a day, with a streak to keep going.
 - **Duels:** real-time 1v1 by invite link or quick play. Anyone can watch.
-- **Tournaments:** knockout brackets for game nights, run by staff and played one match at a time so everyone watches the same duel.
+- **Tournaments:** knockout brackets for game nights, run by staff. Early rounds can play all at once, then one match at a time so everyone watches the same duel. Spectators can chat, with a word filter and staff moderation.
 - **Specials:** side modes, mini-games and seasonal events, just for fun.
 - **Leaderboards and profiles:** for solo, duels and the daily.
 - **Submissions:** players add their own screenshots and suggest fixes; staff review them.
@@ -68,6 +68,8 @@ pm2 start pm2.config.js
 
 After that, run `./deploy.sh`, or use the System tab in the staff panel.
 
+The chat filter downloads word lists from the web (a default list from GitHub is added on first start), so the server needs outgoing HTTPS.
+
 If you sit behind a proxy, it needs to pass WebSocket connections through (duels use them), not buffer `/api/events` (live updates, tournament pages included), and set `X-Forwarded-For`.
 
 > **Upgrading from a version before the restructure?** Do that one deploy by hand, because the old `deploy.sh` will stop partway:
@@ -96,14 +98,14 @@ Operators also get a **System** tab in the staff panel to switch on maintenance 
 
 Each role can do everything the one above it can. The Staff tab in the staff panel has the full list.
 
-| Role          | Adds                                                                                                                          |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Helper        | Review submissions and suggested changes. A player, not counted as staff                                                      |
-| Curator       | Browse and edit locations, see every review, staff chat and announcements                                                     |
-| Moderator     | Answer tickets, warn, limit and temporarily ban, review ban-evasion and fair-play flags, run tournaments                      |
-| Supervisor    | Ban permanently, overturn most actions, manage moderators and below, read the audit log, create, start and cancel tournaments |
-| Administrator | Correct scores and ratings, send announcements, delete locations, watch or close duels                                        |
-| Operator      | Everything, including exporting or deleting player data and the System tab. Set in .env                                       |
+| Role          | Adds                                                                                                                                               |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Helper        | Review submissions and suggested changes. A player, not counted as staff                                                                           |
+| Curator       | Browse and edit locations, see every review, staff chat and announcements                                                                          |
+| Moderator     | Answer tickets, warn, limit and temporarily ban, review ban-evasion and fair-play flags, run tournaments and their chat                            |
+| Supervisor    | Ban permanently, overturn most actions, manage moderators and below, read the audit log, create, start and cancel tournaments, add chat word lists |
+| Administrator | Correct scores and ratings, send announcements, delete locations, watch or close duels                                                             |
+| Operator      | Everything, including exporting or deleting player data and the System tab. Set in .env                                                            |
 
 ## Specials and seasons
 

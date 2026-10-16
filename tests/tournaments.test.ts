@@ -452,4 +452,82 @@ describe("tournaments", () => {
 		expect(image.status).toBe(200);
 		expect(image.headers.get("Content-Type")).toBe("image/png");
 	});
+
+	test("early rounds play all at once, then one match at a time from the quarter-finals", async () => {
+		const { id, staff, players } = await setUp(16);
+		await openAndCheckIn(id, staff, players);
+		let t = (await post(`/api/admin/tournaments/${id}/start`, staff)).data;
+		expect(t.phase).toMatchObject({ kind: "break", label: "start", match_id: null, round: 0 });
+
+		const first = t.rounds[0].matches;
+		const byId = (uid: number) => players.find((p) => p.id === uid)!;
+		/** Six matches ready up; two don't. */
+		for (const m of first.slice(0, 6))
+			for (const p of m.players) await post(`/api/tournaments/${id}/ready`, byId(p));
+		await post(`/api/admin/tournaments/${id}/control`, staff, { action: "skip" });
+		await tick();
+		t = await view(id);
+		expect(t.phase).toMatchObject({ kind: "batch", round: 0 });
+		const round = () => t.rounds[0].matches;
+		expect(round().filter((m: any) => m.status === "live")).toHaveLength(6);
+		expect(round().filter((m: any) => m.hold === "not_ready")).toHaveLength(2);
+
+		/** A held match starts by itself once both players are ready, or when staff start it. */
+		const [late, forced] = round().filter((m: any) => m.hold);
+		for (const p of late.players) await post(`/api/tournaments/${id}/ready`, byId(p));
+		expect((await post(`/api/admin/tournaments/${id}/matches/${forced.id}/start`, staff)).status).toBe(200);
+		t = await view(id);
+		expect(round().every((m: any) => m.status === "live")).toBe(true);
+
+		expect((await post(`/api/admin/tournaments/${id}/feature`, staff, { match_id: late.id })).data.featured).toBe(
+			late.id
+		);
+
+		/** The round ends when every match in it is over; the quarter-finals are one at a time. */
+		for (const m of round()) abandonDuel(seatBoth(m.code), m.players[0]);
+		t = await view(id);
+		expect(t.phase.kind).toBe("break");
+		expect(t.phase.round).toBeNull();
+		expect(t.phase.label).toBe("round");
+		expect(t.rounds[1].matches.some((m: any) => m.id === t.phase.match_id)).toBe(true);
+	});
+
+	test("staff can put through the player who readied up when the other didn't", async () => {
+		const { id, staff, players } = await setUp(2);
+		await openAndCheckIn(id, staff, players);
+		const t = (await post(`/api/admin/tournaments/${id}/start`, staff)).data;
+		const matchId = t.phase.match_id;
+		expect((await post(`/api/admin/tournaments/${id}/matches/${matchId}/not-ready`, staff)).status).toBe(409);
+		await post(`/api/tournaments/${id}/ready`, players[1]);
+		const mod = createUser({ role: "moderator" });
+		const done = (await post(`/api/admin/tournaments/${id}/matches/${matchId}/not-ready`, mod)).data;
+		expect(done.rounds[0].matches[0]).toMatchObject({ winner: players[1].id, decided: "not_ready" });
+	});
+
+	test("operators can clear all tournament history, and numbering starts again", async () => {
+		const { id, staff } = await setUp(2);
+		const op = createUser({ role: "operator" });
+		await post(`/api/admin/tournaments/${id}/open`, staff);
+		expect((await call("/api/admin/tournaments", { method: "DELETE", as: op })).status).toBe(409);
+		await post(`/api/admin/tournaments/${id}/cancel`, staff);
+		expect((await call("/api/admin/tournaments", { method: "DELETE", as: staff })).status).toBe(403);
+		const cleared = await call("/api/admin/tournaments", { method: "DELETE", as: op });
+		expect(cleared.status).toBe(200);
+		expect((await call("/api/admin/tournaments", { as: op })).data).toEqual([]);
+		expect((await post("/api/admin/tournaments", op, { title: "Fresh" })).data.id).toBe(1);
+	});
+
+	test("suggesting changes closes to players while a tournament runs, unless staff turn that off", async () => {
+		const { id, staff, players } = await setUp(2);
+		const player = createUser({ ageDays: 30 });
+		const closed = async () => (await call("/api/suggestions/eligibility", { as: player })).data.closed;
+		await openAndCheckIn(id, staff, players);
+		expect(await closed()).toBe(false);
+		expect((await post(`/api/admin/tournaments/${id}/start`, staff)).status).toBe(200);
+		expect(await closed()).toBe(true);
+		expect((await call("/api/locations/with-coords", { as: player })).status).toBe(403);
+		expect((await call("/api/locations/with-coords", { as: staff })).status).toBe(200);
+		await call(`/api/admin/tournaments/${id}`, { method: "PATCH", as: staff, json: { lock_suggestions: false } });
+		expect(await closed()).toBe(false);
+	});
 });

@@ -14,9 +14,11 @@ export const AUDIT_ACTION_LABELS = {
 	user_warning: { label: "Warned user", color: "text-yellow-400" },
 	user_limit_upload: { label: "Limited uploads", color: "text-orange-400" },
 	user_limit_duel: { label: "Limited duels", color: "text-orange-400" },
+	user_limit_chat: { label: "Limited chat", color: "text-orange-400" },
 	user_warning_overturn: { label: "Overturned warning", color: "text-green-400" },
 	user_limit_upload_overturn: { label: "Lifted upload limit", color: "text-green-400" },
 	user_limit_duel_overturn: { label: "Lifted duel limit", color: "text-green-400" },
+	user_limit_chat_overturn: { label: "Lifted chat limit", color: "text-green-400" },
 	user_ban_temp_overturn: { label: "Overturned temp ban", color: "text-green-400" },
 	user_ban_perm_overturn: { label: "Overturned perm ban", color: "text-green-400" },
 	moderation_record_delete: { label: "Removed moderation record", color: "text-zinc-400" },
@@ -85,6 +87,48 @@ export const AUDIT_ACTION_LABELS = {
 	duel_start: { label: "Duel started", color: "text-green-400" },
 	duel_end: { label: "Duel ended", color: "text-zinc-300" },
 	duel_abandon: { label: "Duel abandoned", color: "text-orange-400" },
+	tournament_create: { label: "Created tournament", color: "text-blue-400" },
+	tournament_update: { label: "Edited tournament", color: "text-blue-300" },
+	tournament_delete: { label: "Deleted tournament", color: "text-red-400" },
+	tournament_open: { label: "Opened check-in", color: "text-green-400" },
+	tournament_unpublish: { label: "Tournament back to draft", color: "text-zinc-400" },
+	tournament_start: { label: "Started tournament", color: "text-green-400" },
+	tournament_finish: { label: "Tournament finished", color: "text-zinc-300" },
+	tournament_cancel: { label: "Cancelled tournament", color: "text-red-400" },
+	tournament_history_reset: { label: "Cleared tournament history", color: "text-red-400" },
+	tournament_players_add: { label: "Added tournament players", color: "text-blue-300" },
+	tournament_player_remove: { label: "Removed tournament player", color: "text-orange-400" },
+	tournament_shuffle: { label: "Shuffled tournament players", color: "text-zinc-400" },
+	tournament_invite_on: { label: "Made tournament invite", color: "text-blue-300" },
+	tournament_invite_off: { label: "Turned off tournament invite", color: "text-zinc-400" },
+	tournament_invite_join: { label: "Joined tournament by invite", color: "text-blue-300" },
+	tournament_redraw: { label: "Redrew bracket", color: "text-yellow-400" },
+	tournament_skip: { label: "Skipped tournament countdown", color: "text-zinc-300" },
+	tournament_add_time: { label: "Added tournament time", color: "text-zinc-300" },
+	tournament_pause: { label: "Paused tournament", color: "text-yellow-400" },
+	tournament_resume: { label: "Resumed tournament", color: "text-zinc-300" },
+	tournament_continue: { label: "Continued tournament", color: "text-zinc-300" },
+	tournament_match_start: { label: "Tournament match started", color: "text-green-400" },
+	tournament_match_force: { label: "Started tournament match", color: "text-yellow-400" },
+	tournament_match_restart: { label: "Restarted tournament match", color: "text-yellow-400" },
+	tournament_award: { label: "Gave tournament match", color: "text-orange-400" },
+	tournament_not_ready: { label: "Not ready, put out", color: "text-orange-400" },
+	tournament_slot: { label: "Changed bracket place", color: "text-yellow-400" },
+	tournament_message: { label: "Tournament message", color: "text-blue-300" },
+	tournament_results_show: { label: "Showed tournament results", color: "text-zinc-300" },
+	tournament_results_hide: { label: "Hid tournament results", color: "text-zinc-400" },
+	tournament_chat_on: { label: "Turned chat on", color: "text-green-400" },
+	tournament_chat_off: { label: "Turned chat off", color: "text-zinc-400" },
+	tournament_chat_settings: { label: "Changed chat settings", color: "text-zinc-300" },
+	tournament_chat_delete: { label: "Deleted chat message", color: "text-orange-400" },
+	tournament_chat_approve: { label: "Approved chat message", color: "text-green-400" },
+	tournament_chat_clear: { label: "Cleared chat", color: "text-orange-400" },
+	chat_filter_add: { label: "Blocked chat words", color: "text-orange-400" },
+	chat_filter_allow: { label: "Allowed chat words", color: "text-blue-300" },
+	chat_filter_remove: { label: "Removed chat filter word", color: "text-zinc-400" },
+	chat_list_add: { label: "Added word list", color: "text-orange-400" },
+	chat_list_update: { label: "Changed word list", color: "text-zinc-300" },
+	chat_list_remove: { label: "Removed word list", color: "text-zinc-400" },
 };
 
 const AUDIT_CATEGORIES = [
@@ -96,11 +140,13 @@ const AUDIT_CATEGORIES = [
 			"user_warning",
 			"user_limit_upload",
 			"user_limit_duel",
+			"user_limit_chat",
 			"user_ban_temp",
 			"user_ban_perm",
 			"user_warning_overturn",
 			"user_limit_upload_overturn",
 			"user_limit_duel_overturn",
+			"user_limit_chat_overturn",
 			"user_ban_temp_overturn",
 			"user_ban_perm_overturn",
 			"moderation_record_delete",
@@ -168,6 +214,54 @@ const AUDIT_CATEGORIES = [
 		],
 	},
 	{
+		key: "tournaments",
+		label: "Tournaments",
+		actions: [
+			"tournament_create",
+			"tournament_update",
+			"tournament_delete",
+			"tournament_open",
+			"tournament_unpublish",
+			"tournament_start",
+			"tournament_finish",
+			"tournament_cancel",
+			"tournament_history_reset",
+			"tournament_players_add",
+			"tournament_player_remove",
+			"tournament_shuffle",
+			"tournament_invite_on",
+			"tournament_invite_off",
+			"tournament_invite_join",
+			"tournament_redraw",
+			"tournament_skip",
+			"tournament_add_time",
+			"tournament_pause",
+			"tournament_resume",
+			"tournament_continue",
+			"tournament_match_start",
+			"tournament_match_force",
+			"tournament_match_restart",
+			"tournament_award",
+			"tournament_not_ready",
+			"tournament_slot",
+			"tournament_message",
+			"tournament_results_show",
+			"tournament_results_hide",
+			"tournament_chat_on",
+			"tournament_chat_off",
+			"tournament_chat_settings",
+			"tournament_chat_delete",
+			"tournament_chat_approve",
+			"tournament_chat_clear",
+			"chat_filter_add",
+			"chat_filter_allow",
+			"chat_filter_remove",
+			"chat_list_add",
+			"chat_list_update",
+			"chat_list_remove",
+		],
+	},
+	{
 		key: "system",
 		label: "System",
 		actions: [
@@ -211,6 +305,8 @@ const AUDIT_ROUTINE = new Set([
 	"quickplay_queue",
 	"duel_start",
 	"duel_end",
+	"tournament_match_start",
+	"tournament_invite_join",
 ]);
 
 let auditOffset = 0;
@@ -253,6 +349,18 @@ export async function loadAudit(reset = true) {
 	}
 }
 
+/** A player, ticket or tournament the entry was about. */
+function auditTargetHtml(e) {
+	const player = e.target_username
+		? ` <span class="text-zinc-600">on</span> <a href="/u/${encodeURIComponent(e.target_username)}" class="hover:underline">${escHtml(e.target_username)}</a>`
+		: "";
+	if (e.target_type === "ticket")
+		return e.target_id ? ` <span class="text-zinc-600">on Ticket #${e.target_id}</span>` : "";
+	if (e.target_type === "tournament" && e.target_id)
+		return `${player} <span class="text-zinc-600">in</span> <a href="/admin#tournaments:${e.target_id}" onclick="switchTab('tournaments', false, ${e.target_id}); return false;" class="hover:underline">Tournament #${e.target_id}</a>`;
+	return player || (e.target_id ? ` <span class="text-zinc-600">#${e.target_id}</span>` : "");
+}
+
 function auditEntryHtml(e, compact = false) {
 	const info = AUDIT_ACTION_LABELS[e.action] || { label: e.action, color: "text-zinc-300" };
 	const time = new Date(e.created_at * 1000).toLocaleString();
@@ -261,7 +369,7 @@ function auditEntryHtml(e, compact = false) {
         <span class="${info.color} w-44 flex-shrink-0 font-medium">${info.label}</span>
         <span class="text-zinc-300 flex-1">
             ${e.actor_username ? `<span class="text-zinc-400">by</span> <a href="/u/${encodeURIComponent(e.actor_username)}" class="hover:underline text-zinc-200">${escHtml(e.actor_username)}</a>` : '<span class="text-zinc-600">system</span>'}
-            ${e.target_type !== "ticket" ? (e.target_username ? ` <span class="text-zinc-600">on</span> <a href="/u/${encodeURIComponent(e.target_username)}" class="hover:underline">${escHtml(e.target_username)}</a>` : e.target_id ? ` <span class="text-zinc-600">#${e.target_id}</span>` : "") : e.target_id ? ` <span class="text-zinc-600">on Ticket #${e.target_id}</span>` : ""}
+            ${auditTargetHtml(e)}
             ${e.details ? ` <span class="text-zinc-600 text-xs ml-1">${escHtml(e.action === "user_role_change" ? roleChangeText(e.details) : e.details)}</span>` : ""}
         </span>
     </div>`;

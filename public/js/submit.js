@@ -245,6 +245,9 @@ async function showSuggestGateOrPick() {
 	}
 	if (mode !== "suggest") return;
 	if (!_eligibility.eligible) {
+		el("suggest-locked-title").textContent = _eligibility.closed
+			? "Suggestions are closed for now"
+			: "Suggestions aren't open to you yet";
 		el("suggest-locked-reason").textContent = _eligibility.progress ? "" : _eligibility.reason;
 		el("suggest-locked-progress").innerHTML = suggestProgressHtml(_eligibility.progress);
 		el("suggest-locked").style.display = "flex";

@@ -927,14 +927,27 @@ export class MapCanvas {
 			);
 		};
 		ctx.getTransform = () => transform;
+		/** Zoom is saved with the transform, since overlays reset it between save and restore. */
 		ctx.save = () => {
-			savedStack.push(
-				new DOMMatrix([transform.a, transform.b, transform.c, transform.d, transform.e, transform.f])
-			);
+			savedStack.push({
+				transform: new DOMMatrix([
+					transform.a,
+					transform.b,
+					transform.c,
+					transform.d,
+					transform.e,
+					transform.f,
+				]),
+				scale: this.currentScale,
+			});
 			original.save();
 		};
 		ctx.restore = () => {
-			if (savedStack.length > 0) transform = savedStack.pop();
+			const saved = savedStack.pop();
+			if (saved) {
+				transform = saved.transform;
+				this.currentScale = saved.scale;
+			}
 			original.restore();
 		};
 		ctx.scale = (sx, sy) => {

@@ -173,6 +173,31 @@ export function nudgeBanner() {
 	for (const client of clients) void send(client, "banner", value);
 }
 
+/** To every page watching this tournament whose viewer `allow` lets through. */
+export function sendToWatchers(
+	tournamentId: number,
+	event: string,
+	data: unknown,
+	allow: (userId: number | null) => boolean = () => true
+) {
+	for (const client of clients)
+		if (client.watching === tournamentId && allow(client.userId)) void send(client, event, data, { always: true });
+}
+
+/** Each watcher's own value, sent only when it changed. `userIds` limits it to those viewers. */
+export function sendEachWatcher(
+	tournamentId: number,
+	event: string,
+	valueFor: (userId: number | null) => unknown,
+	userIds?: Set<number>
+) {
+	for (const client of clients) {
+		if (client.watching !== tournamentId) continue;
+		if (userIds && (client.userId === null || !userIds.has(client.userId))) continue;
+		void send(client, event, valueFor(client.userId));
+	}
+}
+
 /** The ping has no content; pages fetch the chat themselves. */
 export function nudgeStaffChat() {
 	for (const client of clients) {

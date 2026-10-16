@@ -192,6 +192,10 @@ const FEATURE_INFO = {
 		"Duel reactions",
 		"The preset icons players can send each other during a duel. Switch off if they are being used to annoy people.",
 	],
+	tournament_chat: [
+		"Tournament chat",
+		"Spectator chat on tournament pages. Each tournament also has its own switch, off until staff turn it on.",
+	],
 	submissions: ["Submissions", "Players sending in new locations. Staff can still submit while it is off."],
 	suggestions: ["Suggestions", "Players suggesting changes to existing locations."],
 	new_duels: ["New duels", "Starting duels, Quick Play and team games. Games already open carry on to the end."],

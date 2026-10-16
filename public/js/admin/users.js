@@ -66,7 +66,8 @@ const ROLE_INFO = {
 			"Review ban-evasion and fair-play flags",
 			"Leave notes on a player for other staff",
 			"See duel history and stats",
-			"Run tournaments: players, check-in, breaks, matches, messages and results",
+			"Run tournaments: players, check-in, breaks, matches, messages, chat and results",
+			"Edit the chat filter's blocked and allowed words",
 			"Suspend a helper's or curator's access",
 			"Pin staff chat messages from a lower role as well as their own, up to {pins}",
 		],
@@ -80,6 +81,7 @@ const ROLE_INFO = {
 			"Remove another member of staff's note",
 			"See site stats and the audit log",
 			"Create, open, start, cancel and delete tournaments",
+			"Add and remove chat word lists from the web",
 			"Delete a lower role's staff chat message or take off its pin, and keep up to {pins} pinned",
 		],
 	},
@@ -101,6 +103,7 @@ const ROLE_INFO = {
 			"Appoint administrators",
 			"Export or delete a player's data, and erase moderation records",
 			"Maintenance mode, feature switches, updates, restarts, backups and the server log",
+			"Clear all tournament history",
 			"Keep up to {pins} staff chat messages pinned",
 		],
 		note: "Operators are set in the server's configuration, not from this page.",
@@ -134,6 +137,15 @@ const MOD_ACTIONS = {
 		durations: [6, 24, 48, 96],
 		note: "Stops the user creating or joining duels. Up to 96 hours.",
 	},
+	limit_chat: {
+		title: "Limit chat",
+		button: "Limit chat",
+		tone: "bg-orange-700 hover:bg-orange-600",
+		endpoint: "limit",
+		body: { type: "chat" },
+		durations: [1, 6, 24, 96],
+		note: "Stops the user reading or writing tournament chat. Up to 96 hours.",
+	},
 	ban_temp: {
 		title: "Temporary ban",
 		button: "Ban user",
@@ -157,6 +169,7 @@ const MOD_TYPE_STYLE = {
 	warning: ["warning", "text-yellow-400"],
 	limit_upload: ["upload_off", "text-orange-400"],
 	limit_duel: ["swords", "text-orange-400"],
+	limit_chat: ["comments_disabled", "text-orange-400"],
 	ban_temp: ["timer", "text-red-400"],
 	ban_perm: ["block", "text-red-400"],
 };
@@ -607,6 +620,7 @@ function renderUserPanel({
 						${actionBtn("warn", "Warn", "bg-yellow-800 hover:bg-yellow-700")}
 						${actionBtn("limit_upload", "Limit uploads", "bg-zinc-700 hover:bg-zinc-600")}
 						${actionBtn("limit_duel", "Limit duels", "bg-zinc-700 hover:bg-zinc-600")}
+						${actionBtn("limit_chat", "Limit chat", "bg-zinc-700 hover:bg-zinc-600")}
 						${actionBtn("ban_temp", "Temp ban", "bg-orange-800 hover:bg-orange-700")}
 						${myRank >= ROLE_RANK_JS.supervisor ? actionBtn("ban_perm", "Perm ban", "bg-red-800 hover:bg-red-700") : ""}
 					</div>`

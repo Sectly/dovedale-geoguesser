@@ -11,6 +11,7 @@ import {
 	vote,
 } from "../game/tournaments";
 import { fail, idParam, readJson, text } from "../lib/http";
+import { chatHistory, reportChat, sendChat } from "../game/chat";
 
 export const tournamentRoutes = new Hono();
 
@@ -45,5 +46,18 @@ tournamentRoutes.post("/:id/vote", async (c) => {
 
 tournamentRoutes.post("/:id/ready", (c) => {
 	markReady(idParam(c), requirePlayer(c));
+	return c.json({ success: true });
+});
+
+/** What the viewer may do in chat, and the latest messages if they may read them. */
+tournamentRoutes.get("/:id/chat", (c) => c.json(chatHistory(currentUser(c), idParam(c))));
+
+tournamentRoutes.post("/:id/chat", async (c) => {
+	const body = (await readJson<{ text: unknown }>(c)).text;
+	return c.json(sendChat(requirePlayer(c), idParam(c), body));
+});
+
+tournamentRoutes.post("/:id/chat/:messageId/report", (c) => {
+	reportChat(requirePlayer(c), idParam(c), idParam(c, "messageId"));
 	return c.json({ success: true });
 });

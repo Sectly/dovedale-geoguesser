@@ -103,6 +103,7 @@ async function loadModerationHistory() {
 			warning: ["warning", "text-yellow-400"],
 			limit_upload: ["upload_off", "text-orange-400"],
 			limit_duel: ["swords", "text-orange-400"],
+			limit_chat: ["comments_disabled", "text-orange-400"],
 			ban_temp: ["timer", "text-red-400"],
 			ban_perm: ["block", "text-red-400"],
 		};

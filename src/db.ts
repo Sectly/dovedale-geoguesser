@@ -403,6 +403,53 @@ const SCHEMA_STATEMENTS = [
   added_at INTEGER DEFAULT (unixepoch()),
   PRIMARY KEY (tournament_id, user_id)
 )`,
+	/** Spectator chat. `status`: shown, held for staff, blocked by the filter, or deleted. Times in milliseconds. */
+	`CREATE TABLE IF NOT EXISTS tournament_chat (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  username TEXT,
+  body TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'shown',
+  reason TEXT,
+  reports INTEGER NOT NULL DEFAULT 0,
+  handled_by_username TEXT,
+  sent_ms INTEGER NOT NULL
+)`,
+	`CREATE INDEX IF NOT EXISTS idx_tournament_chat ON tournament_chat(tournament_id, id)`,
+	`CREATE TABLE IF NOT EXISTS tournament_chat_reports (
+  message_id INTEGER NOT NULL REFERENCES tournament_chat(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at INTEGER DEFAULT (unixepoch()),
+  PRIMARY KEY (message_id, user_id)
+)`,
+	/** Words staff typed in. `kind` block or allow; `match` word or contains; `action` refuse, mask or hold. */
+	`CREATE TABLE IF NOT EXISTS chat_filter_words (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  word TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'block',
+  match TEXT NOT NULL DEFAULT 'word',
+  action TEXT NOT NULL DEFAULT 'refuse',
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_by_username TEXT,
+  created_at INTEGER DEFAULT (unixepoch()),
+  UNIQUE (word, kind)
+)`,
+	/** Word lists downloaded from the web, one word per line in `words`. */
+	`CREATE TABLE IF NOT EXISTS chat_filter_lists (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  url TEXT NOT NULL UNIQUE,
+  action TEXT NOT NULL DEFAULT 'refuse',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  words TEXT,
+  count INTEGER NOT NULL DEFAULT 0,
+  previous_count INTEGER,
+  fetched_at INTEGER,
+  error TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_by_username TEXT,
+  created_at INTEGER DEFAULT (unixepoch())
+)`,
 ];
 
 for (const sql of SCHEMA_STATEMENTS) {

@@ -19,8 +19,8 @@ import {
 } from "./duels/rooms";
 
 /**
- * Tournaments: one knockout bracket played one match at a time, so everyone watches the same duel.
- * Staff pick the players; whoever checks in gets a place. Between matches there is a break with a countdown.
+ * Tournaments: one knockout bracket. Early rounds can be played all at once; from a chosen round on, matches are
+ * played one at a time so everyone watches the same duel. Between them there is a break with a countdown.
  */
 
 export type TournamentStatus = "draft" | "open" | "live" | "finished" | "cancelled";
@@ -32,15 +32,35 @@ export type Settings = {
 	/** Seconds. */
 	breaks: { start: number; match: number; round: number; final: number };
 	thirdPlace: boolean;
+	/** Rounds before this one (counted from the final: 0 final, 1 semi-finals, 2 quarter-finals) play all at once. */
+	spotlightFrom: number;
+	/** Suggesting changes shows every answer, so it closes while this tournament runs. */
+	lockSuggestions: boolean;
+	/** Spectator chat. Off until staff turn it on. */
+	chat: boolean;
+	/** How long a message waits before others see it, in milliseconds. */
+	chatDelayMs: number;
+	/** Seconds between messages from one person; 0 for no limit. */
+	chatSlowSeconds: number;
+	chatStaffOnly: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
 	rounds: 3,
-	semiRounds: 5,
-	finalRounds: 5,
+	semiRounds: 3,
+	finalRounds: 3,
 	breaks: { start: 300, match: 60, round: 180, final: 180 },
 	thirdPlace: false,
+	spotlightFrom: 2,
+	lockSuggestions: true,
+	chat: false,
+	chatDelayMs: 1500,
+	chatSlowSeconds: 0,
+	chatStaffOnly: false,
 };
+
+export const CHAT_DELAY_MAX_MS = 10_000;
+export const CHAT_SLOW_MAX_S = 120;
 
 /** How long a finished tournament's results stay on the home page unless staff change it. */
 const RESULTS_HOURS = 12;
@@ -56,7 +76,7 @@ export const LIMITS = {
 };
 
 type Side = number | null;
-type Decided = "sudden_death" | "tiebreak" | "forfeit" | "no_show" | "staff" | "bye" | null;
+type Decided = "sudden_death" | "tiebreak" | "forfeit" | "no_show" | "not_ready" | "staff" | "bye" | null;
 
 type Match = {
 	id: number;
@@ -72,13 +92,17 @@ type Match = {
 	gameId: number | null;
 	code: string | null;
 	third?: boolean;
+	/** In a round played all at once: why this match is waiting for staff. */
+	hold?: HoldReason | null;
 };
 
 type BreakLabel = "start" | "match" | "round" | "final";
 
 type Phase =
 	| { kind: "lobby" }
-	| { kind: "break"; label: BreakLabel; matchId: number | null; endsAt: number }
+	| { kind: "break"; label: BreakLabel; matchId: number | null; endsAt: number; round?: number }
+	/** A round being played all at once. */
+	| { kind: "batch"; round: number }
 	| { kind: "hold"; matchId: number | null; reason: HoldReason }
 	| { kind: "match"; matchId: number; code: string }
 	| { kind: "result"; matchId: number; endsAt: number }
@@ -99,6 +123,8 @@ type State = {
 	championId: number | null;
 	/** Spectators' picks: match id, then user id, then side. */
 	votes: Record<string, Record<string, 0 | 1>>;
+	/** The match staff want spectators to follow in a round played all at once. */
+	featured: number | null;
 };
 
 type Tournament = {
@@ -157,7 +183,8 @@ export function tournamentRules() {
 
 let active: Tournament | null = null;
 let phaseTimer: ReturnType<typeof setTimeout> | null = null;
-let joinTimer: ReturnType<typeof setTimeout> | null = null;
+/** One per match being joined, by match id. */
+const joinTimers = new Map<number, ReturnType<typeof setTimeout>>();
 let voteTimer: ReturnType<typeof setTimeout> | null = null;
 let results: { id: number; title: string; until: number; version: number } | null = null;
 let resultsTimer: ReturnType<typeof setTimeout> | null = null;
@@ -172,6 +199,7 @@ const emptyState = (): State => ({
 	notice: null,
 	championId: null,
 	votes: {},
+	featured: null,
 });
 
 function parseJson<T>(raw: string | null, fallback: T): T {
@@ -190,7 +218,7 @@ function fromRow(row: Row): Tournament {
 		description: row.description,
 		status: row.status,
 		startsAt: row.starts_at,
-		settings: { ...settings, breaks: { ...DEFAULT_SETTINGS.breaks, ...settings.breaks } },
+		settings: { ...DEFAULT_SETTINGS, ...settings, breaks: { ...DEFAULT_SETTINGS.breaks, ...settings.breaks } },
 		state: parseJson(row.state, emptyState()),
 		version: Date.now(),
 	};
@@ -204,6 +232,12 @@ function load(id: number): Tournament {
 	const row = getRow(id);
 	if (!row) fail(404, "Tournament not found");
 	return fromRow(row);
+}
+
+function loadOrNull(id: number): Tournament | null {
+	if (active?.id === id) return active;
+	const row = getRow(id);
+	return row ? fromRow(row) : null;
 }
 
 function save(t: Tournament) {
@@ -222,10 +256,17 @@ function save(t: Tournament) {
 	);
 }
 
+let onChanged: ((id: number) => void) | null = null;
+/** Told whenever a tournament changes, so chat can check who may read it. */
+export function onTournamentChanged(fn: (id: number) => void) {
+	onChanged = fn;
+}
+
 /** Saves and tells every open page. */
 function changed(t: Tournament) {
 	t.version++;
 	save(t);
+	onChanged?.(t.id);
 	if (t.status === "open" || t.status === "live") active = t;
 	else if (active?.id === t.id) {
 		active = null;
@@ -236,8 +277,98 @@ function changed(t: Tournament) {
 
 function clearTimers() {
 	if (phaseTimer) clearTimeout(phaseTimer);
-	if (joinTimer) clearTimeout(joinTimer);
-	phaseTimer = joinTimer = null;
+	phaseTimer = null;
+	for (const timer of joinTimers.values()) clearTimeout(timer);
+	joinTimers.clear();
+}
+
+function clearJoinTimer(m: Match) {
+	clearTimeout(joinTimers.get(m.id));
+	joinTimers.delete(m.id);
+}
+
+/** Whether a round is played all at once. */
+const parallel = (t: Tournament, round: number) => t.state.rounds - 1 - round > t.settings.spotlightFrom;
+
+const playable = (m: Match) => m.players.every((p, i) => p !== null && !m.closed[i]);
+
+/* ---- Chat ---- */
+
+/** Where a person stands, for chat. */
+export type ChatRole = "spectator" | "waiting" | "playing" | "out";
+
+/** Null when there is no such tournament. `open` is false once it is over. */
+export function chatTournament(id: number) {
+	const t = active?.id === id ? active : loadOrNull(id);
+	if (!t || t.status === "draft") return null;
+	const showingResults = t.status === "finished" && results?.id === id && results.until > Date.now();
+	return {
+		id: t.id,
+		status: t.status,
+		settings: t.settings,
+		open: t.status === "open" || t.status === "live" || showingResults,
+	};
+}
+
+export function chatRole(id: number, userId: number): { role: ChatRole; code: string | null } {
+	const t = active?.id === id ? active : null;
+	if (!t || t.status !== "live") return { role: "spectator", code: null };
+	const mine = t.state.matches.filter((m) => m.players.includes(userId));
+	if (!mine.length) return { role: "spectator", code: null };
+	const live = mine.find((m) => m.status === "live");
+	if (live) return { role: "playing", code: live.code };
+	const lost = mine.some((m) => (m.status === "done" && m.winner !== userId) || m.closed[m.players.indexOf(userId)]);
+	return { role: lost ? "out" : "waiting", code: null };
+}
+
+/** The location names of every round being played right now. */
+export function liveLocationLabels(id: number): string[] {
+	const t = active?.id === id ? active : null;
+	if (!t || t.status !== "live") return [];
+	return t.state.matches
+		.filter((m) => m.status === "live" && m.code)
+		.map((m) => duelRooms.get(m.code!)?.round?.location.label ?? null)
+		.filter((l): l is string => !!l);
+}
+
+export function updateChatSettings(
+	staff: User,
+	id: number,
+	input: { on?: unknown; delay_ms?: unknown; slow_seconds?: unknown; staff_only?: unknown }
+) {
+	const t = load(id);
+	if (t.status === "draft" || t.status === "cancelled") fail(409, "Chat can only run once the tournament is open.");
+	const s = t.settings;
+	const before = { ...s };
+	if (typeof input.on === "boolean") s.chat = input.on;
+	if (typeof input.staff_only === "boolean") s.chatStaffOnly = input.staff_only;
+	s.chatDelayMs = clamp(input.delay_ms, s.chatDelayMs, 0, CHAT_DELAY_MAX_MS);
+	s.chatSlowSeconds = clamp(input.slow_seconds, s.chatSlowSeconds, 0, CHAT_SLOW_MAX_S);
+	const notes = [
+		s.chat !== before.chat ? (s.chat ? "chat on" : "chat off") : "",
+		s.chatStaffOnly !== before.chatStaffOnly ? (s.chatStaffOnly ? "staff only" : "everyone can write") : "",
+		s.chatSlowSeconds !== before.chatSlowSeconds
+			? `slow mode ${s.chatSlowSeconds ? `${s.chatSlowSeconds}s` : "off"}`
+			: "",
+		s.chatDelayMs !== before.chatDelayMs ? `delay ${s.chatDelayMs / 1000}s` : "",
+	].filter(Boolean);
+	if (!notes.length) return;
+	auditLog(
+		staff,
+		s.chat !== before.chat ? (s.chat ? "tournament_chat_on" : "tournament_chat_off") : "tournament_chat_settings",
+		{
+			targetType: "tournament",
+			targetId: id,
+			details: notes.join(", "),
+		}
+	);
+	changed(t);
+}
+
+/** Why suggesting changes is closed to players right now, or null when it is open. */
+export function suggestionsClosed(): string | null {
+	if (active?.status !== "live" || !active.settings.lockSuggestions) return null;
+	return `Suggestions are closed while "${active.title}" is on. They open again when it ends.`;
 }
 
 /** The tournament that is on, or one whose results are still on show. */
@@ -395,6 +526,22 @@ function settle(s: State, m: Match, winner: Side, decided: Decided) {
 	propagate(s, m);
 }
 
+/** Settles every bye in a round, before it is played all at once. */
+function settleByes(t: Tournament, round: number) {
+	const s = t.state;
+	const names: string[] = [];
+	for (const m of s.matches) {
+		if (m.round !== round || m.third || m.status !== "waiting" || !sideKnown(s, m, 0) || !sideKnown(s, m, 1))
+			continue;
+		if (playable(m)) continue;
+		const [a, b] = m.players;
+		const winner = a !== null && !m.closed[0] ? a : b !== null && !m.closed[1] ? b : null;
+		settle(s, m, winner, "bye");
+		if (winner !== null) names.push(userName(winner));
+	}
+	if (names.length) s.notice = { text: `${names.join(", ")} through without playing`, at: Date.now() };
+}
+
 /** The next match, settling byes on the way. Settled only when reached, so staff can fill an empty place until then. */
 function pickNext(t: Tournament): Match | null {
 	const s = t.state;
@@ -419,6 +566,10 @@ function pickNext(t: Tournament): Match | null {
 	return null;
 }
 
+/** The account name, for audit entries that link to a profile. */
+const loginName = (id: number) =>
+	db.query<{ username: string }, [number]>("SELECT username FROM users WHERE id = ?").get(id)?.username ?? null;
+
 const userName = (id: number) =>
 	db
 		.query<{ name: string }, [number]>("SELECT COALESCE(display_name, username) AS name FROM users WHERE id = ?")
@@ -436,7 +587,9 @@ function arm(t: Tournament) {
 			phaseTimer = null;
 			if (active !== t) return;
 			try {
-				if (t.state.phase.kind === "break") tryStart(t);
+				const phase = t.state.phase;
+				if (phase.kind === "break" && phase.round !== undefined) startRound(t, phase.round);
+				else if (phase.kind === "break") tryStart(t);
 				else if (t.state.phase.kind === "result") advance(t);
 			} catch (err) {
 				console.error(`[tournament] ${t.id} failed to move on:`, err);
@@ -449,7 +602,7 @@ function arm(t: Tournament) {
 function setPhase(t: Tournament, phase: Phase) {
 	t.state.phase = phase;
 	t.state.paused = null;
-	if (phase.kind !== "break" && phase.kind !== "hold") t.state.ready = [];
+	if (phase.kind !== "break" && phase.kind !== "hold" && phase.kind !== "batch") t.state.ready = [];
 	arm(t);
 	changed(t);
 }
@@ -471,6 +624,51 @@ function breakFor(t: Tournament, m: Match, label: BreakLabel, seconds?: number, 
 	}
 }
 
+/** The break before a round played all at once. Every player in it presses Ready for their own match. */
+function breakForRound(t: Tournament, round: number, label: BreakLabel, seconds?: number) {
+	settleByes(t, round);
+	t.state.ready = [];
+	t.state.featured = null;
+	setPhase(t, {
+		kind: "break",
+		label,
+		matchId: null,
+		round,
+		endsAt: Date.now() + (seconds ?? t.settings.breaks[label]) * 1000,
+	});
+	for (const m of t.state.matches) {
+		if (m.round !== round || m.status !== "waiting" || !playable(m)) continue;
+		for (const player of m.players) {
+			notifyUser(player, "reminders", {
+				title: `Your match in ${t.title} starts soon`,
+				body: "Open the tournament and press Ready.",
+				link: `/tournament/${t.id}`,
+			});
+		}
+	}
+}
+
+/** Starts every match in the round whose players are both ready; the rest wait for them or for staff. */
+function startRound(t: Tournament, round: number) {
+	settleByes(t, round);
+	setPhase(t, { kind: "batch", round });
+	for (const m of t.state.matches) {
+		if (m.round !== round || m.status !== "waiting" || !playable(m)) continue;
+		if (m.players.every((p) => t.state.ready.includes(p as number))) startMatch(t, m, true);
+		else m.hold = "not_ready";
+	}
+	changed(t);
+	checkRound(t);
+}
+
+/** Once every match in a round played all at once is over, on to the next. */
+function checkRound(t: Tournament) {
+	const phase = t.state.phase;
+	if (phase.kind !== "batch") return;
+	if (t.state.matches.filter((m) => m.round === phase.round && !m.third).every((m) => m.status === "done"))
+		advance(t);
+}
+
 function advance(t: Tournament) {
 	const s = t.state;
 	const lastRound = Math.max(
@@ -479,6 +677,7 @@ function advance(t: Tournament) {
 	);
 	const next = pickNext(t);
 	if (!next) return finish(t);
+	if (parallel(t, next.round)) return breakForRound(t, next.round, next.round > lastRound ? "round" : "match");
 	const label: BreakLabel =
 		next.round === s.rounds - 1 && !next.third
 			? "final"
@@ -527,9 +726,16 @@ function freeForMatch(userId: number) {
 			leaveWaitingRoom(room, userId);
 }
 
-function startMatch(t: Tournament, m: Match) {
+/** In a round played all at once (`quiet` when starting many), the phase stays as it is. */
+function startMatch(t: Tournament, m: Match, quiet = false) {
 	const [a, b] = m.players as [number, number];
-	if (restartIn() !== null) return setPhase(t, { kind: "hold", matchId: m.id, reason: "restart" });
+	const batch = t.state.phase.kind === "batch";
+	if (restartIn() !== null) {
+		if (!batch) return setPhase(t, { kind: "hold", matchId: m.id, reason: "restart" });
+		m.hold = "restart";
+		if (!quiet) changed(t);
+		return;
+	}
 	freeForMatch(a);
 	freeForMatch(b);
 	const room = createRoom(a, roundsFor(t, m), false, false, { id: t.id, matchId: m.id });
@@ -538,28 +744,53 @@ function startMatch(t: Tournament, m: Match) {
 	m.code = room.code;
 	m.gameId = room.dbId;
 	m.scores = null;
+	m.hold = null;
 	auditLog(null, "tournament_match_start", {
 		targetType: "tournament",
 		targetId: t.id,
 		details: `${userName(a)} vs ${userName(b)}, ${matchName(t.state, m)}, room ${room.code}`,
 	});
-	setPhase(t, { kind: "match", matchId: m.id, code: room.code });
-	if (joinTimer) clearTimeout(joinTimer);
-	joinTimer = setTimeout(() => noShow(t, m, room), JOIN_MS);
+	clearJoinTimer(m);
+	joinTimers.set(
+		m.id,
+		setTimeout(() => noShow(t, m, room), JOIN_MS)
+	);
+	if (!batch) setPhase(t, { kind: "match", matchId: m.id, code: room.code });
+	else if (!quiet) changed(t);
+}
+
+/** Ends a match early in either way of playing: a result, or back to waiting for staff. */
+function matchOver(t: Tournament, m: Match, winner: Side, decided: Decided, resultMs = FORFEIT_RESULT_MS) {
+	clearJoinTimer(m);
+	const phase = t.state.phase;
+	settle(t.state, m, winner, decided);
+	/** A round played all at once, or its break, carries on around the match. */
+	if (phase.kind === "batch" || (phase.kind === "break" && phase.round !== undefined)) {
+		changed(t);
+		return checkRound(t);
+	}
+	setPhase(t, { kind: "result", matchId: m.id, endsAt: Date.now() + resultMs });
+}
+
+/** A match that cannot go on without staff. */
+function matchHeld(t: Tournament, m: Match, reason: HoldReason) {
+	clearJoinTimer(m);
+	m.status = "waiting";
+	m.code = null;
+	if (t.state.phase.kind === "batch") {
+		m.hold = reason;
+		return changed(t);
+	}
+	setPhase(t, { kind: "hold", matchId: m.id, reason });
 }
 
 function noShow(t: Tournament, m: Match, room: DuelRoom) {
-	joinTimer = null;
+	joinTimers.delete(m.id);
 	if (active !== t || m.code !== room.code || room.status !== "waiting") return;
 	const here = room.players.filter((p) => p.connected).map((p) => p.userId);
 	detach(room);
-	if (here.length === 1) {
-		settle(t.state, m, here[0], "no_show");
-		return setPhase(t, { kind: "result", matchId: m.id, endsAt: Date.now() + FORFEIT_RESULT_MS });
-	}
-	m.status = "waiting";
-	m.code = null;
-	setPhase(t, { kind: "hold", matchId: m.id, reason: "no_show" });
+	if (here.length === 1) return matchOver(t, m, here[0], "no_show");
+	matchHeld(t, m, "no_show");
 }
 
 /** Closes a match's room without it counting as a result. */
@@ -575,15 +806,9 @@ onTournamentDuelEnd((room, winnerId, how) => {
 	if (!t || !ref || ref.id !== t.id) return;
 	const m = t.state.matches[ref.matchId];
 	if (!m || m.status !== "live" || m.code !== room.code) return;
-	if (joinTimer) clearTimeout(joinTimer);
-	joinTimer = null;
 	const scoreOf = (id: Side) => room.players.find((p) => p.userId === id)?.totalScore ?? 0;
 	m.scores = [scoreOf(m.players[0]), scoreOf(m.players[1])];
-	if (winnerId === null) {
-		m.status = "waiting";
-		m.code = null;
-		return setPhase(t, { kind: "hold", matchId: m.id, reason: how === "closed" ? "closed" : "no_winner" });
-	}
+	if (winnerId === null) return matchHeld(t, m, how === "closed" ? "closed" : "no_winner");
 	const decided: Decided =
 		how === "abandoned"
 			? "forfeit"
@@ -592,12 +817,7 @@ onTournamentDuelEnd((room, winnerId, how) => {
 				: m.scores[0] === m.scores[1]
 					? "tiebreak"
 					: null;
-	settle(t.state, m, winnerId, decided);
-	setPhase(t, {
-		kind: "result",
-		matchId: m.id,
-		endsAt: Date.now() + (how === "finished" ? RESULT_MS : FORFEIT_RESULT_MS),
-	});
+	matchOver(t, m, winnerId, decided, how === "finished" ? RESULT_MS : FORFEIT_RESULT_MS);
 });
 
 /* ---- What pages see ---- */
@@ -659,6 +879,8 @@ function stateView(t: Tournament) {
 					decided: m.decided,
 					code: m.code,
 					game_id: m.gameId,
+					hold: m.hold ?? null,
+					live: liveInfo(m),
 				})),
 		})),
 		phase: {
@@ -668,14 +890,29 @@ function stateView(t: Tournament) {
 			code: phase.kind === "match" ? phase.code : null,
 			ends_at: "endsAt" in phase ? phase.endsAt : null,
 			reason: phase.kind === "hold" ? phase.reason : null,
+			round: phase.kind === "batch" ? phase.round : phase.kind === "break" ? (phase.round ?? null) : null,
 			paused_left: s.paused,
 		},
+		featured: s.featured ?? null,
 		ready: s.ready,
 		message: s.message,
 		notice: s.notice,
 		champion: s.championId,
 		results_until: t.status === "finished" ? (getRow(t.id)?.results_until ?? null) : null,
 		invite_open: !!getRow(t.id)?.invite_code,
+	};
+}
+
+/** How a match being played stands, for choosing which one to watch. */
+function liveInfo(m: Match) {
+	const room = m.status === "live" && m.code ? duelRooms.get(m.code) : undefined;
+	if (!room) return null;
+	const score = (id: Side) => room.players.find((p) => p.userId === id)?.totalScore ?? 0;
+	return {
+		round: room.roundNumber,
+		rounds: room.rounds,
+		scores: [score(m.players[0]), score(m.players[1])],
+		spectators: room.spectators.size,
 	};
 }
 
@@ -718,6 +955,8 @@ export function tournamentShare(id: number) {
 	const players = t.status === "open" ? roster.length : roster.filter((r) => r.checked_in).length;
 	const phase = s.phase;
 	const current = "matchId" in phase && phase.matchId !== null ? s.matches[phase.matchId] : null;
+	const batchRound = phase.kind === "batch" ? phase.round : phase.kind === "break" ? (phase.round ?? null) : null;
+	const playing = s.matches.filter((m) => m.status === "live").length;
 	const name = (userId: number | null) => (userId === null ? "To be decided" : userName(userId));
 	const starts = t.startsAt
 		? `Starts ${new Date(t.startsAt * 1000).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" })} UTC`
@@ -737,16 +976,20 @@ export function tournamentShare(id: number) {
 		players,
 		detail:
 			t.status === "live"
-				? current
-					? matchName(s, current)
-					: "In progress"
+				? batchRound !== null
+					? roundName(s, batchRound)
+					: current
+						? matchName(s, current)
+						: "In progress"
 				: t.status === "open"
 					? starts
 					: null,
 		match:
-			t.status === "live" && current
-				? `${phase.kind === "match" ? "Now playing" : "Up next"}: ${name(current.players[0])} vs ${name(current.players[1])}`
-				: null,
+			t.status === "live" && phase.kind === "batch"
+				? `${playing} match${playing === 1 ? "" : "es"} being played at once`
+				: t.status === "live" && current
+					? `${phase.kind === "match" ? "Now playing" : "Up next"}: ${name(current.players[0])} vs ${name(current.players[1])}`
+					: null,
 		champion: champion ? { name: champion.name, avatarUrl: champion.avatar_url } : null,
 	};
 }
@@ -815,6 +1058,18 @@ export function joinByInvite(id: number, user: User, code: string) {
 export function markReady(id: number, user: User) {
 	const t = load(id);
 	const phase = t.state.phase;
+	const round = phase.kind === "batch" ? phase.round : phase.kind === "break" ? phase.round : undefined;
+	if (t.status === "live" && round !== undefined) {
+		const mine = t.state.matches.find(
+			(m) => m.round === round && m.status === "waiting" && m.players.includes(user.id)
+		);
+		if (!mine) fail(409, "There's nothing to get ready for yet.");
+		if (!t.state.ready.includes(user.id)) t.state.ready.push(user.id);
+		/** In a round already under way, a held match starts as soon as both players are ready. */
+		if (phase.kind === "batch" && playable(mine) && mine.players.every((p) => t.state.ready.includes(p as number)))
+			return startMatch(t, mine);
+		return changed(t);
+	}
 	if (t.status !== "live" || (phase.kind !== "break" && phase.kind !== "hold") || phase.matchId === null)
 		fail(409, "There's nothing to get ready for yet.");
 	const m = t.state.matches[phase.matchId];
@@ -857,6 +1112,8 @@ export type TournamentInput = {
 	final_rounds?: unknown;
 	breaks?: unknown;
 	third_place?: unknown;
+	spotlight_from?: unknown;
+	lock_suggestions?: unknown;
 };
 
 const clamp = (value: unknown, fallback: number, min: number, max: number) =>
@@ -882,6 +1139,8 @@ function applyInput(t: Pick<Tournament, "title" | "description" | "startsAt" | "
 	for (const key of ["start", "match", "round", "final"] as const)
 		s.breaks[key] = clamp(breaks[key], s.breaks[key], LIMITS.breakMin, LIMITS.breakMax);
 	if (typeof input.third_place === "boolean") s.thirdPlace = input.third_place;
+	s.spotlightFrom = clamp(input.spotlight_from, s.spotlightFrom ?? DEFAULT_SETTINGS.spotlightFrom, 0, 10);
+	if (typeof input.lock_suggestions === "boolean") s.lockSuggestions = input.lock_suggestions;
 }
 
 export function createTournament(staff: User, input: TournamentInput): number {
@@ -915,6 +1174,31 @@ export function updateTournament(staff: User, id: number, input: TournamentInput
 	applyInput(t, input);
 	auditLog(staff, "tournament_update", { targetType: "tournament", targetId: id, details: t.title });
 	changed(t);
+}
+
+/** Operators: removes every tournament and its matches, and numbers the next one from 1 again. */
+export function resetTournamentHistory(staff: User) {
+	if (active) fail(409, `"${active.title}" is open or running. Cancel it first.`);
+	const counts = db.transaction(() => {
+		const games = db.run(
+			`DELETE FROM duel_round_scores WHERE game_id IN (SELECT id FROM duel_games WHERE tournament_id IS NOT NULL)`
+		);
+		db.run(
+			`DELETE FROM duel_participants WHERE game_id IN (SELECT id FROM duel_games WHERE tournament_id IS NOT NULL)`
+		);
+		const matches = db.run("DELETE FROM duel_games WHERE tournament_id IS NOT NULL").changes;
+		db.run("DELETE FROM tournament_players");
+		const tournaments = db.run("DELETE FROM tournaments").changes;
+		db.run("DELETE FROM sqlite_sequence WHERE name IN ('tournaments')");
+		return { tournaments, matches, rounds: games.changes };
+	})();
+	results = null;
+	loadResults();
+	nudgeTournament(currentSummary());
+	auditLog(staff, "tournament_history_reset", {
+		details: `${counts.tournaments} tournaments and ${counts.matches} matches removed`,
+	});
+	return counts;
 }
 
 export function deleteTournament(staff: User, id: number) {
@@ -1018,7 +1302,7 @@ export function addPlayers(staff: User, id: number, names: string[]) {
 /** Once started, the player leaves the bracket and their opponent goes through. */
 export function removePlayer(staff: User, id: number, userId: number) {
 	const t = load(id);
-	const name = userName(userId);
+	const name = loginName(userId);
 	if (t.status === "live") withdraw(t, userId);
 	else if (t.status === "finished" || t.status === "cancelled") fail(409, "This tournament is over.");
 	db.run("DELETE FROM tournament_players WHERE tournament_id = ? AND user_id = ?", [id, userId]);
@@ -1039,14 +1323,16 @@ function withdraw(t: Tournament, userId: number) {
 	const other = m.players[1 - side];
 	if (m.status === "live") {
 		detach(duelRooms.get(m.code ?? ""));
-		if (joinTimer) clearTimeout(joinTimer);
-		joinTimer = null;
-		settle(s, m, other, "forfeit");
-		return setPhase(t, { kind: "result", matchId: m.id, endsAt: Date.now() + FORFEIT_RESULT_MS });
+		return matchOver(t, m, other, "forfeit");
 	}
 	m.players[side] = null;
 	m.closed[side] = true;
 	const phase = s.phase;
+	if (phase.kind === "batch" && m.round === phase.round) {
+		settleByes(t, m.round);
+		changed(t);
+		return checkRound(t);
+	}
 	if ((phase.kind === "break" || phase.kind === "hold") && phase.matchId === m.id) advance(t);
 }
 
@@ -1123,10 +1409,11 @@ function draw(t: Tournament) {
 	if (ids.length < 2) fail(409, "At least two players need to be checked in.");
 	if (ids.length > LIMITS.players) fail(409, `A bracket can hold up to ${LIMITS.players} players.`);
 	const { matches, rounds } = buildBracket(ids, t.settings.thirdPlace);
-	Object.assign(t.state, { matches, rounds, championId: null, notice: null, ready: [], votes: {} });
+	Object.assign(t.state, { matches, rounds, championId: null, notice: null, ready: [], votes: {}, featured: null });
 }
 
 function firstBreak(t: Tournament, seconds: number) {
+	if (parallel(t, 0)) return breakForRound(t, 0, "start", seconds);
 	const first = [...t.state.matches]
 		.filter((m) => m.round === 0 && m.players.every((p, i) => p !== null && !m.closed[i]))
 		.sort((a, b) => a.index - b.index)[0];
@@ -1174,6 +1461,16 @@ export function controlTournament(staff: User, id: number, action: Control) {
 		phase.endsAt = Date.now() + s.paused;
 		s.paused = null;
 		arm(t);
+	} else if (action === "continue" && phase.kind === "batch") {
+		const held = s.matches.filter((m) => m.round === phase.round && m.status === "waiting" && playable(m));
+		if (!held.length) fail(409, "Nothing is waiting on staff.");
+		auditLog(staff, "tournament_continue", {
+			targetType: "tournament",
+			targetId: id,
+			details: `${t.title}, ${held.length} matches`,
+		});
+		for (const m of held) startMatch(t, m, true);
+		return changed(t);
 	} else if (action === "continue") {
 		if (phase.kind !== "hold") fail(409, "Nothing is waiting on staff.");
 		const m = phase.matchId === null ? null : s.matches[phase.matchId];
@@ -1194,15 +1491,57 @@ export function awardMatch(staff: User, id: number, matchId: number, winnerId: n
 	if (t.status !== "live" || m.status === "done") fail(409, "That match is already decided.");
 	if (!m.players.includes(winnerId)) fail(400, "That player isn't in this match.");
 	if (m.status === "live") detach(duelRooms.get(m.code ?? ""));
-	if (joinTimer && m.status === "live") clearTimeout(joinTimer);
-	settle(t.state, m, winnerId, "staff");
 	auditLog(staff, "tournament_award", {
 		targetType: "tournament",
 		targetId: id,
-		targetUsername: userName(winnerId),
+		targetUsername: loginName(winnerId),
 		details: `${t.title}, ${matchName(t.state, m)}`,
 	});
-	setPhase(t, { kind: "result", matchId: m.id, endsAt: Date.now() + FORFEIT_RESULT_MS });
+	matchOver(t, m, winnerId, "staff");
+}
+
+/** A player who didn't ready up loses the match; the one who did goes through. */
+export function removeUnready(staff: User, id: number, matchId: number) {
+	const t = load(id);
+	const s = t.state;
+	const m = s.matches[matchId] ?? fail(404, "Match not found");
+	if (t.status !== "live" || m.status !== "waiting" || !playable(m)) fail(409, "That match isn't waiting to start.");
+	const readyPlayers = m.players.filter((p) => s.ready.includes(p as number));
+	if (readyPlayers.length !== 1) fail(409, "This only works when exactly one player is ready.");
+	const winner = readyPlayers[0] as number;
+	const loser = m.players.find((p) => p !== winner) as number;
+	auditLog(staff, "tournament_not_ready", {
+		targetType: "tournament",
+		targetId: id,
+		targetUsername: loginName(loser),
+		details: `${t.title}, ${matchName(s, m)}: ${userName(winner)} goes through`,
+	});
+	matchOver(t, m, winner, "not_ready");
+}
+
+/** In a round played all at once: starts one waiting match now. Whoever isn't there when it opens loses it. */
+export function startOneMatch(staff: User, id: number, matchId: number) {
+	const t = load(id);
+	const m = t.state.matches[matchId] ?? fail(404, "Match not found");
+	const phase = t.state.phase;
+	if (t.status !== "live" || phase.kind !== "batch" || m.round !== phase.round)
+		fail(409, "Only a match in a round being played all at once can be started on its own.");
+	if (m.status !== "waiting" || !playable(m)) fail(409, "That match can't start.");
+	auditLog(staff, "tournament_match_force", {
+		targetType: "tournament",
+		targetId: id,
+		details: `${t.title}, ${matchName(t.state, m)}`,
+	});
+	startMatch(t, m);
+}
+
+/** The match spectators follow when they leave it on automatic; null lets the closest game lead. */
+export function featureMatch(staff: User, id: number, matchId: number | null) {
+	const t = load(id);
+	if (t.status !== "live") fail(409, "The tournament isn't running.");
+	if (matchId !== null && t.state.matches[matchId]?.status !== "live") fail(409, "That match isn't being played.");
+	t.state.featured = matchId;
+	changed(t);
 }
 
 export function restartMatch(staff: User, id: number, matchId: number) {
@@ -1210,8 +1549,7 @@ export function restartMatch(staff: User, id: number, matchId: number) {
 	const m = t.state.matches[matchId] ?? fail(404, "Match not found");
 	if (t.status !== "live" || m.status !== "live") fail(409, "That match isn't being played.");
 	detach(duelRooms.get(m.code ?? ""));
-	if (joinTimer) clearTimeout(joinTimer);
-	joinTimer = null;
+	clearJoinTimer(m);
 	m.status = "waiting";
 	m.code = null;
 	m.scores = null;
@@ -1220,6 +1558,8 @@ export function restartMatch(staff: User, id: number, matchId: number) {
 		targetId: id,
 		details: `${t.title}, ${matchName(t.state, m)}`,
 	});
+	/** All at once, the match restarts at once; one at a time, it gets a short break first. */
+	if (t.state.phase.kind === "batch") return startMatch(t, m);
 	breakFor(t, m, "match", RESTART_BREAK_S);
 }
 
@@ -1257,7 +1597,7 @@ export function setSlot(staff: User, id: number, matchId: number, side: 0 | 1, u
 	auditLog(staff, "tournament_slot", {
 		targetType: "tournament",
 		targetId: id,
-		targetUsername: userName(user.id),
+		targetUsername: loginName(user.id),
 		details: `${t.title}: ${s.notice.text}`,
 	});
 	const phase = s.phase;
@@ -1339,7 +1679,14 @@ export function restoreTournaments() {
 	const t = fromRow(row);
 	active = t;
 	const phase = t.state.phase;
-	if (t.status === "live" && phase.kind !== "done") {
+	if (t.status === "live" && phase.kind === "batch") {
+		for (const m of t.state.matches) {
+			if (m.status !== "live") continue;
+			m.status = "waiting";
+			m.code = null;
+			m.hold = "restart";
+		}
+	} else if (t.status === "live" && phase.kind !== "done") {
 		for (const m of t.state.matches) {
 			if (m.status !== "live") continue;
 			m.status = "waiting";

@@ -4,6 +4,7 @@ import { copyText, showToast } from "../lib/toast.js";
 import { live, onLive } from "../lib/live.js";
 import { atLeast, currentTab, reviewHeader, showConfirm, showPrompt } from "./core.js";
 import { formatWhen } from "./users.js";
+import { staffChatSlot, stopStaffChat, wordFilterHtml } from "./tournament-chat.js";
 
 /** Setting up a tournament, its list of players, and the controls on the night. */
 
@@ -66,7 +67,7 @@ export async function loadTournaments(openId = null) {
 	}
 	el("tab-content").innerHTML = `
 		${reviewHeader("Tournaments", 0, "loadTournaments()")}
-		<p class="text-sm text-zinc-400 mb-4 max-w-2xl">A knockout bracket played one match at a time, so everyone watches the same duel. Pick the players, open check-in, then start it when everyone is here.</p>
+		<p class="text-sm text-zinc-400 mb-4 max-w-2xl">A knockout bracket for game nights, with spectators and chat. Pick the players, open check-in, then start it when everyone is here.</p>
 		${atLeast("supervisor") ? '<button onclick="newTournament()" class="m-btn m-btn-filled mb-5"><span class="material-symbols-outlined">add</span>New tournament</button>' : '<p class="text-xs text-zinc-500 mb-5">Supervisors create, open, start and cancel tournaments. You can run them once they are set up.</p>'}
 		${guideHtml(rules)}
 		<div id="tournament-form-slot"></div>
@@ -88,7 +89,32 @@ export async function loadTournaments(openId = null) {
 						)
 						.join("")
 				: '<p class="text-sm text-zinc-500 py-8 text-center">No tournaments yet.</p>'
-		}</div>`;
+		}</div>
+		${wordFilterHtml()}
+		${
+			atLeast("operator") && list.length
+				? `<div class="mt-10 pt-4 border-t border-zinc-800 flex items-center gap-3 flex-wrap max-w-3xl">
+					<button onclick="resetTournamentHistory()" class="m-btn m-btn-text m-btn-sm danger"><span class="material-symbols-outlined">delete_sweep</span>Clear all tournament history</button>
+					<span class="text-xs text-zinc-500">Operators only. Deletes every tournament and its matches, and the next one starts from number 1.</span>
+				</div>`
+				: ""
+		}`;
+}
+
+async function resetTournamentHistory() {
+	const ok = await showConfirm(
+		"Clear all tournament history?",
+		"Every tournament, its player list and its matches are deleted for good, and the next tournament is number 1 again. Cancel any running tournament first.",
+		{ confirmLabel: "Clear everything" }
+	);
+	if (!ok) return;
+	try {
+		const done = await api("/api/admin/tournaments", { method: "DELETE" });
+		showToast(`Cleared ${done.tournaments} tournament${done.tournaments === 1 ? "" : "s"}`, "success");
+		loadTournaments();
+	} catch (err) {
+		showToast(err.message, "error");
+	}
 }
 
 const minutes = (s) => (s % 60 ? `${s} seconds` : `${s / 60} minute${s === 60 ? "" : "s"}`);
@@ -105,12 +131,14 @@ function guideHtml(r) {
 		<div class="px-5 pb-5 text-sm">
 			<h3 class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-2 mb-3">Step by step</h3>
 			<ol class="list-decimal pl-5">
-				${step("Set it up (supervisors)", `Give it a name and, if you like, a description and a start time. The start time is only a countdown on the page; you still start it yourself. Choose how many rounds each match has (early matches, semi-finals and the final), how long each break is, and whether the two semi-final losers play for third place.`)}
+				${step("Set it up (supervisors)", `Give it a name and, if you like, a description and a start time. The start time is only a countdown on the page; you still start it yourself. Choose how many rounds each match has (early matches, semi-finals and the final), how long each break is, and whether the two semi-final losers play for third place. Suggest changes shows every answer, so it is closed to players while the tournament runs unless you untick that.`)}
 				${step("Add the players", `Add them by Discord username, or make an invite link: anyone who opens it while check-in is open joins and is checked in, and the list shows which code they used. A new code stops the old one working. The order of the list is the seeding: the first player meets the last in the opening round, and the top two can only meet in the final. Banned players and players whose duels are limited can't be added.`)}
 				${step("Open check-in (supervisors)", `The tournament appears on the home page and under Specials, and everyone on the list gets a notification. Players press I'm here on the tournament page, or you tick them in yourself. Only one tournament can be open or running at a time.`)}
 				${step("Start (supervisors)", `The bracket is drawn from the checked-in players. It rounds up to 2, 4, 8, 16, 32 or 64 places, and the empty places become byes for the top seeds. Anyone not checked in is left out, but can still be put into an empty place later. Until the first match is played you can draw the bracket again.`)}
 				${step("Breaks and Ready", `Before every match there is a countdown. Both players press Ready; if they both do during a break between matches, the countdown drops to ${r.readySeconds} seconds. If the countdown ends and someone isn't ready, the tournament waits for you: Continue gives a ${r.readySeconds}-second countdown, then anyone who isn't there loses the match.`)}
+				${step("Rounds played all at once", `Early rounds can be played all at once to save time: with 64 players, the first three rounds take about 5 minutes each instead of over an hour. Set where it switches to one match at a time with One match at a time from (the quarter-finals by default). In a round played all at once, every match whose players are ready starts when the break ends; the others wait, start as soon as both players are ready, or when you press Start. If only one player is ready, you can put the other out. Spectators follow the featured match, or the closest one, and can switch at any time.`)}
 				${step("Matches", `Each match is a duel with Quick Play rules, including the comeback round and sudden death, and ${r.roundSeconds} seconds a round. If the points are level, the closer guesses overall win. Players have ${r.joinSeconds} seconds to join; if only one does, they win, and if neither does, it waits for you. A player who drops out has ${r.reconnectSeconds} seconds to come back before they lose.`)}
+				${step("Chat", `Spectator chat is off until you turn it on in the Chat card on the tournament's page, and you can turn it off at any time. Others see a message 1.5 seconds after it is sent. Players can't see chat while guessing, can read it after their guess, and can only write once they are out. Signed-out visitors, banned or chat-limited players and accounts under a day old can't see it. Links, emoji, other alphabets and words caught by the Chat filter are refused. From any message you can delete it or time out its sender.`)}
 				${step("Results", `After the final, the page shows the champion, final standings and the bracket. The results stay on the home page and Specials for ${r.resultsHours} hours; use the Results section to change that or hide them. The page itself stays at its link, and the tournament is listed under past tournaments.`)}
 			</ol>
 			<h3 class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-4 mb-2">During the night (moderators and up)</h3>
@@ -120,6 +148,9 @@ function guideHtml(r) {
 				${control("Pause / Resume", "stops and restarts the countdown")}
 				${control("Continue", "used when the tournament is waiting for staff, for example after a no-show or a server restart")}
 				${control("[Player] wins", "gives a match to one player without it being played to the end")}
+				${control("Not ready", "when only one player is ready, puts the other out and the ready one through")}
+				${control("Start / Start all waiting", "in a round played all at once, starts waiting matches now")}
+				${control("Feature", "in a round played all at once, the match spectators follow on automatic")}
 				${control("Restart", `stops a match being played and plays it again after a ${r.restartBreakSeconds}-second break`)}
 				${control("Fill / Swap", "puts someone into an empty place or replaces a player, in a match that hasn't started")}
 				${control("Take out", "removes a player; their opponent goes through, and a match they're playing ends")}
@@ -135,7 +166,7 @@ function guideHtml(r) {
 				${limit("Name, description, message", `${r.title}, ${r.description} and ${r.message} characters`)}
 				${limit("Spectators", "no limit")}
 			</div>
-			<p class="text-zinc-500">Tournament matches don't change ratings, leaderboards, profiles or achievements. Fair-play checks still apply. Matches run one at a time, so a big bracket is a long night: 16 players is 15 matches.</p>
+			<p class="text-zinc-500">Tournament matches don't change ratings, leaderboards, profiles or achievements. Fair-play checks still apply. Played one at a time, 16 players is 15 matches in a row; rounds played all at once make a big bracket much shorter.</p>
 		</div>
 	</details>`;
 }
@@ -154,10 +185,12 @@ function toLocalInput(sec) {
 function formHtml(t) {
 	const s = t?.settings || {
 		rounds: 3,
-		semiRounds: 5,
-		finalRounds: 5,
+		semiRounds: 3,
+		finalRounds: 3,
 		breaks: { start: 300, match: 60, round: 180, final: 180 },
 		thirdPlace: false,
+		spotlightFrom: 2,
+		lockSuggestions: true,
 	};
 	const roundsSelect = (name, value) =>
 		`<select name="${name}" class="m-field">${Array.from({ length: 10 }, (_, i) => i + 1)
@@ -182,12 +215,24 @@ function formHtml(t) {
 			${field("Final", roundsSelect("final_rounds", s.finalRounds))}
 		</div>
 		<div class="grid sm:grid-cols-4 gap-3">${BREAK_FIELDS.map(([key, label]) => field(label, breakSelect(key))).join("")}</div>
+		${field(
+			"One match at a time from <span class='text-zinc-600'>Earlier rounds play all their matches at once</span>",
+			`<select name="spotlight_from" class="m-field">${SPOTLIGHT_CHOICES.map(([n, label]) => `<option value="${n}" ${n === (s.spotlightFrom ?? 2) ? "selected" : ""}>${label}</option>`).join("")}</select>`
+		)}
 		<label class="md-check">
 			<input name="third_place" type="checkbox" ${s.thirdPlace ? "checked" : ""} />
 			<span class="md-check-box" aria-hidden="true"></span>
 			<span>
 				<span class="block text-sm text-zinc-200">Match for third place</span>
 				<span class="block text-xs text-zinc-500">The semi-final losers play once more, just before the final</span>
+			</span>
+		</label>
+		<label class="md-check">
+			<input name="lock_suggestions" type="checkbox" ${s.lockSuggestions !== false ? "checked" : ""} />
+			<span class="md-check-box" aria-hidden="true"></span>
+			<span>
+				<span class="block text-sm text-zinc-200">Close suggestions while it runs</span>
+				<span class="block text-xs text-zinc-500">Suggest changes shows every answer on the map. Staff can still use it.</span>
 			</span>
 		</label>
 		<div class="flex gap-2">
@@ -210,6 +255,8 @@ async function saveTournament(e) {
 		final_rounds: Number(form.get("final_rounds")),
 		breaks: Object.fromEntries(BREAK_FIELDS.map(([key]) => [key, Number(form.get(`break_${key}`))])),
 		third_place: form.get("third_place") === "on",
+		spotlight_from: Number(form.get("spotlight_from")),
+		lock_suggestions: form.get("lock_suggestions") === "on",
 	};
 	try {
 		const t = _tournamentId
@@ -245,6 +292,7 @@ function backToTournaments() {
 	_tournamentId = null;
 	_tournament = null;
 	_editing = false;
+	stopStaffChat();
 	history.replaceState(null, "", "#tournaments");
 	loadTournaments();
 }
@@ -288,11 +336,12 @@ function renderTournament() {
 			<a href="/tournament/${t.id}" target="_blank" rel="noopener" class="m-btn m-btn-tonal m-btn-sm ml-auto"><span class="material-symbols-outlined">open_in_new</span>Open page</a>
 			${over ? "" : `<button onclick="toggleTournamentEdit(${!_editing})" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">edit</span>Edit</button>`}
 		</div>
-		<p class="text-xs text-zinc-500 mb-4">Matches: ${roundsText(t.settings.rounds)}, semi-finals ${roundsText(t.settings.semiRounds)}, final ${roundsText(t.settings.finalRounds)}${t.settings.thirdPlace ? ", with a match for third place" : ""} · breaks: ${BREAK_FIELDS.map(([key, label]) => `${label.toLowerCase()} ${seconds(t.settings.breaks[key])}`).join(", ")}</p>
+		<p class="text-xs text-zinc-500 mb-4">${settingsSummary(t)}</p>
 		${_editing ? formHtml(t) : ""}
 		<div class="flex gap-2 flex-wrap mb-6">${actions}</div>
 		${t.status === "live" ? liveHtml(t) : ""}
 		${t.status === "finished" ? resultsHtml(t) : ""}
+		${staffChatSlot(t)}
 		${t.status === "draft" || t.status === "open" ? rosterHtml(t) : ""}
 		${t.rounds.length ? bracketHtml(t) : ""}`;
 }
@@ -361,46 +410,183 @@ function rosterHtml(t) {
 	</section>`;
 }
 
+const SPOTLIGHT_CHOICES = [
+	[0, "The final"],
+	[1, "The semi-finals"],
+	[2, "The quarter-finals"],
+	[3, "The round of 16"],
+	[10, "The first round (never all at once)"],
+];
+
+/** "One at a time from the quarter-finals", in words, for a bracket of any size. */
+const spotlightText = (from) =>
+	from >= 10
+		? "every match one at a time"
+		: `all at once until ${SPOTLIGHT_CHOICES.find(([n]) => n === from)?.[1].toLowerCase() ?? "the quarter-finals"}`;
+
+function settingsSummary(t) {
+	const s = t.settings;
+	const rounds =
+		s.rounds === s.semiRounds && s.rounds === s.finalRounds
+			? `${roundsText(s.rounds)} a match`
+			: `${roundsText(s.rounds)} a match, ${s.semiRounds} in the semi-finals, ${s.finalRounds} in the final`;
+	return [
+		rounds,
+		spotlightText(s.spotlightFrom ?? 2),
+		s.thirdPlace ? "match for third place" : "",
+		s.lockSuggestions !== false ? "suggestions closed while it runs" : "",
+	]
+		.filter(Boolean)
+		.join(" · ");
+}
+
+const allTournamentMatches = (t) =>
+	t.rounds.flatMap((round, r) => round.matches.map((m) => ({ ...m, round: r, roundName: round.name })));
+
+/** "Match 5" by play order, or "3rd place". */
+function matchLabel(t, m) {
+	if (m.third) return "3rd place";
+	const order = allTournamentMatches(t)
+		.filter((x) => !x.third)
+		.sort((a, b) => a.round - b.round || a.index - b.index);
+	return `Match ${order.findIndex((x) => x.id === m.id) + 1}`;
+}
+
+/** A player's name, with whether they are ready when it matters. */
+function playerHtml(t, m, side, { ready = false } = {}) {
+	const id = m.players[side];
+	if (id === null)
+		return m.closed[side]
+			? '<span class="text-zinc-500">Bye</span>'
+			: '<span class="text-zinc-600">To be decided</span>';
+	const won = m.status === "done" && m.winner === id;
+	const isReady = t.ready.includes(id);
+	return `<span class="inline-flex items-center gap-1 min-w-0 ${won ? "font-semibold text-white" : m.status === "done" ? "text-zinc-500" : ""}">
+		${ready ? `<span class="material-symbols-outlined text-base ${isReady ? "text-green-400" : "text-zinc-600"}" title="${isReady ? "Ready" : "Not ready"}" style="font-variation-settings:'FILL' ${isReady ? 1 : 0}">${isReady ? "check_circle" : "radio_button_unchecked"}</span>` : ""}
+		<span class="truncate">${escHtml(nameOf(t, id))}</span>
+		${m.scores ? `<span class="font-mono text-xs text-zinc-500">${m.scores[side].toLocaleString()}</span>` : ""}
+	</span>`;
+}
+
+const smallBtn = (onclick, label, tone = "m-btn-text") =>
+	`<button onclick="${onclick}" class="m-btn ${tone} m-btn-sm">${label}</button>`;
+
+/** One match as a row: label, the two players, and the actions that fit its state. */
+function matchRow(t, m, { ready = false, actions = "" } = {}) {
+	return `<div class="grid grid-cols-[5rem_1fr] sm:grid-cols-[5rem_1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-2.5 border-b border-zinc-800 last:border-0">
+		<span class="text-xs text-zinc-500">${matchLabel(t, m)}</span>
+		<span class="flex flex-wrap items-center gap-x-2 text-sm min-w-0">${playerHtml(t, m, 0, { ready })}<span class="text-zinc-600">vs</span>${playerHtml(t, m, 1, { ready })}</span>
+		<span class="col-span-2 sm:col-span-1 flex flex-wrap justify-end gap-1">${actions}</span>
+	</div>`;
+}
+
+const card = (title, body, note = "") =>
+	`<section class="bg-zinc-900 rounded-2xl mb-4 max-w-4xl overflow-hidden">
+		<div class="px-4 pt-3 pb-2 flex items-baseline gap-2"><h3 class="font-semibold text-sm">${title}</h3>${note ? `<span class="text-xs text-zinc-500">${note}</span>` : ""}</div>
+		${body}
+	</section>`;
+
+/** Live controls, then matches needing staff and matches being played. */
 function liveHtml(t) {
 	const phase = t.phase;
+	const matches = allTournamentMatches(t);
 	const timed = phase.kind === "break" || phase.kind === "result";
 	const paused = phase.paused_left !== null;
-	const played = t.rounds.some((r) => r.matches.some((m) => m.game_id !== null));
-	const current =
-		phase.match_id !== null ? t.rounds.flatMap((r) => r.matches).find((m) => m.id === phase.match_id) : null;
-	const vs = current ? current.players.map((p) => (p === null ? "?" : escHtml(nameOf(t, p)))).join(" vs ") : "";
-	return `<section class="bg-zinc-900 rounded-2xl p-5 mb-6 max-w-3xl">
-		<div class="flex items-center gap-3 flex-wrap">
+	const played = matches.some((m) => m.game_id !== null);
+	const batch = phase.round !== null;
+	const roundName = batch ? t.rounds[phase.round].name : "";
+	const current = phase.match_id !== null ? matches.find((m) => m.id === phase.match_id) : null;
+	const vs = (m) => `${escHtml(nameOf(t, m.players[0]))} vs ${escHtml(nameOf(t, m.players[1]))}`;
+	const headline =
+		phase.kind === "break"
+			? batch
+				? `${roundName} starts soon`
+				: current
+					? `Next: ${vs(current)}`
+					: "Break"
+			: phase.kind === "batch"
+				? `${roundName} in play`
+				: phase.kind === "hold"
+					? "Waiting for staff"
+					: phase.kind === "match" && current
+						? `Playing: ${vs(current)}`
+						: (PHASE_TEXT[phase.kind] ?? phase.kind);
+
+	/** The match up next, or held matches in a round played at once. */
+	const waiting = matches.filter(
+		(m) =>
+			m.status === "waiting" &&
+			m.players.every((p, i) => p !== null && !m.closed[i]) &&
+			((batch && m.round === phase.round) || (!batch && current?.id === m.id && phase.kind !== "match"))
+	);
+	const live = matches.filter((m) => m.status === "live");
+
+	const waitingActions = (m) => {
+		const readyCount = m.players.filter((p) => t.ready.includes(p)).length;
+		const readyPlayer = m.players.find((p) => t.ready.includes(p));
+		return [
+			phase.kind === "batch" ? smallBtn(`startTournamentMatch(${m.id})`, "Start", "m-btn-tonal") : "",
+			readyCount === 1
+				? smallBtn(`removeUnreadyPlayer(${m.id})`, `Not ready: ${escHtml(nameOf(t, readyPlayer))} goes through`)
+				: "",
+			...m.players.map((p) => smallBtn(`awardTournamentMatch(${m.id}, ${p})`, `${escHtml(nameOf(t, p))} wins`)),
+		].join("");
+	};
+	const liveActions = (m) =>
+		[
+			`<a href="/duel/${escHtml(m.code)}?spectate" target="_blank" rel="noopener" class="m-btn m-btn-tonal m-btn-sm">Watch</a>`,
+			phase.kind === "batch"
+				? smallBtn(
+						`featureTournamentMatch(${t.featured === m.id ? "null" : m.id})`,
+						t.featured === m.id ? "Featured" : "Feature",
+						t.featured === m.id ? "m-btn-filled" : "m-btn-text"
+					)
+				: "",
+			smallBtn(`restartTournamentMatch(${m.id})`, "Restart"),
+			...m.players.map((p) => smallBtn(`awardTournamentMatch(${m.id}, ${p})`, `${escHtml(nameOf(t, p))} wins`)),
+		].join("");
+
+	const now = `<section class="bg-zinc-900 rounded-2xl p-5 mb-4 max-w-4xl">
+		<div class="flex items-start gap-4">
 			<div class="flex-1 min-w-0">
-				<div class="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Now</div>
-				<div class="font-bold text-lg">${PHASE_TEXT[phase.kind] || phase.kind}${vs ? ` · ${vs}` : ""}</div>
+				<div class="text-xs uppercase tracking-wider text-zinc-500 font-medium">Now</div>
+				<div class="font-bold text-lg mt-0.5">${headline}</div>
 				${phase.kind === "hold" && HOLD_REASONS[phase.reason] ? `<p class="text-sm text-amber-300 mt-1">${HOLD_REASONS[phase.reason]}</p>` : ""}
-				${
-					current && ["break", "hold"].includes(phase.kind)
-						? `<p class="text-xs text-zinc-500 mt-1">Ready: ${
-								current.players
-									.filter((p) => p !== null && t.ready.includes(p))
-									.map((p) => escHtml(nameOf(t, p)))
-									.join(", ") || "nobody yet"
-							}</p>`
-						: ""
-				}
+				${phase.kind === "batch" ? `<p class="text-sm text-zinc-400 mt-1">${live.length} playing · ${waiting.length} waiting · ${matches.filter((m) => m.round === phase.round && m.status === "done").length} done</p>` : ""}
 			</div>
-			${timed ? `<div class="text-3xl font-mono font-bold" ${paused ? "" : `data-ends="${phase.ends_at}" data-offset="${t.now - Date.now()}"`}>${paused ? "Paused" : ""}</div>` : ""}
+			${timed ? `<div class="text-3xl font-mono font-bold tabular-nums" ${paused ? "" : `data-ends="${phase.ends_at}" data-offset="${t.now - Date.now()}"`}>${paused ? "Paused" : ""}</div>` : ""}
 		</div>
 		<div class="flex gap-2 flex-wrap mt-4">
 			${timed ? `<button onclick="tournamentControl('skip')" class="m-btn m-btn-filled m-btn-sm">${phase.kind === "break" ? "Start now" : "Move on"}</button>` : ""}
 			${timed ? `<button onclick="tournamentControl('add_time')" class="m-btn m-btn-tonal m-btn-sm">+1 minute</button>` : ""}
 			${timed ? `<button onclick="tournamentControl('${paused ? "resume" : "pause"}')" class="m-btn m-btn-tonal m-btn-sm">${paused ? "Resume" : "Pause"}</button>` : ""}
-			${phase.kind === "hold" ? `<button onclick="tournamentControl('continue')" class="m-btn m-btn-success m-btn-sm">Continue</button>` : ""}
+			${phase.kind === "hold" || (phase.kind === "batch" && waiting.length) ? `<button onclick="tournamentControl('continue')" class="m-btn m-btn-success m-btn-sm">${phase.kind === "batch" ? "Start all waiting" : "Continue"}</button>` : ""}
 			${!played ? `<button onclick="redrawTournament()" class="m-btn m-btn-text m-btn-sm">Draw the bracket again</button>` : ""}
 		</div>
-		<form onsubmit="sendTournamentMessage(event)" class="flex gap-2 mt-4">
+		<form onsubmit="sendTournamentMessage(event)" class="flex gap-2 mt-4 pt-4 border-t border-zinc-800">
 			<input name="text" maxlength="200" class="m-field flex-1" placeholder="Message everyone watching" value="${escHtml(t.message?.text || "")}" />
 			<button class="m-btn m-btn-tonal">Post</button>
 			${t.message ? `<button type="button" onclick="clearTournamentMessage()" class="m-btn m-btn-text">Clear</button>` : ""}
 		</form>
 	</section>`;
+
+	return (
+		now +
+		(waiting.length
+			? card(
+					phase.kind === "batch" ? "Waiting to start" : "Up next",
+					waiting.map((m) => matchRow(t, m, { ready: true, actions: waitingActions(m) })).join(""),
+					phase.kind === "batch" ? "Each starts by itself once both players are ready" : ""
+				)
+			: "") +
+		(live.length
+			? card(
+					"Playing now",
+					live.map((m) => matchRow(t, m, { actions: liveActions(m) })).join(""),
+					`${live.length}`
+				)
+			: "")
+	);
 }
 
 function resultsHtml(t) {
@@ -429,60 +615,61 @@ function setTournamentResults(e) {
 
 const hideTournamentResults = () => act("/results", { json: { until: null } }, "Hidden");
 
+/** The current round is open; the others fold away. */
 function bracketHtml(t) {
 	const live = t.status === "live";
-	let number = 0;
-	return `<section class="flex flex-col gap-5 max-w-3xl">${t.rounds
-		.map(
-			(round) => `<div>
-				<h3 class="font-bold mb-2">${escHtml(round.name)} <span class="text-xs text-zinc-500 font-normal">${roundsText(round.match_rounds)}</span></h3>
-				<div class="flex flex-col gap-1.5">${[...round.matches]
-					.sort((a, b) => (a.third ? -1 : a.index) - (b.third ? -1 : b.index))
-					.map((m) => matchRowHtml(t, m, m.third ? 0 : ++number, live))
-					.join("")}</div>
-			</div>`
-		)
-		.join("")}</section>`;
+	const matches = allTournamentMatches(t);
+	const currentRound = live
+		? (t.phase.round ??
+			matches.find((m) => m.id === t.phase.match_id)?.round ??
+			matches.find((m) => m.status !== "done")?.round)
+		: null;
+	return `<section class="max-w-4xl">
+		<h3 class="text-xs uppercase tracking-wider text-zinc-500 font-medium mb-2 mt-6">Bracket</h3>
+		${t.rounds
+			.map((round, r) => {
+				const inRound = matches
+					.filter((m) => m.round === r)
+					.sort((a, b) => (a.third ? -1 : a.index) - (b.third ? -1 : b.index));
+				const done = inRound.filter((m) => m.status === "done").length;
+				return `<details class="bg-zinc-900 rounded-2xl mb-2 overflow-hidden" ${!live || r === currentRound ? "open" : ""}>
+					<summary class="cursor-pointer select-none px-4 py-3 flex items-center gap-2 text-sm">
+						<span class="font-semibold">${escHtml(round.name)}</span>
+						<span class="text-xs text-zinc-500">${roundsText(round.match_rounds)} · ${done} of ${inRound.length} done</span>
+					</summary>
+					<div class="border-t border-zinc-800">${inRound.map((m) => matchRow(t, m, { actions: bracketActions(t, m, live) })).join("")}</div>
+				</details>`;
+			})
+			.join("")}
+	</section>`;
 }
 
-function matchRowHtml(t, m, number, live) {
-	const known = (side) => m.players[side] !== null || m.closed[side];
-	const sideHtml = (side) => {
-		const id = m.players[side];
-		const label =
-			id !== null
-				? escHtml(nameOf(t, id))
-				: m.closed[side]
-					? '<span class="text-zinc-500">Bye</span>'
-					: '<span class="text-zinc-600">To be decided</span>';
-		const won = m.status === "done" && id !== null && m.winner === id;
-		const tools =
-			live && m.status === "waiting" && (known(side) || m.round === 0)
-				? `<button onclick="setTournamentSlot(${m.id}, ${side})" class="text-xs text-blue-400 hover:underline">${id === null ? "Fill" : "Swap"}</button>${id !== null ? ` <button onclick="removeTournamentPlayer(${id})" class="text-xs text-red-400 hover:underline">Take out</button>` : ""}`
-				: "";
-		return `<span class="flex items-center gap-2 min-w-0 ${won ? "font-bold text-white" : ""}">${label}${m.scores && id !== null ? ` <span class="font-mono text-xs text-zinc-400">${m.scores[side].toLocaleString()}</span>` : ""} ${tools}</span>`;
-	};
-	const award =
-		live && m.status !== "done" && m.players.every((p) => p !== null)
-			? m.players
-					.map(
-						(p) =>
-							`<button onclick="awardTournamentMatch(${m.id}, ${p})" class="m-btn m-btn-text m-btn-sm">${escHtml(nameOf(t, p))} wins</button>`
-					)
-					.join("")
-			: "";
-	const status =
-		m.status === "live"
-			? `<span class="m-tag danger">Live</span> <a href="/duel/${escHtml(m.code)}?spectate" target="_blank" rel="noopener" class="m-btn m-btn-tonal m-btn-sm">Watch</a> <button onclick="restartTournamentMatch(${m.id})" class="m-btn m-btn-text m-btn-sm">Restart</button>`
-			: m.status === "done"
-				? `<span class="m-tag">${m.decided === "bye" ? "Walkover" : m.decided === "staff" ? "Staff decision" : m.decided === "forfeit" ? "Forfeit" : m.decided === "no_show" ? "No-show" : "Played"}</span>`
-				: "";
-	return `<div class="bg-zinc-900 rounded-xl px-3 py-2 flex items-center gap-3 flex-wrap ${t.phase.match_id === m.id ? "ring-1 ring-blue-500" : ""}">
-		<span class="text-xs font-mono text-zinc-600 w-14">${m.third ? "3rd place" : `Match ${number}`}</span>
-		<span class="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-sm">${sideHtml(0)}<span class="text-zinc-600 hidden sm:inline">vs</span>${sideHtml(1)}</span>
-		${status}${award}
-	</div>`;
+/** In the bracket: the result of a finished match, or changing who plays in one that hasn't started. */
+function bracketActions(t, m, live) {
+	if (m.status === "done") return `<span class="m-tag">${DECIDED_LABELS[m.decided] ?? "Played"}</span>`;
+	if (m.status === "live") return '<span class="text-xs text-blue-400">Playing now</span>';
+	if (!live) return "";
+	const known = (side) => m.players[side] !== null || m.closed[side] || m.round === 0;
+	return [0, 1]
+		.filter(known)
+		.map((side) => {
+			const id = m.players[side];
+			return id === null
+				? smallBtn(`setTournamentSlot(${m.id}, ${side})`, "Fill")
+				: `${smallBtn(`setTournamentSlot(${m.id}, ${side})`, `Swap ${escHtml(nameOf(t, id))}`)}${smallBtn(`removeTournamentPlayer(${id})`, `Take out ${escHtml(nameOf(t, id))}`)}`;
+		})
+		.join("");
 }
+
+const DECIDED_LABELS = {
+	bye: "Walkover",
+	staff: "Staff decision",
+	forfeit: "Forfeit",
+	no_show: "No-show",
+	not_ready: "Didn't ready up",
+	sudden_death: "Sudden death",
+	tiebreak: "Tiebreak",
+};
 
 let _lastPoll = 0;
 
@@ -633,6 +820,22 @@ async function awardTournamentMatch(matchId, userId) {
 	if (ok) act(`/matches/${matchId}/award`, { json: { user_id: userId } });
 }
 
+const startTournamentMatch = (matchId) => act(`/matches/${matchId}/start`, {}, "Started");
+const featureTournamentMatch = (matchId) => act("/feature", { json: { match_id: matchId } });
+
+async function removeUnreadyPlayer(matchId) {
+	const m = allTournamentMatches(_tournament).find((x) => x.id === matchId);
+	const readyId = m?.players.find((p) => _tournament.ready.includes(p));
+	const out = m?.players.find((p) => p !== readyId);
+	if (readyId === undefined || out === undefined) return;
+	const ok = await showConfirm(
+		`Put ${nameOf(_tournament, out)} out?`,
+		`They didn't ready up, so ${nameOf(_tournament, readyId)} goes through.`,
+		{ confirmLabel: "Put them out" }
+	);
+	if (ok) act(`/matches/${matchId}/not-ready`);
+}
+
 async function restartTournamentMatch(matchId) {
 	if (
 		await showConfirm(
@@ -674,6 +877,7 @@ Object.assign(window, {
 	clearTournamentMessage,
 	copyTournamentInvite,
 	deleteTournament,
+	featureTournamentMatch,
 	hideTournamentResults,
 	loadTournaments,
 	moveTournamentPlayer,
@@ -681,6 +885,8 @@ Object.assign(window, {
 	openTournament,
 	redrawTournament,
 	removeTournamentPlayer,
+	removeUnreadyPlayer,
+	resetTournamentHistory,
 	restartTournamentMatch,
 	saveTournament,
 	sendTournamentMessage,
@@ -690,6 +896,7 @@ Object.assign(window, {
 	setTournamentSlot,
 	shuffleTournament,
 	startTournament,
+	startTournamentMatch,
 	toggleTournamentEdit,
 	tournamentAction,
 	tournamentControl,

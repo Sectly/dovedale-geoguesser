@@ -8,27 +8,33 @@ import {
 	controlTournament,
 	createTournament,
 	deleteTournament,
+	featureMatch,
 	listTournaments,
 	movePlayer,
 	openTournament,
 	postMessage,
 	redrawTournament,
 	removePlayer,
+	removeUnready,
+	resetTournamentHistory,
 	restartMatch,
 	setCheckedIn,
 	setInvite,
 	setResults,
 	setSlot,
 	shufflePlayers,
+	startOneMatch,
 	startTournament,
 	tournamentView,
 	unpublishTournament,
 	tournamentRules,
+	updateChatSettings,
 	updateTournament,
 	type Control,
 	type TournamentInput,
 } from "../../game/tournaments";
 import { fail, idParam, readJson, text } from "../../lib/http";
+import { approveChat, clearChat, deleteChat, dismissReports, staffChat, timeOutSender } from "../../game/chat";
 
 export const adminTournamentRoutes = new Hono();
 
@@ -42,6 +48,9 @@ adminTournamentRoutes.get("/", (c) => {
 	staffOf(c);
 	return c.json(listTournaments());
 });
+
+/** Operators only: every tournament and its matches go, and numbering starts again from 1. */
+adminTournamentRoutes.delete("/", (c) => c.json(resetTournamentHistory(requireStaff(c, "operator"))));
 
 adminTournamentRoutes.get("/rules", (c) => {
 	staffOf(c);
@@ -155,6 +164,27 @@ adminTournamentRoutes.post("/:id/matches/:matchId/award", async (c) => {
 	return ok(c, id);
 });
 
+/** The player who didn't ready up is out; the one who did goes through. */
+adminTournamentRoutes.post("/:id/matches/:matchId/not-ready", (c) => {
+	const id = idParam(c);
+	removeUnready(staffOf(c), id, idParam(c, "matchId"));
+	return ok(c, id);
+});
+
+adminTournamentRoutes.post("/:id/matches/:matchId/start", (c) => {
+	const id = idParam(c);
+	startOneMatch(staffOf(c), id, idParam(c, "matchId"));
+	return ok(c, id);
+});
+
+/** `match_id` null goes back to following the closest game. */
+adminTournamentRoutes.post("/:id/feature", async (c) => {
+	const id = idParam(c);
+	const matchId = (await readJson<{ match_id: number | null }>(c)).match_id;
+	featureMatch(staffOf(c), id, typeof matchId === "number" ? matchId : null);
+	return ok(c, id);
+});
+
 adminTournamentRoutes.post("/:id/matches/:matchId/restart", (c) => {
 	const id = idParam(c);
 	restartMatch(staffOf(c), id, idParam(c, "matchId"));
@@ -189,4 +219,50 @@ adminTournamentRoutes.post("/:id/cancel", (c) => {
 	const id = idParam(c);
 	cancelTournament(seniorOf(c), id);
 	return ok(c, id);
+});
+
+/* ---- Chat ---- */
+
+adminTournamentRoutes.get("/:id/chat", (c) => {
+	staffOf(c);
+	return c.json(staffChat(idParam(c)));
+});
+
+/** Any of `on`, `delay_ms`, `slow_seconds` and `staff_only`. */
+adminTournamentRoutes.post("/:id/chat/settings", async (c) => {
+	const id = idParam(c);
+	updateChatSettings(staffOf(c), id, await readJson(c));
+	return c.json(staffChat(id));
+});
+
+adminTournamentRoutes.post("/:id/chat/clear", (c) => {
+	const id = idParam(c);
+	clearChat(staffOf(c), id);
+	return c.json(staffChat(id));
+});
+
+adminTournamentRoutes.delete("/:id/chat/:messageId", (c) => {
+	const id = idParam(c);
+	deleteChat(staffOf(c), id, idParam(c, "messageId"));
+	return c.json(staffChat(id));
+});
+
+adminTournamentRoutes.post("/:id/chat/:messageId/approve", (c) => {
+	const id = idParam(c);
+	approveChat(staffOf(c), id, idParam(c, "messageId"));
+	return c.json(staffChat(id));
+});
+
+adminTournamentRoutes.post("/:id/chat/:messageId/dismiss", (c) => {
+	const id = idParam(c);
+	dismissReports(staffOf(c), id, idParam(c, "messageId"));
+	return c.json(staffChat(id));
+});
+
+/** `minutes`: one of the lengths the panel offers. */
+adminTournamentRoutes.post("/:id/chat/:messageId/timeout", async (c) => {
+	const id = idParam(c);
+	const minutes = (await readJson<{ minutes: unknown }>(c)).minutes;
+	timeOutSender(staffOf(c), id, idParam(c, "messageId"), minutes);
+	return c.json(staffChat(id));
 });

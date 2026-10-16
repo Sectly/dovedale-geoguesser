@@ -95,6 +95,16 @@ export function onTournamentDuelEnd(fn: typeof duelEnded) {
 	duelEnded = fn;
 }
 
+let roundChanged: ((room: DuelRoom, userIds: number[]) => void) | null = null;
+/** Told when a tournament player's round starts, they guess, or the round ends, since chat closes and opens then. */
+export function onTournamentRoundChange(fn: typeof roundChanged) {
+	roundChanged = fn;
+}
+
+function reportRound(room: DuelRoom, userIds = room.players.map((p) => p.userId)) {
+	if (room.tournament) roundChanged?.(room, userIds);
+}
+
 function reportEnd(room: DuelRoom, winnerId: number | null, how: DuelEnd) {
 	if (!room.tournament || !duelEnded) return;
 	try {
@@ -422,6 +432,7 @@ function startRound(room: DuelRoom) {
 	room.lastResult = null;
 	/** The clock waits until both players have the screenshot, so a slow connection costs nobody time. */
 	room.round = Round.loading(room.locations[room.roundNumber - 1], DUEL_RULES);
+	reportRound(room);
 	broadcast(room, "round_loading", roundStartMessage(room));
 	setPhase(room, GAME.loadingWindow, () => beginRound(room));
 }
@@ -451,6 +462,7 @@ export function submitGuess(room: DuelRoom, userId: number, guess: Guess | null)
 
 	const outcome = round.score(guess);
 	room.outcomes.set(userId, outcome);
+	reportRound(room, [userId]);
 
 	for (const other of room.players) {
 		if (other.userId !== userId) send(other.conn, "opponent_guessed", { round: room.roundNumber });
@@ -481,6 +493,7 @@ function endRound(room: DuelRoom) {
 	if (room.status !== "in_progress" || !round) return;
 	clearPhase(room);
 	room.round = null;
+	reportRound(room);
 
 	const kind = room.roundKind;
 	const comebackFor = room.comebackFor;

@@ -273,7 +273,7 @@ adminUserRoutes.post("/:id/limit", async (c) => {
 	const actor = requireStaff(c);
 	const target = moderationTarget(c, actor);
 	const body = await readJson<{ type: string; hours: number; reason: string }>(c);
-	if (body.type !== "upload" && body.type !== "duel") fail(400, "Invalid type");
+	if (body.type !== "upload" && body.type !== "duel" && body.type !== "chat") fail(400, "Invalid type");
 	const type: ActionType = `limit_${body.type}`;
 	const reason = requireReason(body.reason);
 

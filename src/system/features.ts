@@ -6,6 +6,8 @@ import { fail } from "../lib/http";
 
 const DEFAULTS = {
 	duel_emotes: true,
+	/** Spectator chat on tournaments. Each tournament also has its own switch, off until staff turn it on. */
+	tournament_chat: true,
 	submissions: true,
 	suggestions: true,
 	/** Starting new duels and team games. Ones already open carry on. */

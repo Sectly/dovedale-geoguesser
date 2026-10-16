@@ -4,6 +4,7 @@ import { api, loginUrl } from "./lib/api.js";
 import { showToast } from "./lib/toast.js";
 import { celebrate } from "./lib/effects.js";
 import { live, onLive } from "./lib/live.js";
+import { setChatInMatch, startChat } from "./tournament-chat.js";
 
 /** The tournament page: the bracket and breaks, handing each match to the duel screens. Once finished, its results. */
 
@@ -36,6 +37,7 @@ const DECIDED_TEXT = {
 	tiebreak: "Tiebreak",
 	forfeit: "Forfeit",
 	no_show: "No-show",
+	not_ready: "Didn't ready up",
 	staff: "Staff decision",
 	bye: "Walkover",
 };
@@ -60,6 +62,17 @@ let seenMessage = null;
 let seenNotice = null;
 /** Narrow screens: the round shown, or null to follow the match being played. */
 let shownRound = null;
+/**
+ * Rounds played all at once: the match on screen, the viewer's own choice (a match id, "bracket" to stay on the
+ * bracket, or null to follow automatically), and the pause on a finished match's end screen before moving on.
+ */
+let watching = null;
+let watchingBatch = false;
+let watchChoice = null;
+let lingerUntil = 0;
+let lingerTimer = null;
+let switcherOpen = false;
+const LINGER_MS = 10_000;
 
 /** From an invite link: /tournament/5?invite=CODE. */
 const inviteCode = () => new URLSearchParams(location.search).get("invite") || "";
@@ -86,6 +99,26 @@ const matchNumber = (matchId) =>
 const matchTitle = (m) => (m.third ? m.name : `${m.name} · Match ${matchNumber(m.id)}`);
 const ready = (userId) => state.ready.includes(userId);
 const isFinalRound = (m) => m.round === state.rounds.length - 1;
+const liveMatches = () => allMatches().filter((m) => m.status === "live" && m.code);
+/** The round being played all at once, or its break; null when matches go one at a time. */
+const batchRound = () => state.phase.round ?? null;
+
+/** Own match, then the viewer's pick, the featured match, the current one, then the closest. */
+function pickWatch() {
+	const live = liveMatches();
+	const mine = live.find((m) => m.players.some(isMe));
+	if (mine) return mine;
+	if (watchChoice === "bracket") return null;
+	const chosen = live.find((m) => m.id === watchChoice);
+	if (chosen) return chosen;
+	if (typeof watchChoice === "number") watchChoice = null;
+	const featured = live.find((m) => m.id === state.featured);
+	if (featured) return featured;
+	const current = live.find((m) => m.id === watching);
+	if (current) return current;
+	const gap = (m) => (m.live ? Math.abs(m.live.scores[0] - m.live.scores[1]) : Number.MAX_SAFE_INTEGER);
+	return [...live].sort((a, b) => gap(a) - gap(b))[0] ?? null;
+}
 
 function ordinal(n) {
 	const tail = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th";
@@ -133,6 +166,21 @@ export function startStage(tournamentId, viewer, duelControls) {
 		</button>
 		<div id="stage-banner" class="stage-banner" aria-hidden="true"></div>`;
 	document.body.appendChild(root);
+	const switcher = document.createElement("div");
+	switcher.id = "match-switcher";
+	switcher.className = "hidden fixed top-3 left-1/2 -translate-x-1/2 z-[48] flex flex-col items-center";
+	switcher.addEventListener("click", onClick);
+	document.body.appendChild(switcher);
+	document.addEventListener("click", (e) => {
+		if (switcherOpen && !switcher.contains(e.target)) {
+			switcherOpen = false;
+			renderSwitcher();
+		}
+	});
+	const endCount = document.createElement("p");
+	endCount.id = "stage-end-count";
+	endCount.className = "hidden text-zinc-500 text-sm mt-2";
+	el("end-series")?.after(endCount);
 
 	el("stage-sound").addEventListener("click", toggleSound);
 	root.addEventListener("click", onClick);
@@ -153,6 +201,7 @@ export function startStage(tournamentId, viewer, duelControls) {
 	}).observe(el("stage-bracket-wrap"));
 
 	refresh();
+	startChat(tournamentId, viewer);
 	onLive("tournament", (summary) => {
 		if (!state || !summary || summary.id !== id || summary.version !== state.version) refresh();
 	});
@@ -170,7 +219,13 @@ export function startStage(tournamentId, viewer, duelControls) {
 	return {
 		/** For the duel's versus screen. */
 		label() {
-			const m = state && state.phase.match_id !== null ? matchById(state.phase.match_id) : null;
+			const m = !state
+				? null
+				: watchingBatch
+					? matchById(watching)
+					: state.phase.match_id !== null
+						? matchById(state.phase.match_id)
+						: null;
 			return m ? matchTitle(m) : "Tournament";
 		},
 		/** For a spectator's end screen. */
@@ -185,6 +240,8 @@ export function startStage(tournamentId, viewer, duelControls) {
 			if (!inMatch) return;
 			leftMatch = inMatch;
 			inMatch = null;
+			watching = null;
+			renderSwitcher();
 			showStage();
 			render(null);
 			refresh();
@@ -192,12 +249,13 @@ export function startStage(tournamentId, viewer, duelControls) {
 	};
 }
 
-async function refresh() {
+/** `force` redraws for fresh live scores even when the version is unchanged. */
+async function refresh(force = false) {
 	if (loading) return void (again = true);
 	loading = true;
 	try {
 		const next = await api(`/api/tournaments/${id}`);
-		if (!state || next.version !== state.version || next.status !== state.status) apply(next);
+		if (force || !state || next.version !== state.version || next.status !== state.status) apply(next);
 		else offset = next.now - Date.now();
 	} catch (err) {
 		if (!state) {
@@ -219,31 +277,120 @@ function apply(next) {
 	const prev = state;
 	state = next;
 	offset = next.now - Date.now();
+	const watched = watching !== null ? matchById(watching) : null;
+	/** A finished match in a round played all at once stays on its end screen for a moment. */
+	if (inMatch && watchingBatch && watched?.status === "done" && !lingerTimer) {
+		lingerUntil = Date.now() + LINGER_MS;
+		lingerTimer = setTimeout(() => {
+			lingerTimer = null;
+			if (typeof watchChoice === "number") watchChoice = null;
+			follow();
+			render(state);
+		}, LINGER_MS);
+	}
+	follow();
+	render(prev);
+}
+
+/** Shows the match the viewer should be watching, or the stage when there is none. */
+function follow() {
+	if (lingerTimer) return;
 	const phase = state.phase;
-	if (phase.kind === "match" && phase.code) {
-		if (inMatch !== phase.code && leftMatch !== phase.code) enterMatch(phase.code);
+	if (phase.kind === "batch") {
+		const target = pickWatch();
+		if (target && target.code !== inMatch && target.code !== leftMatch) enterMatch(target, true);
+		else if (!target && inMatch) leaveMatch();
+	} else if (phase.kind === "match" && phase.code) {
+		if (inMatch !== phase.code && leftMatch !== phase.code) enterMatch(matchById(phase.match_id), false);
 	} else if (phase.kind !== "result" && inMatch) {
 		leaveMatch();
 	} else if (phase.kind === "result" && !inMatch) {
 		showStage();
 	}
-	render(prev);
 }
 
-function enterMatch(code) {
-	const m = matchById(state.phase.match_id);
-	inMatch = code;
+function enterMatch(m, batch) {
+	if (!m?.code) return;
+	const fromStage = !inMatch;
+	inMatch = m.code;
+	watching = m.id;
+	watchingBatch = batch;
 	leftMatch = null;
-	Sounds.play("horn");
-	root.classList.add("stage-leaving");
-	setTimeout(() => inMatch === code && (root.hidden = true), prefersReducedMotion() ? 0 : 350);
-	duel.join(code, !!m && m.players.some(isMe));
+	switcherOpen = false;
+	if (fromStage) {
+		Sounds.play("horn");
+		root.classList.add("stage-leaving");
+		setTimeout(() => inMatch === m.code && (root.hidden = true), prefersReducedMotion() ? 0 : 350);
+	}
+	duel.join(m.code, m.players.some(isMe));
+	setChatInMatch(true);
+	renderSwitcher();
 }
 
 function leaveMatch() {
 	inMatch = null;
+	watching = null;
 	duel.leave();
+	setChatInMatch(false);
+	renderSwitcher();
 	showStage();
+}
+
+/** The bar over a match in a round played all at once, for switching to another or back to automatic. */
+function renderSwitcher() {
+	const box = el("match-switcher");
+	if (!box) return;
+	const watched = watching !== null ? matchById(watching) : null;
+	const showing =
+		!!state &&
+		!!inMatch &&
+		watchingBatch &&
+		!!watched &&
+		!watched.players.some(isMe) &&
+		state.phase.kind === "batch";
+	box.classList.toggle("hidden", !showing);
+	if (!showing) return;
+	const live = liveMatches();
+	const vs = (m) => `${escHtml(nameOf(m.players[0]))} vs ${escHtml(nameOf(m.players[1]))}`;
+	const check = (on) =>
+		`<span class="material-symbols-outlined text-base ${on ? "text-blue-400" : "invisible"}">check</span>`;
+	const item = (action, label, sub, on, extra = "") =>
+		`<button data-action="${action}" ${extra} class="w-full flex items-center gap-2 text-left px-3 py-2 rounded-xl hover:bg-zinc-800 transition">
+			${check(on)}<span class="flex-1 min-w-0"><span class="block text-sm truncate">${label}</span>${sub ? `<span class="block text-xs text-zinc-500">${sub}</span>` : ""}</span>
+		</button>`;
+	box.innerHTML = `<button data-action="switcher" aria-expanded="${switcherOpen}" class="flex items-center gap-1.5 bg-zinc-900/95 border border-zinc-800 rounded-full pl-3 pr-2 py-1.5 text-xs shadow-lg max-w-[70vw]">
+			<span class="truncate">${vs(watched)}</span>
+			<span class="text-zinc-500 flex-shrink-0">· ${live.length} live${watchChoice === null ? " · Automatic" : ""}</span>
+			<span class="material-symbols-outlined text-base flex-shrink-0">expand_more</span>
+		</button>
+		${
+			switcherOpen
+				? `<div class="mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-1.5 w-80 max-w-[92vw] max-h-[60vh] overflow-y-auto shadow-xl">
+				${item("auto", "Automatic", "Follows the featured or closest match", watchChoice === null)}
+				${live
+					.map((m) =>
+						item(
+							"watch-match",
+							vs(m),
+							[
+								`Match ${matchNumber(m.id)}`,
+								m.live ? `round ${m.live.round} of ${m.live.rounds}` : "",
+								m.live
+									? `${m.live.scores[0].toLocaleString()} to ${m.live.scores[1].toLocaleString()}`
+									: "",
+								m.id === state.featured ? "Featured" : "",
+							]
+								.filter(Boolean)
+								.join(" · "),
+							watchChoice === m.id,
+							`data-match="${m.id}"`
+						)
+					)
+					.join("")}
+				${item("bracket", "Show the bracket", "", false)}
+			</div>`
+				: ""
+		}`;
 }
 
 function showStage() {
@@ -269,6 +416,7 @@ function render(prev) {
 	renderStandings();
 	renderBracket(prev);
 	renderRoster();
+	renderSwitcher();
 	cues(prev, upNext);
 }
 
@@ -297,6 +445,22 @@ function renderHero(prev, upNext, isFinal) {
 		html = `${titleHtml("Cancelled")}<p class="text-zinc-500 text-sm mt-2">This tournament was called off.</p>`;
 	} else if (state.status !== "live") {
 		html = lobbyHero();
+	} else if (phase.kind === "batch") {
+		html = batchHero();
+	} else if (phase.kind === "break" && phase.round !== null) {
+		const mine = allMatches().find(
+			(m) => m.round === phase.round && m.status === "waiting" && m.players.some(isMe)
+		);
+		const count = allMatches().filter((m) => m.round === phase.round && m.status === "waiting").length;
+		html = `${titleHtml("Tournament")}
+			<div class="${LABEL} mt-8">${escHtml(phase.label === "start" ? "Starting in" : `${state.rounds[phase.round].name} in`)}</div>
+			${countdownHtml(phase)}
+			${
+				mine
+					? versusHtml(mine, { animate: !samePanel }) + readyHtml(mine)
+					: `<p class="text-zinc-400 mt-4">All ${count} matches in ${escHtml(state.rounds[phase.round].name.toLowerCase())} start together.</p>
+						<p class="text-zinc-500 text-sm mt-1">You'll follow one automatically, and can switch at any time.</p>`
+			}`;
 	} else if (phase.kind === "break") {
 		const line =
 			phase.label === "start"
@@ -326,6 +490,32 @@ function renderHero(prev, upNext, isFinal) {
 		html = `${titleHtml("Result")}${resultHtml(upNext)}`;
 	}
 	el("stage-hero").innerHTML = html;
+}
+
+/** A round being played all at once, seen from the stage: progress and every live match. */
+function batchHero() {
+	const phase = state.phase;
+	const inRound = allMatches().filter((m) => m.round === phase.round && !m.third);
+	const done = inRound.filter((m) => m.status === "done").length;
+	const live = liveMatches();
+	const held = inRound.filter((m) => m.status === "waiting");
+	const mine = held.find((m) => m.players.some(isMe));
+	const row = (m) => {
+		const score = m.live ? `${m.live.scores[0].toLocaleString()} to ${m.live.scores[1].toLocaleString()}` : "";
+		return `<div class="bg-zinc-900 rounded-2xl px-4 py-3 flex items-center gap-3 text-left ${m.id === state.featured ? "ring-2 ring-blue-500" : ""}">
+			<div class="flex-1 min-w-0">
+				<div class="text-sm font-semibold truncate">${escHtml(nameOf(m.players[0]))} <span class="text-zinc-500 font-normal">vs</span> ${escHtml(nameOf(m.players[1]))}</div>
+				<div class="text-xs text-zinc-500">${[`Match ${matchNumber(m.id)}`, m.live ? `round ${m.live.round} of ${m.live.rounds}` : "", score, m.status === "waiting" ? "Waiting for players" : ""].filter(Boolean).join(" · ")}</div>
+			</div>
+			${m.status === "live" ? `<button class="m-btn m-btn-tonal m-btn-sm" data-action="watch-match" data-match="${m.id}">Watch</button>` : ""}
+		</div>`;
+	};
+	return `${titleHtml("Tournament")}
+		<div class="text-xl font-bold mt-8">${escHtml(state.rounds[phase.round].name)}: ${live.length} playing</div>
+		<p class="text-zinc-500 text-sm mt-1">${done} of ${inRound.length} matches done</p>
+		${mine ? versusHtml(mine) + readyHtml(mine) : ""}
+		${live.length ? '<button class="m-btn m-btn-filled m-btn-lg mt-6" data-action="auto">Watch automatically</button>' : ""}
+		<div class="grid gap-2 mt-6 w-full max-w-3xl" style="grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr))">${[...live, ...held.filter((m) => m !== mine)].map(row).join("")}</div>`;
 }
 
 function lobbyHero() {
@@ -369,7 +559,11 @@ function pathText(userId) {
 }
 
 function versusHtml(m, { animate = false, final = false } = {}) {
-	const showReady = ["break", "hold"].includes(state.phase.kind) && state.phase.match_id === m.id;
+	const phase = state.phase;
+	const showReady =
+		m.status === "waiting" &&
+		(((phase.kind === "break" || phase.kind === "hold") && phase.match_id === m.id) ||
+			(phase.round !== null && m.round === phase.round));
 	const side = (userId) => {
 		if (userId === null)
 			return `<div class="flex flex-col items-center gap-2 w-32 sm:w-40 opacity-50">
@@ -532,6 +726,10 @@ function meText() {
 	}
 	const phase = state.phase;
 	if (open.status === "live") return "You're playing now";
+	if (batchRound() !== null && open.round === batchRound())
+		return state.phase.kind === "batch"
+			? "Your match is waiting for both players to be ready"
+			: "Your match starts with this round";
 	if (phase.match_id === open.id && ["break", "hold"].includes(phase.kind)) return "Your match is next";
 	const known = open.players.every((p, i) => p !== null || open.closed[i]);
 	if (!known) return `You're through to the ${open.name}. Waiting to see who you play.`;
@@ -632,7 +830,7 @@ function renderBracket(prev) {
 		const next = !playing && phase.match_id === m.id && ["break", "hold"].includes(phase.kind);
 		const note = playing ? "Playing now" : next ? "Next" : m.status === "done" ? DECIDED_TEXT[m.decided] || "" : "";
 		const classes = ["bk-card", (playing || next) && "current", justDone.has(m.id) && "just-done"];
-		return `<div class="${classes.filter(Boolean).join(" ")}" data-match="${m.id}" style="${style}--i:${Math.min(n, 30)}">
+		return `<div class="${classes.filter(Boolean).join(" ")} ${playing ? "cursor-pointer" : ""}" data-match="${m.id}" ${playing ? 'data-action="watch-match" title="Watch this match"' : ""} style="${style}--i:${Math.min(n, 30)}">
 			<div class="bk-num"><span>${m.third ? "Third place" : `Match ${matchNumber(m.id)}`}</span>${note ? `<span class="${playing || next ? "text-blue-400" : ""}">${escHtml(note)}</span>` : ""}</div>
 			${[0, 1].map((side) => rowHtml(m, side, arriving.has(`${m.id}:${side}`))).join("")}
 		</div>`;
@@ -769,8 +967,15 @@ function cues(prev, upNext) {
 	const phase = state.phase;
 	const changedPhase =
 		prev.phase.kind !== phase.kind || prev.phase.match_id !== phase.match_id || prev.phase.label !== phase.label;
-	if (changedPhase && phase.kind === "break" && (phase.label === "round" || phase.label === "final") && upNext)
-		banner(phase.label === "final" ? "The Final" : upNext.name);
+	if (
+		changedPhase &&
+		phase.kind === "break" &&
+		(phase.label === "round" || phase.label === "final") &&
+		(upNext || phase.round !== null)
+	)
+		banner(
+			phase.label === "final" ? "The Final" : phase.round !== null ? state.rounds[phase.round].name : upNext.name
+		);
 	else if (changedPhase && phase.kind === "break" && phase.label === "start") banner(state.title);
 	if (changedPhase && phase.kind === "break" && upNext && phase.label !== "round" && phase.label !== "final")
 		Sounds.play("versus");
@@ -787,6 +992,15 @@ function cues(prev, upNext) {
 		alerted.add(upNext.id);
 		Sounds.play("alert");
 		showToast("Your match is next. Press Ready when you're set.", "info");
+	}
+	const mineInRound =
+		user && phase.kind === "break" && phase.round !== null
+			? allMatches().find((m) => m.round === phase.round && m.status === "waiting" && m.players.includes(user.id))
+			: null;
+	if (mineInRound && !alerted.has(mineInRound.id)) {
+		alerted.add(mineInRound.id);
+		Sounds.play("alert");
+		showToast("Your match starts with this round. Press Ready when you're set.", "info");
 	}
 
 	const before = new Map(prev.rounds.flatMap((r) => r.matches.map((m) => [m.id, m])));
@@ -812,7 +1026,25 @@ function banner(text) {
 }
 
 /** Countdowns, with chimes as the start nears and ticks for the last ten seconds. */
+/** On a match's end screen: how long until the next match or the bracket. */
+function endCount() {
+	const box = el("stage-end-count");
+	if (!box || !state) return;
+	const endsAt = lingerTimer
+		? lingerUntil
+		: state.phase.kind === "result" && inMatch
+			? state.phase.ends_at - offset
+			: null;
+	const showing = endsAt !== null && !el("end-screen").classList.contains("hidden");
+	box.classList.toggle("hidden", !showing);
+	if (!showing) return;
+	const left = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+	const more = lingerTimer && watchChoice !== "bracket" && liveMatches().some((m) => m.code !== inMatch);
+	box.textContent = `${more ? "Next match" : "Back to the bracket"} in ${left}s`;
+}
+
 function tick() {
+	endCount();
 	if (!state || root.hidden) return;
 	for (const node of root.querySelectorAll("[data-ends]")) {
 		const left = Number(node.dataset.ends) - serverNow();
@@ -840,7 +1072,31 @@ async function onClick(e) {
 	if (!action) return;
 	if (action === "watch") {
 		leftMatch = null;
-		return state.phase.code && enterMatch(state.phase.code);
+		return state.phase.code && enterMatch(matchById(state.phase.match_id), false);
+	}
+	if (action === "switcher") {
+		switcherOpen = !switcherOpen;
+		if (switcherOpen) refresh(true);
+		return renderSwitcher();
+	}
+	if (action === "auto") {
+		watchChoice = null;
+		leftMatch = null;
+		switcherOpen = false;
+		const next = pickWatch();
+		return next ? enterMatch(next, true) : renderSwitcher();
+	}
+	if (action === "bracket") {
+		watchChoice = "bracket";
+		switcherOpen = false;
+		return leaveMatch();
+	}
+	if (action === "watch-match") {
+		const m = matchById(Number(target.dataset.match));
+		if (!m || m.status !== "live" || liveMatches().some((x) => x.players.some(isMe))) return;
+		watchChoice = state.phase.kind === "batch" ? m.id : null;
+		leftMatch = null;
+		return enterMatch(m, state.phase.kind === "batch");
 	}
 	if (action === "round") {
 		shownRound = Number(target.dataset.round);
