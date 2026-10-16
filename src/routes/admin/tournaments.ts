@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { requireStaff } from "../../auth/guards";
+import { nudgeTournamentChat } from "../../events";
 import {
 	addPlayers,
 	awardMatch,
@@ -222,6 +223,13 @@ adminTournamentRoutes.post("/:id/cancel", (c) => {
 });
 
 /* ---- Chat ---- */
+
+/** Other staff with the chat card open see each change. */
+adminTournamentRoutes.use("/:id/chat/*", async (c, next) => {
+	await next();
+	const id = Number(c.req.param("id"));
+	if (c.req.method !== "GET" && c.res.ok && Number.isInteger(id)) nudgeTournamentChat(id);
+});
 
 adminTournamentRoutes.get("/:id/chat", (c) => {
 	staffOf(c);

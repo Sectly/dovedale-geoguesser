@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { nudgeTournamentChat } from "../events";
 import { hasRole, requirePlayer } from "../auth/guards";
 import { currentUser } from "../auth/sessions";
 import {
@@ -52,12 +53,20 @@ tournamentRoutes.post("/:id/ready", (c) => {
 /** What the viewer may do in chat, and the latest messages if they may read them. */
 tournamentRoutes.get("/:id/chat", (c) => c.json(chatHistory(currentUser(c), idParam(c))));
 
+/** Staff see every message, blocked ones included, so they are told whatever the outcome. */
 tournamentRoutes.post("/:id/chat", async (c) => {
 	const body = (await readJson<{ text: unknown }>(c)).text;
-	return c.json(sendChat(requirePlayer(c), idParam(c), body));
+	const id = idParam(c);
+	try {
+		return c.json(sendChat(requirePlayer(c), id, body));
+	} finally {
+		nudgeTournamentChat(id);
+	}
 });
 
 tournamentRoutes.post("/:id/chat/:messageId/report", (c) => {
-	reportChat(requirePlayer(c), idParam(c), idParam(c, "messageId"));
+	const id = idParam(c);
+	reportChat(requirePlayer(c), id, idParam(c, "messageId"));
+	nudgeTournamentChat(id);
 	return c.json({ success: true });
 });

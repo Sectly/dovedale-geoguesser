@@ -20,11 +20,14 @@ class FakeConn extends EventEmitter {
 	}
 }
 
+/** The library's server is an event emitter, though its types do not say so. */
+const server = teamWireServer as unknown as EventEmitter;
+
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function watch(user: TestUser, room: string, here = true) {
 	const conn = new FakeConn(user.id);
-	teamWireServer.emit("connection", conn);
+	server.emit("connection", conn);
 	conn.emit("team_watch", { room, here });
 	return conn;
 }
@@ -89,7 +92,7 @@ describe("team duels socket", () => {
 	test("ignores pages that are not logged in", async () => {
 		const { code } = await newRoom();
 		const conn = new FakeConn(null);
-		teamWireServer.emit("connection", conn);
+		server.emit("connection", conn);
 		conn.emit("team_watch", { room: code });
 		expect(conn.last("team_state")).toBeUndefined();
 	});

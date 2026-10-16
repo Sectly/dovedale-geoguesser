@@ -1,5 +1,6 @@
 import { el, escHtml } from "../lib/dom.js";
 import { api } from "../lib/api.js";
+import { pollWhile } from "../tickets.js";
 import { showToast } from "../lib/toast.js";
 import { atLeast, currentTab, showConfirm } from "./core.js";
 import { formatWhen } from "./users.js";
@@ -26,7 +27,8 @@ const POLL_MS = 3000;
 let _id = null;
 let _chat = null;
 let _filter = "all";
-let _poll = null;
+/** Stops the polling and the live updates. */
+let _stopPoll = null;
 let _busy = false;
 
 const seconds = (ms) => (ms === 0 ? "None" : `${ms / 1000} s`);
@@ -34,7 +36,7 @@ const timeoutText = (m) => (m < 60 ? `${m} min` : m < 1440 ? `${m / 60} hour` : 
 
 /* ---- Chat card ---- */
 
-/** Drawn from the last load, then polled. */
+/** Drawn from the last load, then kept up to date by live updates, or polled without them. */
 export function staffChatSlot(t) {
 	if (!["open", "live", "finished"].includes(t.status)) {
 		stopStaffChat();
@@ -45,15 +47,15 @@ export function staffChatSlot(t) {
 		_chat = null;
 		_filter = "all";
 	}
-	clearInterval(_poll);
-	_poll = setInterval(pollChat, POLL_MS);
+	_stopPoll?.();
+	_stopPoll = pollWhile(watchingChat, loadChat, POLL_MS, "tournament_chat");
 	if (!_chat) loadChat();
 	return `<section id="staff-chat" class="bg-zinc-900 rounded-2xl mb-4 max-w-4xl overflow-hidden">${chatCardHtml()}</section>`;
 }
 
 export function stopStaffChat() {
-	clearInterval(_poll);
-	_poll = null;
+	_stopPoll?.();
+	_stopPoll = null;
 	_id = null;
 	_chat = null;
 }
@@ -70,9 +72,12 @@ async function loadChat() {
 	paint();
 }
 
-function pollChat() {
-	if (currentTab !== "tournaments" || !el("staff-chat")) return stopStaffChat();
-	if (!_busy && !document.hidden) loadChat();
+function watchingChat() {
+	if (currentTab !== "tournaments" || !el("staff-chat")) {
+		queueMicrotask(stopStaffChat);
+		return false;
+	}
+	return !_busy;
 }
 
 function paint() {

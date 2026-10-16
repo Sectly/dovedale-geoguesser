@@ -102,7 +102,7 @@ function openLiveDuels() {
 	loadLiveDuels();
 	clearInterval(liveDuelsTimer);
 	/** Scores and rounds move quickly, so keep the open list fresh. */
-	liveDuelsTimer = setInterval(loadLiveDuels, 4000);
+	liveDuelsTimer = setInterval(() => document.hidden || loadLiveDuels(), 4000);
 }
 
 function closeLiveDuels() {
@@ -231,7 +231,7 @@ async function init() {
 		closeLiveDuels();
 		spectate(watch.dataset.watch);
 	});
-	setInterval(() => el("lobby-screen").classList.contains("hidden") || loadLiveDuels(), 15_000);
+	setInterval(() => document.hidden || el("lobby-screen").classList.contains("hidden") || loadLiveDuels(), 15_000);
 
 	/** Built up front so the map tiles are already loaded when the duel starts. */
 	view = new RoundView({ onGuess: sendGuess, onPinMoved: sharePin });
