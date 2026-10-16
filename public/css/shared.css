@@ -3058,6 +3058,198 @@ html.intro-hold .stagger > * {
 	animation: pop-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
+/* ---- Tournament lobby: check-in and the wait before the start ---- */
+.lobby-trophy {
+	width: 5rem;
+	height: 5rem;
+	border-radius: 9999px;
+	background: #18181b;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 1.25rem;
+}
+.lobby-trophy .material-symbols-outlined {
+	font-size: 2.75rem;
+	color: #facc15;
+	font-variation-settings: "FILL" 1;
+}
+.lobby-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.25rem 0.75rem;
+	border-radius: 9999px;
+	background: #18181b;
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #a1a1aa;
+	margin-bottom: 0.75rem;
+}
+.lobby-chip.open {
+	color: #86efac;
+}
+.lobby-dot {
+	position: relative;
+	width: 0.5rem;
+	height: 0.5rem;
+	border-radius: 9999px;
+	background: currentColor;
+}
+.lobby-clock {
+	display: flex;
+	gap: 0.75rem;
+	justify-content: center;
+	margin-top: 0.75rem;
+}
+.lobby-unit {
+	background: #18181b;
+	border-radius: 1rem;
+	padding: 0.75rem 0.5rem 0.5rem;
+	min-width: 4.75rem;
+}
+.lobby-digits {
+	display: flex;
+	justify-content: center;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: clamp(2rem, 9vw, 3rem);
+	font-weight: 700;
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	overflow: hidden;
+}
+.lobby-digit {
+	display: inline-block;
+}
+.lobby-unit-label {
+	font-size: 0.6875rem;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: #a1a1aa;
+	margin-top: 0.375rem;
+}
+.lobby-progress {
+	width: min(20rem, 100%);
+	height: 0.5rem;
+	border-radius: 9999px;
+	background: #27272a;
+	overflow: hidden;
+}
+.lobby-progress-bar {
+	height: 100%;
+	border-radius: inherit;
+	background: #22c55e;
+	transition: width 0.8s cubic-bezier(0.2, 0, 0, 1);
+}
+.lobby-player {
+	transition:
+		background-color 0.3s,
+		border-color 0.3s;
+}
+.lobby-player.waiting {
+	background: transparent;
+	border: 1px dashed #3f3f46;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.lobby-trophy {
+		animation: lobby-float 3.2s ease-in-out infinite;
+	}
+	.lobby-chip.open .lobby-dot::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background: currentColor;
+		animation: lobby-ping 1.6s cubic-bezier(0, 0, 0.2, 1) var(--ping-delay, 0s) infinite;
+	}
+	.lobby-digit.roll {
+		animation: lobby-roll 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+	}
+	.lobby-cta {
+		animation: lobby-breathe 2.4s ease-in-out infinite;
+	}
+	.lobby-cta:hover,
+	.lobby-cta:disabled {
+		animation: none;
+	}
+	.lobby-done {
+		animation: lobby-done 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+	}
+	.lobby-rise > * {
+		animation: lobby-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+		animation-delay: calc(var(--i, 0) * 45ms);
+	}
+	.lobby-player.arrived {
+		animation: lobby-arrive 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+	.lobby-player.arrived .lobby-check {
+		animation: lobby-check 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s backwards;
+	}
+}
+@keyframes lobby-float {
+	0%,
+	100% {
+		transform: translateY(0) rotate(-3deg);
+	}
+	50% {
+		transform: translateY(-6px) rotate(3deg);
+	}
+}
+@keyframes lobby-ping {
+	75%,
+	100% {
+		transform: scale(2.6);
+		opacity: 0;
+	}
+}
+@keyframes lobby-roll {
+	from {
+		transform: translateY(-70%);
+		opacity: 0;
+	}
+}
+@keyframes lobby-breathe {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.045);
+	}
+}
+@keyframes lobby-rise {
+	from {
+		opacity: 0;
+		transform: translateY(10px) scale(0.97);
+	}
+}
+@keyframes lobby-arrive {
+	0% {
+		transform: scale(0.94);
+	}
+	45% {
+		transform: scale(1.05);
+		background-color: #14532d;
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+@keyframes lobby-done {
+	from {
+		opacity: 0;
+		transform: scale(0.5);
+	}
+}
+@keyframes lobby-check {
+	from {
+		transform: scale(0) rotate(-45deg);
+	}
+}
+
 /* Slides across when a new round begins. */
 .stage-banner {
 	position: fixed;

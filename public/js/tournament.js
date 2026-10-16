@@ -58,6 +58,10 @@ let loading = false;
 let again = false;
 let lastSecond = null;
 const alerted = new Set();
+/** Lobby: who was checked in last time it was drawn (null before the first), and the bar's last width. */
+let seenCheckedIn = null;
+let lastProgress = 0;
+let justCheckedIn = false;
 let seenMessage = null;
 let seenNotice = null;
 /** Narrow screens: the round shown, or null to follow the match being played. */
@@ -490,6 +494,7 @@ function renderHero(prev, upNext, isFinal) {
 		html = `${titleHtml("Result")}${resultHtml(upNext)}`;
 	}
 	el("stage-hero").innerHTML = html;
+	growProgress();
 }
 
 /** A round being played all at once, seen from the stage: progress and every live match. */
@@ -518,30 +523,105 @@ function batchHero() {
 		<div class="grid gap-2 mt-6 w-full max-w-3xl" style="grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr))">${[...live, ...held.filter((m) => m !== mine)].map(row).join("")}</div>`;
 }
 
+/** Days, hours, minutes and seconds left, leaving out days when there are none. */
+function clockUnits(ms) {
+	const total = Math.max(0, Math.ceil(ms / 1000));
+	const units = [
+		[Math.floor(total / 86400), "days"],
+		[Math.floor((total % 86400) / 3600), "hours"],
+		[Math.floor((total % 3600) / 60), "mins"],
+		[total % 60, "secs"],
+	];
+	return (units[0][0] ? units : units.slice(1)).map(([n, label]) => [String(n).padStart(2, "0"), label]);
+}
+
+/** The wait before the start, one box per unit. Read out once as a time, not every second. */
+function lobbyClockHtml(starts) {
+	const at = new Date(starts).toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" });
+	return `<span class="sr-only">Starts ${escHtml(at)}</span>
+		<div class="lobby-clock" data-clock-ends="${starts}" aria-hidden="true">${clockUnits(starts - serverNow())
+			.map(
+				([digits, label]) => `<div class="lobby-unit">
+					<div class="lobby-digits" data-unit="${label}">${[...digits].map((d) => `<span class="lobby-digit">${d}</span>`).join("")}</div>
+					<div class="lobby-unit-label">${label}</div>
+				</div>`
+			)
+			.join("")}</div>`;
+}
+
+/** Changed digits roll in from above. */
+function paintClocks() {
+	for (const node of root.querySelectorAll("[data-clock-ends]")) {
+		const left = Number(node.dataset.clockEnds) - serverNow();
+		const units = clockUnits(left);
+		if (units.length !== node.querySelectorAll("[data-unit]").length) return render(state);
+		for (const [digits, label] of units) {
+			const spans = node.querySelectorAll(`[data-unit="${label}"] .lobby-digit`);
+			[...digits].forEach((d, i) => {
+				const span = spans[i];
+				if (!span || span.textContent === d) return;
+				span.textContent = d;
+				span.classList.remove("roll");
+				void span.offsetWidth;
+				span.classList.add("roll");
+			});
+		}
+	}
+}
+
+/** A negative delay that keeps a looping animation where it was when the hero is redrawn. */
+const inPhase = (periodMs) => `animation-delay:-${Date.now() % periodMs}ms`;
+
 function lobbyHero() {
 	const starts = state.starts_at ? state.starts_at * 1000 : null;
 	const onList = user && state.roster.find((r) => r.user_id === user.id);
+	const open = state.status === "open";
 	let action = "";
-	if (state.status === "open") {
+	if (open) {
 		if (!user)
-			action = `<p class="text-zinc-500 text-sm mt-6">Playing? <a class="underline hover:text-zinc-300" href="${escHtml(loginUrl())}">Log in</a> to ${inviteCode() && state.invite_open ? "join" : "check in"}.</p>`;
+			action = `<p class="text-zinc-500 text-sm mt-8">Playing? <a class="underline hover:text-zinc-300" href="${escHtml(loginUrl())}">Log in</a> to ${inviteCode() && state.invite_open ? "join" : "check in"}.</p>`;
 		else if (!onList && state.invite_open)
 			action = inviteCode()
-				? `<button class="m-btn m-btn-lg m-btn-success mt-6" data-action="join">Join the tournament</button>`
-				: `<form class="mt-6 flex gap-2 justify-center" data-join-form>
-					<input name="code" maxlength="12" autocomplete="off" placeholder="Invite code" class="m-field !w-40 uppercase text-center tracking-widest" />
+				? `<button class="m-btn m-btn-lg m-btn-success lobby-cta mt-8" style="${inPhase(2400)}" data-action="join">Join the tournament</button>`
+				: `<form class="mt-8 flex gap-2 justify-center" data-join-form>
+					<input name="code" maxlength="12" autocomplete="off" placeholder="Invite code" aria-label="Invite code" class="m-field !w-40 uppercase text-center tracking-widest" />
 					<button class="m-btn m-btn-tonal" data-action="join">Join</button>
 				</form>`;
 		else if (onList?.checked_in)
-			action = `<p class="text-green-400 text-sm font-semibold mt-6 flex items-center gap-1.5"><span class="material-symbols-outlined text-base" style="font-variation-settings:'FILL' 1">check_circle</span>You're checked in</p>`;
+			action = `<p class="${justCheckedIn ? "lobby-done " : ""}text-green-400 font-semibold mt-8 flex items-center gap-2"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">check_circle</span>You're checked in</p>`;
 		else if (onList)
-			action = `<button class="m-btn m-btn-lg m-btn-success mt-6" data-action="checkin">I'm here</button>
+			action = `<button class="m-btn m-btn-lg m-btn-success lobby-cta mt-8" style="${inPhase(2400)}" data-action="checkin">I'm here</button>
 				<p class="text-zinc-500 text-sm mt-3">Check in to get your place in the bracket.</p>`;
 	}
-	return `${titleHtml(state.status === "open" ? "Check-in open" : "Coming up")}
+	justCheckedIn = false;
+	const checked = state.roster.filter((r) => r.checked_in).length;
+	const progress = state.roster.length
+		? `<div class="flex flex-col items-center gap-2 mt-8 w-full">
+			<div class="lobby-progress" role="progressbar" aria-label="Players checked in" aria-valuemin="0" aria-valuemax="${state.roster.length}" aria-valuenow="${checked}">
+				<div class="lobby-progress-bar" style="width:${lastProgress}%" data-progress="${(checked / state.roster.length) * 100}"></div>
+			</div>
+			<p class="text-sm text-zinc-400">${checked} of ${state.roster.length} checked in</p>
+		</div>`
+		: "";
+	return `<div class="lobby-trophy" style="${inPhase(3200)}" aria-hidden="true"><span class="material-symbols-outlined">trophy</span></div>
+		<div class="lobby-chip ${open ? "open" : ""}"><span class="lobby-dot" style="--ping-delay:-${Date.now() % 1600}ms"></span>${open ? "Check-in open" : "Coming up"}</div>
+		<h1 class="text-4xl sm:text-5xl font-bold tracking-tight">${escHtml(state.title)}</h1>
 		${state.description ? `<p class="text-zinc-400 mt-3 max-w-xl whitespace-pre-line">${escHtml(state.description)}</p>` : ""}
-		${starts && starts > serverNow() ? `<div class="${LABEL} mt-8">Starts in</div><div class="stage-count" data-ends="${starts}">${clock(starts - serverNow())}</div>` : starts ? '<p class="text-zinc-500 text-sm mt-6">Starting soon</p>' : ""}
+		${starts && starts > serverNow() ? `<div class="${LABEL} mt-8">Starts in</div>${lobbyClockHtml(starts)}` : starts ? '<p class="text-zinc-400 mt-8">Starting soon</p>' : ""}
+		${progress}
 		${action}`;
+}
+
+/** Grows the check-in bar from where it was drawn last. */
+function growProgress() {
+	const bar = root.querySelector("[data-progress]");
+	if (!bar) return;
+	requestAnimationFrame(() =>
+		requestAnimationFrame(() => {
+			lastProgress = Number(bar.dataset.progress);
+			bar.style.width = `${lastProgress}%`;
+		})
+	);
 }
 
 function countdownHtml(phase) {
@@ -764,20 +844,27 @@ function renderRoster() {
 	const box = el("stage-roster");
 	const showing = state.status === "open" || state.status === "draft";
 	box.classList.toggle("hidden", !showing || !state.roster.length);
-	if (!showing) return;
-	const checked = state.roster.filter((r) => r.checked_in).length;
-	box.innerHTML = `<div class="${LABEL} mb-3">Players · ${checked} of ${state.roster.length} checked in</div>
-		<div class="stagger grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr))">${state.roster
+	if (!showing) return void (seenCheckedIn = null);
+	const first = seenCheckedIn === null;
+	const arrived = (r) => r.checked_in && !first && !seenCheckedIn.has(r.user_id);
+	box.innerHTML = `<div class="${LABEL} mb-3">Players</div>
+		<div class="${first ? "lobby-rise " : ""}grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr))">${state.roster
 			.map(
 				(
-					r
-				) => `<div class="bg-zinc-900 rounded-2xl px-3 py-2.5 flex items-center gap-3 ${isMe(r.user_id) ? "ring-2 ring-blue-500" : ""}">
-					${avatarHtml(player(r.user_id)?.avatar_url, "w-8 h-8")}
+					r,
+					i
+				) => `<div style="--i:${i}" class="lobby-player ${r.checked_in ? "bg-zinc-900" : "waiting"} ${arrived(r) ? "arrived" : ""} rounded-2xl px-3 py-2.5 flex items-center gap-3 ${isMe(r.user_id) ? "ring-2 ring-blue-500" : ""}">
+					${avatarHtml(player(r.user_id)?.avatar_url, `w-8 h-8 ${r.checked_in ? "" : "opacity-60"}`)}
 					<span class="flex-1 min-w-0 truncate text-sm ${r.checked_in ? "" : "text-zinc-500"}">${escHtml(nameOf(r.user_id))}</span>
-					${r.checked_in ? '<span class="material-symbols-outlined text-lg text-green-400" style="font-variation-settings:\'FILL\' 1" title="Checked in" aria-label="Checked in">check_circle</span>' : ""}
+					${
+						r.checked_in
+							? '<span class="lobby-check material-symbols-outlined text-lg text-green-400" style="font-variation-settings:\'FILL\' 1" title="Checked in">check_circle</span>'
+							: '<span class="material-symbols-outlined text-lg text-zinc-600" title="Not checked in yet">hourglass_empty</span>'
+					}
 				</div>`
 			)
 			.join("")}</div>`;
+	seenCheckedIn = new Set(state.roster.filter((r) => r.checked_in).map((r) => r.user_id));
 }
 
 /* ---- The bracket ---- */
@@ -1046,6 +1133,7 @@ function endCount() {
 function tick() {
 	endCount();
 	if (!state || root.hidden) return;
+	paintClocks();
 	for (const node of root.querySelectorAll("[data-ends]")) {
 		const left = Number(node.dataset.ends) - serverNow();
 		node.textContent = clock(left);
@@ -1131,6 +1219,11 @@ async function onClick(e) {
 		}
 		await api(`/api/tournaments/${id}/${action === "ready" ? "ready" : "checkin"}`, { method: "POST" });
 		if (action === "ready") Sounds.play("pin");
+		if (action === "checkin") {
+			justCheckedIn = true;
+			Sounds.play("good");
+			celebrate({ count: 70, duration: 1800 });
+		}
 		refresh();
 	} catch (err) {
 		showToast(err.message, "error");
