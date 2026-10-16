@@ -12,6 +12,7 @@ import { escapeXml } from "../og/cards";
 import { OG_VERSION } from "./og";
 import { tileVersion } from "../tile-images";
 import { usedIcons } from "../icons";
+import { GOOGLE_ICON_CSS, ICON_FONT_DIR, iconStylesheet } from "../icon-font";
 import { findProfile } from "./profile";
 
 export const pageRoutes = new Hono();
@@ -98,8 +99,11 @@ function loadPage(file: string): Page {
 			/content="\/og\.png\?type=(\w+)"/g,
 			(_, type) => `content="${SITE_URL}/og.png?type=${type}&v=${OG_VERSION}"`
 		);
-	const icons = usedIcons();
-	if (icons) html = html.replace(/(family=Material\+Symbols\+Outlined:[^"&]*)/, `$1&icon_names=${icons}`);
+	const iconCss = iconStylesheet(usedIcons(), forgetPages);
+	html = html
+		.replace(/[ \t]*<link rel="preconnect" href="https:\/\/fonts\.g[^"]+"[^>]*>\r?\n/g, "")
+		.replace(`href="${GOOGLE_ICON_CSS}"`, `href="${iconCss ?? ""}"`);
+	if (!iconCss) html = html.replace(/[ \t]*<link rel="stylesheet" href="" \/>\r?\n/, "");
 	const entry = html.match(/<script type="module" src="(\/js\/[^"?]+)/)?.[1];
 	if (entry) {
 		const preload = [...moduleGraph(entry)]
@@ -343,6 +347,9 @@ function notFound(c: Context) {
 	if (c.req.path.startsWith("/api/")) return c.json({ error: "Not found" }, 404);
 	return sendHtml(c, loadPage("404.html").html, undefined, 404);
 }
+
+/** Named after the icon set they hold, so they never change once written. */
+pageRoutes.get("/fonts/:file", (c) => sendFile(c, ICON_FONT_DIR, c.req.param("file"), IMMUTABLE) ?? notFound(c));
 
 /** Screenshots have random names and never change once written. */
 pageRoutes.get("/uploads/:file", (c) => sendFile(c, UPLOADS_DIR, c.req.param("file"), IMMUTABLE) ?? notFound(c));

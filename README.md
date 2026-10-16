@@ -68,7 +68,7 @@ pm2 start pm2.config.js
 
 After that, run `./deploy.sh`, or use the System tab in the staff panel.
 
-The chat filter downloads word lists from the web (a default list from GitHub is added on first start), so the server needs outgoing HTTPS.
+The chat filter downloads word lists from the web (a default list from GitHub is added on first start), and the server copies the icon font from Google Fonts into `data/icon-font` so visitors never load it from Google. Both need outgoing HTTPS.
 
 If you sit behind a proxy, it needs to pass WebSocket connections through (duels use them), not buffer `/api/events` (live updates, tournament pages included), and set `X-Forwarded-For`.
 
