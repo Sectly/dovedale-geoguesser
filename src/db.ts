@@ -46,7 +46,7 @@ function openDatabase(): Database {
 export const db = openDatabase();
 
 /** Bumped when a release changes existing data. An older database is copied aside first. */
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 function backupBeforeUpgrade() {
 	const version = db.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version ?? 0;
@@ -474,6 +474,8 @@ const MIGRATIONS: string[] = [
 	"ALTER TABLE staff_chat ADD COLUMN pinned_by_username TEXT",
 	"ALTER TABLE duel_games ADD COLUMN tournament_id INTEGER",
 	"ALTER TABLE tournaments ADD COLUMN results_until INTEGER",
+	"ALTER TABLE tournaments ADD COLUMN invite_code TEXT",
+	"ALTER TABLE tournament_players ADD COLUMN invite_code TEXT",
 ];
 
 for (const sql of MIGRATIONS) {

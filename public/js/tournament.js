@@ -61,6 +61,9 @@ let seenNotice = null;
 /** Narrow screens: the round shown, or null to follow the match being played. */
 let shownRound = null;
 
+/** From an invite link: /tournament/5?invite=CODE. */
+const inviteCode = () => new URLSearchParams(location.search).get("invite") || "";
+
 const serverNow = () => Date.now() + offset;
 const player = (userId) => state.players[userId] || null;
 const nameOf = (userId) => player(userId)?.display_name || player(userId)?.username || "Player";
@@ -331,7 +334,14 @@ function lobbyHero() {
 	let action = "";
 	if (state.status === "open") {
 		if (!user)
-			action = `<p class="text-zinc-500 text-sm mt-6">Playing? <a class="underline hover:text-zinc-300" href="${escHtml(loginUrl())}">Log in</a> to check in.</p>`;
+			action = `<p class="text-zinc-500 text-sm mt-6">Playing? <a class="underline hover:text-zinc-300" href="${escHtml(loginUrl())}">Log in</a> to ${inviteCode() && state.invite_open ? "join" : "check in"}.</p>`;
+		else if (!onList && state.invite_open)
+			action = inviteCode()
+				? `<button class="m-btn m-btn-lg m-btn-success mt-6" data-action="join">Join the tournament</button>`
+				: `<form class="mt-6 flex gap-2 justify-center" data-join-form>
+					<input name="code" maxlength="12" autocomplete="off" placeholder="Invite code" class="m-field !w-40 uppercase text-center tracking-widest" />
+					<button class="m-btn m-btn-tonal" data-action="join">Join</button>
+				</form>`;
 		else if (onList?.checked_in)
 			action = `<p class="text-green-400 text-sm font-semibold mt-6 flex items-center gap-1.5"><span class="material-symbols-outlined text-base" style="font-variation-settings:'FILL' 1">check_circle</span>You're checked in</p>`;
 		else if (onList)
@@ -835,6 +845,22 @@ async function onClick(e) {
 	if (action === "round") {
 		shownRound = Number(target.dataset.round);
 		return renderBracket(state);
+	}
+	if (action === "join") {
+		e.preventDefault();
+		const code = inviteCode() || target.closest("form")?.code.value || "";
+		target.disabled = true;
+		try {
+			await api(`/api/tournaments/${id}/join`, { json: { code } });
+			history.replaceState(null, "", location.pathname);
+			Sounds.play("pin");
+			showToast("You're in.", "success");
+			refresh();
+		} catch (err) {
+			showToast(err.message, "error");
+			target.disabled = false;
+		}
+		return;
 	}
 	const button = e.target.closest("button");
 	if (button) button.disabled = true;

@@ -1,8 +1,16 @@
 import { Hono } from "hono";
 import { hasRole, requirePlayer } from "../auth/guards";
 import { currentUser } from "../auth/sessions";
-import { checkIn, currentSummary, markReady, pastTournaments, tournamentView, vote } from "../game/tournaments";
-import { fail, idParam, readJson } from "../lib/http";
+import {
+	checkIn,
+	currentSummary,
+	joinByInvite,
+	markReady,
+	pastTournaments,
+	tournamentView,
+	vote,
+} from "../game/tournaments";
+import { fail, idParam, readJson, text } from "../lib/http";
 
 export const tournamentRoutes = new Hono();
 
@@ -18,6 +26,13 @@ tournamentRoutes.get("/:id", (c) => {
 
 tournamentRoutes.post("/:id/checkin", (c) => {
 	checkIn(idParam(c), requirePlayer(c));
+	return c.json({ success: true });
+});
+
+tournamentRoutes.post("/:id/join", async (c) => {
+	const code = text((await readJson<{ code: string }>(c)).code, 12);
+	if (!code) fail(400, "Enter the invite code.");
+	joinByInvite(idParam(c), requirePlayer(c), code);
 	return c.json({ success: true });
 });
 

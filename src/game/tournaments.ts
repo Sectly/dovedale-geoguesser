@@ -3,6 +3,8 @@ import { db, type User } from "../db";
 import { nudgeTournament } from "../events";
 import { auditLog } from "../lib/audit";
 import { fail } from "../lib/http";
+import { checkUserRateLimit } from "../lib/rate-limit";
+import { HOUR } from "../lib/time";
 import { notifyUser } from "../notifications";
 import { restartIn } from "../system/restart";
 import { cancelQuickplay } from "./duels/matchmaking";
@@ -123,6 +125,8 @@ type Row = {
 	started_at: number | null;
 	finished_at: number | null;
 	results_until: number | null;
+	/** Anyone with this code can join while check-in is open; null when invites are off. */
+	invite_code: string | null;
 };
 
 /** How long the duel's end screen stays up. */
@@ -598,12 +602,13 @@ onTournamentDuelEnd((room, winnerId, how) => {
 
 /* ---- What pages see ---- */
 
-type Roster = { user_id: number; checked_in: number; position: number };
+/** `invite_code` is the code a player joined with, or null if staff added them. */
+type Roster = { user_id: number; checked_in: number; position: number; invite_code: string | null };
 
 const rosterOf = (id: number) =>
 	db
 		.query<Roster, [number]>(
-			"SELECT user_id, checked_in, position FROM tournament_players WHERE tournament_id = ? ORDER BY position, added_at"
+			"SELECT user_id, checked_in, position, invite_code FROM tournament_players WHERE tournament_id = ? ORDER BY position, added_at"
 		)
 		.all(id);
 
@@ -670,6 +675,7 @@ function stateView(t: Tournament) {
 		notice: s.notice,
 		champion: s.championId,
 		results_until: t.status === "finished" ? (getRow(t.id)?.results_until ?? null) : null,
+		invite_open: !!getRow(t.id)?.invite_code,
 	};
 }
 
@@ -686,7 +692,20 @@ export function tournamentView(id: number, staff: boolean, viewerId: number | nu
 	if (viewerId !== null)
 		for (const [matchId, picks] of Object.entries(t.state.votes ?? {}))
 			if (picks[viewerId] !== undefined) myVotes[matchId] = picks[viewerId];
-	return { ...stateView(t), my_votes: myVotes };
+	return {
+		...stateView(t),
+		my_votes: myVotes,
+		...(staff
+			? {
+					invite_code: getRow(id)?.invite_code ?? null,
+					roster: rosterOf(id).map((r) => ({
+						user_id: r.user_id,
+						checked_in: !!r.checked_in,
+						invite_code: r.invite_code,
+					})),
+				}
+			: {}),
+	};
 }
 
 export function pastTournaments() {
@@ -712,6 +731,41 @@ export function checkIn(id: number, user: User) {
 		user.id,
 	]);
 	if (!result.changes) fail(403, "You're not on the list for this tournament. Ask staff to add you.");
+	changed(t);
+}
+
+/** Joins with an invite code: the player goes on the list, already checked in. */
+export function joinByInvite(id: number, user: User, code: string) {
+	const t = load(id);
+	if (!checkUserRateLimit(user, "tournament_join", 10, HOUR * 1000)) fail(429, "Too many tries. Wait a while.");
+	const invite = getRow(id)?.invite_code;
+	if (!invite || code.trim().toUpperCase() !== invite)
+		fail(403, "That invite code isn't right, or it has been turned off.");
+	if (t.status !== "open")
+		fail(409, t.status === "live" ? "The tournament has already started." : "Check-in isn't open.");
+	const limited = db
+		.query<{ duel_limited: number }, [number]>("SELECT duel_limited FROM users WHERE id = ?")
+		.get(user.id)?.duel_limited;
+	if (limited) fail(403, "Your duels are limited, so you can't play in tournaments right now.");
+	const onList = rosterOf(id).some((r) => r.user_id === user.id);
+	if (!onList && rosterOf(id).length >= LIMITS.roster) fail(409, "The tournament is full.");
+	const position =
+		(db
+			.query<{ n: number | null }, [number]>(
+				"SELECT MAX(position) AS n FROM tournament_players WHERE tournament_id = ?"
+			)
+			.get(id)?.n ?? 0) + 1;
+	db.run(
+		`INSERT INTO tournament_players (tournament_id, user_id, position, checked_in, invite_code) VALUES (?, ?, ?, 1, ?)
+		ON CONFLICT (tournament_id, user_id) DO UPDATE SET checked_in = 1`,
+		[id, user.id, position, invite]
+	);
+	if (!onList)
+		auditLog(user, "tournament_invite_join", {
+			targetType: "tournament",
+			targetId: id,
+			details: `${t.title}, code ${invite}`,
+		});
 	changed(t);
 }
 
@@ -1170,6 +1224,24 @@ export function setSlot(staff: User, id: number, matchId: number, side: 0 | 1, u
 		if (phase.kind === "break") phase.endsAt = Math.max(phase.endsAt, Date.now() + t.settings.breaks.match * 1000);
 		arm(t);
 	}
+	changed(t);
+}
+
+const INVITE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+/** Turns the invite code on (a new one each time, so an old code stops working) or off. */
+export function setInvite(staff: User, id: number, on: boolean) {
+	const t = load(id);
+	if (t.status !== "draft" && t.status !== "open") fail(409, "Invites only work before the tournament starts.");
+	const code = on
+		? Array.from({ length: 6 }, () => INVITE_CHARS[Math.floor(Math.random() * INVITE_CHARS.length)]).join("")
+		: null;
+	db.run("UPDATE tournaments SET invite_code = ? WHERE id = ?", [code, id]);
+	auditLog(staff, on ? "tournament_invite_on" : "tournament_invite_off", {
+		targetType: "tournament",
+		targetId: id,
+		details: t.title,
+	});
 	changed(t);
 }
 

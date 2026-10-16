@@ -1,6 +1,6 @@
 import { avatarHtml, el, errorStateHtml, escHtml } from "../lib/dom.js";
 import { api } from "../lib/api.js";
-import { showToast } from "../lib/toast.js";
+import { copyText, showToast } from "../lib/toast.js";
 import { live, onLive } from "../lib/live.js";
 import { atLeast, currentTab, reviewHeader, showConfirm, showPrompt } from "./core.js";
 import { formatWhen } from "./users.js";
@@ -106,7 +106,7 @@ function guideHtml(r) {
 			<h3 class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-2 mb-3">Step by step</h3>
 			<ol class="list-decimal pl-5">
 				${step("Set it up (supervisors)", `Give it a name and, if you like, a description and a start time. The start time is only a countdown on the page; you still start it yourself. Choose how many rounds each match has (early matches, semi-finals and the final), how long each break is, and whether the two semi-final losers play for third place.`)}
-				${step("Add the players", `Add them by Discord username. The order of the list is the seeding: the first player meets the last in the opening round, and the top two can only meet in the final. Banned players and players whose duels are limited can't be added.`)}
+				${step("Add the players", `Add them by Discord username, or make an invite link: anyone who opens it while check-in is open joins and is checked in, and the list shows which code they used. A new code stops the old one working. The order of the list is the seeding: the first player meets the last in the opening round, and the top two can only meet in the final. Banned players and players whose duels are limited can't be added.`)}
 				${step("Open check-in (supervisors)", `The tournament appears on the home page and under Specials, and everyone on the list gets a notification. Players press I'm here on the tournament page, or you tick them in yourself. Only one tournament can be open or running at a time.`)}
 				${step("Start (supervisors)", `The bracket is drawn from the checked-in players. It rounds up to 2, 4, 8, 16, 32 or 64 places, and the empty places become byes for the top seeds. Anyone not checked in is left out, but can still be put into an empty place later. Until the first match is played you can draw the bracket again.`)}
 				${step("Breaks and Ready", `Before every match there is a countdown. Both players press Ready; if they both do during a break between matches, the countdown drops to ${r.readySeconds} seconds. If the countdown ends and someone isn't ready, the tournament waits for you: Continue gives a ${r.readySeconds}-second countdown, then anyone who isn't there loses the match.`)}
@@ -297,15 +297,44 @@ function renderTournament() {
 		${t.rounds.length ? bracketHtml(t) : ""}`;
 }
 
+const inviteLink = (t) => `${location.origin}/tournament/${t.id}?invite=${t.invite_code}`;
+
+/** An invite link lets players add themselves, checked in, while check-in is open. */
+function inviteHtml(t) {
+	if (!t.invite_code)
+		return `<div class="flex items-center gap-3 flex-wrap mb-3 max-w-2xl">
+			<button onclick="setTournamentInvite(true)" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">link</span>Make an invite link</button>
+			<span class="text-xs text-zinc-500">Players with the link can join themselves while check-in is open.</span>
+		</div>`;
+	return `<div class="bg-zinc-900 rounded-2xl px-4 py-3 mb-3 max-w-2xl">
+		<div class="flex items-center gap-2 flex-wrap">
+			<span class="text-sm font-semibold">Invite code</span>
+			<span class="font-mono tracking-widest text-lg">${escHtml(t.invite_code)}</span>
+			<button onclick="copyTournamentInvite()" class="m-btn m-btn-tonal m-btn-sm ml-auto"><span class="material-symbols-outlined">content_copy</span>Copy link</button>
+			<button onclick="setTournamentInvite(true)" class="m-btn m-btn-text m-btn-sm">New code</button>
+			<button onclick="setTournamentInvite(false)" class="m-btn m-btn-text m-btn-sm">Turn off</button>
+		</div>
+		<p class="text-xs text-zinc-500 mt-1 break-all">${escHtml(inviteLink(t))}</p>
+		<p class="text-xs text-zinc-500 mt-1">${t.status === "open" ? "Players who open the link can join, checked in straight away." : "The link starts working once check-in is open."} A new code stops the old one working.</p>
+	</div>`;
+}
+
+const setTournamentInvite = (on) => act("/invite", { json: { on } }, on ? "Invite code ready" : "Invites off");
+
+async function copyTournamentInvite() {
+	if (await copyText(inviteLink(_tournament))) showToast("Invite link copied", "success");
+}
+
 function rosterHtml(t) {
 	const checked = t.roster.filter((r) => r.checked_in).length;
 	return `<section class="mb-6">
 		<div class="flex items-center gap-2 mb-2">
 			<h3 class="font-bold">Players</h3>
-			<span class="text-xs text-zinc-500">${t.roster.length} on the list · ${checked} checked in</span>
+			<span class="text-xs text-zinc-500">${t.roster.length} on the list · ${checked} checked in${t.roster.some((r) => r.invite_code) ? ` · ${t.roster.filter((r) => r.invite_code).length} joined by invite` : ""}</span>
 			<button onclick="shuffleTournament()" class="m-btn m-btn-text m-btn-sm ml-auto"><span class="material-symbols-outlined">shuffle</span>Shuffle</button>
 		</div>
 		<p class="text-xs text-zinc-500 mb-3">The order is the seeding: the first player meets the last in the opening round, and the top two can only meet in the final. Players check in on the tournament page; you can tick them in here too.</p>
+		${inviteHtml(t)}
 		<form onsubmit="addTournamentPlayers(event)" class="flex gap-2 mb-3 max-w-2xl">
 			<input name="usernames" class="m-field flex-1" placeholder="Usernames, separated by spaces or commas" autocomplete="off" />
 			<button class="m-btn m-btn-filled">Add</button>
@@ -319,6 +348,7 @@ function rosterHtml(t) {
 								<span class="text-xs font-mono text-zinc-600 w-5 text-right">${i + 1}</span>
 								${avatarHtml(p.avatar_url, "w-7 h-7")}
 								<button onclick="openUserPanel(${r.user_id})" class="flex-1 min-w-0 text-left text-sm truncate hover:underline">${escHtml(p.display_name || p.username || "Player")} <span class="text-zinc-500">@${escHtml(p.username || "")}</span></button>
+								${r.invite_code ? `<span class="text-xs text-zinc-500 flex-shrink-0" title="Joined with this invite code">via <span class="font-mono">${escHtml(r.invite_code)}</span></span>` : ""}
 								<button onclick="setTournamentCheckIn(${r.user_id}, ${!r.checked_in})" class="m-tag ${r.checked_in ? "success" : ""}" title="${r.checked_in ? "Mark as not here" : "Check them in"}">${r.checked_in ? "Checked in" : "Not checked in"}</button>
 								<button onclick="moveTournamentPlayer(${r.user_id}, -1)" class="m-icon-btn" aria-label="Move up" ${i === 0 ? "disabled" : ""}><span class="material-symbols-outlined">arrow_upward</span></button>
 								<button onclick="moveTournamentPlayer(${r.user_id}, 1)" class="m-icon-btn" aria-label="Move down" ${i === t.roster.length - 1 ? "disabled" : ""}><span class="material-symbols-outlined">arrow_downward</span></button>
@@ -642,6 +672,7 @@ Object.assign(window, {
 	backToTournaments,
 	cancelTournament,
 	clearTournamentMessage,
+	copyTournamentInvite,
 	deleteTournament,
 	hideTournamentResults,
 	loadTournaments,
@@ -654,6 +685,7 @@ Object.assign(window, {
 	saveTournament,
 	sendTournamentMessage,
 	setTournamentCheckIn,
+	setTournamentInvite,
 	setTournamentResults,
 	setTournamentSlot,
 	shuffleTournament,

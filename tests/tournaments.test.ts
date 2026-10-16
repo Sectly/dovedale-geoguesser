@@ -394,4 +394,41 @@ describe("tournaments", () => {
 		});
 		expect((await call("/api/admin/tournaments/rules", { as: createUser() })).status).toBe(403);
 	});
+
+	test("an invite code lets players join themselves, and staff see who used which code", async () => {
+		const { id, staff } = await setUp(2);
+		const mod = createUser({ role: "moderator" });
+		const first = (await post(`/api/admin/tournaments/${id}/invite`, mod, { on: true })).data.invite_code;
+		expect(first).toMatch(/^[A-Z0-9]{6}$/);
+		const joiner = createUser();
+		/** Not open yet. */
+		expect((await post(`/api/tournaments/${id}/join`, joiner, { code: first })).status).toBe(409);
+		await post(`/api/admin/tournaments/${id}/open`, staff);
+
+		const pub = (await call(`/api/tournaments/${id}`)).data;
+		expect(pub.invite_open).toBe(true);
+		expect(pub.invite_code).toBeUndefined();
+		expect((await post(`/api/tournaments/${id}/join`, joiner, { code: "WRONG1" })).status).toBe(403);
+		expect((await post(`/api/tournaments/${id}/join`, joiner, { code: first.toLowerCase() })).status).toBe(200);
+
+		const second = (await post(`/api/admin/tournaments/${id}/invite`, staff, { on: true })).data.invite_code;
+		expect(second).not.toBe(first);
+		const late = createUser();
+		expect((await post(`/api/tournaments/${id}/join`, late, { code: first })).status).toBe(403);
+		expect((await post(`/api/tournaments/${id}/join`, late, { code: second })).status).toBe(200);
+
+		const limited = createUser();
+		db.run("UPDATE users SET duel_limited = 1 WHERE id = ?", [limited.id]);
+		expect((await post(`/api/tournaments/${id}/join`, limited, { code: second })).status).toBe(403);
+
+		const t = (await call(`/api/admin/tournaments/${id}`, { as: staff })).data;
+		const via = (u: TestUser) => t.roster.find((r: any) => r.user_id === u.id);
+		expect(via(joiner)).toMatchObject({ checked_in: true, invite_code: first });
+		expect(via(late)).toMatchObject({ checked_in: true, invite_code: second });
+		expect(t.roster.filter((r: any) => r.invite_code === null)).toHaveLength(2);
+
+		await post(`/api/admin/tournaments/${id}/invite`, staff, { on: false });
+		expect((await post(`/api/tournaments/${id}/join`, createUser(), { code: second })).status).toBe(403);
+		expect((await call(`/api/tournaments/${id}`)).data.invite_open).toBe(false);
+	});
 });

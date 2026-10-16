@@ -16,6 +16,7 @@ import {
 	removePlayer,
 	restartMatch,
 	setCheckedIn,
+	setInvite,
 	setResults,
 	setSlot,
 	shufflePlayers,
@@ -108,6 +109,13 @@ adminTournamentRoutes.post("/:id/players/:userId/checkin", async (c) => {
 	const id = idParam(c);
 	const body = await readJson<{ checked_in: boolean }>(c);
 	setCheckedIn(staffOf(c), id, idParam(c, "userId"), body.checked_in === true);
+	return ok(c, id);
+});
+
+/** `on` makes a new code each time; false turns invites off. */
+adminTournamentRoutes.post("/:id/invite", async (c) => {
+	const id = idParam(c);
+	setInvite(staffOf(c), id, (await readJson<{ on: boolean }>(c)).on === true);
 	return ok(c, id);
 });
 
