@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { webwire } from "@webwirejs/hono";
 import type { User } from "../db";
 import { requirePlayer } from "../auth/guards";
 import { parseGuess } from "../game/round";
@@ -22,6 +23,8 @@ import { requireFeature } from "../system/features";
 import { checkUserRateLimit } from "../lib/rate-limit";
 import { HOUR } from "../lib/time";
 import { liveSpecial } from "../specials";
+import { teamWireServer } from "../game/teams-wire";
+import { upgradeWebSocket } from "./duels";
 
 export const teamRoutes = new Hono();
 
@@ -98,3 +101,5 @@ teamRoutes.post("/rooms/:code/leave", (c) => {
 	leaveTeamRoom(code(c), requirePlayer(c));
 	return done(c);
 });
+
+teamRoutes.route("/wire", webwire(teamWireServer, upgradeWebSocket));

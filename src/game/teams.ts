@@ -9,7 +9,7 @@ import { offeredEmotes } from "./duels/rooms";
 import { pickLocations } from "./locations";
 import { Round, type Guess, type RoundOutcome, type RoundRules } from "./round";
 
-/** Team duels (Specials): two teams of up to two, best guess scores. In memory, polled. Never on the leaderboards. */
+/** Team duels (Specials): two teams of up to two, best guess scores. In memory, pushed over a socket. Never on the leaderboards. */
 
 export type TeamId = "a" | "b";
 const TEAMS: TeamId[] = ["a", "b"];
@@ -19,7 +19,7 @@ export const TEAM_RULES: RoundRules = { timeLimit: 45, hintCost: 0, hints: false
 export const TEAM_ROUNDS = { min: 3, max: 10, default: 5 };
 const READY_SECONDS = 4;
 const REVEAL_SECONDS = 10;
-/** A player who has not asked for the state in this long is treated as away and not waited for. */
+/** A player with no open, visible page for this long is treated as away and not waited for. */
 const AWAY_MS = 8000;
 const MAX_ROOMS = 200;
 const IDLE_TTL_MS = 30 * 60 * 1000;
@@ -31,7 +31,10 @@ type Member = {
 	displayName: string;
 	avatarUrl: string | null;
 	team: TeamId | null;
+	/** Last sign of them being here; 0 once they have left a game in progress. */
 	seenAt: number;
+	/** Their open, visible pages on the room's socket. */
+	pages: number;
 	/** Where their pin is right now, before they commit to it. Shown to their teammate only. */
 	pin: Guess | null;
 	outcome: RoundOutcome | null;
@@ -41,7 +44,7 @@ type Member = {
 	lastEmoteAt?: number;
 };
 
-/** How long a reaction stays in a room's state, so every browser's next poll picks it up. */
+/** How long a reaction stays in a room's state, so a page that reconnects still shows it. */
 const EMOTE_TTL_MS = 6000;
 
 type Reveal = {
@@ -84,6 +87,28 @@ type TeamRoom = {
 
 const rooms = new Map<string, TeamRoom>();
 
+/* ---- Change notices ---- */
+
+const changed = new Set<string>();
+let listener: ((code: string) => void) | null = null;
+
+/** Called once per changed room, after the change, so the socket can send each player their state. */
+export function onTeamRoomChanged(fn: (code: string) => void) {
+	listener = fn;
+}
+
+function markChanged(code: string) {
+	if (changed.size === 0)
+		queueMicrotask(() => {
+			const codes = [...changed];
+			changed.clear();
+			for (const c of codes) listener?.(c);
+		});
+	changed.add(code);
+}
+
+const isAway = (m: Member, now: number) => m.seenAt === 0 || (m.pages === 0 && now - m.seenAt >= AWAY_MS);
+
 export function teamRoomCount(): number {
 	return rooms.size;
 }
@@ -108,6 +133,7 @@ function member(user: User): Member {
 		avatarUrl: user.avatar_url,
 		team: null,
 		seenAt: Date.now(),
+		pages: 0,
 		pin: null,
 		outcome: null,
 		best: 0,
@@ -163,6 +189,7 @@ export function joinTeamRoom(code: string, user: User) {
 	if (room.status !== "lobby") fail(409, "That game has already started.");
 	if (room.members.size >= TEAM_SIZE * 2) fail(409, "That room is full.");
 	room.members.set(user.id, { ...member(user), team: smallerTeam(room) });
+	markChanged(room.code);
 }
 
 export function chooseTeam(code: string, user: User, team: unknown) {
@@ -173,6 +200,7 @@ export function chooseTeam(code: string, user: User, team: unknown) {
 	if (me.team === team) return;
 	if (onTeam(room, team).length >= TEAM_SIZE) fail(409, "That team is full.");
 	me.team = team;
+	markChanged(room.code);
 }
 
 export function setTeamRounds(code: string, user: User, rounds: number) {
@@ -181,6 +209,7 @@ export function setTeamRounds(code: string, user: User, rounds: number) {
 	if (room.hostId !== user.id) fail(403, "Only the host can change the number of rounds.");
 	if (room.status !== "lobby") fail(409, "The number of rounds is fixed once the game starts.");
 	room.rounds = rounds;
+	markChanged(room.code);
 }
 
 export function leaveTeamRoom(code: string, user: User) {
@@ -192,9 +221,27 @@ export function leaveTeamRoom(code: string, user: User) {
 	} else {
 		room.members.delete(user.id);
 	}
+	markChanged(room.code);
 	const anyoneLeft = [...room.members.values()].some((m) => m.seenAt > 0);
 	if (!anyoneLeft) return void rooms.delete(room.code);
 	if (room.hostId === user.id) room.hostId = [...room.members.values()].find((m) => m.seenAt > 0)!.userId;
+}
+
+/** A page on the room's socket opened, closed, was hidden or was shown again. */
+export function setTeamPresence(code: string, userId: number, here: boolean) {
+	const room = rooms.get(code);
+	const m = room?.members.get(userId);
+	if (!room || !m) return;
+	m.pages = Math.max(0, m.pages + (here ? 1 : -1));
+	if (m.seenAt !== 0) m.seenAt = Date.now();
+	markChanged(code);
+	/** Shows them as away, and stops waiting on their guess, once the grace time is up. */
+	if (!here && m.pages === 0)
+		setTimeout(() => {
+			if (rooms.get(code) !== room || !isAway(m, Date.now())) return;
+			advance(room, Date.now());
+			markChanged(code);
+		}, AWAY_MS + 100);
 }
 
 function startRound(room: TeamRoom, now: number) {
@@ -229,6 +276,7 @@ export function startTeamGame(code: string, user: User) {
 	});
 	for (const m of room.members.values()) Object.assign(m, { best: 0, counted: 0 });
 	startRound(room, Date.now());
+	markChanged(room.code);
 	auditLog(user, "team_game_start", {
 		details: `${room.code}: ${TEAMS.map((t) =>
 			onTeam(room, t)
@@ -252,12 +300,15 @@ export function resetTeamRoom(code: string, user: User) {
 		totals: { a: 0, b: 0 },
 	});
 	for (const [id, m] of room.members) if (m.seenAt === 0) room.members.delete(id);
+	markChanged(room.code);
 }
 
 export function moveTeamPin(code: string, user: User, pin: Guess | null) {
 	const room = getRoom(code);
 	const me = getMember(room, user);
-	if (room.phase === "guessing" && !me.outcome) me.pin = pin;
+	if (room.phase !== "guessing" || me.outcome) return;
+	me.pin = pin;
+	markChanged(room.code);
 }
 
 export function sendTeamEmote(code: string, user: User, emote: unknown) {
@@ -269,6 +320,7 @@ export function sendTeamEmote(code: string, user: User, emote: unknown) {
 	me.lastEmoteAt = now;
 	room.emotes = room.emotes.filter((e) => now - e.at < EMOTE_TTL_MS);
 	room.emotes.push({ id: ++room.emoteSeq, user_id: user.id, emote, at: now });
+	markChanged(room.code);
 }
 
 export function submitTeamGuess(code: string, user: User, guess: Guess | null) {
@@ -279,6 +331,7 @@ export function submitTeamGuess(code: string, user: User, guess: Guess | null) {
 	me.outcome = room.round.score(guess);
 	me.pin = me.outcome.guess;
 	advance(room, Date.now());
+	markChanged(room.code);
 }
 
 function finishRound(room: TeamRoom, now: number) {
@@ -316,12 +369,18 @@ function finishRound(room: TeamRoom, now: number) {
 /** Moves a room on if its current step is over. Safe to call as often as you like. */
 function advance(room: TeamRoom, now: number) {
 	if (room.status !== "playing") return;
+	const step = `${room.phase}:${room.roundNumber}`;
+	moveOn(room, now);
+	if (`${room.phase}:${room.roundNumber}` !== step) markChanged(room.code);
+}
+
+function moveOn(room: TeamRoom, now: number) {
 	if (room.phase === "ready" && now >= room.phaseEndsAt) {
 		room.phase = "guessing";
 		room.phaseEndsAt = now + (TEAM_RULES.timeLimit + GAME.lateGuessGrace) * 1000;
 	}
 	if (room.phase === "guessing") {
-		const waitingFor = [...room.members.values()].filter((m) => m.team && !m.outcome && now - m.seenAt < AWAY_MS);
+		const waitingFor = [...room.members.values()].filter((m) => m.team && !m.outcome && !isAway(m, now));
 		if (waitingFor.length === 0 || now >= room.phaseEndsAt) finishRound(room, now);
 	}
 	if (room.phase === "reveal" && now >= room.phaseEndsAt) {
@@ -335,9 +394,20 @@ function advance(room: TeamRoom, now: number) {
 /** Everything one player may know about their room right now. Never the answer before the reveal. */
 export function teamRoomState(code: string, user: User) {
 	const room = getRoom(code);
-	const me = getMember(room, user);
+	getMember(room, user);
+	return roomView(room, user.id);
+}
+
+/** The same for the socket, which does not count as the player doing anything. */
+export function teamRoomStateFor(code: string, userId: number) {
+	const room = rooms.get(code.toUpperCase()) ?? fail(404, "That room doesn't exist or has closed.");
+	if (!room.members.has(userId)) fail(403, "You are not in this room.");
+	return roomView(room, userId);
+}
+
+function roomView(room: TeamRoom, userId: number) {
+	const me = room.members.get(userId)!;
 	const now = Date.now();
-	me.seenAt = now;
 	advance(room, now);
 
 	const live = room.phase === "ready" || room.phase === "guessing";
@@ -357,7 +427,7 @@ export function teamRoomState(code: string, user: User) {
 			avatar_url: m.avatarUrl,
 			team: m.team,
 			guessed: !!m.outcome,
-			away: now - m.seenAt >= AWAY_MS,
+			away: isAway(m, now),
 		})),
 		round:
 			live && room.round
@@ -390,6 +460,8 @@ export function teamRoomState(code: string, user: User) {
 					}
 				: null,
 		next_in: room.phase === "reveal" ? Math.max(0, Math.ceil((room.phaseEndsAt - now) / 1000)) : 0,
+		/** Time left in the get-ready count or the reveal, for the page to count down itself. */
+		phase_ms_left: room.phase === "ready" || room.phase === "reveal" ? Math.max(0, room.phaseEndsAt - now) : 0,
 		winner:
 			room.status === "finished"
 				? room.totals.a === room.totals.b
@@ -409,18 +481,23 @@ export function tickTeamRooms(now = Date.now()) {
 		} catch (err) {
 			console.error(`[teams] Room ${room.code} failed:`, err);
 			rooms.delete(room.code);
+			markChanged(room.code);
 		}
 	}
 }
 
 export function pruneTeamRooms(now = Date.now()) {
 	for (const [code, room] of rooms) {
-		if (now - room.touchedAt > IDLE_TTL_MS) rooms.delete(code);
+		if (now - room.touchedAt > IDLE_TTL_MS) {
+			rooms.delete(code);
+			markChanged(code);
+		}
 	}
 }
 
-/** Closes every room ahead of a restart; players find theirs gone the next time they ask. */
+/** Closes every room ahead of a restart. */
 export function closeTeamRooms() {
+	for (const code of rooms.keys()) markChanged(code);
 	rooms.clear();
 }
 

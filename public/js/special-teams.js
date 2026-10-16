@@ -1,7 +1,8 @@
 /**
- * Team Duels (Specials): two teams of up to two. The page polls the room's state about once a second and draws it.
+ * Team Duels (Specials): two teams of up to two. Actions go over REST; the room's state arrives on a socket whenever it changes.
  */
 
+import { WebWire } from "/webwire-client.js";
 import "./lib/site.js";
 import { Sounds } from "./sounds.js";
 import { avatarHtml, el, escHtml, show } from "./lib/dom.js";
@@ -14,15 +15,17 @@ const TEAM_INFO = {
 	a: { name: "Blue team", color: "#42A5F5", text: "text-blue-300", bar: "bg-blue-500" },
 	b: { name: "Amber team", color: "#FFB300", text: "text-amber-300", bar: "bg-amber-500" },
 };
-const POLL_MS = 1000;
-/** The newest reaction already shown, so each one pops up once however often the room is polled. */
+/** The newest reaction already shown, so each one pops up once however often the state is sent. */
 let lastEmoteId = 0;
 
 let me = null;
 let room = null;
 let roomCode = null;
 let view = null;
-let pollTimer = null;
+let wire = null;
+/** When the get-ready count or the reveal ends, by this browser's clock. */
+let phaseEndsAt = 0;
+let countdownTimer = null;
 /** What is on screen, so each change of round or phase is handled exactly once. */
 let shown = { status: null, phase: null, round: 0 };
 
@@ -46,28 +49,56 @@ async function enterRoom(code) {
 		history.replaceState(null, "", `/specials/teams?room=${roomCode}`);
 		show("teams-entry", false);
 		show("teams-room");
-		await poll();
-		pollTimer = setInterval(poll, POLL_MS);
+		connect();
 	} catch (err) {
 		roomCode = null;
 		entryError(err.message);
 	}
 }
 
-async function poll() {
-	if (!roomCode || document.hidden) return;
+function closeWire() {
+	const old = wire;
+	wire = null;
+	old?.disconnect();
+}
+
+/** Sends to the room's socket, or drops it while reconnecting, since the next connect sends a fresh watch. */
+function emit(event, data) {
 	try {
-		room = await teamApi("");
-	} catch (err) {
-		/** The room is gone (closed, or the server restarted): back to the start. */
-		if (err.status === 404 || err.status === 403) return leaveLocally(err.message);
-		return;
-	}
-	render();
+		wire?.emit(event, data);
+	} catch {}
+}
+
+function connect() {
+	closeWire();
+	const w = new WebWire("/api/teams/wire", { reconnect: { initialDelay: 500, maxDelay: 3000 } });
+	wire = w;
+	/** Events from a connection already replaced must not touch the page. */
+	const on = (event, fn) => w.on(event, (data) => w === wire && fn(data || {}));
+	/** WebWire reconnects by itself; each time the page asks for its room again. */
+	on("connect", () => w.emit("team_watch", { room: roomCode, here: !document.hidden }));
+	on("team_state", (state) => {
+		room = state;
+		render();
+	});
+	/** The room is gone (closed, or the server restarted): back to the start. */
+	on("team_closed", (data) => leaveLocally(data.message));
+	w.connect().catch(() => {});
+}
+
+function tickCountdown() {
+	if (!room) return;
+	const left = Math.max(0, Math.ceil((phaseEndsAt - Date.now()) / 1000));
+	if (room.phase === "ready") el("click-hint").textContent = `Get ready... ${left}`;
+	else if (room.phase === "reveal")
+		el("reveal-next").textContent =
+			room.round_number >= room.rounds ? `Final scores in ${left}s` : `Next round in ${left}s`;
 }
 
 function leaveLocally(message = "") {
-	clearInterval(pollTimer);
+	closeWire();
+	clearInterval(countdownTimer);
+	countdownTimer = null;
 	roomCode = null;
 	room = null;
 	lastEmoteId = 0;
@@ -115,7 +146,7 @@ function renderLobby() {
 	show("room-rounds-host", isHost);
 	show("room-rounds-text", !isHost);
 	el("room-rounds-text").textContent = `${room.rounds} rounds`;
-	/** Left alone while the host has it open, so a poll does not undo their choice mid-click. */
+	/** Left alone while the host has it open, so an update does not undo their choice mid-click. */
 	if (document.activeElement !== el("room-rounds")) el("room-rounds").value = room.rounds;
 	el("room-hint").textContent = !bothTeams
 		? "Share the code or invite link. Each team needs at least one player."
@@ -285,6 +316,9 @@ function renderEmotes() {
 
 function render() {
 	renderEmotes();
+	phaseEndsAt = Date.now() + (room.phase_ms_left ?? 0);
+	clearInterval(countdownTimer);
+	countdownTimer = room.phase === "ready" || room.phase === "reveal" ? setInterval(tickCountdown, 250) : null;
 	const changed = shown.status !== room.status || shown.phase !== room.phase || shown.round !== room.round_number;
 	const was = shown;
 	shown = { status: room.status, phase: room.phase, round: room.round_number };
@@ -301,7 +335,7 @@ function render() {
 	renderScorebar();
 	if (room.phase === "ready") {
 		if (changed) startRoundOnScreen();
-		el("click-hint").textContent = `Get ready... ${room.round.starts_in}`;
+		tickCountdown();
 	} else if (room.phase === "guessing") {
 		/** Joined or reloaded mid-round: put the round up first. */
 		if (changed && (was.phase !== "ready" || was.round !== room.round_number)) startRoundOnScreen();
@@ -313,8 +347,7 @@ function render() {
 		showTeammatePins();
 	} else if (room.phase === "reveal") {
 		if (changed) renderReveal();
-		el("reveal-next").textContent =
-			room.round_number >= room.rounds ? `Final scores in ${room.next_in}s` : `Next round in ${room.next_in}s`;
+		tickCountdown();
 	}
 }
 
@@ -331,10 +364,9 @@ async function submitGuess(pin) {
 	try {
 		await teamApi("/guess", pin ?? {});
 	} catch (err) {
-		/** 409 means the round moved on without us, which the next poll will show. */
+		/** 409 means the round moved on without us, which the next update will show. */
 		if (err.status !== 409) showToast(err.message, "error");
 	}
-	poll();
 }
 
 async function init() {
@@ -371,22 +403,16 @@ async function init() {
 		const team = e.target.closest("[data-team]")?.dataset.team;
 		if (!team) return;
 		await teamApi("/team", { team }).catch((err) => showToast(err.message, "error"));
-		poll();
 	});
 	el("team-start").addEventListener("click", () =>
-		teamApi("/start", {})
-			.then(poll)
-			.catch((err) => showToast(err.message, "error"))
+		teamApi("/start", {}).catch((err) => showToast(err.message, "error"))
 	);
 	el("team-again").addEventListener("click", () =>
-		teamApi("/again", {})
-			.then(poll)
-			.catch((err) => showToast(err.message, "error"))
+		teamApi("/again", {}).catch((err) => showToast(err.message, "error"))
 	);
 	el("room-rounds").addEventListener("change", async (e) => {
 		await teamApi("/rounds", { rounds: Number(e.target.value) }).catch((err) => showToast(err.message, "error"));
 		e.target.blur();
-		poll();
 	});
 	/** Closing the page outside a game gives up the seat, so nobody waits on a host or a player who has gone. */
 	addEventListener("pagehide", () => {
@@ -404,7 +430,8 @@ async function init() {
 		const copied = await copyText(`${location.origin}/specials/teams?room=${roomCode}`);
 		showToast(copied ? "Invite link copied" : "Couldn't copy the link", copied ? "success" : "error");
 	});
-	document.addEventListener("visibilitychange", () => document.hidden || poll());
+	/** A hidden page does not count as being here, so the others are not kept waiting. */
+	document.addEventListener("visibilitychange", () => emit("team_here", { here: !document.hidden }));
 
 	const invited = new URLSearchParams(location.search).get("room");
 	if (invited) enterRoom(invited);
