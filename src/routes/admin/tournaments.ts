@@ -22,6 +22,7 @@ import {
 	startTournament,
 	tournamentView,
 	unpublishTournament,
+	tournamentRules,
 	updateTournament,
 	type Control,
 	type TournamentInput,
@@ -39,6 +40,11 @@ const ok = (c: Context, id: number) => c.json(tournamentView(id, true));
 adminTournamentRoutes.get("/", (c) => {
 	staffOf(c);
 	return c.json(listTournaments());
+});
+
+adminTournamentRoutes.get("/rules", (c) => {
+	staffOf(c);
+	return c.json(tournamentRules());
 });
 
 adminTournamentRoutes.post("/", async (c) => {

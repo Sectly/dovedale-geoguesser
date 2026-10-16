@@ -381,4 +381,17 @@ describe("tournaments", () => {
 		expect((await post(`/api/admin/tournaments/${id}/cancel`, mod)).status).toBe(403);
 		expect((await post(`/api/admin/tournaments/${id}/cancel`, staff)).status).toBe(200);
 	});
+
+	test("moderators can read the limits the staff panel's guide quotes", async () => {
+		const rules = await call("/api/admin/tournaments/rules", { as: createUser({ role: "moderator" }) });
+		expect(rules.status).toBe(200);
+		expect(rules.data).toMatchObject({
+			players: 64,
+			roster: 128,
+			minRounds: 1,
+			readySeconds: 10,
+			resultsHours: 12,
+		});
+		expect((await call("/api/admin/tournaments/rules", { as: createUser() })).status).toBe(403);
+	});
 });

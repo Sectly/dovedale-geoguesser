@@ -57,8 +57,9 @@ export async function loadTournaments(openId = null) {
 	clearInterval(_clock);
 	if (_tournamentId) return openTournament(_tournamentId);
 	let list;
+	let rules;
 	try {
-		list = await api("/api/admin/tournaments");
+		[list, rules] = await Promise.all([api("/api/admin/tournaments"), api("/api/admin/tournaments/rules")]);
 	} catch (err) {
 		el("tab-content").innerHTML = errorStateHtml(err.message || "Couldn't load tournaments.", "loadTournaments()");
 		return;
@@ -67,6 +68,7 @@ export async function loadTournaments(openId = null) {
 		${reviewHeader("Tournaments", 0, "loadTournaments()")}
 		<p class="text-sm text-zinc-400 mb-4 max-w-2xl">A knockout bracket played one match at a time, so everyone watches the same duel. Pick the players, open check-in, then start it when everyone is here.</p>
 		${atLeast("supervisor") ? '<button onclick="newTournament()" class="m-btn m-btn-filled mb-5"><span class="material-symbols-outlined">add</span>New tournament</button>' : '<p class="text-xs text-zinc-500 mb-5">Supervisors create, open, start and cancel tournaments. You can run them once they are set up.</p>'}
+		${guideHtml(rules)}
 		<div id="tournament-form-slot"></div>
 		<div class="flex flex-col gap-2">${
 			list.length
@@ -87,6 +89,55 @@ export async function loadTournaments(openId = null) {
 						.join("")
 				: '<p class="text-sm text-zinc-500 py-8 text-center">No tournaments yet.</p>'
 		}</div>`;
+}
+
+const minutes = (s) => (s % 60 ? `${s} seconds` : `${s / 60} minute${s === 60 ? "" : "s"}`);
+
+/** How a tournament runs, step by step, and its limits. */
+function guideHtml(r) {
+	const step = (title, body) =>
+		`<li class="mb-3"><div class="font-semibold text-zinc-200">${title}</div><div class="text-zinc-400">${body}</div></li>`;
+	const limit = (label, value) =>
+		`<div class="flex justify-between gap-4 py-1.5 border-b border-zinc-800 last:border-0"><span class="text-zinc-400">${label}</span><span class="text-zinc-200 text-right">${value}</span></div>`;
+	const control = (name, body) => `<li class="mb-1.5"><span class="text-zinc-200">${name}:</span> ${body}</li>`;
+	return `<details class="bg-zinc-900 rounded-2xl mb-5 max-w-3xl">
+		<summary class="cursor-pointer select-none px-5 py-3 font-semibold flex items-center gap-2"><span class="material-symbols-outlined text-zinc-400">help</span>How tournaments work, and their limits</summary>
+		<div class="px-5 pb-5 text-sm">
+			<h3 class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-2 mb-3">Step by step</h3>
+			<ol class="list-decimal pl-5">
+				${step("Set it up (supervisors)", `Give it a name and, if you like, a description and a start time. The start time is only a countdown on the page; you still start it yourself. Choose how many rounds each match has (early matches, semi-finals and the final), how long each break is, and whether the two semi-final losers play for third place.`)}
+				${step("Add the players", `Add them by Discord username. The order of the list is the seeding: the first player meets the last in the opening round, and the top two can only meet in the final. Banned players and players whose duels are limited can't be added.`)}
+				${step("Open check-in (supervisors)", `The tournament appears on the home page and under Specials, and everyone on the list gets a notification. Players press I'm here on the tournament page, or you tick them in yourself. Only one tournament can be open or running at a time.`)}
+				${step("Start (supervisors)", `The bracket is drawn from the checked-in players. It rounds up to 2, 4, 8, 16, 32 or 64 places, and the empty places become byes for the top seeds. Anyone not checked in is left out, but can still be put into an empty place later. Until the first match is played you can draw the bracket again.`)}
+				${step("Breaks and Ready", `Before every match there is a countdown. Both players press Ready; if they both do during a break between matches, the countdown drops to ${r.readySeconds} seconds. If the countdown ends and someone isn't ready, the tournament waits for you: Continue gives a ${r.readySeconds}-second countdown, then anyone who isn't there loses the match.`)}
+				${step("Matches", `Each match is a duel with Quick Play rules, including the comeback round and sudden death, and ${r.roundSeconds} seconds a round. If the points are level, the closer guesses overall win. Players have ${r.joinSeconds} seconds to join; if only one does, they win, and if neither does, it waits for you. A player who drops out has ${r.reconnectSeconds} seconds to come back before they lose.`)}
+				${step("Results", `After the final, the page shows the champion, final standings and the bracket. The results stay on the home page and Specials for ${r.resultsHours} hours; use the Results section to change that or hide them. The page itself stays at its link, and the tournament is listed under past tournaments.`)}
+			</ol>
+			<h3 class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-4 mb-2">During the night (moderators and up)</h3>
+			<ul class="text-zinc-400 mb-4">
+				${control("Start now / Move on", "ends the current break or result early")}
+				${control("+1 minute", `adds ${r.addTimeSeconds} seconds to the countdown`)}
+				${control("Pause / Resume", "stops and restarts the countdown")}
+				${control("Continue", "used when the tournament is waiting for staff, for example after a no-show or a server restart")}
+				${control("[Player] wins", "gives a match to one player without it being played to the end")}
+				${control("Restart", `stops a match being played and plays it again after a ${r.restartBreakSeconds}-second break`)}
+				${control("Fill / Swap", "puts someone into an empty place or replaces a player, in a match that hasn't started")}
+				${control("Take out", "removes a player; their opponent goes through, and a match they're playing ends")}
+				${control("Message", "shows a line of text to everyone on the tournament page")}
+			</ul>
+			<h3 class="text-xs text-zinc-500 uppercase tracking-wider font-medium mb-1">Limits</h3>
+			<div class="mb-4">
+				${limit("Players on the list", `up to ${r.roster}`)}
+				${limit("Players in the bracket", `2 to ${r.players}`)}
+				${limit("Rounds per match", `${r.minRounds} to ${r.maxRounds}`)}
+				${limit("Each break", `${minutes(r.breakMin)} to ${minutes(r.breakMax)}`)}
+				${limit("Open or running at once", "1")}
+				${limit("Name, description, message", `${r.title}, ${r.description} and ${r.message} characters`)}
+				${limit("Spectators", "no limit")}
+			</div>
+			<p class="text-zinc-500">Tournament matches don't change ratings, leaderboards, profiles or achievements. Fair-play checks still apply. Matches run one at a time, so a big bracket is a long night: 16 players is 15 matches.</p>
+		</div>
+	</details>`;
 }
 
 function newTournament() {

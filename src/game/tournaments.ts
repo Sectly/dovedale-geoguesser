@@ -133,6 +133,23 @@ const READY_MS = 10_000;
 /** Time for both players to join their match. */
 const JOIN_MS = 90_000;
 const ADD_TIME_MS = 60_000;
+const RESTART_BREAK_S = 30;
+
+/** The numbers the staff panel's guide quotes, so it always matches what the server does. */
+export function tournamentRules() {
+	return {
+		...LIMITS,
+		minRounds: GAME.duel.minRounds,
+		maxRounds: GAME.duel.maxRounds,
+		roundSeconds: GAME.duel.roundTime,
+		reconnectSeconds: GAME.duel.reconnectWindow,
+		joinSeconds: JOIN_MS / 1000,
+		readySeconds: READY_MS / 1000,
+		addTimeSeconds: ADD_TIME_MS / 1000,
+		restartBreakSeconds: RESTART_BREAK_S,
+		resultsHours: RESULTS_HOURS,
+	};
+}
 
 let active: Tournament | null = null;
 let phaseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1106,7 +1123,7 @@ export function restartMatch(staff: User, id: number, matchId: number) {
 		targetId: id,
 		details: `${t.title}, ${matchName(t.state, m)}`,
 	});
-	breakFor(t, m, "match", 30);
+	breakFor(t, m, "match", RESTART_BREAK_S);
 }
 
 /** A late arrival in a bye, or a swap. */
