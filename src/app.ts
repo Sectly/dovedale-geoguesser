@@ -64,8 +64,8 @@ app.use("*", async (c, next) => {
 	/** Inline handlers rule out a stricter script policy; this still stops framing, plugins and <base> hijacking. */
 	c.header(
 		"Content-Security-Policy",
-		"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-			"font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://cdn.discordapp.com; " +
+		"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+			"font-src 'self'; img-src 'self' data: blob: https://cdn.discordapp.com; " +
 			"connect-src 'self' ws: wss:; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 	);
 	if (SECURE_COOKIES) c.header("Strict-Transport-Security", "max-age=31536000");
