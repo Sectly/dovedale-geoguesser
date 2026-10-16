@@ -1,14 +1,50 @@
 import "./lib/site.js";
-import { el, escHtml, show } from "./lib/dom.js";
+import { el, escHtml, prefersReducedMotion, show } from "./lib/dom.js";
 import { api, fetchUser } from "./lib/api.js";
 import { onLive } from "./lib/live.js";
+
+/**
+ * Shows the card, with the cards around it sliding apart to make room as it pops in.
+ * The neighbours are measured before and after, then eased from where they were (FLIP).
+ */
+async function popIn(card) {
+	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+	/** After the title screen and the cards' own rise, or a moment after load, so it is seen happening. */
+	await (window.introDone ? window.introDone.then(() => wait(900)) : wait(400));
+	if (!card.classList.contains("hidden")) return;
+	/** Its own entrance replaces the home cards' rise, which would restart when it is shown. */
+	card.style.animation = "none";
+	const neighbours = [...document.querySelectorAll("main .md-card, main h1, main > div > p, #site-footer")].filter(
+		(node) => node !== card
+	);
+	const before = new Map(neighbours.map((node) => [node, node.getBoundingClientRect()]));
+	card.classList.replace("hidden", "flex");
+	if (prefersReducedMotion()) return;
+	for (const node of neighbours) {
+		const was = before.get(node);
+		const now = node.getBoundingClientRect();
+		const dx = was.left - now.left;
+		const dy = was.top - now.top;
+		if (dx || dy)
+			node.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], {
+				duration: 500,
+				easing: "cubic-bezier(0.2, 0, 0, 1)",
+			});
+	}
+	card.animate(
+		[
+			{ transform: "scale(0.6)", opacity: 0 },
+			{ transform: "scale(1.03)", opacity: 1, offset: 0.7 },
+			{ transform: "none", opacity: 1 },
+		],
+		{ duration: 550, delay: 120, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "backwards" }
+	);
+}
 
 /** While a tournament is on, it gets its own card above Specials. */
 function showTournament(summary) {
 	const card = el("tournament-card");
-	card.classList.toggle("hidden", !summary);
-	card.classList.toggle("flex", !!summary);
-	if (!summary) return;
+	if (!summary) return card.classList.replace("flex", "hidden");
 	card.href = `/tournament/${summary.id}`;
 	el("tournament-card-title").textContent = summary.title;
 	el("tournament-card-sub").textContent =
@@ -17,6 +53,7 @@ function showTournament(summary) {
 			live: "Tournament on now. Come and watch.",
 			finished: "Tournament results. See who won.",
 		}[summary.status] ?? "";
+	if (card.classList.contains("hidden")) popIn(card);
 }
 
 const checkTournament = () =>
