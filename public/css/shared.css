@@ -3254,7 +3254,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* The home page's Specials card while a tournament is on. */
+/* The tournament card, on the home page and atop Specials. */
 .specials-tournament {
 	background: #2563eb;
 }
@@ -3263,8 +3263,7 @@ html.intro-hold .stagger > * {
 }
 .specials-tournament,
 .specials-tournament .text-zinc-400,
-.specials-tournament .text-zinc-500,
-.specials-tournament #specials-card-icon {
+.specials-tournament .text-zinc-500 {
 	color: #fff;
 }
 .specials-tournament .text-zinc-400 {

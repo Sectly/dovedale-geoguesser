@@ -3,29 +3,20 @@ import { el, escHtml, show } from "./lib/dom.js";
 import { api, fetchUser } from "./lib/api.js";
 import { onLive } from "./lib/live.js";
 
-const specialsCard = {
-	href: "/specials",
-	icon: "celebration",
-	title: "Specials",
-	sub: null,
-};
-
-/** While a tournament is on, the Specials card links to it. */
+/** While a tournament is on, it gets its own card above Specials. */
 function showTournament(summary) {
-	const card = el("specials-card");
-	specialsCard.sub ??= el("specials-card-sub").innerHTML;
-	card.classList.toggle("specials-tournament", !!summary);
-	el("upcoming-tag").classList.toggle("invisible", !!summary);
-	card.href = summary ? `/tournament/${summary.id}` : specialsCard.href;
-	el("specials-card-icon").textContent = summary ? "trophy" : specialsCard.icon;
-	el("specials-card-title").textContent = summary ? summary.title : specialsCard.title;
-	el("specials-card-sub").innerHTML = summary
-		? ({
-				open: "Tournament starting soon. Players, check in now.",
-				live: "Tournament on now. Come and watch.",
-				finished: "Tournament results. See who won.",
-			}[summary.status] ?? "")
-		: specialsCard.sub;
+	const card = el("tournament-card");
+	card.classList.toggle("hidden", !summary);
+	card.classList.toggle("flex", !!summary);
+	if (!summary) return;
+	card.href = `/tournament/${summary.id}`;
+	el("tournament-card-title").textContent = summary.title;
+	el("tournament-card-sub").textContent =
+		{
+			open: "Tournament starting soon. Players, check in now.",
+			live: "Tournament on now. Come and watch.",
+			finished: "Tournament results. See who won.",
+		}[summary.status] ?? "";
 }
 
 const checkTournament = () =>
@@ -44,8 +35,7 @@ fetchUser().then((user) => {
 	api("/api/specials")
 		.then((specials) => {
 			const live = specials.filter((s) => s.status === "live");
-			if (live.length && !el("specials-card").classList.contains("specials-tournament"))
-				el("specials-card-sub").textContent = `On now: ${live.map((s) => s.title).join(", ")}.`;
+			if (live.length) el("specials-card-sub").textContent = `On now: ${live.map((s) => s.title).join(", ")}.`;
 		})
 		.catch(() => {});
 });
