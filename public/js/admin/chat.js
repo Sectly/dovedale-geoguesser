@@ -66,7 +66,7 @@ function chatPinHtml(m) {
 	if (m.pinned_at && !m.can_unpin)
 		return `<span class="material-symbols-outlined text-base text-amber-300 flex-shrink-0" style="font-variation-settings:'FILL' 1" role="img" aria-label="Pinned" title="Pinned by ${escHtml(m.pinned_by_username || "staff")}">push_pin</span>`;
 	const label = m.pinned_at ? "Unpin this message" : "Pin this message";
-	return `<button data-on-click="pinChatMessage(${m.id}, ${!m.pinned_at})" class="${m.pinned_at ? "text-amber-300 hover:text-amber-200" : "text-zinc-700 hover:text-zinc-300"} transition flex-shrink-0" aria-label="${label}" title="${label}"><span class="material-symbols-outlined text-base" ${m.pinned_at ? `style="font-variation-settings:'FILL' 1"` : ""}>push_pin</span></button>`;
+	return `<button data-on-click="pinChatMessage(${m.id}, ${!m.pinned_at})" class="${m.pinned_at ? "text-amber-300 hover:text-amber-200" : "text-zinc-600 hover:text-zinc-300"} transition flex-shrink-0" aria-label="${label}" title="${label}"><span class="material-symbols-outlined text-base" ${m.pinned_at ? `style="font-variation-settings:'FILL' 1"` : ""}>push_pin</span></button>`;
 }
 
 function chatMessageHtml(m, previous) {
@@ -90,7 +90,7 @@ function chatMessageHtml(m, previous) {
 			<div class="text-sm text-zinc-200 whitespace-pre-wrap break-words">${chatBodyHtml(m.body)}</div>
 		</div>
 		${chatPinHtml(m)}
-		${m.can_delete ? `<button data-on-click="deleteChatMessage(${m.id})" class="text-zinc-700 hover:text-red-300 transition flex-shrink-0" aria-label="Delete this message" title="Delete"><span class="material-symbols-outlined text-base">delete</span></button>` : ""}
+		${m.can_delete ? `<button data-on-click="deleteChatMessage(${m.id})" class="text-zinc-600 hover:text-red-300 transition flex-shrink-0" aria-label="Delete this message" title="Delete"><span class="material-symbols-outlined text-base">delete</span></button>` : ""}
 	</div>`;
 }
 

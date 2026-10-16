@@ -1449,7 +1449,7 @@ textarea {
 		background-color 0.15s;
 }
 .m-field::placeholder {
-	color: #71717a;
+	color: #8f8f98;
 }
 .m-field:hover {
 	background: #2e2e33;

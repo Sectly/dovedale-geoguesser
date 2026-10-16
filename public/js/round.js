@@ -7,7 +7,7 @@
 
 import { MapCanvas } from "./map-canvas.js";
 import { Sounds } from "./sounds.js";
-import { avatarHtml, countUp, el, escHtml, locId, scoreTone, show } from "./lib/dom.js";
+import { announce, avatarHtml, countUp, el, escHtml, locId, scoreTone, show } from "./lib/dom.js";
 import { api, fetchUser } from "./lib/api.js";
 import { showToast } from "./lib/toast.js";
 import { _pageKeys, addKeybinds } from "./lib/keys.js";
@@ -340,6 +340,7 @@ export function renderRoundResult(result, max = 5000) {
 	];
 	if (result.hints_used) details.push(`${result.hints_used} hint${result.hints_used === 1 ? "" : "s"} used`);
 	el("result-distance-display").textContent = details.join(" · ");
+	announce(`${result.score.toLocaleString()} points. ${details.join(". ").replace("~", "about ")}.`);
 
 	const bar = el("result-score-bar");
 	bar.style.width = "0%";
