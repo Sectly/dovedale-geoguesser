@@ -207,6 +207,12 @@ export function nudgeStaffChat() {
 	}
 }
 
+/** Staff with a tournament's chat card open reload it. */
+export function nudgeTournamentChat(tournamentId: number) {
+	for (const client of clients)
+		if (client.may.tickets) void send(client, "tournament_chat", { id: tournamentId }, { always: true });
+}
+
 /** Tells the ticket's owner and moderators which ticket. `ownerId` is null when unknown. */
 export function nudgeTicket(ticketId: number | null, ownerId: number | null) {
 	for (const client of clients) {
