@@ -141,7 +141,7 @@ function guideHtml(r) {
 				${step("Chat", `Spectator chat is off until you turn it on in the Chat card on the tournament's page, and you can turn it off at any time. Others see a message 1.5 seconds after it is sent. Players can't see chat while guessing, can read it after their guess, and can only write once they are out. Signed-out visitors, banned or chat-limited players and accounts under a day old can't see it. Links, emoji, other alphabets and words caught by the Chat filter are refused. From any message you can delete it or time out its sender.`)}
 				${step("Results", `After the final, the page shows the champion, final standings and the bracket. The results stay on the home page and Specials for ${r.resultsHours} hours; use the Results section to change that or hide them. The page itself stays at its link, and the tournament is listed under past tournaments.`)}
 			</ol>
-			<h3 class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-4 mb-2">During the night (moderators and up)</h3>
+			<h3 class="text-xs text-zinc-500 uppercase tracking-wider font-medium mt-4 mb-2">During the tournament event (moderators and up)</h3>
 			<ul class="text-zinc-400 mb-4">
 				${control("Start now / Move on", "ends the current break or result early")}
 				${control("+1 minute", `adds ${r.addTimeSeconds} seconds to the countdown`)}
