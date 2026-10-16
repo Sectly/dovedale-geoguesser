@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { WireConnection } from "@webwirejs/server";
+import { app } from "../src/app";
 import { db } from "../src/db";
 import { abandonDuel, createRoom, duelRooms, previewPin } from "../src/game/duels/rooms";
 import { DUEL_RULES, Round } from "../src/game/round";
@@ -430,5 +431,25 @@ describe("tournaments", () => {
 		await post(`/api/admin/tournaments/${id}/invite`, staff, { on: false });
 		expect((await post(`/api/tournaments/${id}/join`, createUser(), { code: second })).status).toBe(403);
 		expect((await call(`/api/tournaments/${id}`)).data.invite_open).toBe(false);
+	});
+
+	test("a tournament link shares its own card, and drafts give nothing away", async () => {
+		const { id, staff } = await setUp(2);
+		const draftPage = await call(`/tournament/${id}`);
+		expect(draftPage.data).not.toContain("Game night");
+		expect(draftPage.data).toContain("type=duels");
+
+		await post(`/api/admin/tournaments/${id}/open`, staff);
+		const page = (await call(`/tournament/${id}`)).data as string;
+		expect(page).toContain("<title>Game night | Dovedale GeoGuesser</title>");
+		expect(page).toContain("Check-in is open. 2 players so far.");
+		expect(page).toContain(`og.png?type=tournament&amp;id=${id}`);
+		const invitePage = (await call(`/tournament/${id}?invite=ABC123`)).data as string;
+		expect(invitePage).toContain("Join Game night");
+		expect(invitePage).not.toContain("ABC123");
+
+		const image = await app.fetch(new Request(`http://localhost/og.png?type=tournament&id=${id}`));
+		expect(image.status).toBe(200);
+		expect(image.headers.get("Content-Type")).toBe("image/png");
 	});
 });

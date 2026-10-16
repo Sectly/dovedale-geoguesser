@@ -708,6 +708,49 @@ export function tournamentView(id: number, staff: boolean, viewerId: number | nu
 	};
 }
 
+/** What a shared link shows: the share image and the page description. Null for drafts and unknown ids. */
+export function tournamentShare(id: number) {
+	const row = getRow(id);
+	if (!row || row.status === "draft") return null;
+	const t = load(id);
+	const s = t.state;
+	const roster = rosterOf(id);
+	const players = t.status === "open" ? roster.length : roster.filter((r) => r.checked_in).length;
+	const phase = s.phase;
+	const current = "matchId" in phase && phase.matchId !== null ? s.matches[phase.matchId] : null;
+	const name = (userId: number | null) => (userId === null ? "To be decided" : userName(userId));
+	const starts = t.startsAt
+		? `Starts ${new Date(t.startsAt * 1000).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" })} UTC`
+		: null;
+	const champion =
+		t.status === "finished" && s.championId !== null
+			? db
+					.query<{ name: string; avatar_url: string | null }, [number]>(
+						"SELECT COALESCE(display_name, username) AS name, avatar_url FROM users WHERE id = ?"
+					)
+					.get(s.championId)
+			: null;
+	return {
+		title: t.title,
+		description: t.description,
+		status: t.status,
+		players,
+		detail:
+			t.status === "live"
+				? current
+					? matchName(s, current)
+					: "In progress"
+				: t.status === "open"
+					? starts
+					: null,
+		match:
+			t.status === "live" && current
+				? `${phase.kind === "match" ? "Now playing" : "Up next"}: ${name(current.players[0])} vs ${name(current.players[1])}`
+				: null,
+		champion: champion ? { name: champion.name, avatarUrl: champion.avatar_url } : null,
+	};
+}
+
 export function pastTournaments() {
 	return db
 		.query(
