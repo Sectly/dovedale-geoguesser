@@ -3,12 +3,30 @@ import { el, escHtml, prefersReducedMotion, show } from "./lib/dom.js";
 import { api, fetchUser } from "./lib/api.js";
 import { onLive } from "./lib/live.js";
 
+const TOURNAMENT_LINES = {
+	announced: "Tournament coming up. See when it starts.",
+	open: "Tournament starting soon. Players, check in now.",
+	live: "Tournament on now. Come and watch.",
+	finished: "Tournament results. See who won.",
+};
+/** The newest summary, so the card always shows the latest name, even one that changed during the wait. */
+let latestTournament = null;
+
+function fillTournamentCard(summary) {
+	const card = el("tournament-card");
+	card.href = `/tournament/${summary.id}`;
+	el("tournament-card-title").textContent = summary.title;
+	el("tournament-card-sub").textContent = TOURNAMENT_LINES[summary.status] ?? "";
+}
+
 /** Shows the card and animates the elements it moves from their old places (FLIP). */
 async function popIn(card) {
 	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 	/** Waits for the intro and the cards' entrance, or a moment after load, so the animation is not missed. */
 	await (window.introDone ? window.introDone.then(() => wait(900)) : wait(400));
-	if (!card.classList.contains("hidden")) return;
+	if (!card.classList.contains("hidden") || !latestTournament) return;
+	/** Filled in before it shows, so it never animates in without its name. */
+	fillTournamentCard(latestTournament);
 	/** Its own entrance replaces the home cards' rise, which would restart when it is shown. */
 	card.style.animation = "none";
 	const neighbours = [...document.querySelectorAll("main .md-card, main h1, main > div > p, #site-footer")].filter(
@@ -49,16 +67,9 @@ async function popIn(card) {
 /** While a tournament is on, it gets its own card above Specials. */
 function showTournament(summary) {
 	const card = el("tournament-card");
+	latestTournament = summary;
 	if (!summary) return card.classList.replace("flex", "hidden");
-	card.href = `/tournament/${summary.id}`;
-	el("tournament-card-title").textContent = summary.title;
-	el("tournament-card-sub").textContent =
-		{
-			announced: "Tournament coming up. See when it starts.",
-			open: "Tournament starting soon. Players, check in now.",
-			live: "Tournament on now. Come and watch.",
-			finished: "Tournament results. See who won.",
-		}[summary.status] ?? "";
+	fillTournamentCard(summary);
 	if (card.classList.contains("hidden")) popIn(card);
 }
 
