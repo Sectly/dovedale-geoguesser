@@ -14,7 +14,8 @@
 		"format:check": "prettier --check .",
 		"maintenance": "bun --hot dev-maintenance.ts",
 		"sync-map": "bun run scripts/sync-map.ts",
-		"tiles": "bun run scripts/build-tiles.ts"
+		"tiles": "bun run scripts/build-tiles.ts",
+		"icons": "bun run scripts/icon-font.ts"
 	},
 	"dependencies": {
 		"@webwirejs/client": "^0.1.0",
