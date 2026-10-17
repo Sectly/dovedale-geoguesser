@@ -264,6 +264,18 @@ async function setFeature(feature, enabled) {
 
 /** Updates */
 
+/** Which files block an update, and the command that clears a permission-only change. */
+function localChangesText(files) {
+	const names = files
+		.map((f) => `<code class="text-xs">${escHtml(f.path)}</code>${f.permissions_only ? " (permissions only)" : ""}`)
+		.join(", ");
+	const fix =
+		files.length && files.every((f) => f.permissions_only)
+			? ` Only permissions changed: run <code class="text-xs">git checkout -- ${files.map((f) => escHtml(f.path)).join(" ")}</code> on the server to clear it.`
+			: " Commit or discard them before updating.";
+	return `Edited by hand on the server: ${names}.${fix}`;
+}
+
 async function loadUpdate(refresh) {
 	clearInterval(systemUpdatePoll);
 	const box = el("system-update");
@@ -311,12 +323,11 @@ async function loadUpdate(refresh) {
 	if (job.state === "restarting") box.dataset.restarting = "1";
 
 	const blockers = [
+		/** Already HTML: the plain messages are escaped here. */
 		!status.enabled ? "Updates from the panel are switched off on this server (PANEL_UPDATES=off)." : "",
-		status.local_changes
-			? `${status.local_changes} file(s) on the server have been edited by hand. Commit or discard them before updating.`
-			: "",
+		status.local_changes ? localChangesText(status.local_files ?? []) : "",
 		status.ahead ? "The server has commits that the remote does not." : "",
-		status.fetch_error ? `Could not reach the remote: ${status.fetch_error}` : "",
+		status.fetch_error ? `Could not reach the remote: ${escHtml(status.fetch_error)}` : "",
 	].filter(Boolean);
 
 	const pending = status.pending.length
@@ -333,7 +344,7 @@ async function loadUpdate(refresh) {
 		"Updates",
 		"system_update_alt",
 		`<div class="text-xs text-zinc-500 mb-3">Running ${status.current ? `<code>${escHtml(status.current.hash.slice(0, 7))}</code> ${escHtml(status.current.subject)}` : "an unknown version"} on <code>${escHtml(status.branch)}</code></div>
-		${blockers.map((b) => `<p class="text-sm text-amber-300 mb-2">${escHtml(b)}</p>`).join("")}
+		${blockers.map((b) => `<p class="text-sm text-amber-300 mb-2">${b}</p>`).join("")}
 		${jobLog}
 		${pending}
 		<div class="flex items-center justify-end gap-2 flex-wrap">

@@ -2,10 +2,7 @@ import { Sounds } from "../sounds.js";
 import { celebrate } from "./effects.js";
 import { showToast } from "./toast.js";
 
-/**
- * Up, up, down, down, left, right, left, right, B, A: colours flip, every icon spins and confetti falls.
- * On a touch screen: the same as swipes, then two taps.
- */
+/** Up, up, down, down, left, right, left, right, B, A (or swipes, then two taps): colours flip, icons spin, confetti. */
 
 const CODE = [
 	"arrowup",

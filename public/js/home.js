@@ -9,7 +9,7 @@ const TOURNAMENT_LINES = {
 	live: "Tournament on now. Come and watch.",
 	finished: "Tournament results. See who won.",
 };
-/** The newest summary, so the card always shows the latest name, even one that changed during the wait. */
+/** Latest summary, so the card shows a name that changed during the wait. */
 let latestTournament = null;
 
 function fillTournamentCard(summary) {
@@ -25,7 +25,6 @@ async function popIn(card) {
 	/** Waits for the intro and the cards' entrance, or a moment after load, so the animation is not missed. */
 	await (window.introDone ? window.introDone.then(() => wait(900)) : wait(400));
 	if (!card.classList.contains("hidden") || !latestTournament) return;
-	/** Filled in before it shows, so it never animates in without its name. */
 	fillTournamentCard(latestTournament);
 	/** Its own entrance replaces the home cards' rise, which would restart when it is shown. */
 	card.style.animation = "none";

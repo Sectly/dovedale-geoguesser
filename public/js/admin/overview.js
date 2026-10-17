@@ -1,10 +1,44 @@
 import { avatarHtml, el, errorStateHtml, escHtml } from "../lib/dom.js";
 import { api } from "../lib/api.js";
+import { onLive } from "../lib/live.js";
 import { currentTab } from "./core.js";
 import { AUDIT_ACTION_LABELS } from "./audit.js";
 
+/** Only for the "Live now" counts, which have no live event. */
 const OVERVIEW_REFRESH_MS = 30_000;
 let _overviewTimer = null;
+let _overviewSoon = null;
+let _tournament = null;
+
+const TOURNAMENT_STATUS = {
+	announced: "Announced",
+	open: "Check-in open",
+	live: "Live now",
+	finished: "Results on show",
+};
+
+async function fetchOverview() {
+	const [data, tournament] = await Promise.all([
+		api("/api/admin/overview"),
+		api("/api/tournaments/current").catch(() => null),
+	]);
+	_tournament = tournament;
+	return data;
+}
+
+/** Redraws once for a burst of live events. */
+function refreshSoon() {
+	if (currentTab !== "overview" || document.hidden || _overviewSoon) return;
+	_overviewSoon = setTimeout(async () => {
+		_overviewSoon = null;
+		if (currentTab !== "overview") return;
+		try {
+			renderOverview(await fetchOverview());
+		} catch {}
+	}, 400);
+}
+onLive("attention", refreshSoon);
+onLive("tournament", refreshSoon);
 
 export function shortAgo(seconds) {
 	const diff = Math.max(0, Date.now() / 1000 - seconds);
@@ -16,7 +50,7 @@ export function shortAgo(seconds) {
 export async function loadOverview() {
 	clearInterval(_overviewTimer);
 	try {
-		renderOverview(await api("/api/admin/overview"));
+		renderOverview(await fetchOverview());
 	} catch (err) {
 		el("tab-content").innerHTML = errorStateHtml(err.message || "Couldn't load the overview.", "loadOverview()");
 		return;
@@ -25,7 +59,7 @@ export async function loadOverview() {
 		if (currentTab !== "overview") return clearInterval(_overviewTimer);
 		if (document.hidden) return;
 		try {
-			renderOverview(await api("/api/admin/overview"));
+			renderOverview(await fetchOverview());
 		} catch {}
 	}, OVERVIEW_REFRESH_MS);
 }
@@ -62,6 +96,20 @@ function renderOverview({ waiting, flagged, live, notices, mine, recent }) {
 		${
 			notices.restart_in !== null
 				? `<div class="mt-4 bg-amber-300 text-zinc-950 rounded-2xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2"><span class="material-symbols-outlined text-lg">restart_alt</span>A server restart is counting down.</div>`
+				: ""
+		}
+
+		${
+			_tournament
+				? `${heading("Tournament")}
+					<button data-on-click="switchTab('tournaments', false, ${_tournament.id})" class="md-card w-full px-5 py-4 text-left !rounded-2xl flex items-center gap-4">
+						<span class="material-symbols-outlined text-3xl text-yellow-400" style="font-variation-settings:'FILL' 1">trophy</span>
+						<span class="flex-1 min-w-0">
+							<span class="block font-semibold truncate">${escHtml(_tournament.title)}</span>
+							<span class="block text-xs text-zinc-500">${TOURNAMENT_STATUS[_tournament.status] ?? ""}</span>
+						</span>
+						<span class="text-sm text-zinc-300 flex items-center gap-1">Open controls<span class="material-symbols-outlined text-base">chevron_right</span></span>
+					</button>`
 				: ""
 		}
 

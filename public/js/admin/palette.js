@@ -2,7 +2,7 @@ import { el, escHtml, locId, show } from "../lib/dom.js";
 import { api } from "../lib/api.js";
 import { KEYBIND_GROUPS } from "../lib/keys.js";
 import { atLeast, currentUser, switchTab } from "./core.js";
-import { openUserPanel } from "./users.js";
+import { openUserPanel } from "./user-panel.js";
 
 const PALETTE_CACHE_MS = 60_000;
 const PALETTE_MAX = 8;

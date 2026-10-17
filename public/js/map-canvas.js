@@ -668,15 +668,14 @@ export class MapCanvas {
 		ctx.restore();
 	}
 
-	/** The player's own pin: dropped in with a bounce, and swaying a little behind the map as it moves. True while moving. */
+	/** Draws the player's own pin. True while it is still animating. */
 	_drawGuessPin(now) {
 		const t = this.pin.droppedAt ? Math.min(1, (now - this.pin.droppedAt) / MapCanvas.PIN_DROP_MS) : 1;
-		/** A fall, then one small bounce. */
 		const lift =
 			t < 0.6
 				? MapCanvas.PIN_DROP_PX * (1 - (t / 0.6) ** 2)
 				: MapCanvas.PIN_DROP_PX * 0.2 * Math.sin(Math.PI * ((t - 0.6) / 0.4));
-		/** Squashed for a moment where it first lands; round again once settled. */
+		/** Zero once settled, so the pin always ends round. */
 		const squash = t < 1 ? 0.22 * Math.exp(-(((t - 0.6) / 0.06) ** 2)) : 0;
 
 		const transform = this.ctx.getTransform();
@@ -715,7 +714,6 @@ export class MapCanvas {
 		this.currentScale = _scale;
 
 		if (sway) {
-			/** A shadow on the ground, smaller and fainter while the pin is in the air. */
 			const height = lift / MapCanvas.PIN_DROP_PX;
 			ctx.beginPath();
 			ctx.ellipse(

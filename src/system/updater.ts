@@ -52,6 +52,19 @@ const git = (...args: string[]) => run(["git", ...args]);
 
 export type Commit = { hash: string; subject: string; author: string; date: number };
 
+/** A file changed on the server, and whether only its permissions changed (a chmod, say). */
+export type LocalChange = { path: string; permissions_only: boolean };
+
+/** `git status --porcelain` lines, with `git diff --summary` telling permission-only changes apart. */
+export function parseLocalChanges(status: string, summary: string): LocalChange[] {
+	const modeOnly = new Set([...summary.matchAll(/^\s*mode change \d+ => \d+ (.+)$/gm)].map((m) => m[1].trim()));
+	return status
+		.split("\n")
+		.filter((line) => line.trim())
+		.map((line) => line.trim().replace(/^\S+\s+/, ""))
+		.map((path) => ({ path, permissions_only: modeOnly.has(path) }));
+}
+
 function parseCommits(out: string): Commit[] {
 	return out
 		.split("\n")
@@ -76,9 +89,10 @@ export async function updateStatus(refresh = false) {
 		const fetched = await git("fetch", "--quiet", REMOTE, BRANCH);
 		if (!fetched.ok) fetchError = fetched.out.slice(0, 300) || "Could not reach the remote.";
 	}
-	const [branch, dirty, current, behind, ahead] = await Promise.all([
+	const [branch, dirty, summary, current, behind, ahead] = await Promise.all([
 		git("rev-parse", "--abbrev-ref", "HEAD"),
 		git("status", "--porcelain", "--untracked-files=no"),
+		git("diff", "--summary"),
 		git("log", "-1", LOG_FORMAT),
 		git("log", "--max-count=50", LOG_FORMAT, `HEAD..${REMOTE}/${BRANCH}`),
 		git("rev-list", "--count", `${REMOTE}/${BRANCH}..HEAD`),
@@ -94,6 +108,7 @@ export async function updateStatus(refresh = false) {
 		ahead: Number(ahead.out) || 0,
 		/** Files changed on the server itself; an update refuses to run over them. */
 		local_changes: dirty.out ? dirty.out.split("\n").length : 0,
+		local_files: parseLocalChanges(dirty.out, summary.out).slice(0, 20),
 		fetch_error: fetchError,
 		checked_at: lastFetch ? Math.floor(lastFetch / 1000) : null,
 		restart_in: restartIn(),
@@ -228,7 +243,8 @@ export async function runUpdate(startedBy: string): Promise<string | null> {
 	if (job.state === "running" || job.state === "restarting") return "An update is already running.";
 	const status = await updateStatus(true);
 	if (!status.available) return status.reason;
-	if (status.local_changes) return "Files on the server have been edited by hand. Commit or discard them first.";
+	if (status.local_changes)
+		return `Files on the server have been edited by hand (${status.local_files.map((f) => f.path).join(", ")}). Commit or discard them first.`;
 	if (status.branch !== BRANCH) return `The server is on branch "${status.branch}", not "${BRANCH}".`;
 	if (status.ahead) return "The server has commits the remote does not. Sort that out by hand first.";
 	if (!status.pending.length) return "Already up to date.";
