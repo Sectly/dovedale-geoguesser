@@ -1166,7 +1166,6 @@ async function confirmDeleteAccount() {
 
 init();
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	changeTicketCategory,
 	clearNotifications,

@@ -163,5 +163,4 @@ document.addEventListener("keydown", (e) => {
 });
 KEYBIND_GROUPS.push({ title: "Staff panel", keys: [[["Ctrl", "K"], "Jump to a tab, player, location or ticket"]] });
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, { jumpToSearch, openPalette });

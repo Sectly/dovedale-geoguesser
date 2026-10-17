@@ -284,5 +284,4 @@ async function shareProfile(username) {
 
 init();
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, { toggleDuelRounds });

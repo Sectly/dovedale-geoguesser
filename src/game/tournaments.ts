@@ -38,10 +38,7 @@ import {
 	sideKnown,
 } from "./tournament-bracket";
 
-/**
- * Tournaments: one knockout bracket. Early rounds can be played all at once; from a chosen round on, matches are
- * played one at a time so everyone watches the same duel. Between them there is a break with a countdown.
- */
+/** One knockout bracket. Early rounds can play at once, later ones one match at a time, with breaks between. */
 
 /** Announced: public, with check-in still to open. */
 export type TournamentStatus = "draft" | "announced" | "open" | "live" | "finished" | "cancelled";

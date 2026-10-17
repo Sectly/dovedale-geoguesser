@@ -50,10 +50,7 @@ function latestCopy(): string | null {
 	return name ? `/fonts/${name}` : null;
 }
 
-/**
- * The local stylesheet for this icon set, fetching a copy in the background when it is missing.
- * Until then it gives the previous copy, or null on a fresh install. onReady runs once the copy is saved.
- */
+/** The local stylesheet for this icon set, fetched when missing; until then the previous copy, or null. */
 export function iconStylesheet(icons: string, onReady: () => void): string | null {
 	const key = iconFontKey(icons);
 	if (existsSync(join(ICON_FONT_DIR, `icons-${key}.css`))) return `/fonts/icons-${key}.css`;

@@ -42,7 +42,7 @@ export const adminTournamentRoutes = new Hono();
 
 /** Moderators run the night. */
 const staffOf = (c: Context) => requireStaff(c, "moderator");
-/** Creating, opening, unpublishing, starting, cancelling and deleting. */
+/** Creating, announcing, opening, unpublishing, starting, cancelling and deleting. */
 const seniorOf = (c: Context) => requireStaff(c, "supervisor");
 const ok = (c: Context, id: number) => c.json(tournamentView(id, true));
 

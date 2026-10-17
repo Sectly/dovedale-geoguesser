@@ -67,10 +67,7 @@ let seenMessage = null;
 let seenNotice = null;
 /** Narrow screens: the round shown, or null to follow the match being played. */
 let shownRound = null;
-/**
- * Rounds played all at once: the match on screen, the viewer's own choice (a match id, "bracket" to stay on the
- * bracket, or null to follow automatically), and the pause on a finished match's end screen before moving on.
- */
+/** Rounds played at once: the match shown, the viewer's choice (match id, "bracket" or null), and the end-screen pause. */
 let watching = null;
 let watchingBatch = false;
 let watchChoice = null;
@@ -636,7 +633,6 @@ function lobbyHero() {
 		</div>`;
 }
 
-/** Grows the check-in bar from where it was drawn last. */
 function growProgress() {
 	const bar = root.querySelector("[data-progress]");
 	if (!bar) return;
@@ -954,7 +950,6 @@ function renderBracket(prev) {
 	const bracket = el("stage-bracket");
 	const tabs = el("stage-rounds");
 	if (isNarrow()) {
-		/** One round at a time. */
 		const current = matches.find((m) => m.id === phase.match_id) ?? matches.find((m) => m.status !== "done");
 		const round = Math.min(shownRound ?? current?.round ?? state.rounds.length - 1, state.rounds.length - 1);
 		tabs.classList.remove("hidden");

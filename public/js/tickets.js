@@ -71,10 +71,7 @@ export function ticketFollowUps(ticket) {
 	return count;
 }
 
-/**
- * Calls `load` every few seconds while `isActive()` is true and the tab is visible. With `liveEvent`, it runs on that
- * event instead while the live stream is connected. Returns a function that stops it.
- */
+/** Runs `load` every few seconds while active and visible, or on `liveEvent` while live. Returns a stop function. */
 export function pollWhile(isActive, load, everyMs = 5000, liveEvent = null) {
 	const timer = setInterval(() => {
 		if (document.hidden || !isActive() || (liveEvent && live.connected)) return;

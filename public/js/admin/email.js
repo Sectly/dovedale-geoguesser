@@ -208,7 +208,6 @@ const runEmailNow = () =>
 		({ sent }) => (sent ? `${sent} summar${sent === 1 ? "y" : "ies"} sent.` : "Nobody is due a summary right now.")
 	);
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	clearAllEmails,
 	clearEmailSettings,

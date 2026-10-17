@@ -600,7 +600,6 @@ async function clearSystemLogs() {
 	}
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	backfillAchievementsNow,
 	cancelRestartNow,

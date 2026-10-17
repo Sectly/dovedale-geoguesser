@@ -995,7 +995,6 @@ export class MapCanvas {
 		ctx.transformedPoint = (x, y) => new DOMPoint(x, y).matrixTransform(transform.inverse());
 	}
 
-	/** Zooms on the middle of the view. */
 	zoomBy(factor) {
 		this._busy();
 		this._zoomAt(this.viewWidth / 2, this.viewHeight / 2, factor);
@@ -1052,7 +1051,6 @@ export class MapCanvas {
 		this.onPinPlaced(world.x, world.y);
 	}
 
-	/** Moves the view by a distance in canvas units. */
 	_panBy(dx, dy) {
 		this._busy();
 		const from = this.ctx.transformedPoint(0, 0);

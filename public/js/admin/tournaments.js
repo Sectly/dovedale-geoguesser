@@ -129,7 +129,6 @@ async function resetTournamentHistory() {
 
 const minutes = (s) => (s % 60 ? `${s} seconds` : `${s / 60} minute${s === 60 ? "" : "s"}`);
 
-/** How a tournament runs, step by step, and its limits. */
 function guideHtml(r) {
 	const step = (title, body) =>
 		`<li class="mb-3"><div class="font-semibold text-zinc-200">${title}</div><div class="text-zinc-400">${body}</div></li>`;
@@ -497,7 +496,6 @@ function playerHtml(t, m, side, { ready = false } = {}) {
 const smallBtn = (onclick, label, tone = "m-btn-text") =>
 	`<button data-on-click="${onclick}" class="m-btn ${tone} m-btn-sm">${label}</button>`;
 
-/** One match as a row: label, the two players, and the actions that fit its state. */
 function matchRow(t, m, { ready = false, actions = "" } = {}) {
 	return `<div class="grid grid-cols-[5rem_1fr] sm:grid-cols-[5rem_1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-2.5 border-b border-zinc-800 last:border-0">
 		<span class="text-xs text-zinc-500">${matchLabel(t, m)}</span>
@@ -512,7 +510,6 @@ const card = (title, body, note = "") =>
 		${body}
 	</section>`;
 
-/** Live controls, then matches needing staff and matches being played. */
 function liveHtml(t) {
 	const phase = t.phase;
 	const matches = allTournamentMatches(t);
@@ -881,7 +878,6 @@ function sendTournamentMessage(e) {
 
 const clearTournamentMessage = () => act("/message", { json: { text: "" } });
 
-/** Updates without a reload. */
 onLive("tournament", (summary) => {
 	if (currentTab !== "tournaments" || !_tournamentId || _busy) return;
 	if (summary && summary.id !== _tournamentId) return;
@@ -895,7 +891,6 @@ onLive("tournament", (summary) => {
 		.catch(() => {});
 });
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	addTournamentPlayers,
 	awardTournamentMatch,

@@ -122,5 +122,4 @@ function renderOverview({ waiting, flagged, live, notices, mine, recent }) {
 		</div>`;
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, { loadOverview });

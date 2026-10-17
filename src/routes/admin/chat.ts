@@ -116,10 +116,7 @@ adminChatRoutes.get("/unread", (c) => {
 	return c.json({ unread });
 });
 
-/**
- * An inbox entry for staff who asked for one. It says only that there is something new, and there is one at a time:
- * nothing more is sent until they have opened the room.
- */
+/** One inbox entry at a time, for staff who asked: nothing more until they open the room. */
 function tellStaff(author: User) {
 	const others = db
 		.query<Pick<User, "id" | "role" | "staff_locked" | "is_banned" | "prefs">, [number]>(

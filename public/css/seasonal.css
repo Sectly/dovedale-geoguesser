@@ -4,7 +4,6 @@
 	inset: 0;
 	overflow: hidden;
 	pointer-events: none;
-	/* Below all page content. */
 	z-index: -1;
 }
 
@@ -47,7 +46,6 @@
 	}
 }
 
-/* The title takes the season's colours. */
 body[data-season] #home-title {
 	background-image: linear-gradient(100deg, var(--season-from), var(--season-to));
 	-webkit-background-clip: text;
@@ -235,7 +233,6 @@ body[data-season="newyear"] .season-accent,
 	width: 4px;
 	height: 4px;
 	border-radius: 9999px;
-	/* Twelve sparks in a ring, drawn as shadows of one dot. */
 	box-shadow:
 		0 -34px currentColor,
 		17px -29px currentColor,

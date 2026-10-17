@@ -342,5 +342,4 @@ function entryHtml(tab, e, i) {
 
 init();
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, { loadLeaderboard });

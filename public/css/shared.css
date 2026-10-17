@@ -385,7 +385,6 @@ body :focus-visible:not([class*="ring"]) {
 	max-width: 220px;
 }
 
-/* While the screenshot loads, the panel shimmers and the image stays out of sight. */
 #round-photo {
 	transition:
 		opacity 0.2s ease-out,
@@ -567,10 +566,7 @@ main,
 		margin-bottom: calc(-0.5rem - var(--toast-height, 0px));
 	}
 }
-/*
- * Dialogs close by getting "hidden" back. The discrete `display` transition keeps one on screen for its exit.
- * Entrance animations fill backwards only, or they would block the exit.
- */
+/* Closing re-adds "hidden"; the discrete display transition keeps it up for the exit, so entrances fill backwards. */
 .modal-fade {
 	transition:
 		opacity 0.2s ease-in,
@@ -645,7 +641,7 @@ a[class*="rounded"] {
 	outline-offset: 2px;
 }
 
-/* Hidden always wins over a class that sets its own display. Elements shown again at a breakpoint (hidden md:flex) are left to Tailwind. */
+/* Hidden beats classes that set display; hidden md:flex is left to Tailwind. */
 .hidden:not([class*="sm:"]):not([class*="md:"]):not([class*="lg:"]):not([class*="xl:"]) {
 	display: none;
 }
@@ -682,10 +678,7 @@ body.h-screen {
 	}
 }
 
-/*
- * Reduced motion: every animation and transition jumps to its end, and loops run once.
- * Anything that must still take time gets its own !important rule.
- */
+/* Reduced motion: animations jump to their end; anything that must take time has its own !important rule. */
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
@@ -739,10 +732,7 @@ body.h-screen {
 	}
 }
 
-/*
- * Page-to-page transitions. public/js/transitions.js picks the direction: sideways between header sections,
- * in or out for depth, a fade-through otherwise. The header is named so it stays put.
- */
+/* Page transitions; transitions.js picks the direction. The header is named so it stays put. */
 @view-transition {
 	navigation: auto;
 }
@@ -852,10 +842,7 @@ html:active-view-transition-type(shallower)::view-transition-new(root) {
 ::view-transition-old(site-nav):only-child {
 	animation: vt-out 0.15s ease-in both;
 }
-/*
- * The highlight behind the header's current section, named so it slides between sections.
- * Translucent because it is drawn over the header's text during the slide.
- */
+/* Header highlight, named so it slides between sections; translucent because it covers text mid-slide. */
 .nav-active-pill {
 	position: absolute;
 	inset: 0;
@@ -908,7 +895,7 @@ html:active-view-transition-type(shallower)::view-transition-new(root) {
 .prose p {
 	margin-bottom: 0.6rem;
 }
-/* Numbered rules: the code is what staff quote, and each one can be linked to directly. */
+/* Numbered rules: staff quote the code, and each can be linked to. */
 .prose ul.rules {
 	list-style: none;
 	padding-left: 0;
@@ -964,7 +951,7 @@ a.rule-code:hover {
 	white-space: nowrap;
 }
 
-/* Checkbox: the real input stays in place, invisible, so keyboard and screen readers still work. */
+/* The real input stays in place, invisible, for keyboards and screen readers. */
 .md-check {
 	display: flex;
 	align-items: center;
@@ -1891,7 +1878,7 @@ button.memory-card {
 	}
 }
 
-/* Tooltips (public/js/tooltips.js). Above everything, and never takes the pointer. */
+/* Tooltips (tooltips.js). Above everything; never takes the pointer. */
 .m-tooltip {
 	position: fixed;
 	top: 0;
@@ -1939,7 +1926,7 @@ button.memory-card {
 	}
 }
 
-/* The restart countdown. Styled here so it looks the same on every page, above dialogs and panels. */
+/* The restart countdown, above dialogs and panels. */
 .restart-banner {
 	position: fixed;
 	top: 4rem;
@@ -1972,7 +1959,7 @@ button.memory-card {
 	}
 }
 
-/* A pinned announcement (public/js/lib/announcements.js). Hidden while a round is on screen. */
+/* Pinned announcement (lib/announcements.js); hidden during a round. */
 .site-announcement {
 	position: fixed;
 	left: 1rem;
@@ -2110,10 +2097,7 @@ body:has(#game-screen:not(.hidden)) .site-announcement {
 	white-space: nowrap;
 }
 
-/*
- * The title screen (public/js/intro.js). It ends by turning into the page.
- * Only paints once the script has put "intro-play" on <html>.
- */
+/* Title screen (intro.js). Only paints once intro-play is on <html>. */
 .intro-splash {
 	display: none;
 }
@@ -2135,10 +2119,7 @@ html.intro-play .intro-splash {
 	background: var(--md-surface);
 	transition: opacity 0.45s cubic-bezier(0.2, 0, 0, 1);
 }
-/*
- * Two wrappers move the mark, one per axis, so it travels along an arc.
- * Entrance animations sit on inner elements so they cannot override those transforms.
- */
+/* One wrapper per axis moves the mark along an arc; entrance animations sit on inner elements. */
 .intro-mark,
 .intro-mark-y,
 .intro-title {
@@ -2221,7 +2202,7 @@ html.intro-play .intro-splash {
 	transition-duration: 0.25s;
 }
 
-/* Turning into the page: the script measures where the mark and title go and passes it in. */
+/* The script measures where the mark and title land. */
 html.intro-play:not(.intro-hold) .intro-splash {
 	pointer-events: none;
 }
@@ -2378,11 +2359,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/*
- * ---- Error pages (404.html, and 500.html for every other status) ----
- * Each opens on a short scene for its status. Every keyframe set ends on the element's own style,
- * so with reduced motion the page is just there in its final state.
- */
+/* ---- Error pages ---- Each keyframe set ends on the element's own style, so reduced motion shows the final state. */
 .err-page {
 	/* How long the scene plays before the page arrives. */
 	--err-wait: 1.6s;
@@ -3325,7 +3302,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* Slides across when a new round begins. */
 .stage-banner {
 	position: fixed;
 	left: 50%;
@@ -3496,7 +3472,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* Tournament spectators' reactions. */
 .crowd-emote {
 	position: fixed;
 	bottom: 5rem;

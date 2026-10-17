@@ -620,7 +620,6 @@ function showEmote(data) {
 
 const CROWD_MAX = 24;
 
-/** A tournament spectator's reaction, floating up the side. */
 function showCrowdEmote(emote) {
 	if (!/^[a-z0-9_]+$/.test(emote || "") || document.querySelectorAll(".crowd-emote").length >= CROWD_MAX) return;
 	const icon = document.createElement("span");
