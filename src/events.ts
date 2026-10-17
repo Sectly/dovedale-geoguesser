@@ -222,7 +222,7 @@ export function nudgeTournamentChat(tournamentId: number) {
 		if (client.may.tickets) void send(client, "tournament_chat", { id: tournamentId }, { always: true });
 }
 
-/** Staff who review: someone opened or left a submission or ticket. The ping has no content. */
+/** Staff who review: someone opened or left a submission or ticket. */
 export function nudgeClaims() {
 	for (const client of clients) if (client.may.review) void send(client, "claims", {}, { always: true });
 }

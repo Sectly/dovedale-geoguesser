@@ -233,7 +233,6 @@ setInterval(() => {
 	)
 		syncClaims();
 }, CLAIM_REFRESH_MS);
-/** Others' claims arrive as soon as they change. */
 onLive("claims", () => ["submissions", "tickets"].includes(currentTab) && !document.hidden && syncClaims());
 
 let _reviewMap = null;

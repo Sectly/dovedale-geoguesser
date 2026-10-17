@@ -234,7 +234,7 @@ export class RoundView {
 		return el("map-canvas").offsetParent !== null;
 	}
 
-	/** A guess with no pin placed: the button shakes instead of nothing happening. */
+	/** No pin yet: shake the button. */
 	_nudgeGuess() {
 		const btn = el("guess-btn");
 		if (this.locked || btn.classList.contains("hidden")) return false;

@@ -13,7 +13,7 @@ const CLAIM_MS = 90_000;
 const claims = new Map<number, Claim>();
 let listener: (() => void) | null = null;
 
-/** Told when someone opens or leaves an item, so other staff see it at once. Renewals stay quiet. */
+/** Told when someone opens or leaves an item; renewals stay quiet. */
 export function onClaimsChanged(fn: () => void) {
 	listener = fn;
 }

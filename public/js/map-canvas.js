@@ -668,7 +668,7 @@ export class MapCanvas {
 		ctx.restore();
 	}
 
-	/** The player's own pin, animated when placed and while the map moves. True while it is still moving. */
+	/** Draws the player's own pin. True while it is still animating. */
 	_drawGuessPin(now) {
 		const t = this.pin.droppedAt ? Math.min(1, (now - this.pin.droppedAt) / MapCanvas.PIN_DROP_MS) : 1;
 		const lift =

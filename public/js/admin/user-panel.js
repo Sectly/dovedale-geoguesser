@@ -389,7 +389,7 @@ async function exportUserData(userId) {
 	}
 }
 
-/** Asks for the username typed out, so it is never one click away. */
+/** Needs the username typed out. */
 async function deleteUserAccount(userId, username) {
 	const typed = await showPrompt(`Delete @${username}?`, username, {
 		note: "Type their username to confirm. This cannot be undone.",

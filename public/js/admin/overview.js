@@ -4,7 +4,7 @@ import { onLive } from "../lib/live.js";
 import { currentTab } from "./core.js";
 import { AUDIT_ACTION_LABELS } from "./audit.js";
 
-/** Queues and the tournament update live; this only catches the "Live now" counts, which have no event. */
+/** Only for the "Live now" counts, which have no live event. */
 const OVERVIEW_REFRESH_MS = 30_000;
 let _overviewTimer = null;
 let _overviewSoon = null;
@@ -26,7 +26,7 @@ async function fetchOverview() {
 	return data;
 }
 
-/** A change pushed over the live stream: redraw shortly, once for a burst of them. */
+/** Redraws once for a burst of live events. */
 function refreshSoon() {
 	if (currentTab !== "overview" || document.hidden || _overviewSoon) return;
 	_overviewSoon = setTimeout(async () => {

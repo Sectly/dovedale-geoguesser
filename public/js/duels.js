@@ -46,7 +46,7 @@ let busy = false;
 let countdownTimer = null;
 let nextRoundTimer = null;
 let quietQueueTimer = null;
-/** Quick Play: when this search began, and its clock. */
+/** Quick Play search timer. */
 let searchStartedAt = 0;
 let searchClock = null;
 let reconnectTimer = null;
@@ -708,7 +708,7 @@ function showWaitingRoom(state) {
 	const full = state.players.length >= 2;
 	const searching = isQuickPlay && !full;
 
-	/** Quick Play keeps the radar up: an opponent turning up on it is the match being found. */
+	/** The radar stays up; the opponent appearing on it is the match being found. */
 	show("quickplay-searching", isQuickPlay);
 	show("waiting-players", !isQuickPlay);
 	if (isQuickPlay) {
@@ -722,7 +722,6 @@ function showWaitingRoom(state) {
 			stopSearchClock();
 			const them = el("qp-them");
 			them.innerHTML = avatarHtml(opponent?.avatar_url, "w-full h-full");
-			/** Somewhere new on the outer guide circle each time. */
 			const angle = Math.random() * Math.PI * 2;
 			them.style.left = `${50 + 32 * Math.cos(angle)}%`;
 			them.style.top = `${50 + 32 * Math.sin(angle)}%`;
@@ -785,7 +784,7 @@ function showStartCountdown(seconds) {
 	el("start-countdown-label").textContent = "Get ready";
 	el("start-countdown-value").textContent = left;
 	Sounds.play("versus");
-	/** The countdown is the versus screen now, so the radar under it goes. */
+	/** The countdown is the versus screen, so the radar goes. */
 	show("quickplay-searching", false);
 	show("start-countdown");
 	countdownTimer = setInterval(() => {
