@@ -3536,7 +3536,6 @@ html.intro-hold .stagger > * {
 	overflow: hidden;
 	isolation: isolate;
 }
-/* Two thin guide circles. */
 .qp-radar::before,
 .qp-radar::after {
 	content: "";
