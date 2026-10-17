@@ -484,9 +484,7 @@ export class MapCanvas {
 			if (this._drawGuessLine(line, now)) animating = true;
 		}
 
-		if (this.pin) {
-			this._drawPin(this.pin.worldX, this.pin.worldY, MapCanvas.GUESS_COLOR, null);
-		}
+		if (this.pin && this._drawGuessPin(now)) animating = true;
 
 		/** Rings scheduled for later (waiting on a line) have a negative age and are kept. */
 		this.ripples = this.ripples.filter((r) => now - r.startAt < MapCanvas.RIPPLE_DURATION);
@@ -670,15 +668,73 @@ export class MapCanvas {
 		ctx.restore();
 	}
 
-	_drawPin(worldX, worldY, color, label) {
+	/** The player's own pin: dropped in with a bounce, and swaying a little behind the map as it moves. True while moving. */
+	_drawGuessPin(now) {
+		const t = this.pin.droppedAt ? Math.min(1, (now - this.pin.droppedAt) / MapCanvas.PIN_DROP_MS) : 1;
+		/** A fall, then one small bounce. */
+		const lift =
+			t < 0.6
+				? MapCanvas.PIN_DROP_PX * (1 - (t / 0.6) ** 2)
+				: MapCanvas.PIN_DROP_PX * 0.2 * Math.sin(Math.PI * ((t - 0.6) / 0.4));
+		/** Squashed for a moment on each landing. */
+		const squash = 0.22 * Math.exp(-(((t - 0.6) / 0.06) ** 2)) + 0.1 * Math.exp(-(((t - 1) / 0.05) ** 2));
+
+		const transform = this.ctx.getTransform();
+		const last = this._lastPan;
+		this._lastPan = { e: transform.e, f: transform.f, a: transform.a };
+		if (last && last.a === transform.a && !MapCanvas.reducedMotion()) {
+			const dx = transform.e - last.e;
+			const dy = transform.f - last.f;
+			/** Jumps (fitting the view, say) are not dragging, so they leave it alone. */
+			if (Math.hypot(dx, dy) < 80) {
+				const clamp = (v) => Math.max(-MapCanvas.PIN_SWAY_PX, Math.min(MapCanvas.PIN_SWAY_PX, v));
+				this._sway = { x: clamp((this._sway?.x ?? 0) - dx * 0.25), y: clamp((this._sway?.y ?? 0) - dy * 0.25) };
+			}
+		}
+		const sway = this._sway ?? { x: 0, y: 0 };
+		this._sway = { x: sway.x * 0.75, y: sway.y * 0.75 };
+
+		this._drawPin(this.pin.worldX, this.pin.worldY, MapCanvas.GUESS_COLOR, null, {
+			lift,
+			squash,
+			sway,
+		});
+		return t < 1 || Math.hypot(sway.x, sway.y) > 0.15;
+	}
+
+	_drawPin(worldX, worldY, color, label, { lift = 0, squash = 0, sway = null } = {}) {
 		const ctx = this.ctx;
-		const { x: sx, y: sy } = this._screenPos(worldX, worldY);
+		const spot = this._screenPos(worldX, worldY);
+		const sx = spot.x + (sway?.x ?? 0);
+		const sy = spot.y + (sway?.y ?? 0) - lift;
 		const r = 9;
 
 		ctx.save();
 		const _scale = this.currentScale;
 		ctx.resetTransform();
 		this.currentScale = _scale;
+
+		if (sway) {
+			/** A shadow on the ground, smaller and fainter while the pin is in the air. */
+			const height = lift / MapCanvas.PIN_DROP_PX;
+			ctx.beginPath();
+			ctx.ellipse(
+				spot.x,
+				spot.y + r * 0.7,
+				r * (1 - 0.35 * height),
+				r * 0.35 * (1 - 0.35 * height),
+				0,
+				0,
+				Math.PI * 2
+			);
+			ctx.fillStyle = `rgba(0,0,0,${0.3 * (1 - 0.6 * height)})`;
+			ctx.fill();
+		}
+		if (squash) {
+			ctx.translate(sx, sy + r);
+			ctx.scale(1 + squash * 0.6, 1 - squash);
+			ctx.translate(-sx, -sy - r);
+		}
 
 		ctx.beginPath();
 		ctx.arc(sx, sy, r + 2, 0, Math.PI * 2);
@@ -1045,7 +1101,11 @@ export class MapCanvas {
 			world.y > WORLD_BOUNDS.BOTTOM_RIGHT.y
 		)
 			return;
-		this.pin = { worldX: world.x, worldY: world.y };
+		this.pin = {
+			worldX: world.x,
+			worldY: world.y,
+			droppedAt: MapCanvas.reducedMotion() ? 0 : performance.now(),
+		};
 		this.addRipple(world.x, world.y, MapCanvas.GUESS_COLOR);
 		this.draw();
 		this.onPinPlaced(world.x, world.y);
@@ -1259,6 +1319,9 @@ MapCanvas.ANSWER_COLOR = "#4CAF50";
 /** How long a guess line takes to reach the answer, in milliseconds. */
 MapCanvas.LINE_DURATION = 1100;
 MapCanvas.RIPPLE_DURATION = 600;
+MapCanvas.PIN_DROP_MS = 420;
+MapCanvas.PIN_DROP_PX = 16;
+MapCanvas.PIN_SWAY_PX = 4;
 /** Asked each time, so a change to the system setting applies to the next result without a reload. */
 MapCanvas.reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 /** How far (in CSS pixels) a press may wander and still count as a click or a tap. */
