@@ -11,13 +11,21 @@ export type Claim = { kind: ClaimKind; id: number; staff_id: number; name: strin
 const CLAIM_MS = 90_000;
 
 const claims = new Map<number, Claim>();
+let listener: (() => void) | null = null;
+
+/** Told when someone opens or leaves an item, so other staff see it at once. Renewals stay quiet. */
+export function onClaimsChanged(fn: () => void) {
+	listener = fn;
+}
 
 export function setClaim(staff: User, kind: ClaimKind, id: number) {
+	const before = claims.get(staff.id);
 	claims.set(staff.id, { kind, id, staff_id: staff.id, name: displayName(staff), at: Date.now() });
+	if (before?.kind !== kind || before?.id !== id) listener?.();
 }
 
 export function releaseClaim(staffId: number) {
-	claims.delete(staffId);
+	if (claims.delete(staffId)) listener?.();
 }
 
 export function liveClaims(): Claim[] {

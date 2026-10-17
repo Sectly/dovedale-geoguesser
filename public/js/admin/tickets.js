@@ -23,17 +23,21 @@ export let expandedTicketId = null;
 let _ticketsSignature = "";
 let _stopTicketPolling = null;
 
+let _lastClosedAt = null;
+
 /** Loads the ticket list. `quiet` redraws only on a change and keeps typed replies. */
 export async function loadTickets(reset = true, autoOpenId = null, { quiet = false } = {}) {
 	if (reset) expandedTicketId = autoOpenId;
 	const params = new URLSearchParams({ status: supportStatus });
 	if (supportCategory) params.set("category", supportCategory);
 	try {
-		const [tickets, counts] = await Promise.all([
+		const [tickets, counts, lastClosed] = await Promise.all([
 			api(`/api/admin/support?${params}`),
 			api("/api/admin/support/counts"),
+			api("/api/admin/support/last-closed").catch(() => ({ at: null })),
 		]);
-		const signature = JSON.stringify([tickets, counts, supportStatus, supportCategory]);
+		_lastClosedAt = lastClosed.at;
+		const signature = JSON.stringify([tickets, counts, supportStatus, supportCategory, _lastClosedAt]);
 		if (quiet && signature === _ticketsSignature) return;
 		_ticketsSignature = signature;
 
@@ -117,7 +121,13 @@ function renderTickets(tickets, counts) {
 
 	const ticketHtml = filtered.length
 		? filtered.map((t) => renderTicketCard(t)).join("")
-		: `<div class="text-zinc-500 py-8 text-center">No ${supportStatus} tickets${supportCategory ? " in this category" : ""}${supportSearch ? ' matching "' + escHtml(supportSearch) + '"' : ""}.</div>`;
+		: supportStatus === "open" && !supportCategory && !supportSearch
+			? `<div class="text-center py-10">
+				<span class="material-symbols-outlined text-4xl text-green-400/80">task_alt</span>
+				<p class="text-zinc-300 font-semibold mt-2">No open tickets</p>
+				${_lastClosedAt ? `<p class="text-zinc-500 text-sm mt-1">Last one closed ${new Date(_lastClosedAt * 1000).toDateString() === new Date().toDateString() ? "at" : "on"} ${escHtml(ticketTime(_lastClosedAt))}</p>` : ""}
+			</div>`
+			: `<div class="text-zinc-500 py-8 text-center">No ${supportStatus} tickets${supportCategory ? " in this category" : ""}${supportSearch ? ' matching "' + escHtml(supportSearch) + '"' : ""}.</div>`;
 
 	el("tab-content").innerHTML = `
 		<div class="flex items-center gap-2 mb-3 flex-wrap">

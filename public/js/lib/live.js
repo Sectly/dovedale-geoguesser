@@ -6,7 +6,7 @@ const LIVE_JITTER_MS = 2500;
 /** A hidden tab closes its stream after this long and reopens it when shown again. */
 const LIVE_HIDDEN_MS = 60_000;
 /** Handlers rerun after a reconnect, in case an event was missed. */
-const LIVE_CATCH_UP = ["ticket", "staff_chat", "tournament", "chat", "tournament_chat"];
+const LIVE_CATCH_UP = ["ticket", "staff_chat", "tournament", "chat", "tournament_chat", "claims"];
 
 export const live = {
 	connected: false,

@@ -47,6 +47,15 @@ adminSupportRoutes.get("/counts", (c) => {
 	);
 });
 
+/** When staff last closed a ticket, for the empty queue. Tickets keep no close time, so it comes from the audit log. */
+adminSupportRoutes.get("/last-closed", (c) => {
+	requireStaff(c);
+	const row = db
+		.query<{ at: number | null }, []>("SELECT MAX(created_at) AS at FROM audit_log WHERE action = 'ticket_close'")
+		.get();
+	return c.json({ at: row?.at ?? null });
+});
+
 adminSupportRoutes.post("/cleanup", (c) => {
 	const staff = requireStaff(c, "admin");
 	const deleted = deleteOldClosedTickets();

@@ -2,6 +2,7 @@ import { MapCanvas } from "../map-canvas.js";
 import { el, escHtml, skeletonRows } from "../lib/dom.js";
 import { api, fetchUser } from "../lib/api.js";
 import { refreshAttention } from "../lib/attention.js";
+import { onLive } from "../lib/live.js";
 import { setupPhotoLens } from "../lib/effects.js";
 import { bindRuleChips, ruleChipsHtml } from "../rules.js";
 import { loadOverview, shortAgo } from "./overview.js";
@@ -13,7 +14,8 @@ import { loadAnnouncementsTab } from "./announcements.js";
 import { expandedTicketId, loadTickets } from "./tickets.js";
 import { loadDuels } from "./duels.js";
 import { loadTournaments } from "./tournaments.js";
-import { loadStaff, loadUsers } from "./users.js";
+import { loadUsers } from "./users.js";
+import { loadStaff } from "./staff.js";
 import { loadAudit } from "./audit.js";
 import { loadSystem } from "./system.js";
 import { loadEmail } from "./email.js";
@@ -222,6 +224,7 @@ export function claimChanged() {
 	else paintClaims();
 }
 
+/** Renews this member of staff's own claim, which lapses without it. */
 setInterval(() => {
 	if (
 		!document.hidden &&
@@ -230,6 +233,8 @@ setInterval(() => {
 	)
 		syncClaims();
 }, CLAIM_REFRESH_MS);
+/** Others' claims arrive as soon as they change. */
+onLive("claims", () => ["submissions", "tickets"].includes(currentTab) && !document.hidden && syncClaims());
 
 let _reviewMap = null;
 

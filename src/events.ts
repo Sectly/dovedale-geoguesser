@@ -4,6 +4,7 @@ import { currentBanner } from "./announcements";
 import { hasRole } from "./auth/guards";
 import { sessionIdFromCookies, userFromSessionId } from "./auth/sessions";
 import { db, type User } from "./db";
+import { onClaimsChanged } from "./lib/claims";
 import { clientIp, fail } from "./lib/http";
 import { STAFF_CHAT_ROLE, attentionFor, onNotified } from "./notifications";
 import { justRestarted, onRestartChanged, restartIn } from "./system/restart";
@@ -29,7 +30,7 @@ type Client = {
 	userId: number | null;
 	key: string;
 	/** Which pings to send. The data itself is permission-checked when fetched. */
-	may: { chat: boolean; tickets: boolean };
+	may: { chat: boolean; tickets: boolean; review: boolean };
 	/** Last value per event, so unchanged values are not resent. */
 	sent: Map<string, string>;
 	attentionTimer: ReturnType<typeof setTimeout> | null;
@@ -76,7 +77,11 @@ function queueWatching() {
 function viewer(client: Client): User | null {
 	const user = client.sessionId ? userFromSessionId(client.sessionId) : null;
 	client.userId = user?.id ?? null;
-	client.may = { chat: hasRole(user, STAFF_CHAT_ROLE), tickets: hasRole(user, "moderator") };
+	client.may = {
+		chat: hasRole(user, STAFF_CHAT_ROLE),
+		tickets: hasRole(user, "moderator"),
+		review: hasRole(user, "helper"),
+	};
 	return user;
 }
 
@@ -130,7 +135,11 @@ export function eventStream(c: Context) {
 			sessionId: user ? sessionId : null,
 			userId: user?.id ?? null,
 			key,
-			may: { chat: hasRole(user, STAFF_CHAT_ROLE), tickets: hasRole(user, "moderator") },
+			may: {
+				chat: hasRole(user, STAFF_CHAT_ROLE),
+				tickets: hasRole(user, "moderator"),
+				review: hasRole(user, "helper"),
+			},
 			sent: new Map(),
 			attentionTimer: null,
 			watching,
@@ -213,6 +222,11 @@ export function nudgeTournamentChat(tournamentId: number) {
 		if (client.may.tickets) void send(client, "tournament_chat", { id: tournamentId }, { always: true });
 }
 
+/** Staff who review: someone opened or left a submission or ticket. The ping has no content. */
+export function nudgeClaims() {
+	for (const client of clients) if (client.may.review) void send(client, "claims", {}, { always: true });
+}
+
 /** Tells the ticket's owner and moderators which ticket. `ownerId` is null when unknown. */
 export function nudgeTicket(ticketId: number | null, ownerId: number | null) {
 	for (const client of clients) {
@@ -231,6 +245,7 @@ export function ticketOwner(ticketId: number): number | null {
 }
 
 onNotified(nudgeUser);
+onClaimsChanged(nudgeClaims);
 onRestartChanged(() => {
 	const state = restartState();
 	for (const client of clients) void send(client, "restart", state, { always: true });

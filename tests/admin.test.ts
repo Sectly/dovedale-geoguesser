@@ -1045,3 +1045,31 @@ describe("numbers the pages show", () => {
 		expect((await me(createUser({ role: "helper" }))).chat_pin_limits).toBeUndefined();
 	});
 });
+
+describe("claims", () => {
+	test("tell other staff when someone opens or leaves an item, but not on every renewal", async () => {
+		const { onClaimsChanged } = await import("../src/lib/claims");
+		const { nudgeClaims } = await import("../src/events");
+		let told = 0;
+		onClaimsChanged(() => told++);
+		try {
+			const staff = createUser({ role: "moderator" });
+			await post("/api/admin/claims", staff, { kind: "ticket", id: 7 });
+			await post("/api/admin/claims", staff, { kind: "ticket", id: 7 });
+			expect(told).toBe(1);
+			await post("/api/admin/claims", staff, { kind: "ticket", id: 8 });
+			await post("/api/admin/claims", staff, {});
+			expect(told).toBe(3);
+		} finally {
+			onClaimsChanged(nudgeClaims);
+		}
+	});
+
+	test("the empty ticket queue can say when the last one was closed", async () => {
+		const staff = createUser({ role: "moderator" });
+		const before = await call("/api/admin/support/last-closed", { as: staff });
+		expect(before.status).toBe(200);
+		expect(before.data).toHaveProperty("at");
+		expect((await call("/api/admin/support/last-closed", { as: createUser() })).status).toBe(403);
+	});
+});
