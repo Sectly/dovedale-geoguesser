@@ -3524,6 +3524,162 @@ html.intro-hold .stagger > * {
 	}
 }
 
+/* Quick Play: searching, then the match-found reveal (duels.js). */
+.qp-radar {
+	position: relative;
+	width: 13rem;
+	height: 13rem;
+	margin: 0 auto;
+	border-radius: 9999px;
+	background: #111113;
+	border: 1px solid #27272a;
+	overflow: hidden;
+	isolation: isolate;
+}
+/* Two thin guide circles. */
+.qp-radar::before,
+.qp-radar::after {
+	content: "";
+	position: absolute;
+	border-radius: 9999px;
+	border: 1px solid #27272a;
+}
+.qp-radar::before {
+	inset: 18%;
+}
+.qp-radar::after {
+	inset: 34%;
+}
+.qp-sweep {
+	position: absolute;
+	inset: 0;
+	border-radius: 9999px;
+	background: conic-gradient(from 0deg, rgba(96, 165, 250, 0.35), rgba(96, 165, 250, 0) 60deg, transparent 360deg);
+	z-index: -1;
+}
+.qp-ring {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 4.5rem;
+	height: 4.5rem;
+	margin: -2.25rem 0 0 -2.25rem;
+	border-radius: 9999px;
+	border: 1.5px solid #60a5fa;
+	opacity: 0;
+}
+.qp-me,
+.qp-them {
+	position: absolute;
+	box-sizing: border-box;
+	border-radius: 9999px;
+	overflow: hidden;
+	background: #27272a;
+	display: flex;
+}
+.qp-me {
+	left: 50%;
+	top: 50%;
+	width: 4.5rem;
+	height: 4.5rem;
+	margin: -2.25rem 0 0 -2.25rem;
+	border: 3px solid #60a5fa;
+}
+/* On the outer guide circle, up and to the right. */
+.qp-them {
+	left: 72.6%;
+	top: 27.4%;
+	width: 3rem;
+	height: 3rem;
+	margin: -1.5rem 0 0 -1.5rem;
+	border: 3px solid #22c55e;
+	opacity: 0;
+}
+.qp-me .material-symbols-outlined {
+	font-size: 1.75rem;
+}
+.qp-matched .qp-them {
+	opacity: 1;
+}
+.qp-matched .qp-me {
+	border-color: #22c55e;
+}
+.qp-matched .qp-ring {
+	border-color: #22c55e;
+}
+.qp-matched #qp-elapsed {
+	visibility: hidden;
+}
+.qp-matched .qp-sweep {
+	opacity: 0;
+	transition: opacity 0.3s;
+}
+@media (prefers-reduced-motion: no-preference) {
+	.qp-ring {
+		animation: qp-ping 2.4s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+	}
+	.qp-ring:nth-child(2) {
+		animation-delay: 0.8s;
+	}
+	.qp-ring:nth-child(3) {
+		animation-delay: 1.6s;
+	}
+	.qp-sweep {
+		animation: qp-sweep 2.4s linear infinite;
+	}
+	.qp-me {
+		animation: qp-breathe 2.4s ease-in-out infinite;
+	}
+	.qp-matched .qp-them {
+		animation: qp-arrive 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+	.qp-matched .qp-ring {
+		animation: qp-burst 0.9s cubic-bezier(0.2, 0.6, 0.4, 1) both;
+	}
+	.qp-matched .qp-ring:nth-child(2) {
+		animation-delay: 0.12s;
+	}
+	.qp-matched .qp-ring:nth-child(3) {
+		animation-delay: 0.24s;
+	}
+}
+@keyframes qp-ping {
+	from {
+		transform: scale(1);
+		opacity: 0.6;
+	}
+	to {
+		transform: scale(2.8);
+		opacity: 0;
+	}
+}
+@keyframes qp-sweep {
+	to {
+		transform: rotate(360deg);
+	}
+}
+@keyframes qp-breathe {
+	50% {
+		scale: 1.05;
+	}
+}
+@keyframes qp-arrive {
+	from {
+		opacity: 0;
+		transform: scale(0.2);
+	}
+}
+@keyframes qp-burst {
+	from {
+		transform: scale(1);
+		opacity: 1;
+	}
+	to {
+		transform: scale(3.4);
+		opacity: 0;
+	}
+}
+
 /* The Konami code (lib/konami.js). */
 html {
 	transition: filter 0.4s;
