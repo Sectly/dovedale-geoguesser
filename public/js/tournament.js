@@ -550,7 +550,7 @@ function lobbyClockHtml(starts) {
 			.join("")}</div>`;
 }
 
-/** Changed digits roll in from above. */
+/** Updates only the digits that changed, so only those animate. */
 function paintClocks() {
 	for (const node of root.querySelectorAll("[data-clock-ends]")) {
 		const left = Number(node.dataset.clockEnds) - serverNow();

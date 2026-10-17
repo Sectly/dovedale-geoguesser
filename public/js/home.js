@@ -3,13 +3,10 @@ import { el, escHtml, prefersReducedMotion, show } from "./lib/dom.js";
 import { api, fetchUser } from "./lib/api.js";
 import { onLive } from "./lib/live.js";
 
-/**
- * Shows the card, with the cards around it sliding apart to make room as it pops in.
- * The neighbours are measured before and after, then eased from where they were (FLIP).
- */
+/** Shows the card and animates the elements it moves from their old places (FLIP). */
 async function popIn(card) {
 	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-	/** After the title screen and the cards' own rise, or a moment after load, so it is seen happening. */
+	/** Waits for the intro and the cards' entrance, or a moment after load, so the animation is not missed. */
 	await (window.introDone ? window.introDone.then(() => wait(900)) : wait(400));
 	if (!card.classList.contains("hidden")) return;
 	/** Its own entrance replaces the home cards' rise, which would restart when it is shown. */
@@ -31,7 +28,6 @@ async function popIn(card) {
 				easing: "cubic-bezier(0.2, 0, 0, 1)",
 			});
 	}
-	/** Squeezed flat into the gap, stretches up, then wiggles itself into place. */
 	const entrance = card.animate(
 		[
 			{ transform: "scale(1.15, 0.05)", opacity: 0 },

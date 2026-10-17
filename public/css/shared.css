@@ -3085,7 +3085,6 @@ html.intro-hold .stagger > * {
 	border: 1px solid #27272a;
 	padding: 3rem 1.25rem 4.5rem;
 }
-/* Faint spotlight beams turning slowly behind the trophy. */
 .lobby-rays {
 	position: absolute;
 	left: 50%;
@@ -3098,7 +3097,6 @@ html.intro-hold .stagger > * {
 	mask: radial-gradient(circle, #000 0, transparent 26rem);
 	pointer-events: none;
 }
-/* A stretch of railway along the bottom, sleepers passing under the rails. */
 .lobby-track {
 	position: absolute;
 	left: 0;
@@ -3523,7 +3521,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* The tournament card, on the home page and atop Specials. */
+/* The tournament card, on the home page and the Specials page. */
 .specials-tournament {
 	background: #2563eb;
 }
@@ -3538,7 +3536,7 @@ html.intro-hold .stagger > * {
 .specials-tournament .text-zinc-400 {
 	color: #bfdbfe;
 }
-/* A rainbow that sweeps once round the border, after the card has squeezed in on the home page. */
+/* Plays once, when home.js adds .glint after the card's entrance. */
 .specials-tournament {
 	position: relative;
 }
