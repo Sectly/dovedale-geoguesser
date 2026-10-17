@@ -676,8 +676,8 @@ export class MapCanvas {
 			t < 0.6
 				? MapCanvas.PIN_DROP_PX * (1 - (t / 0.6) ** 2)
 				: MapCanvas.PIN_DROP_PX * 0.2 * Math.sin(Math.PI * ((t - 0.6) / 0.4));
-		/** Squashed for a moment on each landing. */
-		const squash = 0.22 * Math.exp(-(((t - 0.6) / 0.06) ** 2)) + 0.1 * Math.exp(-(((t - 1) / 0.05) ** 2));
+		/** Squashed for a moment where it first lands; round again once settled. */
+		const squash = t < 1 ? 0.22 * Math.exp(-(((t - 0.6) / 0.06) ** 2)) : 0;
 
 		const transform = this.ctx.getTransform();
 		const last = this._lastPan;
