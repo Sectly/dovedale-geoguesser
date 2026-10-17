@@ -3060,35 +3060,76 @@ html.intro-hold .stagger > * {
 
 /* ---- Tournament lobby: check-in and the wait before the start ---- */
 .lobby-trophy {
-	width: 5rem;
-	height: 5rem;
+	width: 7rem;
+	height: 7rem;
 	border-radius: 9999px;
-	background: #18181b;
+	background: #1c1c20;
+	border: 1px solid #3f3f46;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	margin-bottom: 1.25rem;
 }
 .lobby-trophy .material-symbols-outlined {
-	font-size: 2.75rem;
+	font-size: 3.75rem;
 	color: #facc15;
 	font-variation-settings: "FILL" 1;
 }
-.lobby-chip {
+.lobby-event {
+	position: relative;
+	overflow: hidden;
+	width: 100%;
+	max-width: 56rem;
+	border-radius: 2rem;
+	background: #111113;
+	border: 1px solid #27272a;
+	padding: 3rem 1.25rem 4.5rem;
+}
+/* Faint spotlight beams turning slowly behind the trophy. */
+.lobby-rays {
+	position: absolute;
+	left: 50%;
+	top: 5.5rem;
+	width: 140rem;
+	height: 140rem;
+	margin: -70rem 0 0 -70rem;
+	background: repeating-conic-gradient(rgba(255, 255, 255, 0.035) 0deg 6deg, transparent 6deg 18deg);
+	-webkit-mask: radial-gradient(circle, #000 0, transparent 26rem);
+	mask: radial-gradient(circle, #000 0, transparent 26rem);
+	pointer-events: none;
+}
+/* A stretch of railway along the bottom, sleepers passing under the rails. */
+.lobby-track {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 1.25rem;
+	height: 1.25rem;
+	background:
+		linear-gradient(#52525b, #52525b) 0 0.25rem / 100% 2px no-repeat,
+		linear-gradient(#52525b, #52525b) 0 0.875rem / 100% 2px no-repeat,
+		repeating-linear-gradient(90deg, #3f3f46 0 0.5rem, transparent 0.5rem 2rem);
+	-webkit-mask: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+	mask: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+}
+.lobby-title {
+	font-size: clamp(2.75rem, 10vw, 5rem);
+	font-weight: 800;
+	line-height: 1;
+	letter-spacing: -0.03em;
+}
+.lobby-eyebrow {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.5rem;
-	padding: 0.25rem 0.75rem;
-	border-radius: 9999px;
-	background: #18181b;
-	font-size: 0.75rem;
+	font-size: 0.8125rem;
 	font-weight: 600;
-	letter-spacing: 0.08em;
+	letter-spacing: 0.12em;
 	text-transform: uppercase;
 	color: #a1a1aa;
-	margin-bottom: 0.75rem;
+	margin-bottom: 1rem;
 }
-.lobby-chip.open {
+.lobby-eyebrow.open {
 	color: #86efac;
 }
 .lobby-dot {
@@ -3105,16 +3146,17 @@ html.intro-hold .stagger > * {
 	margin-top: 0.75rem;
 }
 .lobby-unit {
-	background: #18181b;
-	border-radius: 1rem;
-	padding: 0.75rem 0.5rem 0.5rem;
-	min-width: 4.75rem;
+	background: #1c1c20;
+	border: 1px solid #27272a;
+	border-radius: 1.25rem;
+	padding: 1rem 0.75rem 0.625rem;
+	min-width: 5.5rem;
 }
 .lobby-digits {
 	display: flex;
 	justify-content: center;
 	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-	font-size: clamp(2rem, 9vw, 3rem);
+	font-size: clamp(2.25rem, 10vw, 4rem);
 	font-weight: 700;
 	line-height: 1;
 	font-variant-numeric: tabular-nums;
@@ -3157,7 +3199,41 @@ html.intro-hold .stagger > * {
 	.lobby-trophy {
 		animation: lobby-float 3.2s ease-in-out infinite;
 	}
-	.lobby-chip.open .lobby-dot::after {
+	.lobby-rays {
+		animation: lobby-spin 90s linear infinite;
+	}
+	.lobby-track {
+		animation: lobby-rails 1.2s linear infinite;
+	}
+	.lobby-enter .lobby-trophy {
+		animation:
+			lobby-drop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
+			lobby-float 3.2s ease-in-out 0.9s infinite;
+	}
+	.lobby-enter .lobby-eyebrow,
+	.lobby-enter .lobby-title,
+	.lobby-enter .lobby-title ~ * {
+		animation: lobby-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+	}
+	.lobby-enter .lobby-eyebrow {
+		animation-delay: 0.35s;
+	}
+	.lobby-enter .lobby-title {
+		animation: lobby-slam 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.45s backwards;
+	}
+	.lobby-enter .lobby-title ~ * {
+		animation-delay: 0.7s;
+	}
+	.lobby-enter .lobby-title ~ * + * {
+		animation-delay: 0.8s;
+	}
+	.lobby-enter .lobby-title ~ * + * + * {
+		animation-delay: 0.9s;
+	}
+	.lobby-enter .lobby-title ~ * + * + * + * {
+		animation-delay: 1s;
+	}
+	.lobby-eyebrow.open .lobby-dot::after {
 		content: "";
 		position: absolute;
 		inset: 0;
@@ -3187,6 +3263,32 @@ html.intro-hold .stagger > * {
 	}
 	.lobby-player.arrived .lobby-check {
 		animation: lobby-check 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s backwards;
+	}
+}
+@keyframes lobby-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+@keyframes lobby-rails {
+	to {
+		background-position:
+			0 0.25rem,
+			0 0.875rem,
+			-2rem 0;
+	}
+}
+@keyframes lobby-drop {
+	from {
+		opacity: 0;
+		transform: translateY(-3rem) scale(0.4) rotate(-20deg);
+	}
+}
+@keyframes lobby-slam {
+	from {
+		opacity: 0;
+		transform: scale(1.6);
+		letter-spacing: 0.2em;
 	}
 }
 @keyframes lobby-float {

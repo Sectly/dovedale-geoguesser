@@ -62,6 +62,7 @@ const alerted = new Set();
 let seenCheckedIn = null;
 let lastProgress = 0;
 let justCheckedIn = false;
+let lobbyEntered = false;
 let seenMessage = null;
 let seenNotice = null;
 /** Narrow screens: the round shown, or null to follow the match being played. */
@@ -603,13 +604,27 @@ function lobbyHero() {
 			<p class="text-sm text-zinc-400">${checked} of ${state.roster.length} checked in</p>
 		</div>`
 		: "";
-	return `<div class="lobby-trophy" style="${inPhase(3200)}" aria-hidden="true"><span class="material-symbols-outlined">trophy</span></div>
-		<div class="lobby-chip ${open ? "open" : ""}"><span class="lobby-dot" style="--ping-delay:-${Date.now() % 1600}ms"></span>${open ? "Check-in open" : "Coming up"}</div>
-		<h1 class="text-4xl sm:text-5xl font-bold tracking-tight">${escHtml(state.title)}</h1>
-		${state.description ? `<p class="text-zinc-400 mt-3 max-w-xl whitespace-pre-line">${escHtml(state.description)}</p>` : ""}
-		${starts && starts > serverNow() ? `<div class="${LABEL} mt-8">Starts in</div>${lobbyClockHtml(starts)}` : starts ? '<p class="text-zinc-400 mt-8">Starting soon</p>' : ""}
-		${progress}
-		${action}`;
+	const when = starts
+		? new Date(starts).toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" })
+		: "";
+	/** The big entrance plays once per visit; later redraws only update. */
+	const entering = !lobbyEntered;
+	lobbyEntered = true;
+	return `<div class="lobby-event ${entering ? "lobby-enter" : ""}">
+			<div class="lobby-rays" style="${inPhase(90_000)}" aria-hidden="true"></div>
+			<div class="relative flex flex-col items-center">
+				<div class="lobby-trophy" style="${inPhase(3200)}" aria-hidden="true"><span class="material-symbols-outlined">trophy</span></div>
+				<div class="lobby-eyebrow ${open ? "open" : ""}">
+					${open ? `<span class="lobby-dot" style="--ping-delay:-${Date.now() % 1600}ms"></span>Check-in open` : "Coming up"}${when ? ` · ${escHtml(when)}` : ""}
+				</div>
+				<h1 class="lobby-title">${escHtml(state.title)}</h1>
+				${state.description ? `<p class="text-zinc-300 text-lg mt-4 max-w-xl whitespace-pre-line">${escHtml(state.description)}</p>` : ""}
+				${starts && starts > serverNow() ? `<div class="${LABEL} mt-10">Starts in</div>${lobbyClockHtml(starts)}` : starts ? '<p class="text-zinc-300 text-lg mt-10">Starting soon</p>' : ""}
+				${progress}
+				${action}
+			</div>
+			<div class="lobby-track" style="${inPhase(1200)}" aria-hidden="true"></div>
+		</div>`;
 }
 
 /** Grows the check-in bar from where it was drawn last. */
