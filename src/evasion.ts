@@ -5,11 +5,7 @@ import { isFullStaff } from "./auth/guards";
 import { DAY, nowSec } from "./lib/time";
 import { auditLog } from "./lib/audit";
 
-/**
- * Spots accounts that may belong to a banned player. A match is only flagged for staff, never acted on.
- *   - "device": a random id in a cookie (same browser, or a shared computer)
- *   - "browser": a hash of browser and hardware details; only a hint
- */
+/** Flags accounts that may belong to a banned player, for staff. Signals: a device cookie, and a browser hash (a hint). */
 
 export type Signal = "device" | "browser";
 

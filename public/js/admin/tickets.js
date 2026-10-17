@@ -480,7 +480,6 @@ async function cleanupTickets() {
 	}
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	cleanupTickets,
 	closeTicket,

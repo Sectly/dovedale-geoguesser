@@ -508,5 +508,4 @@ export function auditPage(dir) {
 	loadAudit(false);
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, { auditPage, setAuditCategory, toggleAuditGroup, toggleAuditRoutine });

@@ -1,9 +1,4 @@
-/**
- * The build step (`bun run build`):
- *   1. formats the code with Prettier (skip with --no-format)
- *   2. compiles the Tailwind stylesheet
- *   3. generates the app icons if missing
- */
+/** `bun run build`: Prettier (skip with --no-format), the Tailwind stylesheet, and app icons if missing. */
 import sharp from "sharp";
 import { existsSync } from "fs";
 import { join } from "path";

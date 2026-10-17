@@ -358,7 +358,6 @@ document.addEventListener("attention", (e) => {
 });
 setTimeout(checkChatUnread, 2000);
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	deleteChatMessage,
 	filterChatPins,

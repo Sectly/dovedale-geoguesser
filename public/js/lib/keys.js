@@ -143,5 +143,4 @@ document.addEventListener("keydown", (e) => {
 	if (key in QUICK_LINKS && !isMidRound() && location.pathname !== QUICK_LINKS[key]) location.href = QUICK_LINKS[key];
 });
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, { toggleShortcuts });

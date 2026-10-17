@@ -455,5 +455,4 @@ export function switchTab(tab, fromHash = false, autoOpenId = null) {
 	claimChanged();
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, { switchTab, viewImage });

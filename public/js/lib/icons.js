@@ -1,7 +1,4 @@
-/**
- * Icons are font ligatures, so a screen reader would read out their names ("refresh", "all_inclusive").
- * Each one is hidden from it, unless it has a title: then the title is read instead.
- */
+/** Icon names are ligatures: hidden from screen readers, or read as the title when there is one. */
 
 const SELECTOR = ".material-symbols-outlined:not([aria-hidden]):not([aria-label])";
 

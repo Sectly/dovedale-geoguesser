@@ -290,7 +290,6 @@ addKeybinds("Reviewing submissions", [
 	],
 ]);
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	approveSubmission,
 	loadSubmissions,

@@ -43,6 +43,7 @@ function specialCard(special) {
 }
 
 const TOURNAMENT_LINES = {
+	announced: "Tournament coming up. See when it starts.",
 	open: "Tournament starting soon. Players, check in now.",
 	live: "Tournament on now. Come and watch.",
 	finished: "Tournament results. See who won.",

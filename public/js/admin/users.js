@@ -1206,7 +1206,6 @@ async function setStaffLock(userId, lock) {
 	}
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	addStaffMember,
 	addStaffNote,

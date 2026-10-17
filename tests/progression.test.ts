@@ -354,10 +354,7 @@ describe("duel reactions", () => {
 	});
 
 	test("no event has the same name going in as coming out", async () => {
-		/**
-		 * The socket library fires an event's own handlers on any connection the server sends that event to. A name
-		 * used in both directions would make every recipient act as if they sent it.
-		 */
+		/** The socket library fires an event's handlers on the connection it is sent to, so a two-way name echoes. */
 		const source = async (file: string) => Bun.file(new URL(`../src/${file}`, import.meta.url)).text();
 		const wire = await source("game/duels/wire.ts");
 		const sent = wire + (await source("game/duels/rooms.ts")) + (await source("system/restart.ts"));

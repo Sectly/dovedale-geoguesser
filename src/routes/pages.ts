@@ -226,13 +226,15 @@ pageRoutes.get("/tournament/:id", (c) => {
 		? "A Dovedale GeoGuesser tournament."
 		: invite
 			? `You're invited to play in ${share.title}. Open the link to join.`
-			: share.status === "open"
-				? `Check-in is open. ${share.players} player${share.players === 1 ? "" : "s"} so far.${share.detail ? ` ${share.detail}.` : ""}`
-				: share.status === "live"
-					? `Live now: ${share.detail}. Watch every match.`
-					: share.status === "finished"
-						? `${share.champion ? `Won by ${share.champion.name}. ` : ""}See the final standings and bracket.`
-						: "This tournament was called off.";
+			: share.status === "announced"
+				? `Coming up.${share.detail ? ` ${share.detail}.` : ""} ${share.players} player${share.players === 1 ? "" : "s"} on the list.`
+				: share.status === "open"
+					? `Check-in is open. ${share.players} player${share.players === 1 ? "" : "s"} so far.${share.detail ? ` ${share.detail}.` : ""}`
+					: share.status === "live"
+						? `Live now: ${share.detail}. Watch every match.`
+						: share.status === "finished"
+							? `${share.champion ? `Won by ${share.champion.name}. ` : ""}See the final standings and bracket.`
+							: "This tournament was called off.";
 	return sendHtml(
 		c,
 		withMeta(loadPage("duels.html").html, {

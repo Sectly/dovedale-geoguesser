@@ -27,7 +27,6 @@ const POLL_MS = 3000;
 let _id = null;
 let _chat = null;
 let _filter = "all";
-/** Stops the polling and the live updates. */
 let _stopPoll = null;
 let _busy = false;
 
@@ -213,7 +212,6 @@ async function clearStaffChat() {
 
 let _filterData = null;
 
-/** Loads when opened. */
 export function wordFilterHtml() {
 	return `<details id="word-filter" class="bg-zinc-900 rounded-2xl mt-8 max-w-4xl" data-on-toggle="loadWordFilterWhenOpen(this)">
 		<summary class="px-4 py-3 cursor-pointer font-semibold text-sm flex items-center gap-2"><span class="material-symbols-outlined text-zinc-400">filter_alt</span>Chat filter</summary>
@@ -383,7 +381,6 @@ async function testFilter(e) {
 	}
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	addFilterList,
 	addFilterWords,

@@ -1,9 +1,4 @@
-/**
- * The round screen shared by solo, daily and duels: screenshot, timer, hints, map pin and guess button.
- * Needs these ids: round-photo, photo-panel, resize-handle, timer-display, timer-val, map-canvas, click-hint, guess-
- * btn.
- * Optional: hints-panel, location-id-badge.
- */
+/** Round screen for solo, daily and duels. Needs the ids used below; hints-panel and location-id-badge are optional. */
 
 import { MapCanvas } from "./map-canvas.js";
 import { Sounds } from "./sounds.js";
@@ -23,15 +18,7 @@ const TOUCH = matchMedia("(pointer: coarse)").matches;
 const TIMER_TONES = ["text-green-400", "text-yellow-400", "text-orange-400", "text-red-400", "text-zinc-400"];
 
 export class RoundView {
-	/**
-	 * @param {object} handlers
-	 * @param {(pin: {x: number, y: number} | null) => void} handlers.onGuess
-	 *   Called once per round, when the player submits or the timer runs out.
-	 * @param {() => Promise<{hint: string}>} [handlers.onHint]
-	 *   Fetches the next hint from the server. Hints are hidden without it.
-	 * @param {(x: number, y: number) => void} [handlers.onPinMoved]
-	 *   Each time the pin is placed or moved.
-	 */
+	/** onGuess(pin) once per round; onHint() fetches a hint (no hints without it); onPinMoved(x, y) per move. */
 	constructor({ onGuess, onHint, onPinMoved }) {
 		this.onGuess = onGuess;
 		this.onPinMoved = onPinMoved || null;
@@ -569,5 +556,4 @@ function setupResizeHandle() {
 	document.addEventListener("touchend", end);
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, { reportLocation });

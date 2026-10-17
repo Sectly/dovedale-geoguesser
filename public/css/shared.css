@@ -385,7 +385,6 @@ body :focus-visible:not([class*="ring"]) {
 	max-width: 220px;
 }
 
-/* While the screenshot loads, the panel shimmers and the image stays out of sight. */
 #round-photo {
 	transition:
 		opacity 0.2s ease-out,
@@ -567,10 +566,7 @@ main,
 		margin-bottom: calc(-0.5rem - var(--toast-height, 0px));
 	}
 }
-/*
- * Dialogs close by getting "hidden" back. The discrete `display` transition keeps one on screen for its exit.
- * Entrance animations fill backwards only, or they would block the exit.
- */
+/* Closing re-adds "hidden"; the discrete display transition keeps it up for the exit, so entrances fill backwards. */
 .modal-fade {
 	transition:
 		opacity 0.2s ease-in,
@@ -645,7 +641,7 @@ a[class*="rounded"] {
 	outline-offset: 2px;
 }
 
-/* Hidden always wins over a class that sets its own display. Elements shown again at a breakpoint (hidden md:flex) are left to Tailwind. */
+/* Hidden beats classes that set display; hidden md:flex is left to Tailwind. */
 .hidden:not([class*="sm:"]):not([class*="md:"]):not([class*="lg:"]):not([class*="xl:"]) {
 	display: none;
 }
@@ -682,10 +678,7 @@ body.h-screen {
 	}
 }
 
-/*
- * Reduced motion: every animation and transition jumps to its end, and loops run once.
- * Anything that must still take time gets its own !important rule.
- */
+/* Reduced motion: animations jump to their end; anything that must take time has its own !important rule. */
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
@@ -739,10 +732,7 @@ body.h-screen {
 	}
 }
 
-/*
- * Page-to-page transitions. public/js/transitions.js picks the direction: sideways between header sections,
- * in or out for depth, a fade-through otherwise. The header is named so it stays put.
- */
+/* Page transitions; transitions.js picks the direction. The header is named so it stays put. */
 @view-transition {
 	navigation: auto;
 }
@@ -852,10 +842,7 @@ html:active-view-transition-type(shallower)::view-transition-new(root) {
 ::view-transition-old(site-nav):only-child {
 	animation: vt-out 0.15s ease-in both;
 }
-/*
- * The highlight behind the header's current section, named so it slides between sections.
- * Translucent because it is drawn over the header's text during the slide.
- */
+/* Header highlight, named so it slides between sections; translucent because it covers text mid-slide. */
 .nav-active-pill {
 	position: absolute;
 	inset: 0;
@@ -908,7 +895,7 @@ html:active-view-transition-type(shallower)::view-transition-new(root) {
 .prose p {
 	margin-bottom: 0.6rem;
 }
-/* Numbered rules: the code is what staff quote, and each one can be linked to directly. */
+/* Numbered rules: staff quote the code, and each can be linked to. */
 .prose ul.rules {
 	list-style: none;
 	padding-left: 0;
@@ -964,7 +951,7 @@ a.rule-code:hover {
 	white-space: nowrap;
 }
 
-/* Checkbox: the real input stays in place, invisible, so keyboard and screen readers still work. */
+/* The real input stays in place, invisible, for keyboards and screen readers. */
 .md-check {
 	display: flex;
 	align-items: center;
@@ -1891,7 +1878,7 @@ button.memory-card {
 	}
 }
 
-/* Tooltips (public/js/tooltips.js). Above everything, and never takes the pointer. */
+/* Tooltips (tooltips.js). Above everything; never takes the pointer. */
 .m-tooltip {
 	position: fixed;
 	top: 0;
@@ -1939,7 +1926,7 @@ button.memory-card {
 	}
 }
 
-/* The restart countdown. Styled here so it looks the same on every page, above dialogs and panels. */
+/* The restart countdown, above dialogs and panels. */
 .restart-banner {
 	position: fixed;
 	top: 4rem;
@@ -1972,7 +1959,7 @@ button.memory-card {
 	}
 }
 
-/* A pinned announcement (public/js/lib/announcements.js). Hidden while a round is on screen. */
+/* Pinned announcement (lib/announcements.js); hidden during a round. */
 .site-announcement {
 	position: fixed;
 	left: 1rem;
@@ -2110,10 +2097,7 @@ body:has(#game-screen:not(.hidden)) .site-announcement {
 	white-space: nowrap;
 }
 
-/*
- * The title screen (public/js/intro.js). It ends by turning into the page.
- * Only paints once the script has put "intro-play" on <html>.
- */
+/* Title screen (intro.js). Only paints once intro-play is on <html>. */
 .intro-splash {
 	display: none;
 }
@@ -2135,10 +2119,7 @@ html.intro-play .intro-splash {
 	background: var(--md-surface);
 	transition: opacity 0.45s cubic-bezier(0.2, 0, 0, 1);
 }
-/*
- * Two wrappers move the mark, one per axis, so it travels along an arc.
- * Entrance animations sit on inner elements so they cannot override those transforms.
- */
+/* One wrapper per axis moves the mark along an arc; entrance animations sit on inner elements. */
 .intro-mark,
 .intro-mark-y,
 .intro-title {
@@ -2221,7 +2202,7 @@ html.intro-play .intro-splash {
 	transition-duration: 0.25s;
 }
 
-/* Turning into the page: the script measures where the mark and title go and passes it in. */
+/* The script measures where the mark and title land. */
 html.intro-play:not(.intro-hold) .intro-splash {
 	pointer-events: none;
 }
@@ -2378,11 +2359,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/*
- * ---- Error pages (404.html, and 500.html for every other status) ----
- * Each opens on a short scene for its status. Every keyframe set ends on the element's own style,
- * so with reduced motion the page is just there in its final state.
- */
+/* ---- Error pages ---- Each keyframe set ends on the element's own style, so reduced motion shows the final state. */
 .err-page {
 	/* How long the scene plays before the page arrives. */
 	--err-wait: 1.6s;
@@ -3058,7 +3035,273 @@ html.intro-hold .stagger > * {
 	animation: pop-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
-/* Slides across when a new round begins. */
+/* ---- Tournament lobby: check-in and the wait before the start ---- */
+.lobby-trophy {
+	width: 7rem;
+	height: 7rem;
+	border-radius: 9999px;
+	background: #1c1c20;
+	border: 1px solid #3f3f46;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 1.25rem;
+}
+.lobby-trophy .material-symbols-outlined {
+	font-size: 3.75rem;
+	color: #facc15;
+	font-variation-settings: "FILL" 1;
+}
+.lobby-event {
+	position: relative;
+	overflow: hidden;
+	width: 100%;
+	max-width: 56rem;
+	border-radius: 2rem;
+	background: #111113;
+	border: 1px solid #27272a;
+	padding: 3rem 1.25rem 4.5rem;
+}
+.lobby-rays {
+	position: absolute;
+	left: 50%;
+	top: 5.5rem;
+	width: 140rem;
+	height: 140rem;
+	margin: -70rem 0 0 -70rem;
+	background: repeating-conic-gradient(rgba(255, 255, 255, 0.035) 0deg 6deg, transparent 6deg 18deg);
+	-webkit-mask: radial-gradient(circle, #000 0, transparent 26rem);
+	mask: radial-gradient(circle, #000 0, transparent 26rem);
+	pointer-events: none;
+}
+.lobby-track {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 1.25rem;
+	height: 1.25rem;
+	background:
+		linear-gradient(#52525b, #52525b) 0 0.25rem / 100% 2px no-repeat,
+		linear-gradient(#52525b, #52525b) 0 0.875rem / 100% 2px no-repeat,
+		repeating-linear-gradient(90deg, #3f3f46 0 0.5rem, transparent 0.5rem 2rem);
+	-webkit-mask: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+	mask: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+}
+.lobby-title {
+	font-size: clamp(2.75rem, 10vw, 5rem);
+	font-weight: 800;
+	line-height: 1;
+	letter-spacing: -0.03em;
+}
+.lobby-eyebrow {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: #a1a1aa;
+	margin-bottom: 1rem;
+}
+.lobby-clock {
+	display: flex;
+	gap: 0.75rem;
+	justify-content: center;
+	margin-top: 0.75rem;
+}
+.lobby-unit {
+	background: #1c1c20;
+	border: 1px solid #27272a;
+	border-radius: 1.25rem;
+	padding: 1rem 0.75rem 0.625rem;
+	min-width: 5.5rem;
+}
+.lobby-digits {
+	display: flex;
+	justify-content: center;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: clamp(2.25rem, 10vw, 4rem);
+	font-weight: 700;
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	overflow: hidden;
+}
+.lobby-digit {
+	display: inline-block;
+}
+.lobby-unit-label {
+	font-size: 0.6875rem;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: #a1a1aa;
+	margin-top: 0.375rem;
+}
+.lobby-progress {
+	width: min(20rem, 100%);
+	height: 0.5rem;
+	border-radius: 9999px;
+	background: #27272a;
+	overflow: hidden;
+}
+.lobby-progress-bar {
+	height: 100%;
+	border-radius: inherit;
+	background: #22c55e;
+	transition: width 0.8s cubic-bezier(0.2, 0, 0, 1);
+}
+.lobby-player {
+	transition:
+		background-color 0.3s,
+		border-color 0.3s;
+}
+.lobby-player.waiting {
+	background: transparent;
+	border: 1px dashed #3f3f46;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.lobby-trophy {
+		animation: lobby-float 3.2s ease-in-out infinite;
+	}
+	.lobby-rays {
+		animation: lobby-spin 90s linear infinite;
+	}
+	.lobby-track {
+		animation: lobby-rails 1.2s linear infinite;
+	}
+	.lobby-enter .lobby-trophy {
+		animation:
+			lobby-drop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
+			lobby-float 3.2s ease-in-out 0.9s infinite;
+	}
+	.lobby-enter .lobby-eyebrow,
+	.lobby-enter .lobby-title,
+	.lobby-enter .lobby-title ~ * {
+		animation: lobby-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+	}
+	.lobby-enter .lobby-eyebrow {
+		animation-delay: 0.35s;
+	}
+	.lobby-enter .lobby-title {
+		animation: lobby-slam 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.45s backwards;
+	}
+	.lobby-enter .lobby-title ~ * {
+		animation-delay: 0.7s;
+	}
+	.lobby-enter .lobby-title ~ * + * {
+		animation-delay: 0.8s;
+	}
+	.lobby-enter .lobby-title ~ * + * + * {
+		animation-delay: 0.9s;
+	}
+	.lobby-enter .lobby-title ~ * + * + * + * {
+		animation-delay: 1s;
+	}
+	.lobby-digit.roll {
+		animation: lobby-roll 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+	}
+	.lobby-cta {
+		animation: lobby-breathe 2.4s ease-in-out infinite;
+	}
+	.lobby-cta:hover,
+	.lobby-cta:disabled {
+		animation: none;
+	}
+	.lobby-done {
+		animation: lobby-done 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+	}
+	.lobby-rise > * {
+		animation: lobby-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+		animation-delay: calc(var(--i, 0) * 45ms);
+	}
+	.lobby-player.arrived {
+		animation: lobby-arrive 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+	.lobby-player.arrived .lobby-check {
+		animation: lobby-check 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s backwards;
+	}
+}
+@keyframes lobby-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+@keyframes lobby-rails {
+	to {
+		background-position:
+			0 0.25rem,
+			0 0.875rem,
+			-2rem 0;
+	}
+}
+@keyframes lobby-drop {
+	from {
+		opacity: 0;
+		transform: translateY(-3rem) scale(0.4) rotate(-20deg);
+	}
+}
+@keyframes lobby-slam {
+	from {
+		opacity: 0;
+		transform: scale(1.6);
+		letter-spacing: 0.2em;
+	}
+}
+@keyframes lobby-float {
+	0%,
+	100% {
+		transform: translateY(0) rotate(-3deg);
+	}
+	50% {
+		transform: translateY(-6px) rotate(3deg);
+	}
+}
+@keyframes lobby-roll {
+	from {
+		transform: translateY(-70%);
+		opacity: 0;
+	}
+}
+@keyframes lobby-breathe {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.045);
+	}
+}
+@keyframes lobby-rise {
+	from {
+		opacity: 0;
+		transform: translateY(10px) scale(0.97);
+	}
+}
+@keyframes lobby-arrive {
+	0% {
+		transform: scale(0.94);
+	}
+	45% {
+		transform: scale(1.05);
+		background-color: #14532d;
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+@keyframes lobby-done {
+	from {
+		opacity: 0;
+		transform: scale(0.5);
+	}
+}
+@keyframes lobby-check {
+	from {
+		transform: scale(0) rotate(-45deg);
+	}
+}
+
 .stage-banner {
 	position: fixed;
 	left: 50%;
@@ -3229,7 +3472,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* Tournament spectators' reactions. */
 .crowd-emote {
 	position: fixed;
 	bottom: 5rem;
@@ -3254,7 +3496,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* The home page's Specials card while a tournament is on. */
+/* The tournament card, on the home page and the Specials page. */
 .specials-tournament {
 	background: #2563eb;
 }
@@ -3263,12 +3505,61 @@ html.intro-hold .stagger > * {
 }
 .specials-tournament,
 .specials-tournament .text-zinc-400,
-.specials-tournament .text-zinc-500,
-.specials-tournament #specials-card-icon {
+.specials-tournament .text-zinc-500 {
 	color: #fff;
 }
 .specials-tournament .text-zinc-400 {
 	color: #bfdbfe;
+}
+/* Plays once, when home.js adds .glint after the card's entrance. */
+.specials-tournament {
+	position: relative;
+}
+.specials-tournament.glint::after {
+	content: "";
+	position: absolute;
+	inset: -1px;
+	padding: 2px;
+	border-radius: inherit;
+	pointer-events: none;
+	background: linear-gradient(
+			115deg,
+			transparent 35%,
+			#ff5f6d 40%,
+			#ffc371 44%,
+			#fff176 48%,
+			#69f0ae 52%,
+			#40c4ff 56%,
+			#b388ff 60%,
+			transparent 65%
+		)
+		0 0 / 300% 100%;
+	-webkit-mask:
+		linear-gradient(#000 0 0) content-box,
+		linear-gradient(#000 0 0);
+	-webkit-mask-composite: xor;
+	mask:
+		linear-gradient(#000 0 0) content-box exclude,
+		linear-gradient(#000 0 0);
+	animation: glint-sweep 1.1s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes glint-sweep {
+	from {
+		background-position: 100% 0;
+		opacity: 1;
+	}
+	85% {
+		opacity: 1;
+	}
+	to {
+		background-position: 0 0;
+		opacity: 0;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.specials-tournament.glint::after {
+		display: none;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {

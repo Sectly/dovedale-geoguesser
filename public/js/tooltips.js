@@ -1,11 +1,4 @@
-/**
- * Tooltips for the whole site. A control gets its text from, in order:
- *   1. its `title` attribute (taken over, so the browser's tooltip never doubles up)
- *   2. `data-tip`, with an optional `data-tip-key` shortcut
- *   3. the TOOLTIPS list below, matched by CSS selector
- *   4. its `aria-label`, when it shows only an icon
- * Handled by document listeners, so controls drawn later need no setup.
- */
+/** Site tooltips: title (taken over), data-tip, TOOLTIPS by selector, or aria-label on icon-only controls. */
 
 /** What each control says: a string, or [text, shortcut]. Say what it does, not what it is called. */
 const TOOLTIPS = {

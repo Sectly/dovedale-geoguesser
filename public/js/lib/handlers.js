@@ -1,15 +1,10 @@
-/**
- * Runs the handlers written in data-on-<event> attributes, so pages need no inline scripts.
- * Each one is a short chain of calls on page globals, such as `openUserPanel(12)` or
- * `el('row').classList.add('hidden'); return false`. It is parsed, never passed to eval.
- */
+/** Runs data-on-<event> handlers without inline scripts: call chains on page globals, parsed, never eval'd. */
 
 const EVENTS = ["click", "change", "input", "submit", "keydown", "toggle", "error"];
 /** These do not bubble, so they are caught on the way down instead. */
 const CAPTURED = new Set(["toggle", "error"]);
 const BLOCKED = new Set(["constructor", "__proto__", "prototype"]);
 
-/** Splits a handler into tokens: names, numbers, strings and punctuation. */
 function tokenize(src) {
 	const tokens = [];
 	const re = /\s*(?:([A-Za-z_$][\w$]*)|(-?\d+(?:\.\d+)?)|'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"|(\S))/gy;

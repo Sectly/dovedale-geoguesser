@@ -242,7 +242,6 @@ function denySuggestion(id) {
 	});
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	approveSuggestion,
 	denySuggestion,

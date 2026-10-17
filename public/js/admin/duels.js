@@ -228,5 +228,4 @@ function renderDuelList() {
 		: '<p class="text-sm text-zinc-500 text-center py-8">No duels match.</p>';
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, { closeOpenDuel, loadDuels, moreDuels, setDuelKind, toggleDuel });

@@ -727,7 +727,6 @@ async function deleteChangelogEntry(id) {
 	}
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	cancelChangelogEdit,
 	correctAnnouncement,

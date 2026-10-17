@@ -38,12 +38,10 @@ import {
 	sideKnown,
 } from "./tournament-bracket";
 
-/**
- * Tournaments: one knockout bracket. Early rounds can be played all at once; from a chosen round on, matches are
- * played one at a time so everyone watches the same duel. Between them there is a break with a countdown.
- */
+/** One knockout bracket. Early rounds can play at once, later ones one match at a time, with breaks between. */
 
-export type TournamentStatus = "draft" | "open" | "live" | "finished" | "cancelled";
+/** Announced: public, with check-in still to open. */
+export type TournamentStatus = "draft" | "announced" | "open" | "live" | "finished" | "cancelled";
 
 export type Settings = {
 	rounds: number;
@@ -56,6 +54,8 @@ export type Settings = {
 	spotlightFrom: number;
 	/** Suggesting changes shows every answer, so it closes while this tournament runs. */
 	lockSuggestions: boolean;
+	/** Once announced, check-in opens by itself this many minutes before the start. */
+	checkinMinutes: number;
 	/** Spectator chat. Off until staff turn it on. */
 	chat: boolean;
 	/** How long a message waits before others see it, in milliseconds. */
@@ -73,6 +73,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	thirdPlace: false,
 	spotlightFrom: 2,
 	lockSuggestions: true,
+	checkinMinutes: 30,
 	chat: false,
 	chatDelayMs: 1500,
 	chatSlowSeconds: 0,
@@ -156,6 +157,7 @@ const joinTimers = new Map<number, ReturnType<typeof setTimeout>>();
 let voteTimer: ReturnType<typeof setTimeout> | null = null;
 let results: { id: number; title: string; until: number; version: number } | null = null;
 let resultsTimer: ReturnType<typeof setTimeout> | null = null;
+let checkinTimer: ReturnType<typeof setTimeout> | null = null;
 
 const emptyState = (): State => ({
 	matches: [],
@@ -235,17 +237,45 @@ function changed(t: Tournament) {
 	t.version++;
 	save(t);
 	onChanged?.(t.id);
-	if (t.status === "open" || t.status === "live") active = t;
+	if (t.status === "announced" || t.status === "open" || t.status === "live") active = t;
 	else if (active?.id === t.id) {
 		active = null;
 		clearTimers();
 	}
+	armCheckin();
 	nudgeTournament(currentSummary());
+}
+
+/** When check-in opens by itself, in milliseconds; null when it waits for staff. */
+function checkinAt(t: Tournament): number | null {
+	if (t.status !== "announced" || !t.startsAt) return null;
+	return t.startsAt * 1000 - (t.settings.checkinMinutes ?? DEFAULT_SETTINGS.checkinMinutes) * 60_000;
+}
+
+/** Opens check-in for the announced tournament when its time comes. */
+function armCheckin() {
+	if (checkinTimer) clearTimeout(checkinTimer);
+	checkinTimer = null;
+	const t = active;
+	const at = t ? checkinAt(t) : null;
+	if (!t || at === null) return;
+	/** Timers cap at about 24 days; a later time is checked again then. */
+	checkinTimer = setTimeout(
+		() => {
+			checkinTimer = null;
+			if (active !== t || t.status !== "announced") return;
+			if (Date.now() < at) return armCheckin();
+			openCheckin(t, null);
+		},
+		Math.min(Math.max(0, at - Date.now()), 2 ** 31 - 1)
+	);
 }
 
 function clearTimers() {
 	if (phaseTimer) clearTimeout(phaseTimer);
 	phaseTimer = null;
+	if (checkinTimer) clearTimeout(checkinTimer);
+	checkinTimer = null;
 	for (const timer of joinTimers.values()) clearTimeout(timer);
 	joinTimers.clear();
 }
@@ -708,6 +738,7 @@ function stateView(t: Tournament) {
 		description: t.description,
 		status: t.status,
 		starts_at: t.startsAt,
+		checkin_at: checkinAt(t),
 		settings: t.settings,
 		now: Date.now(),
 		version: t.version,
@@ -806,7 +837,8 @@ export function tournamentShare(id: number) {
 	const t = load(id);
 	const s = t.state;
 	const roster = rosterOf(id);
-	const players = t.status === "open" ? roster.length : roster.filter((r) => r.checked_in).length;
+	const players =
+		t.status === "open" || t.status === "announced" ? roster.length : roster.filter((r) => r.checked_in).length;
 	const phase = s.phase;
 	const current = "matchId" in phase && phase.matchId !== null ? s.matches[phase.matchId] : null;
 	const batchRound = phase.kind === "batch" ? phase.round : phase.kind === "break" ? (phase.round ?? null) : null;
@@ -835,7 +867,7 @@ export function tournamentShare(id: number) {
 					: current
 						? matchName(s, current)
 						: "In progress"
-				: t.status === "open"
+				: t.status === "open" || t.status === "announced"
 					? starts
 					: null,
 		match:
@@ -967,6 +999,7 @@ export type TournamentInput = {
 	breaks?: unknown;
 	third_place?: unknown;
 	spotlight_from?: unknown;
+	checkin_minutes?: unknown;
 	lock_suggestions?: unknown;
 };
 
@@ -995,6 +1028,7 @@ function applyInput(t: Pick<Tournament, "title" | "description" | "startsAt" | "
 	if (typeof input.third_place === "boolean") s.thirdPlace = input.third_place;
 	s.spotlightFrom = clamp(input.spotlight_from, s.spotlightFrom ?? DEFAULT_SETTINGS.spotlightFrom, 0, 10);
 	if (typeof input.lock_suggestions === "boolean") s.lockSuggestions = input.lock_suggestions;
+	s.checkinMinutes = clamp(input.checkin_minutes, s.checkinMinutes ?? DEFAULT_SETTINGS.checkinMinutes, 5, 24 * 60);
 }
 
 export function createTournament(staff: User, input: TournamentInput): number {
@@ -1057,7 +1091,8 @@ export function resetTournamentHistory(staff: User) {
 
 export function deleteTournament(staff: User, id: number) {
 	const t = load(id);
-	if (t.status === "live" || t.status === "open") fail(409, "Cancel the tournament before deleting it.");
+	if (t.status === "live" || t.status === "open" || t.status === "announced")
+		fail(409, "Cancel the tournament before deleting it.");
 	db.run("DELETE FROM tournaments WHERE id = ?", [id]);
 	auditLog(staff, "tournament_delete", { targetType: "tournament", targetId: id, details: t.title });
 }
@@ -1072,11 +1107,37 @@ export function listTournaments() {
 		.all();
 }
 
-/** Only one tournament can be open or running at a time. */
+/** Makes it public with a countdown; check-in opens later. Only one tournament can be on at a time. */
+export function announceTournament(staff: User, id: number) {
+	const t = load(id);
+	if (t.status !== "draft") fail(409, "Only a draft can be announced.");
+	if (active && active.id !== id) fail(409, `"${active.title}" is already on. Finish or cancel it first.`);
+	t.status = "announced";
+	auditLog(staff, "tournament_announce", { targetType: "tournament", targetId: id, details: t.title });
+	changed(t);
+	const at = checkinAt(t);
+	const when = at
+		? `Check-in opens ${new Date(at).toLocaleString("en-GB", { weekday: "long", hour: "2-digit", minute: "2-digit", timeZone: "UTC" })} UTC.`
+		: "We'll tell you when check-in opens.";
+	for (const r of rosterOf(id))
+		notifyUser(r.user_id, "reminders", {
+			title: `You're in ${t.title}`,
+			body: `You're on the list. ${when}`,
+			link: `/tournament/${id}`,
+		});
+}
+
+/** Straight from a draft, or early from an announcement. Only one tournament can be on at a time. */
 export function openTournament(staff: User, id: number) {
 	const t = load(id);
-	if (t.status !== "draft") fail(409, "Only a draft can be opened.");
+	if (t.status !== "draft" && t.status !== "announced") fail(409, "Check-in is already open.");
 	if (active && active.id !== id) fail(409, `"${active.title}" is already on. Finish or cancel it first.`);
+	openCheckin(t, staff);
+}
+
+/** `staff` is null when it opens by itself at the announced time. */
+function openCheckin(t: Tournament, staff: User | null) {
+	const id = t.id;
 	t.status = "open";
 	auditLog(staff, "tournament_open", { targetType: "tournament", targetId: id, details: t.title });
 	changed(t);
@@ -1091,7 +1152,8 @@ export function openTournament(staff: User, id: number) {
 
 export function unpublishTournament(staff: User, id: number) {
 	const t = load(id);
-	if (t.status !== "open") fail(409, "Only a tournament that hasn't started can go back to draft.");
+	if (t.status !== "open" && t.status !== "announced")
+		fail(409, "Only a tournament that hasn't started can go back to draft.");
 	t.status = "draft";
 	auditLog(staff, "tournament_unpublish", { targetType: "tournament", targetId: id, details: t.title });
 	changed(t);
@@ -1192,7 +1254,7 @@ function withdraw(t: Tournament, userId: number) {
 
 export function movePlayer(staff: User, id: number, userId: number, by: number) {
 	const t = load(id);
-	if (t.status !== "draft" && t.status !== "open") fail(409, "The bracket is already drawn.");
+	if (!["draft", "announced", "open"].includes(t.status)) fail(409, "The bracket is already drawn.");
 	const roster = rosterOf(id).map((r) => r.user_id);
 	const from = roster.indexOf(userId);
 	if (from < 0) fail(404, "That player isn't on the list.");
@@ -1204,7 +1266,7 @@ export function movePlayer(staff: User, id: number, userId: number, by: number) 
 
 export function shufflePlayers(staff: User, id: number) {
 	const t = load(id);
-	if (t.status !== "draft" && t.status !== "open") fail(409, "The bracket is already drawn.");
+	if (!["draft", "announced", "open"].includes(t.status)) fail(409, "The bracket is already drawn.");
 	const roster = rosterOf(id).map((r) => r.user_id);
 	for (let i = roster.length - 1; i > 0; i--) {
 		const j = Math.floor(Math.random() * (i + 1));
@@ -1229,7 +1291,7 @@ function reorder(id: number, userIds: number[]) {
 
 export function setCheckedIn(staff: User, id: number, userId: number, checkedIn: boolean) {
 	const t = load(id);
-	if (t.status !== "draft" && t.status !== "open") fail(409, "The bracket is already drawn.");
+	if (!["draft", "announced", "open"].includes(t.status)) fail(409, "The bracket is already drawn.");
 	db.run("UPDATE tournament_players SET checked_in = ? WHERE tournament_id = ? AND user_id = ?", [
 		checkedIn ? 1 : 0,
 		id,
@@ -1469,7 +1531,8 @@ const INVITE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 /** Turns the invite code on (a new one each time, so an old code stops working) or off. */
 export function setInvite(staff: User, id: number, on: boolean) {
 	const t = load(id);
-	if (t.status !== "draft" && t.status !== "open") fail(409, "Invites only work before the tournament starts.");
+	if (!["draft", "announced", "open"].includes(t.status))
+		fail(409, "Invites only work before the tournament starts.");
 	const code = on
 		? Array.from({ length: 6 }, () => INVITE_CHARS[Math.floor(Math.random() * INVITE_CHARS.length)]).join("")
 		: null;
@@ -1527,7 +1590,9 @@ export function setResults(staff: User, id: number, until: number | null) {
 export function restoreTournaments() {
 	loadResults();
 	const row = db
-		.query<Row, []>("SELECT * FROM tournaments WHERE status IN ('open', 'live') ORDER BY id DESC LIMIT 1")
+		.query<Row, []>(
+			"SELECT * FROM tournaments WHERE status IN ('announced', 'open', 'live') ORDER BY id DESC LIMIT 1"
+		)
 		.get();
 	if (!row) return;
 	const t = fromRow(row);
@@ -1551,6 +1616,7 @@ export function restoreTournaments() {
 		t.state.paused = null;
 	}
 	save(t);
+	armCheckin();
 	nudgeTournament(currentSummary());
 }
 
@@ -1559,7 +1625,8 @@ export function resetTournaments() {
 	clearTimers();
 	if (resultsTimer) clearTimeout(resultsTimer);
 	if (voteTimer) clearTimeout(voteTimer);
-	resultsTimer = voteTimer = null;
+	if (checkinTimer) clearTimeout(checkinTimer);
+	resultsTimer = voteTimer = checkinTimer = null;
 	active = null;
 	results = null;
 }

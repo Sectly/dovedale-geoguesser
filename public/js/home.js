@@ -1,31 +1,65 @@
 import "./lib/site.js";
-import { el, escHtml, show } from "./lib/dom.js";
+import { el, escHtml, prefersReducedMotion, show } from "./lib/dom.js";
 import { api, fetchUser } from "./lib/api.js";
 import { onLive } from "./lib/live.js";
 
-const specialsCard = {
-	href: "/specials",
-	icon: "celebration",
-	title: "Specials",
-	sub: null,
-};
+/** Shows the card and animates the elements it moves from their old places (FLIP). */
+async function popIn(card) {
+	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+	/** Waits for the intro and the cards' entrance, or a moment after load, so the animation is not missed. */
+	await (window.introDone ? window.introDone.then(() => wait(900)) : wait(400));
+	if (!card.classList.contains("hidden")) return;
+	/** Its own entrance replaces the home cards' rise, which would restart when it is shown. */
+	card.style.animation = "none";
+	const neighbours = [...document.querySelectorAll("main .md-card, main h1, main > div > p, #site-footer")].filter(
+		(node) => node !== card
+	);
+	const before = new Map(neighbours.map((node) => [node, node.getBoundingClientRect()]));
+	card.classList.replace("hidden", "flex");
+	if (prefersReducedMotion()) return;
+	for (const node of neighbours) {
+		const was = before.get(node);
+		const now = node.getBoundingClientRect();
+		const dx = was.left - now.left;
+		const dy = was.top - now.top;
+		if (dx || dy)
+			node.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], {
+				duration: 500,
+				easing: "cubic-bezier(0.2, 0, 0, 1)",
+			});
+	}
+	const entrance = card.animate(
+		[
+			{ transform: "scale(1.15, 0.05)", opacity: 0 },
+			{ transform: "scale(0.9, 1.18)", opacity: 1, offset: 0.3 },
+			{ transform: "scale(1.06, 0.9)", offset: 0.45 },
+			{ transform: "scale(0.98, 1.03) rotate(-1.6deg)", offset: 0.6 },
+			{ transform: "scale(1.01, 0.99) rotate(1.2deg)", offset: 0.72 },
+			{ transform: "rotate(-0.6deg)", offset: 0.84 },
+			{ transform: "none", opacity: 1 },
+		],
+		{ duration: 900, delay: 120, easing: "ease-out", fill: "backwards" }
+	);
+	entrance.finished.then(() => {
+		card.classList.add("glint");
+		card.addEventListener("animationend", () => card.classList.remove("glint"), { once: true });
+	});
+}
 
-/** While a tournament is on, the Specials card links to it. */
+/** While a tournament is on, it gets its own card above Specials. */
 function showTournament(summary) {
-	const card = el("specials-card");
-	specialsCard.sub ??= el("specials-card-sub").innerHTML;
-	card.classList.toggle("specials-tournament", !!summary);
-	el("upcoming-tag").classList.toggle("invisible", !!summary);
-	card.href = summary ? `/tournament/${summary.id}` : specialsCard.href;
-	el("specials-card-icon").textContent = summary ? "trophy" : specialsCard.icon;
-	el("specials-card-title").textContent = summary ? summary.title : specialsCard.title;
-	el("specials-card-sub").innerHTML = summary
-		? ({
-				open: "Tournament starting soon. Players, check in now.",
-				live: "Tournament on now. Come and watch.",
-				finished: "Tournament results. See who won.",
-			}[summary.status] ?? "")
-		: specialsCard.sub;
+	const card = el("tournament-card");
+	if (!summary) return card.classList.replace("flex", "hidden");
+	card.href = `/tournament/${summary.id}`;
+	el("tournament-card-title").textContent = summary.title;
+	el("tournament-card-sub").textContent =
+		{
+			announced: "Tournament coming up. See when it starts.",
+			open: "Tournament starting soon. Players, check in now.",
+			live: "Tournament on now. Come and watch.",
+			finished: "Tournament results. See who won.",
+		}[summary.status] ?? "";
+	if (card.classList.contains("hidden")) popIn(card);
 }
 
 const checkTournament = () =>
@@ -44,8 +78,7 @@ fetchUser().then((user) => {
 	api("/api/specials")
 		.then((specials) => {
 			const live = specials.filter((s) => s.status === "live");
-			if (live.length && !el("specials-card").classList.contains("specials-tournament"))
-				el("specials-card-sub").textContent = `On now: ${live.map((s) => s.title).join(", ")}.`;
+			if (live.length) el("specials-card-sub").textContent = `On now: ${live.map((s) => s.title).join(", ")}.`;
 		})
 		.catch(() => {});
 });

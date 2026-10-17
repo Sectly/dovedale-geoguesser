@@ -425,7 +425,7 @@ function statChartHtml(series) {
 	</div>`;
 }
 
-/** Redraws only the chart, so nothing else on the tab (a half-written announcement, say) is disturbed. */
+/** Redraws only the chart, leaving the rest of the tab alone. */
 function setStatSeries(key) {
 	_statSeries = key;
 	el("stat-chart-box").innerHTML = statChartHtml(_stats.series || []);
@@ -487,7 +487,6 @@ function renderStats(s) {
 `;
 }
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	deleteLocation,
 	hintRowHtml,

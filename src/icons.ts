@@ -34,7 +34,7 @@ export function usedIcons(): string {
 			.sort()
 			.join(",");
 	} catch {
-		/** Without the list, pages ask for the whole font as before. */
+		/** Without the list, the whole font is copied. */
 		cached = "";
 	}
 	return cached;

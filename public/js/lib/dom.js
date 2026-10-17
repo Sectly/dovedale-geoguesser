@@ -93,7 +93,6 @@ export function streakBadgeHtml(streak, { best = false } = {}) {
 	</div>`;
 }
 
-/** Called from inline handlers in the markup. */
 /** Read out by screen readers, for results that only appear on screen. */
 export function announce(text) {
 	let region = el("sr-announcer");

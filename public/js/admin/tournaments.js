@@ -14,8 +14,18 @@ let _editing = false;
 let _busy = false;
 let _clock = null;
 
+const CHECKIN_CHOICES = [
+	[10, "10 minutes before"],
+	[15, "15 minutes before"],
+	[30, "30 minutes before"],
+	[60, "1 hour before"],
+	[120, "2 hours before"],
+	[1440, "A day before"],
+];
+
 const STATUS_TAGS = {
 	draft: ["Draft", "warn"],
+	announced: ["Announced", "info"],
 	open: ["Check-in open", "info"],
 	live: ["Live", "danger"],
 	finished: ["Finished", "success"],
@@ -119,7 +129,6 @@ async function resetTournamentHistory() {
 
 const minutes = (s) => (s % 60 ? `${s} seconds` : `${s / 60} minute${s === 60 ? "" : "s"}`);
 
-/** How a tournament runs, step by step, and its limits. */
 function guideHtml(r) {
 	const step = (title, body) =>
 		`<li class="mb-3"><div class="font-semibold text-zinc-200">${title}</div><div class="text-zinc-400">${body}</div></li>`;
@@ -133,7 +142,8 @@ function guideHtml(r) {
 			<ol class="list-decimal pl-5">
 				${step("Set it up (supervisors)", `Give it a name and, if you like, a description and a start time. The start time is only a countdown on the page; you still start it yourself. Choose how many rounds each match has (early matches, semi-finals and the final), how long each break is, and whether the two semi-final losers play for third place. Suggest changes shows every answer, so it is closed to players while the tournament runs unless you untick that.`)}
 				${step("Add the players", `Add them by Discord username, or make an invite link: anyone who opens it while check-in is open joins and is checked in, and the list shows which code they used. A new code stops the old one working. The order of the list is the seeding: the first player meets the last in the opening round, and the top two can only meet in the final. Banned players and players whose duels are limited can't be added.`)}
-				${step("Open check-in (supervisors)", `The tournament appears on the home page and under Specials, and everyone on the list gets a notification. Players press I'm here on the tournament page, or you tick them in yourself. Only one tournament can be open or running at a time.`)}
+				${step("Announce (supervisors)", `The tournament appears on the home page and under Specials with a countdown to the start, and everyone on the list gets a notification. With a start time, check-in opens by itself a set time before it (Check-in opens); without one, or to open it early, press Open check-in. You can also open check-in straight from a draft. Only one tournament can be announced, open or running at a time.`)}
+				${step("Check-in", `Everyone on the list is told when check-in opens. Players press I'm here on the tournament page, or you tick them in yourself.`)}
 				${step("Start (supervisors)", `The bracket is drawn from the checked-in players. It rounds up to 2, 4, 8, 16, 32 or 64 places, and the empty places become byes for the top seeds. Anyone not checked in is left out, but can still be put into an empty place later. Until the first match is played you can draw the bracket again.`)}
 				${step("Breaks and Ready", `Before every match there is a countdown. Both players press Ready; if they both do during a break between matches, the countdown drops to ${r.readySeconds} seconds. If the countdown ends and someone isn't ready, the tournament waits for you: Continue gives a ${r.readySeconds}-second countdown, then anyone who isn't there loses the match.`)}
 				${step("Rounds played all at once", `Early rounds can be played all at once to save time: with 64 players, the first three rounds take about 5 minutes each instead of over an hour. Set where it switches to one match at a time with One match at a time from (the quarter-finals by default). In a round played all at once, every match whose players are ready starts when the break ends; the others wait, start as soon as both players are ready, or when you press Start. If only one player is ready, you can put the other out. Spectators follow the featured match, or the closest one, and can switch at any time.`)}
@@ -208,7 +218,13 @@ function formHtml(t) {
 		<h3 class="font-bold">${t ? "Edit tournament" : "New tournament"}</h3>
 		${field("Name", `<input name="title" required maxlength="80" class="m-field" value="${escHtml(t?.title || "")}" placeholder="Friday game night" />`)}
 		${field("Description <span class='text-zinc-600'>Optional. Shown on the tournament page.</span>", `<textarea name="description" maxlength="500" rows="2" class="m-field">${escHtml(t?.description || "")}</textarea>`)}
-		${field("Starts at <span class='text-zinc-600'>Optional. Shown as a countdown; you still start it yourself.</span>", `<input name="starts_at" type="datetime-local" class="m-field" value="${toLocalInput(t?.starts_at)}" />`)}
+		<div class="grid sm:grid-cols-2 gap-3">
+			${field("Starts at <span class='text-zinc-600'>Optional. Shown as a countdown; you still start it yourself.</span>", `<input name="starts_at" type="datetime-local" class="m-field" value="${toLocalInput(t?.starts_at)}" />`)}
+			${field(
+				"Check-in opens <span class='text-zinc-600'>Once announced, with a start time</span>",
+				`<select name="checkin_minutes" class="m-field">${CHECKIN_CHOICES.map(([n, label]) => `<option value="${n}" ${n === (s.checkinMinutes ?? 30) ? "selected" : ""}>${label}</option>`).join("")}</select>`
+			)}
+		</div>
 		<div class="grid sm:grid-cols-3 gap-3">
 			${field("Early matches", roundsSelect("rounds", s.rounds))}
 			${field("Semi-finals", roundsSelect("semi_rounds", s.semiRounds))}
@@ -256,6 +272,7 @@ async function saveTournament(e) {
 		breaks: Object.fromEntries(BREAK_FIELDS.map(([key]) => [key, Number(form.get(`break_${key}`))])),
 		third_place: form.get("third_place") === "on",
 		spotlight_from: Number(form.get("spotlight_from")),
+		checkin_minutes: Number(form.get("checkin_minutes")),
 		lock_suggestions: form.get("lock_suggestions") === "on",
 	};
 	try {
@@ -319,7 +336,12 @@ function renderTournament() {
 		? `<button data-on-click="cancelTournament()" class="m-btn m-btn-text danger">Cancel tournament</button>`
 		: "";
 	const actions = {
-		draft: `${senior ? `<button data-on-click="tournamentAction('open')" class="m-btn m-btn-filled">Open check-in</button>` : ""}${del}`,
+		draft: `${senior ? `<button data-on-click="tournamentAction('announce')" class="m-btn m-btn-filled">Announce</button><button data-on-click="tournamentAction('open')" class="m-btn m-btn-tonal">Open check-in now</button>` : ""}${del}`,
+		announced: senior
+			? `<button data-on-click="tournamentAction('open')" class="m-btn m-btn-filled">Open check-in now</button>
+				<button data-on-click="tournamentAction('unpublish')" class="m-btn m-btn-tonal">Back to draft</button>
+				${cancel}`
+			: "",
 		open: senior
 			? `<button data-on-click="startTournament()" class="m-btn m-btn-success">Start tournament</button>
 				<button data-on-click="tournamentAction('unpublish')" class="m-btn m-btn-tonal">Back to draft</button>
@@ -339,12 +361,13 @@ function renderTournament() {
 			${over ? "" : `<button data-on-click="toggleTournamentEdit(${!_editing})" class="m-btn m-btn-tonal m-btn-sm"><span class="material-symbols-outlined">edit</span>Edit</button>`}
 		</div>
 		<p class="text-xs text-zinc-500 mb-4">${settingsSummary(t)}</p>
+		${t.status === "announced" ? `<p class="text-sm text-zinc-300 mb-4">${t.checkin_at ? `Check-in opens by itself ${escHtml(new Date(t.checkin_at).toLocaleString())}.` : "Check-in opens when you press Open check-in now. Set a start time to open it by itself."}</p>` : ""}
 		${_editing ? formHtml(t) : ""}
 		<div class="flex gap-2 flex-wrap mb-6">${actions}</div>
 		${t.status === "live" ? liveHtml(t) : ""}
 		${t.status === "finished" ? resultsHtml(t) : ""}
 		${staffChatSlot(t)}
-		${t.status === "draft" || t.status === "open" ? rosterHtml(t) : ""}
+		${["draft", "announced", "open"].includes(t.status) ? rosterHtml(t) : ""}
 		${t.rounds.length ? bracketHtml(t) : ""}`;
 }
 
@@ -473,7 +496,6 @@ function playerHtml(t, m, side, { ready = false } = {}) {
 const smallBtn = (onclick, label, tone = "m-btn-text") =>
 	`<button data-on-click="${onclick}" class="m-btn ${tone} m-btn-sm">${label}</button>`;
 
-/** One match as a row: label, the two players, and the actions that fit its state. */
 function matchRow(t, m, { ready = false, actions = "" } = {}) {
 	return `<div class="grid grid-cols-[5rem_1fr] sm:grid-cols-[5rem_1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-2.5 border-b border-zinc-800 last:border-0">
 		<span class="text-xs text-zinc-500">${matchLabel(t, m)}</span>
@@ -488,7 +510,6 @@ const card = (title, body, note = "") =>
 		${body}
 	</section>`;
 
-/** Live controls, then matches needing staff and matches being played. */
 function liveHtml(t) {
 	const phase = t.phase;
 	const matches = allTournamentMatches(t);
@@ -680,7 +701,7 @@ function tickClock() {
 	/** Without the live stream, check every few seconds. */
 	if (
 		!live.connected &&
-		["open", "live"].includes(_tournament?.status) &&
+		["announced", "open", "live"].includes(_tournament?.status) &&
 		Date.now() - _lastPoll > 5000 &&
 		!_busy &&
 		!_editing
@@ -719,7 +740,8 @@ async function act(path, options = {}, done = "") {
 	}
 }
 
-const tournamentAction = (name) => act(`/${name}`, {}, name === "open" ? "Check-in is open" : "");
+const tournamentAction = (name) =>
+	act(`/${name}`, {}, name === "open" ? "Check-in is open" : name === "announce" ? "Announced" : "");
 const tournamentControl = (action) => act("/control", { json: { action } });
 
 async function startTournament() {
@@ -856,7 +878,6 @@ function sendTournamentMessage(e) {
 
 const clearTournamentMessage = () => act("/message", { json: { text: "" } });
 
-/** Updates without a reload. */
 onLive("tournament", (summary) => {
 	if (currentTab !== "tournaments" || !_tournamentId || _busy) return;
 	if (summary && summary.id !== _tournamentId) return;
@@ -870,7 +891,6 @@ onLive("tournament", (summary) => {
 		.catch(() => {});
 });
 
-/** Called from inline handlers in the markup. */
 Object.assign(window, {
 	addTournamentPlayers,
 	awardTournamentMatch,
