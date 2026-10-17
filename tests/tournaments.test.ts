@@ -531,3 +531,54 @@ describe("tournaments", () => {
 		expect(await closed()).toBe(false);
 	});
 });
+
+describe("announcing", () => {
+	test("shows the tournament before check-in, which players can't use yet", async () => {
+		const { staff, players, id } = await setUp(2);
+		expect((await post(`/api/admin/tournaments/${id}/announce`, staff)).status).toBe(200);
+		const shown = await view(id);
+		expect(shown.status).toBe("announced");
+		expect(shown.checkin_at).toBeNull();
+		expect((await call("/api/tournaments/current")).data.status).toBe("announced");
+		expect((await post(`/api/tournaments/${id}/checkin`, players[0])).status).toBe(409);
+		expect((await post(`/api/admin/tournaments/${id}/start`, staff)).status).toBe(409);
+	});
+
+	test("only one tournament can be announced or on at a time", async () => {
+		const first = await setUp(2);
+		const second = await setUp(2);
+		expect((await post(`/api/admin/tournaments/${first.id}/announce`, first.staff)).status).toBe(200);
+		expect((await post(`/api/admin/tournaments/${second.id}/announce`, second.staff)).status).toBe(409);
+		expect((await post(`/api/admin/tournaments/${second.id}/open`, second.staff)).status).toBe(409);
+	});
+
+	test("opens check-in by itself the set time before the start", async () => {
+		const { staff, players, id } = await setUp(2);
+		const startsAt = Date.now() + 30 * 60_000 + 50;
+		await call(`/api/admin/tournaments/${id}`, {
+			method: "PATCH",
+			as: staff,
+			json: { starts_at: startsAt, checkin_minutes: 30 },
+		});
+		await post(`/api/admin/tournaments/${id}/announce`, staff);
+		expect((await view(id)).checkin_at).toBe(Math.floor(startsAt / 1000) * 1000 - 30 * 60_000);
+		await Bun.sleep(100);
+		expect((await view(id)).status).toBe("open");
+		expect((await post(`/api/tournaments/${id}/checkin`, players[0])).status).toBe(200);
+	});
+
+	test("staff can open check-in early or take it back to a draft", async () => {
+		const { staff, id } = await setUp(2);
+		await call(`/api/admin/tournaments/${id}`, {
+			method: "PATCH",
+			as: staff,
+			json: { starts_at: Date.now() + 5 * 3600_000 },
+		});
+		await post(`/api/admin/tournaments/${id}/announce`, staff);
+		expect((await post(`/api/admin/tournaments/${id}/unpublish`, staff)).status).toBe(200);
+		expect((await view(id)).status).toBeUndefined();
+		await post(`/api/admin/tournaments/${id}/announce`, staff);
+		expect((await post(`/api/admin/tournaments/${id}/open`, staff)).status).toBe(200);
+		expect((await view(id)).status).toBe("open");
+	});
+});

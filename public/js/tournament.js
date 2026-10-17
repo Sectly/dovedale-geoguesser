@@ -594,19 +594,30 @@ function lobbyHero() {
 			action = `<button class="m-btn m-btn-lg m-btn-success lobby-cta mt-8" style="${inPhase(2400)}" data-action="checkin">I'm here</button>
 				<p class="text-zinc-500 text-sm mt-3">Check in to get your place in the bracket.</p>`;
 	}
+	const timeText = (ms) =>
+		new Date(ms).toLocaleString(undefined, {
+			weekday: "long",
+			day: "numeric",
+			month: "long",
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+	if (state.status === "announced")
+		action = `${onList ? `<p class="text-white font-semibold mt-8 flex items-center gap-2"><span class="material-symbols-outlined text-yellow-400" style="font-variation-settings:'FILL' 1">confirmation_number</span>You're on the list</p>` : ""}
+			<p class="text-zinc-400 ${onList ? "mt-2" : "mt-8"}">${state.checkin_at ? `Check-in opens ${escHtml(timeText(state.checkin_at))}.` : "Check-in opens before the start."}</p>`;
 	justCheckedIn = false;
 	const checked = state.roster.filter((r) => r.checked_in).length;
-	const progress = state.roster.length
-		? `<div class="flex flex-col items-center gap-2 mt-8 w-full">
+	const progress = !open
+		? ""
+		: state.roster.length
+			? `<div class="flex flex-col items-center gap-2 mt-8 w-full">
 			<div class="lobby-progress" role="progressbar" aria-label="Players checked in" aria-valuemin="0" aria-valuemax="${state.roster.length}" aria-valuenow="${checked}">
 				<div class="lobby-progress-bar" style="width:${lastProgress}%" data-progress="${(checked / state.roster.length) * 100}"></div>
 			</div>
 			<p class="text-sm text-zinc-400">${checked} of ${state.roster.length} checked in</p>
 		</div>`
-		: "";
-	const when = starts
-		? new Date(starts).toLocaleString(undefined, { weekday: "long", hour: "2-digit", minute: "2-digit" })
-		: "";
+			: "";
+	const when = starts ? timeText(starts) : "";
 	/** The big entrance plays once per visit; later redraws only update. */
 	const entering = !lobbyEntered;
 	lobbyEntered = true;
@@ -614,9 +625,7 @@ function lobbyHero() {
 			<div class="lobby-rays" style="${inPhase(90_000)}" aria-hidden="true"></div>
 			<div class="relative flex flex-col items-center">
 				<div class="lobby-trophy" style="${inPhase(3200)}" aria-hidden="true"><span class="material-symbols-outlined">trophy</span></div>
-				<div class="lobby-eyebrow ${open ? "open" : ""}">
-					${open ? `<span class="lobby-dot" style="--ping-delay:-${Date.now() % 1600}ms"></span>Check-in open` : "Coming up"}${when ? ` · ${escHtml(when)}` : ""}
-				</div>
+				<div class="lobby-eyebrow">${open ? "Check-in open" : state.status === "draft" ? "Draft" : "Coming up"}${when ? ` · ${escHtml(when)}` : ""}</div>
 				<h1 class="lobby-title">${escHtml(state.title)}</h1>
 				${state.description ? `<p class="text-zinc-300 text-lg mt-4 max-w-xl whitespace-pre-line">${escHtml(state.description)}</p>` : ""}
 				${starts && starts > serverNow() ? `<div class="${LABEL} mt-10">Starts in</div>${lobbyClockHtml(starts)}` : starts ? '<p class="text-zinc-300 text-lg mt-10">Starting soon</p>' : ""}
@@ -857,7 +866,9 @@ function renderMessage(prev) {
 
 function renderRoster() {
 	const box = el("stage-roster");
-	const showing = state.status === "open" || state.status === "draft";
+	const showing = ["draft", "announced", "open"].includes(state.status);
+	/** Before check-in nobody is marked as waiting. */
+	const checking = state.status === "open";
 	box.classList.toggle("hidden", !showing || !state.roster.length);
 	if (!showing) return void (seenCheckedIn = null);
 	const first = seenCheckedIn === null;
@@ -868,13 +879,15 @@ function renderRoster() {
 				(
 					r,
 					i
-				) => `<div style="--i:${i}" class="lobby-player ${r.checked_in ? "bg-zinc-900" : "waiting"} ${arrived(r) ? "arrived" : ""} rounded-2xl px-3 py-2.5 flex items-center gap-3 ${isMe(r.user_id) ? "ring-2 ring-blue-500" : ""}">
-					${avatarHtml(player(r.user_id)?.avatar_url, `w-8 h-8 ${r.checked_in ? "" : "opacity-60"}`)}
-					<span class="flex-1 min-w-0 truncate text-sm ${r.checked_in ? "" : "text-zinc-500"}">${escHtml(nameOf(r.user_id))}</span>
+				) => `<div style="--i:${i}" class="lobby-player ${r.checked_in || !checking ? "bg-zinc-900" : "waiting"} ${arrived(r) ? "arrived" : ""} rounded-2xl px-3 py-2.5 flex items-center gap-3 ${isMe(r.user_id) ? "ring-2 ring-blue-500" : ""}">
+					${avatarHtml(player(r.user_id)?.avatar_url, `w-8 h-8 ${r.checked_in || !checking ? "" : "opacity-60"}`)}
+					<span class="flex-1 min-w-0 truncate text-sm ${r.checked_in || !checking ? "" : "text-zinc-500"}">${escHtml(nameOf(r.user_id))}</span>
 					${
-						r.checked_in
-							? '<span class="lobby-check material-symbols-outlined text-lg text-green-400" style="font-variation-settings:\'FILL\' 1" title="Checked in">check_circle</span>'
-							: '<span class="material-symbols-outlined text-lg text-zinc-600" title="Not checked in yet">hourglass_empty</span>'
+						!checking
+							? ""
+							: r.checked_in
+								? '<span class="lobby-check material-symbols-outlined text-lg text-green-400" style="font-variation-settings:\'FILL\' 1" title="Checked in">check_circle</span>'
+								: '<span class="material-symbols-outlined text-lg text-zinc-600" title="Not checked in yet">hourglass_empty</span>'
 					}
 				</div>`
 			)
@@ -1066,6 +1079,10 @@ function swipeRounds(area) {
 
 function cues(prev, upNext) {
 	if (!prev) return;
+	if (prev.status === "announced" && state.status === "open") {
+		banner("Check-in is open");
+		return Sounds.play("chime");
+	}
 	const phase = state.phase;
 	const changedPhase =
 		prev.phase.kind !== phase.kind || prev.phase.match_id !== phase.match_id || prev.phase.label !== phase.label;

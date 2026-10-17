@@ -12,6 +12,7 @@ import {
 	featureMatch,
 	listTournaments,
 	movePlayer,
+	announceTournament,
 	openTournament,
 	postMessage,
 	redrawTournament,
@@ -77,6 +78,12 @@ adminTournamentRoutes.patch("/:id", async (c) => {
 adminTournamentRoutes.delete("/:id", (c) => {
 	deleteTournament(seniorOf(c), idParam(c));
 	return c.json({ success: true });
+});
+
+adminTournamentRoutes.post("/:id/announce", (c) => {
+	const id = idParam(c);
+	announceTournament(seniorOf(c), id);
+	return ok(c, id);
 });
 
 adminTournamentRoutes.post("/:id/open", (c) => {

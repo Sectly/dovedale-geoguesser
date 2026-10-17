@@ -3129,16 +3129,6 @@ html.intro-hold .stagger > * {
 	color: #a1a1aa;
 	margin-bottom: 1rem;
 }
-.lobby-eyebrow.open {
-	color: #86efac;
-}
-.lobby-dot {
-	position: relative;
-	width: 0.5rem;
-	height: 0.5rem;
-	border-radius: 9999px;
-	background: currentColor;
-}
 .lobby-clock {
 	display: flex;
 	gap: 0.75rem;
@@ -3233,14 +3223,6 @@ html.intro-hold .stagger > * {
 	.lobby-enter .lobby-title ~ * + * + * + * {
 		animation-delay: 1s;
 	}
-	.lobby-eyebrow.open .lobby-dot::after {
-		content: "";
-		position: absolute;
-		inset: 0;
-		border-radius: inherit;
-		background: currentColor;
-		animation: lobby-ping 1.6s cubic-bezier(0, 0, 0.2, 1) var(--ping-delay, 0s) infinite;
-	}
 	.lobby-digit.roll {
 		animation: lobby-roll 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
 	}
@@ -3298,13 +3280,6 @@ html.intro-hold .stagger > * {
 	}
 	50% {
 		transform: translateY(-6px) rotate(3deg);
-	}
-}
-@keyframes lobby-ping {
-	75%,
-	100% {
-		transform: scale(2.6);
-		opacity: 0;
 	}
 }
 @keyframes lobby-roll {
