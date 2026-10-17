@@ -275,3 +275,18 @@ describe("team duels", () => {
 		expect((await post("/api/teams/rooms", banned, {})).status).toBe(403);
 	});
 });
+
+describe("panel updates", () => {
+	test("name the files changed on the server, and spot a permissions-only change", async () => {
+		const { parseLocalChanges } = await import("../src/system/updater");
+		/** git's output is trimmed, so the first line loses its leading space. */
+		const status = "M deploy.sh\n M src/app.ts\nMM README.md";
+		const summary = " mode change 100644 => 100755 deploy.sh";
+		expect(parseLocalChanges(status, summary)).toEqual([
+			{ path: "deploy.sh", permissions_only: true },
+			{ path: "src/app.ts", permissions_only: false },
+			{ path: "README.md", permissions_only: false },
+		]);
+		expect(parseLocalChanges("", "")).toEqual([]);
+	});
+});

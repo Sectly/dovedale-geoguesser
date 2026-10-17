@@ -148,7 +148,7 @@ export async function systemBreakdown(): Promise<Finding[]> {
 				);
 			if (update.local_changes)
 				add("warning", "Files on the server were edited by hand", {
-					detail: `${update.local_changes} changed. An update will refuse to install over them.`,
+					detail: `${update.local_files.map((f) => f.path + (f.permissions_only ? " (permissions only)" : "")).join(", ")}. An update will refuse to install over them.`,
 				});
 		}
 	} catch {}

@@ -404,7 +404,6 @@ function quickPlay() {
 	return lobbyAction(async () => {
 		const match = await api("/api/duels/quickplay", { json: {} });
 		await enterRoom(match.code, { host: match.status === "waiting", quickplay: true });
-		quietQueueTimer = setTimeout(() => show("quickplay-no-players"), QUIET_QUEUE_HINT_MS);
 	});
 }
 
@@ -674,11 +673,16 @@ function stopSearchClock() {
 	clearInterval(searchClock);
 	searchClock = null;
 	searchStartedAt = 0;
+	clearTimeout(quietQueueTimer);
+	quietQueueTimer = null;
+	show("quickplay-no-players", false);
 }
 
 function startSearchClock() {
 	if (searchClock) return;
 	searchStartedAt = Date.now();
+	/** Every search, including one resumed after a match fell through, gets the hint again. */
+	quietQueueTimer = setTimeout(() => show("quickplay-no-players"), QUIET_QUEUE_HINT_MS);
 	const paint = () => {
 		const s = Math.floor((Date.now() - searchStartedAt) / 1000);
 		el("qp-elapsed").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
