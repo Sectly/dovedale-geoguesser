@@ -3585,7 +3585,7 @@ html.intro-hold .stagger > * {
 	margin: -2.25rem 0 0 -2.25rem;
 	border: 3px solid #60a5fa;
 }
-/* On the outer guide circle, up and to the right. */
+/* duels.js places it on the outer guide circle. */
 .qp-them {
 	left: 72.6%;
 	top: 27.4%;

@@ -720,7 +720,12 @@ function showWaitingRoom(state) {
 			startSearchClock();
 		} else if (!radar.classList.contains("qp-matched")) {
 			stopSearchClock();
-			el("qp-them").innerHTML = avatarHtml(opponent?.avatar_url, "w-full h-full");
+			const them = el("qp-them");
+			them.innerHTML = avatarHtml(opponent?.avatar_url, "w-full h-full");
+			/** Somewhere new on the outer guide circle each time. */
+			const angle = Math.random() * Math.PI * 2;
+			them.style.left = `${50 + 32 * Math.cos(angle)}%`;
+			them.style.top = `${50 + 32 * Math.sin(angle)}%`;
 			el("qp-status").textContent = `Matched with ${opponent?.display_name || opponent?.username || "a player"}`;
 			radar.classList.add("qp-matched");
 			Sounds.play("reveal");
