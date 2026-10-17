@@ -125,6 +125,7 @@ const STEP_NAMES = [
 	"Installing dependencies",
 	"Building styles",
 	"Building map tiles",
+	"Copying the icon font",
 ] as const;
 
 /** The last step of an update, and the only one of a plain restart. It ends when the new server is up. */
@@ -256,6 +257,8 @@ export async function runUpdate(startedBy: string): Promise<string | null> {
 			"Installing dependencies": () => run([process.execPath, "install"], 300_000, note),
 			"Building styles": () => run([process.execPath, "run", "build:css"], 300_000, note),
 			"Building map tiles": () => run([process.execPath, "run", "tiles"], 30 * 60_000, note),
+			/** Its script never fails the update: the server copies the font on the first page view instead. */
+			"Copying the icon font": () => run([process.execPath, "run", "icons"], 120_000, note),
 		};
 		for (const step of job.steps.filter((s) => s.name !== RESTART_STEP)) {
 			job.step = step.name;

@@ -43,6 +43,14 @@ async function download(icons: string, key: string, onReady: () => void) {
 	onReady();
 }
 
+/** Copies the font for this icon set now, for deploys. Throws when Google cannot be reached. */
+export async function copyIconFont(icons: string): Promise<"copied" | "up to date"> {
+	const key = iconFontKey(icons);
+	if (existsSync(join(ICON_FONT_DIR, `icons-${key}.css`))) return "up to date";
+	await download(icons, key, () => {});
+	return "copied";
+}
+
 /** The copy of the previous icon set, used while a copy of the new one is fetched. */
 function latestCopy(): string | null {
 	if (!existsSync(ICON_FONT_DIR)) return null;

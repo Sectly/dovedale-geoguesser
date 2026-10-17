@@ -601,7 +601,8 @@ function lobbyHero() {
 		});
 	if (state.status === "announced")
 		action = `${onList ? `<p class="text-white font-semibold mt-8 flex items-center gap-2"><span class="material-symbols-outlined text-yellow-400" style="font-variation-settings:'FILL' 1">confirmation_number</span>You're on the list</p>` : ""}
-			<p class="text-zinc-400 ${onList ? "mt-2" : "mt-8"}">${state.checkin_at ? `Check-in opens ${escHtml(timeText(state.checkin_at))}.` : "Check-in opens before the start."}</p>`;
+			<p class="text-zinc-400 ${onList ? "mt-2" : "mt-8"}">${state.checkin_at ? `Check-in opens ${escHtml(timeText(state.checkin_at))}.` : "Check-in opens before the start."}</p>
+			${!onList && inviteCode() && state.invite_open ? '<p class="text-zinc-300 mt-1">Come back then to join with this link.</p>' : ""}`;
 	justCheckedIn = false;
 	const checked = state.roster.filter((r) => r.checked_in).length;
 	const progress = !open

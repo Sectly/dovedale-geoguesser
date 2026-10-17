@@ -40,6 +40,7 @@ Set `AUTH_DEV=true` in `.env` to skip Discord and log in as a built-in operator 
 | `bun run vapid`     | Generate keys for push notifications (optional)                        |
 | `bun run sync-map`  | Refresh map settings from the Dovedale map                             |
 | `bun run tiles`     | Build the map tiles in every size and format (`--force` redoes all)    |
+| `bun run icons`     | Copy the icon font for the icons the site uses (deploys run it)        |
 
 ## Configuration
 
@@ -63,6 +64,7 @@ First time:
 bun install
 bun run build:css
 bun run tiles
+bun run icons
 pm2 start pm2.config.js
 ```
 

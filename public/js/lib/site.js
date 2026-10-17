@@ -1,4 +1,5 @@
 import "./icons.js";
+import "./konami.js";
 import "./restart.js";
 import "./header.js";
 import "./keys.js";

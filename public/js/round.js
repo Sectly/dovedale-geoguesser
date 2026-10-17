@@ -10,7 +10,7 @@ import { setupPhotoLens } from "./lib/effects.js";
 
 const GUESS_BTN_BASE =
 	"pointer-events-auto pl-4 pr-5 py-2.5 rounded-full font-semibold text-sm whitespace-nowrap transition flex items-center gap-2 ";
-const GUESS_BTN_ON = "bg-blue-600 hover:bg-blue-500 active:scale-95 shadow-sm cursor-pointer";
+const GUESS_BTN_ON = "bg-blue-600 hover:bg-blue-500 shadow-sm cursor-pointer";
 const GUESS_BTN_OFF = "bg-zinc-700 text-zinc-500 cursor-not-allowed";
 /** How many times a failed screenshot is asked for again before the player is told. */
 const PHOTO_RETRIES = 2;
@@ -46,9 +46,9 @@ export class RoundView {
 		});
 		this.map.setPinEnabled(false);
 
-		el("guess-btn").addEventListener("click", () => this.submit());
+		el("guess-btn").addEventListener("click", () => (this.pin ? this.submit() : this._nudgeGuess()));
 		const duringRound = (fn) => () => (this._visible() ? fn() : false);
-		const submitIfReady = duringRound(() => (!this.locked && this.pin ? this.submit() : false));
+		const submitIfReady = duringRound(() => (this.locked ? false : this.pin ? this.submit() : this._nudgeGuess()));
 		addKeybinds("During a round", [
 			[["Space", "Enter"], "Submit your guess", submitIfReady],
 			[
@@ -234,9 +234,19 @@ export class RoundView {
 		return el("map-canvas").offsetParent !== null;
 	}
 
+	/** A guess with no pin placed: the button shakes instead of nothing happening. */
+	_nudgeGuess() {
+		const btn = el("guess-btn");
+		if (this.locked || btn.classList.contains("hidden")) return false;
+		btn.classList.remove("guess-nudge");
+		void btn.offsetWidth;
+		btn.classList.add("guess-nudge");
+	}
+
 	_setGuessEnabled(enabled) {
 		const btn = el("guess-btn");
-		btn.disabled = !enabled;
+		/** aria-disabled, not disabled, so a press with no pin still arrives and can shake it. */
+		btn.setAttribute("aria-disabled", String(!enabled));
 		btn.className = GUESS_BTN_BASE + (enabled ? GUESS_BTN_ON : GUESS_BTN_OFF) + (this.canGuess ? "" : " hidden");
 	}
 
