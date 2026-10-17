@@ -46,6 +46,9 @@ let busy = false;
 let countdownTimer = null;
 let nextRoundTimer = null;
 let quietQueueTimer = null;
+/** Quick Play: when this search began, and its clock. */
+let searchStartedAt = 0;
+let searchClock = null;
 let reconnectTimer = null;
 let overlayTimer = null;
 let getRounds;
@@ -168,6 +171,7 @@ function backToLobby(message = "") {
 	clearInterval(countdownTimer);
 	clearInterval(nextRoundTimer);
 	clearTimeout(quietQueueTimer);
+	stopSearchClock();
 	clearTimeout(reconnectTimer);
 	hideOverlay();
 	view?.stop();
@@ -666,6 +670,23 @@ function playerCardHtml(player, { quickPlay = false, matched = false } = {}) {
 	</div>`;
 }
 
+function stopSearchClock() {
+	clearInterval(searchClock);
+	searchClock = null;
+	searchStartedAt = 0;
+}
+
+function startSearchClock() {
+	if (searchClock) return;
+	searchStartedAt = Date.now();
+	const paint = () => {
+		const s = Math.floor((Date.now() - searchStartedAt) / 1000);
+		el("qp-elapsed").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+	};
+	paint();
+	searchClock = setInterval(paint, 1000);
+}
+
 const EMPTY_SEAT_HTML = `<div class="flex flex-col items-center gap-2 w-28 opacity-40">
 	<div class="w-12 h-12 rounded-full bg-zinc-700 border-2 border-dashed border-zinc-600 flex items-center justify-center">
 		<span class="material-symbols-outlined">person_add</span>
@@ -687,7 +708,29 @@ function showWaitingRoom(state) {
 	const full = state.players.length >= 2;
 	const searching = isQuickPlay && !full;
 
-	show("quickplay-searching", searching);
+	/** Quick Play keeps the radar up: an opponent turning up on it is the match being found. */
+	show("quickplay-searching", isQuickPlay);
+	show("waiting-players", !isQuickPlay);
+	if (isQuickPlay) {
+		const radar = el("quickplay-searching");
+		el("qp-me").innerHTML = avatarHtml(me?.avatar_url, "w-full h-full");
+		if (searching) {
+			radar.classList.remove("qp-matched");
+			el("qp-status").textContent = "Finding an opponent";
+			startSearchClock();
+		} else if (!radar.classList.contains("qp-matched")) {
+			stopSearchClock();
+			const them = el("qp-them");
+			them.innerHTML = avatarHtml(opponent?.avatar_url, "w-full h-full");
+			/** Somewhere new on the outer guide circle each time. */
+			const angle = Math.random() * Math.PI * 2;
+			them.style.left = `${50 + 32 * Math.cos(angle)}%`;
+			them.style.top = `${50 + 32 * Math.sin(angle)}%`;
+			el("qp-status").textContent = `Matched with ${opponent?.display_name || opponent?.username || "a player"}`;
+			radar.classList.add("qp-matched");
+			Sounds.play("reveal");
+		}
+	}
 	show("normal-waiting-header", !isQuickPlay);
 	show("waiting-rounds", !isQuickPlay);
 	el("waiting-rounds").textContent = `${state.rounds} round${state.rounds === 1 ? "" : "s"} · 60 seconds each`;
@@ -719,7 +762,7 @@ function showWaitingRoom(state) {
 		? "Waiting for the duel to start..."
 		: isQuickPlay
 			? full
-				? "Match found! Starting..."
+				? "Match found. Starting..."
 				: ""
 			: !full
 				? "Share the code or invite link with your opponent"
@@ -742,6 +785,8 @@ function showStartCountdown(seconds) {
 	el("start-countdown-label").textContent = "Get ready";
 	el("start-countdown-value").textContent = left;
 	Sounds.play("versus");
+	/** The countdown is the versus screen now, so the radar under it goes. */
+	show("quickplay-searching", false);
 	show("start-countdown");
 	countdownTimer = setInterval(() => {
 		left--;

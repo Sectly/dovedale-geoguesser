@@ -32,7 +32,9 @@ import {
 /** How long a player in a waiting room may be disconnected before losing their seat. */
 const RECONNECT_GRACE_MS = 30_000;
 const REMATCH_TIMEOUT_MS = 30_000;
-const QUICKPLAY_START_DELAY_MS = 1000;
+/** Long enough to see the opponent turn up on the radar before the countdown. */
+const QUICKPLAY_START_DELAY_MS = 2000;
+const TOURNAMENT_START_DELAY_MS = 1000;
 
 type WireAuth = { userId: number | null };
 
@@ -128,9 +130,12 @@ wireServer.on("connection", (conn: WireConnection) => {
 
 			/** Quick Play and tournament rooms have no host to press start. */
 			if ((room.quickplay || room.tournament) && room.status === "waiting" && room.players.length === 2) {
-				setTimeout(() => {
-					if (room.players.length === 2 && room.players.every((p) => p.connected)) startDuel(room);
-				}, QUICKPLAY_START_DELAY_MS);
+				setTimeout(
+					() => {
+						if (room.players.length === 2 && room.players.every((p) => p.connected)) startDuel(room);
+					},
+					room.tournament ? TOURNAMENT_START_DELAY_MS : QUICKPLAY_START_DELAY_MS
+				);
 			}
 		})
 	);
