@@ -5,12 +5,14 @@ const config = await import("../src/config");
 mock.module("../src/config", () => ({ ...config, SITE_URL: "https://geo.example" }));
 const { call, createUser, post } = await import("./helpers");
 const { db } = await import("../src/db");
+const sharp = (await import("sharp")).default;
 
 type Component = {
 	type: number;
 	style?: number;
 	url?: string;
 	content?: string;
+	media?: { url: string };
 	components?: Component[];
 	accessory?: Component;
 };
@@ -75,6 +77,31 @@ describe("Discord component embeds", () => {
 
 		const wrong = (await embedOf(`/tournament/${id}?invite=WRONG1`)).component;
 		expect(flatten(wrong).find((c) => c.type === 10)!.content).not.toContain("invited");
+	});
+
+	test("profile avatars are served from the site, where Discord will load them", async () => {
+		const user = createUser();
+		const discordUrl = `https://cdn.discordapp.com/avatars/1/abc.png?size=256`;
+		db.run("UPDATE users SET avatar_url = ? WHERE id = ?", [discordUrl, user.id]);
+		const thumb = flatten((await embedOf(`/u/${user.username}`)).component).find((c) => c.type === 11)!;
+		expect(thumb.media!.url).toMatch(
+			new RegExp(`^https://geo\.example/u/${user.username}/avatar-[0-9a-z]+\\.webp$`)
+		);
+
+		const red = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#f00" } })
+			.png()
+			.toBuffer();
+		const realFetch = globalThis.fetch;
+		globalThis.fetch = (async () =>
+			new Response(red, { headers: { "Content-Type": "image/png" } })) as unknown as typeof fetch;
+		try {
+			const res = await call(new URL(thumb.media!.url).pathname);
+			expect(res.status).toBe(200);
+			expect(res.headers.get("content-type")).toBe("image/webp");
+		} finally {
+			globalThis.fetch = realFetch;
+		}
+		expect((await call(`/u/nobody-here/avatar-abc.webp`)).status).toBe(404);
 	});
 
 	test("pages without a share preview get none", async () => {

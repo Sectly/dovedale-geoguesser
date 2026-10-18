@@ -9,7 +9,7 @@ import { DEV_DISCORD_ID, DEV_MODE, PUBLIC_DIR, SITE_URL, UPLOADS_DIR } from "../
 import { duelRooms } from "../game/duels/rooms";
 import { inviteWorks, tournamentShare } from "../game/tournaments";
 import { escapeXml } from "../og/cards";
-import { OG_VERSION } from "./og";
+import { avatarPath, OG_VERSION } from "./og";
 import { tileVersion } from "../tile-images";
 import { usedIcons } from "../icons";
 import { GOOGLE_ICON_CSS, ICON_FONT_DIR, iconStylesheet } from "../icon-font";
@@ -278,7 +278,7 @@ function profileEmbed(user: NonNullable<ReturnType<typeof findProfile>>, name: s
 		`**Dailies** ${n(stats.daily.played)} · **Streak** ${n(getStreak(user.id).current_streak)} days`,
 	].join("\n");
 	return [
-		user.avatar_url ? withThumbnail(heading, user.avatar_url) : text(heading),
+		user.avatar_url ? withThumbnail(heading, SITE_URL + avatarPath(user.username, user.avatar_url)) : text(heading),
 		separator(),
 		text(numbers),
 		buttons(button("View profile", path), button("Play solo", "/play"), button("Leaderboard", "/leaderboard")),

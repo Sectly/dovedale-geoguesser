@@ -36,23 +36,35 @@ const AVATAR_HOST = "cdn.discordapp.com";
 const AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 
-/** Fetches a Discord avatar for embedding. Only a small image from Discord's CDN. */
-async function avatarDataUri(url: string | null): Promise<string> {
-	if (!url) return "";
+/** A small avatar image from Discord's CDN, or null. */
+async function fetchAvatar(url: string | null): Promise<{ mime: string; bytes: Buffer } | null> {
+	if (!url) return null;
 	try {
 		const target = new URL(url);
-		if (target.protocol !== "https:" || target.hostname !== AVATAR_HOST) return "";
+		if (target.protocol !== "https:" || target.hostname !== AVATAR_HOST) return null;
 		const res = await fetch(target, { signal: AbortSignal.timeout(3000), redirect: "error" });
-		if (!res.ok) return "";
+		if (!res.ok) return null;
 		const mime = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-		if (!AVATAR_TYPES.includes(mime)) return "";
+		if (!AVATAR_TYPES.includes(mime)) return null;
 		const bytes = Buffer.from(await res.arrayBuffer());
-		if (bytes.length > AVATAR_MAX_BYTES) return "";
-		return `data:${mime};base64,${bytes.toString("base64")}`;
+		if (bytes.length > AVATAR_MAX_BYTES) return null;
+		return { mime, bytes };
 	} catch {
-		return "";
+		return null;
 	}
 }
+
+async function avatarDataUri(url: string | null): Promise<string> {
+	const avatar = await fetchAvatar(url);
+	return avatar ? `data:${avatar.mime};base64,${avatar.bytes.toString("base64")}` : "";
+}
+
+/** Changes with the avatar, so a new one gets a new address. */
+export const avatarVersion = (url: string) => Bun.hash(url).toString(36);
+
+/** A player's avatar on this site. Discord won't load its own CDN in a component embed. */
+export const avatarPath = (username: string, url: string) =>
+	`/u/${encodeURIComponent(username)}/avatar-${avatarVersion(url)}.webp`;
 
 async function profileSvg(username: string): Promise<string | null> {
 	const user = findProfile(username);
@@ -140,5 +152,25 @@ ogRoutes.get("/og.png", async (c) => {
 	return c.body(new Uint8Array(png.png), 200, {
 		"Content-Type": "image/png",
 		"Cache-Control": "public, max-age=300",
+	});
+});
+
+ogRoutes.get("/u/:username/:file{avatar-[0-9a-z]+\\.webp}", async (c) => {
+	const user = findProfile(c.req.param("username"));
+	if (!user || user.profile_private || !user.avatar_url) return c.notFound();
+	const key = `avatar:${user.id}:${avatarVersion(user.avatar_url)}`;
+	let image = cache.get(key);
+	if (!image || Date.now() - image.at > TTL_MS) {
+		if (!checkRateLimit(`avatar:${clientIp(c)}`, 30, 60 * 1000)) return c.text("Too many requests", 429);
+		const avatar = await fetchAvatar(user.avatar_url);
+		if (!avatar) return c.notFound();
+		image = { png: await sharp(avatar.bytes).resize(256, 256).webp({ quality: 85 }).toBuffer(), at: Date.now() };
+		if (cache.size >= MAX_ENTRIES) pruneOgCache();
+		if (cache.size >= MAX_ENTRIES) cache.delete(cache.keys().next().value!);
+		cache.set(key, image);
+	}
+	return c.body(new Uint8Array(image.png), 200, {
+		"Content-Type": "image/webp",
+		"Cache-Control": "public, max-age=86400",
 	});
 });
