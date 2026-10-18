@@ -30,8 +30,9 @@ export type Special = {
 	flashSeconds?: number;
 };
 
-/** Flash: seconds to look at the screenshot, then seconds to place a pin from memory. */
+/** Seconds to look at the screenshot, then seconds to place a pin from memory. */
 const FLASH = { look: 2, guess: 10 };
+const SUPER_FLASH = { look: 0.5, guess: 5.5 };
 
 export const SPECIALS: Special[] = [
 	{
@@ -83,6 +84,16 @@ export const SPECIALS: Special[] = [
 		flashSeconds: FLASH.look,
 	},
 	{
+		id: "super-flash",
+		title: "Super Flash",
+		blurb: "Half a second to look, five and a half to guess from memory. Three rounds, no hints.",
+		icon: "flash_on",
+		kind: "experiment",
+		href: "/play?special=super-flash",
+		effect: "flash",
+		flashSeconds: SUPER_FLASH.look,
+	},
+	{
 		id: "memory",
 		title: "Memory Match",
 		blurb: "Find the matching pairs of screenshots in as few turns as you can.",
@@ -111,6 +122,7 @@ const NO_HINTS = (timeLimit: number, maxTimeBonus = 0): RoundRules => ({
 export const SPECIAL_MODES: Record<string, { rounds: number; rules: RoundRules }> = {
 	blitz: { rounds: 5, rules: NO_HINTS(15, 1000) },
 	flash: { rounds: 3, rules: NO_HINTS(FLASH.look + FLASH.guess) },
+	"super-flash": { rounds: 3, rules: NO_HINTS(SUPER_FLASH.look + SUPER_FLASH.guess) },
 	"night-shift": { rounds: 5, rules: NO_HINTS(75) },
 	"snowed-in": { rounds: 5, rules: NO_HINTS(75) },
 };

@@ -297,6 +297,18 @@ describe("specials", () => {
 		expect(game).toMatchObject({ special: "flash", rounds: 3, time_limit: 12 });
 	});
 
+	test("Super Flash shows the screenshot for half a second and gives six seconds in all", async () => {
+		clearLocations();
+		for (let i = 0; i < 6; i++) createLocation();
+		const player = createUser();
+		const listed = (await call("/api/specials", { as: player })).data.find(
+			(s: { id: string }) => s.id === "super-flash"
+		);
+		expect(listed).toMatchObject({ status: "live", effect: "flash", flashSeconds: 0.5 });
+		const game = (await post("/api/solo/games", player, { special: "super-flash" })).data;
+		expect(game).toMatchObject({ special: "super-flash", rounds: 3, time_limit: 6 });
+	});
+
 	test("Blitz uses its own rules and never reaches the leaderboard", async () => {
 		clearLocations();
 		for (let i = 0; i < 6; i++) createLocation({ hints: ["a hint"] });
