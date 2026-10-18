@@ -111,4 +111,34 @@ describe("team duels socket", () => {
 			Date.now = realNow;
 		}
 	});
+	test("waits for a player whose tab is only hidden, but not for one who closed the page", async () => {
+		const { host, mate, code } = await newRoom();
+		const { tickTeamRooms } = await import("../src/game/teams");
+		const hostConn = watch(host, code);
+		const mateConn = watch(mate, code);
+		await post(`/api/teams/rooms/${code}/start`, host);
+		const realNow = Date.now;
+		let offset = 5000;
+		Date.now = () => realNow() + offset;
+		try {
+			tickTeamRooms();
+			mateConn.emit("team_here", { here: false });
+			offset += 10_000;
+			expect((await post(`/api/teams/rooms/${code}/guess`, host, { x: 1, y: 1 })).status).toBe(200);
+			tickTeamRooms();
+			await tick();
+			expect(hostConn.last("team_state").phase).toBe("guessing");
+
+			mateConn.emit("disconnect");
+			offset += 10_000;
+			tickTeamRooms();
+			await tick();
+			expect(hostConn.last("team_state").phase).toBe("reveal");
+			const late = await post(`/api/teams/rooms/${code}/guess`, mate, { x: 1, y: 1 });
+			expect(late.status).toBe(409);
+			expect(late.data).toBe("That round has already ended.");
+		} finally {
+			Date.now = realNow;
+		}
+	});
 });

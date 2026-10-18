@@ -5,7 +5,7 @@ import { utcDate } from "../src/lib/time";
 import type { User } from "../src/db";
 import { sendStreakReminders } from "../src/notifications";
 import { SPECIALS, currentSeason, easterSunday, specialsFor, upcomingEvent } from "../src/specials";
-import { call, clearLocations, createLocation, createUser, post, resetReviewQueues } from "./helpers";
+import { call, clearLocations, createLocation, createUser, post, resetReviewQueues, type TestUser } from "./helpers";
 
 beforeAll(resetReviewQueues);
 
@@ -276,9 +276,9 @@ describe("specials", () => {
 	test("the hub and its modes are for logged-in players only", async () => {
 		expect((await call("/api/specials")).status).toBe(401);
 		expect((await post("/api/solo/games", undefined, { special: "blitz" })).status).toBe(401);
-		const sub = await call("/specials/reflex");
-		expect(sub.status).toBe(302);
-		expect(sub.headers.get("Location")).toBe("/specials");
+		const sub = String((await call("/specials/reflex")).data);
+		expect(sub).toContain('id="specials-list"');
+		expect(sub).toContain("<title>Signal Reflex | Dovedale GeoGuesser</title>");
 
 		const player = createUser();
 		const list = (await call("/api/specials", { as: player })).data;
@@ -307,6 +307,31 @@ describe("specials", () => {
 		expect(listed).toMatchObject({ status: "live", effect: "flash", flashSeconds: 0.5 });
 		const game = (await post("/api/solo/games", player, { special: "super-flash" })).data;
 		expect(game).toMatchObject({ special: "super-flash", rounds: 3, time_limit: 6 });
+	});
+
+	test("Team Duels rooms are two, three or four a side, set by the host", async () => {
+		const host = createUser();
+		const others = Array.from({ length: 7 }, () => createUser());
+		const code = (await post("/api/teams/rooms", host, { rounds: 3 })).data.code;
+		const join = (p: TestUser) => post(`/api/teams/rooms/${code}/join`, p);
+		const size = (p: TestUser, value: number) => post(`/api/teams/rooms/${code}/size`, p, { size: value });
+		const state = async () => (await call(`/api/teams/rooms/${code}`, { as: host })).data;
+
+		expect((await state()).team_size).toBe(2);
+		for (const p of others.slice(0, 3)) expect((await join(p)).status).toBe(200);
+		expect((await join(others[3])).status).toBe(409);
+
+		expect((await size(others[0], 3)).status).toBe(403);
+		expect((await size(host, 4)).status).toBe(200);
+		for (const p of others.slice(3)) expect((await join(p)).status).toBe(200);
+		const full = await state();
+		expect(full.team_size).toBe(4);
+		expect(full.members.filter((m: { team: string }) => m.team === "a")).toHaveLength(4);
+		expect(full.members.filter((m: { team: string }) => m.team === "b")).toHaveLength(4);
+
+		expect((await size(host, 2)).status).toBe(409);
+		expect((await size(host, 9)).status).toBe(200);
+		expect((await state()).team_size).toBe(4);
 	});
 
 	test("Blitz uses its own rules and never reaches the leaderboard", async () => {

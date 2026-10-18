@@ -22,6 +22,8 @@ let wire = null;
 /** When the get-ready count or the reveal ends, by this browser's clock. */
 let phaseEndsAt = 0;
 let countdownTimer = null;
+/** Polls the room while the socket is down. */
+let pollTimer = null;
 /** What is on screen, so each change of round or phase is handled exactly once. */
 let shown = { status: null, phase: null, round: 0 };
 
@@ -52,7 +54,13 @@ async function enterRoom(code) {
 	}
 }
 
+function stopPolling() {
+	clearInterval(pollTimer);
+	pollTimer = null;
+}
+
 function closeWire() {
+	stopPolling();
 	const old = wire;
 	wire = null;
 	old?.disconnect();
@@ -70,7 +78,21 @@ function connect() {
 	const w = new WebWire("/api/teams/wire", { reconnect: { initialDelay: 500, maxDelay: 3000 } });
 	wire = w;
 	const on = (event, fn) => w.on(event, (data) => w === wire && fn(data || {}));
-	on("connect", () => w.emit("team_watch", { room: roomCode, here: !document.hidden }));
+	on("connect", () => {
+		stopPolling();
+		w.emit("team_watch", { room: roomCode, here: !document.hidden });
+	});
+	on("disconnect", () => {
+		pollTimer ??= setInterval(async () => {
+			if (!roomCode) return stopPolling();
+			try {
+				room = await teamApi("");
+				render();
+			} catch (err) {
+				if (err.status === 404 || err.status === 403) leaveLocally(err.message);
+			}
+		}, 2000);
+	});
 	on("team_state", (state) => {
 		room = state;
 		render();
@@ -119,11 +141,11 @@ function renderLobby() {
 		.map((team) => {
 			const info = TEAM_INFO[team];
 			const members = room.members.filter((m) => m.team === team);
-			const canSwitch = room.you.team !== team && members.length < 2;
+			const canSwitch = room.you.team !== team && members.length < room.team_size;
 			return `<div class="bg-zinc-800/60 rounded-2xl p-4">
 				<div class="flex items-center justify-between mb-2">
 					<span class="font-semibold ${info.text}">${info.name}</span>
-					<span class="text-xs text-zinc-500">${members.length}/2</span>
+					<span class="text-xs text-zinc-500">${members.length}/${room.team_size}</span>
 				</div>
 				${members.map(memberRow).join("") || '<p class="text-zinc-600 text-sm py-1.5">Nobody yet</p>'}
 				${canSwitch ? `<button data-team="${team}" class="m-btn m-btn-text m-btn-sm mt-2 -ml-2">Join this team</button>` : ""}
@@ -138,11 +160,15 @@ function renderLobby() {
 	show("room-rounds-text", !isHost);
 	el("room-rounds-text").textContent = `${room.rounds} rounds`;
 	if (document.activeElement !== el("room-rounds")) el("room-rounds").value = room.rounds;
+	show("room-size-host", isHost);
+	show("room-size-text", !isHost);
+	el("room-size-text").textContent = `${room.team_size} vs ${room.team_size}`;
+	if (document.activeElement !== el("room-size")) el("room-size").value = room.team_size;
 	el("room-hint").textContent = !bothTeams
 		? "Share the code or invite link. Each team needs at least one player."
 		: isHost
-			? room.members.length < 4
-				? "You can start now, or wait for a full two against two."
+			? room.members.length < room.team_size * 2
+				? "You can start now, or wait for both teams to fill."
 				: "Everyone is here. Start when you are ready."
 			: "Waiting for the host to start.";
 }
@@ -341,9 +367,9 @@ function render() {
 	}
 }
 
-/** Shown once a player's guess is in. Away players are not waited for, so they are left out. */
+/** Shown once a player's guess is in, naming who is still being waited for. */
 function lockedHint() {
-	const waiting = room.members.filter((m) => m.team && !m.guessed && !m.away && m.id !== me.id).map(nameOf);
+	const waiting = room.members.filter((m) => m.team && !m.guessed && !m.gone && m.id !== me.id).map(nameOf);
 	if (!waiting.length) return "Guess locked in";
 	const names = waiting.length > 2 ? `${waiting.length} players` : waiting.join(" and ");
 	return `Guess locked in. Waiting for ${names}`;
@@ -354,7 +380,8 @@ async function submitGuess(pin) {
 	try {
 		await teamApi("/guess", pin ?? {});
 	} catch (err) {
-		if (err.status !== 409) showToast(err.message, "error");
+		el("click-hint").textContent = err.message;
+		showToast(err.message, "error");
 	}
 }
 
@@ -398,6 +425,13 @@ async function init() {
 	el("team-again").addEventListener("click", () =>
 		teamApi("/again", {}).catch((err) => showToast(err.message, "error"))
 	);
+	el("room-size").addEventListener("change", async (e) => {
+		await teamApi("/size", { size: Number(e.target.value) }).catch((err) => {
+			showToast(err.message, "error");
+			e.target.value = room.team_size;
+		});
+		e.target.blur();
+	});
 	el("room-rounds").addEventListener("change", async (e) => {
 		await teamApi("/rounds", { rounds: Number(e.target.value) }).catch((err) => showToast(err.message, "error"));
 		e.target.blur();

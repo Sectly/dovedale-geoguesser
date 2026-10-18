@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Team Duels | Dovedale GeoGuesser</title>
-    <meta name="description" content="Two against two. Each round your team scores its best guess." />
+    <meta name="description" content="Teams of two, three or four. Each round your team scores its best guess." />
     <meta name="robots" content="noindex" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="manifest" href="/manifest.json" />
@@ -31,7 +31,7 @@
             <span class="material-symbols-outlined text-5xl text-blue-400" style="font-variation-settings: &quot;FILL&quot; 1">groups</span>
           </div>
           <h1 class="text-4xl font-bold tracking-tight mb-2">Team Duels</h1>
-          <p class="text-zinc-500 text-sm max-w-xs mx-auto">Two against two. Each round your team scores its best guess.</p>
+          <p class="text-zinc-500 text-sm max-w-xs mx-auto">Teams of two, three or four. Each round your team scores its best guess.</p>
         </div>
 
         <div id="teams-entry" class="bg-zinc-900 rounded-3xl p-6 w-full max-w-sm flex flex-col gap-4">
@@ -86,6 +86,17 @@
                 </select>
               </div>
               <span id="room-rounds-text" class="text-sm text-zinc-400"></span>
+            </div>
+            <div class="flex items-center justify-between gap-3 mt-2 bg-zinc-800/60 rounded-2xl px-4 py-2.5">
+              <label class="text-sm font-medium" for="room-size">Team size</label>
+              <div id="room-size-host" class="hidden w-36">
+                <select id="room-size" class="m-field">
+                  <option value="2">2 vs 2</option>
+                  <option value="3">3 vs 3</option>
+                  <option value="4">4 vs 4</option>
+                </select>
+              </div>
+              <span id="room-size-text" class="text-sm text-zinc-400"></span>
             </div>
             <p id="room-hint" class="text-zinc-500 text-sm text-center mt-5"></p>
             <div class="flex items-center justify-between gap-3 mt-5">

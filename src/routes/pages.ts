@@ -8,6 +8,8 @@ import { db } from "../db";
 import { DEV_DISCORD_ID, DEV_MODE, PUBLIC_DIR, SITE_URL, UPLOADS_DIR } from "../config";
 import { duelRooms } from "../game/duels/rooms";
 import { inviteWorks, tournamentShare } from "../game/tournaments";
+import { teamRoomShare } from "../game/teams";
+import { SPECIAL_MODES, publicSpecial, specialTagline, specialsFor, type Listed } from "../specials";
 import { escapeXml } from "../og/cards";
 import { avatarPath, OG_VERSION } from "./og";
 import { tileVersion } from "../tile-images";
@@ -198,16 +200,123 @@ function withMeta(html: string, meta: Meta): string {
 	return withAddress(page, meta.url);
 }
 
-for (const [route, file] of Object.entries(PAGES)) {
+const lines = (...parts: (string | null | false | undefined)[]) => text(parts.filter(Boolean).join("\n"));
+
+function servePage(c: Context, route: string, file: string) {
+	const page = loadPage(file, route);
+	const embed = staticEmbed(route);
+	if (!embed) return sendHtml(c, page.html, page.etag);
+	const html = page.html.replace("</head>", () => `${embed}\n</head>`);
+	return sendHtml(c, html, `"${Bun.hash(html).toString(36)}"`);
+}
+
+/** The rest play at /play?special=<id>. */
+const SPECIAL_PAGES: Record<string, string> = {
+	teams: "special-teams.html",
+	memory: "special-memory.html",
+	reflex: "special-reflex.html",
+};
+
+const specialPath = (s: Listed) => (SPECIAL_PAGES[s.id] ? `/specials/${s.id}` : `/play?special=${s.id}`);
+const dayMonth = (iso: string) =>
+	new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" });
+
+function specialsHubMeta(path: string): Meta {
+	const live = specialsFor(null).filter((s) => s.status === "live");
+	return {
+		title: "Specials | Dovedale GeoGuesser",
+		description: "Side modes, mini-games and seasonal events on Dovedale GeoGuesser.",
+		image: "/og.png?type=specials",
+		url: path,
+		type: "website",
+		embed: embedTag([
+			lines(
+				`# [Specials](${SITE_URL}/specials)`,
+				"Side modes, mini-games and seasonal events.",
+				...live.map(
+					(s) => `- [**${plain(s.title, 40)}**](${SITE_URL}${specialPath(s)}) ${plain(specialTagline(s), 90)}`
+				)
+			),
+			buttons(button("See all specials", "/specials"), button("Play solo", "/play")),
+		]),
+	};
+}
+
+function specialMeta(s: Listed): Meta {
+	const path = specialPath(s);
+	const starts = s.status === "upcoming" && s.startsAt ? `Starts ${dayMonth(s.startsAt)}.` : null;
+	return {
+		title: `${s.title} | Dovedale GeoGuesser`,
+		description: starts ? `${s.blurb} ${starts}` : s.blurb,
+		image: `/og.png?type=special&s=${s.id}`,
+		url: path,
+		type: "website",
+		embed: embedTag([
+			lines(
+				"-# Specials",
+				`# [${plain(s.title, 60)}](${SITE_URL}${path})`,
+				plain(s.blurb, 300),
+				starts && `-# ${starts}`
+			),
+			card(`type=special&s=${s.id}`),
+			buttons(
+				button(starts ? "See specials" : "Play", starts ? "/specials" : path),
+				button("All specials", "/specials")
+			),
+		]),
+	};
+}
+
+function teamRoomMeta(s: Listed, room: NonNullable<ReturnType<typeof teamRoomShare>>): Meta {
+	const path = `/specials/teams?room=${room.code}`;
+	const size = `${room.teamSize} vs ${room.teamSize}`;
+	const seats = `${room.players} of ${room.teamSize * 2} players`;
+	return {
+		title: `Join ${room.host}'s Team Duels room | Dovedale GeoGuesser`,
+		description: room.playing
+			? `${room.host}'s ${size} game is being played right now.`
+			: `${size}, ${room.rounds} rounds. ${seats} so far.`,
+		image: `/og.png?type=special&s=${s.id}`,
+		url: "/specials/teams",
+		type: "website",
+		embed: embedTag([
+			lines(
+				"-# Team Duels invite",
+				`# [Join ${plain(room.host, 40)}'s room](${SITE_URL}${path})`,
+				`${size} · ${room.rounds} rounds · ${seats}`,
+				room.playing && "-# A game is being played right now."
+			),
+			card(`type=special&s=${s.id}`),
+			buttons(
+				room.playing ? button("Team Duels", "/specials/teams") : button("Join room", path),
+				button("All specials", "/specials")
+			),
+		]),
+	};
+}
+
+pageRoutes.get("/specials", (c) => sendHtml(c, withMeta(loadPage("specials.html").html, specialsHubMeta("/specials"))));
+
+/** Logged out, these show the hub, whose login returns here. */
+for (const [id, file] of Object.entries(SPECIAL_PAGES)) {
+	const route = `/specials/${id}`;
 	pageRoutes.get(route, (c) => {
-		if (route.startsWith("/specials/") && !currentUser(c)) return c.redirect("/specials");
-		const page = loadPage(file, route);
-		const embed = staticEmbed(route);
-		if (!embed) return sendHtml(c, page.html, page.etag);
-		const html = page.html.replace("</head>", () => `${embed}\n</head>`);
-		return sendHtml(c, html, `"${Bun.hash(html).toString(36)}"`);
+		const html = loadPage(currentUser(c) ? file : "specials.html").html;
+		const s = publicSpecial(id);
+		if (!s) return sendHtml(c, withMeta(html, specialsHubMeta(route)));
+		const room = id === "teams" ? teamRoomShare(c.req.query("room") ?? "") : null;
+		return sendHtml(c, withMeta(html, room ? teamRoomMeta(s, room) : specialMeta(s)));
 	});
 }
+
+pageRoutes.get("/play", (c) => {
+	const s = publicSpecial(c.req.query("special") ?? "");
+	if (!s || !SPECIAL_MODES[s.id]) return servePage(c, "/play", "solo.html");
+	return sendHtml(c, withMeta(loadPage("solo.html").html, specialMeta(s)));
+});
+
+for (const [route, file] of Object.entries(PAGES))
+	if (route !== "/play" && !route.startsWith("/specials")) pageRoutes.get(route, (c) => servePage(c, route, file));
 
 pageRoutes.get("/duel/:code", (c) => {
 	const code = c.req
@@ -312,7 +421,6 @@ pageRoutes.get("/tournament/:id", (c) => {
 	const page = `/tournament/${id}`;
 	const invitePage = `${page}?invite=${code}`;
 	const image = `type=tournament&id=${id}${invite ? "&invite" : ""}`;
-	const lines = (...parts: (string | null | false)[]) => text(parts.filter(Boolean).join("\n"));
 	return sendHtml(
 		c,
 		withMeta(loadPage("duels.html").html, {

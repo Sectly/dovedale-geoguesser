@@ -11,13 +11,13 @@ import { Round, type Guess, type RoundOutcome, type RoundRules } from "./round";
 
 export type TeamId = "a" | "b";
 const TEAMS: TeamId[] = ["a", "b"];
-const TEAM_SIZE = 2;
 
 export const TEAM_RULES: RoundRules = { timeLimit: 45, hintCost: 0, hints: false, maxTimeBonus: 0 };
 export const TEAM_ROUNDS = { min: 3, max: 10, default: 5 };
+export const TEAM_SIZES = { min: 2, max: 4, default: 2 };
 const READY_SECONDS = 4;
 const REVEAL_SECONDS = 10;
-/** A player with no open, visible page for this long is treated as away and not waited for. */
+/** Away after this long with no visible page; not waited for after this long with no page open. */
 const AWAY_MS = 8000;
 const MAX_ROOMS = 200;
 const IDLE_TTL_MS = 30 * 60 * 1000;
@@ -33,6 +33,8 @@ type Member = {
 	seenAt: number;
 	/** Their open, visible pages on the room's socket. */
 	pages: number;
+	/** Their open pages on the room's socket, hidden or not. */
+	sockets: number;
 	/** Where their pin is right now, before they commit to it. Shown to their teammate only. */
 	pin: Guess | null;
 	outcome: RoundOutcome | null;
@@ -66,6 +68,7 @@ type TeamRoom = {
 	code: string;
 	hostId: number;
 	rounds: number;
+	teamSize: number;
 	members: Map<number, Member>;
 	status: "lobby" | "playing" | "finished";
 	phase: "ready" | "guessing" | "reveal" | null;
@@ -104,6 +107,8 @@ function markChanged(code: string) {
 }
 
 const isAway = (m: Member, now: number) => m.seenAt === 0 || (m.pages === 0 && now - m.seenAt >= AWAY_MS);
+/** Left, or no page open. A hidden tab is still waited for. */
+const isGone = (m: Member, now: number) => m.seenAt === 0 || (m.sockets === 0 && now - m.seenAt >= AWAY_MS);
 
 export function teamRoomCount(): number {
 	return rooms.size;
@@ -130,6 +135,7 @@ function member(user: User): Member {
 		team: null,
 		seenAt: Date.now(),
 		pages: 0,
+		sockets: 0,
 		pin: null,
 		outcome: null,
 		best: 0,
@@ -148,6 +154,7 @@ export function createTeamRoom(user: User, rounds: number): string {
 		code: newCode(),
 		hostId: user.id,
 		rounds,
+		teamSize: TEAM_SIZES.default,
 		members: new Map([[user.id, host]]),
 		status: "lobby",
 		phase: null,
@@ -183,7 +190,7 @@ export function joinTeamRoom(code: string, user: User) {
 	const room = getRoom(code);
 	if (room.members.has(user.id)) return;
 	if (room.status !== "lobby") fail(409, "That game has already started.");
-	if (room.members.size >= TEAM_SIZE * 2) fail(409, "That room is full.");
+	if (room.members.size >= room.teamSize * 2) fail(409, "That room is full.");
 	room.members.set(user.id, { ...member(user), team: smallerTeam(room) });
 	markChanged(room.code);
 }
@@ -194,7 +201,7 @@ export function chooseTeam(code: string, user: User, team: unknown) {
 	if (room.status !== "lobby") fail(409, "Teams are locked once the game starts.");
 	if (team !== "a" && team !== "b") fail(400, "Pick one of the two teams.");
 	if (me.team === team) return;
-	if (onTeam(room, team).length >= TEAM_SIZE) fail(409, "That team is full.");
+	if (onTeam(room, team).length >= room.teamSize) fail(409, "That team is full.");
 	me.team = team;
 	markChanged(room.code);
 }
@@ -205,6 +212,17 @@ export function setTeamRounds(code: string, user: User, rounds: number) {
 	if (room.hostId !== user.id) fail(403, "Only the host can change the number of rounds.");
 	if (room.status !== "lobby") fail(409, "The number of rounds is fixed once the game starts.");
 	room.rounds = rounds;
+	markChanged(room.code);
+}
+
+export function setTeamSize(code: string, user: User, size: number) {
+	const room = getRoom(code);
+	getMember(room, user);
+	if (room.hostId !== user.id) fail(403, "Only the host can change the team size.");
+	if (room.status !== "lobby") fail(409, "The team size is fixed once the game starts.");
+	if (TEAMS.some((team) => onTeam(room, team).length > size))
+		fail(409, "A team already has more players than that. Ask someone to switch or leave first.");
+	room.teamSize = size;
 	markChanged(room.code);
 }
 
@@ -230,9 +248,19 @@ export function setTeamPresence(code: string, userId: number, here: boolean) {
 	m.pages = Math.max(0, m.pages + (here ? 1 : -1));
 	if (m.seenAt !== 0) m.seenAt = Date.now();
 	markChanged(code);
-	if (!here && m.pages === 0)
+}
+
+/** A page connected to or dropped off the room's socket. */
+export function setTeamConnected(code: string, userId: number, connected: boolean) {
+	const room = rooms.get(code);
+	const m = room?.members.get(userId);
+	if (!room || !m) return;
+	m.sockets = Math.max(0, m.sockets + (connected ? 1 : -1));
+	if (m.seenAt !== 0) m.seenAt = Date.now();
+	markChanged(code);
+	if (!connected && m.sockets === 0)
 		setTimeout(() => {
-			if (rooms.get(code) !== room || !isAway(m, Date.now())) return;
+			if (rooms.get(code) !== room || !isGone(m, Date.now())) return;
 			advance(room, Date.now());
 			markChanged(code);
 		}, AWAY_MS + 100);
@@ -319,7 +347,9 @@ export function sendTeamEmote(code: string, user: User, emote: unknown) {
 export function submitTeamGuess(code: string, user: User, guess: Guess | null) {
 	const room = getRoom(code);
 	const me = getMember(room, user);
-	if (room.phase !== "guessing" || !room.round) fail(409, "There is no round to guess in right now.");
+	advance(room, Date.now());
+	if (room.phase === "ready") fail(409, "The round hasn't started yet.");
+	if (room.phase !== "guessing" || !room.round) fail(409, "That round has already ended.");
 	if (me.outcome) fail(409, "You have already guessed this round.");
 	me.outcome = room.round.score(guess);
 	me.pin = me.outcome.guess;
@@ -372,7 +402,7 @@ function moveOn(room: TeamRoom, now: number) {
 		room.phaseEndsAt = now + (TEAM_RULES.timeLimit + GAME.lateGuessGrace) * 1000;
 	}
 	if (room.phase === "guessing") {
-		const waitingFor = [...room.members.values()].filter((m) => m.team && !m.outcome && !isAway(m, now));
+		const waitingFor = [...room.members.values()].filter((m) => m.team && !m.outcome && !isGone(m, now));
 		if (waitingFor.length === 0 || now >= room.phaseEndsAt) finishRound(room, now);
 	}
 	if (room.phase === "reveal" && now >= room.phaseEndsAt) {
@@ -410,6 +440,7 @@ function roomView(room: TeamRoom, userId: number) {
 		host_id: room.hostId,
 		you: { id: me.userId, team: me.team, guessed: !!me.outcome },
 		rounds: room.rounds,
+		team_size: room.teamSize,
 		round_number: room.roundNumber,
 		totals: room.totals,
 		members: [...room.members.values()].map((m) => ({
@@ -420,6 +451,7 @@ function roomView(room: TeamRoom, userId: number) {
 			team: m.team,
 			guessed: !!m.outcome,
 			away: isAway(m, now),
+			gone: isGone(m, now),
 		})),
 		round:
 			live && room.round
@@ -462,6 +494,21 @@ function roomView(room: TeamRoom, userId: number) {
 						? "a"
 						: "b"
 				: null,
+	};
+}
+
+/** For invite link previews. Null once the room has closed. */
+export function teamRoomShare(code: string) {
+	const room = rooms.get(code.toUpperCase());
+	if (!room) return null;
+	const host = room.members.get(room.hostId);
+	return {
+		code: room.code,
+		host: host?.displayName ?? "Someone",
+		teamSize: room.teamSize,
+		players: room.members.size,
+		rounds: room.rounds,
+		playing: room.status !== "lobby",
 	};
 }
 

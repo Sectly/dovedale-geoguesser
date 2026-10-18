@@ -43,7 +43,18 @@ beforeAll(() => {
 
 describe("Discord component embeds", () => {
 	test("each share page has one container of link buttons, beside its Open Graph tags", async () => {
-		for (const path of ["/", "/play", "/daily", "/duels", "/leaderboard", "/duel/abc123", `/u/${username}`]) {
+		for (const path of [
+			"/",
+			"/play",
+			"/daily",
+			"/duels",
+			"/leaderboard",
+			"/duel/abc123",
+			`/u/${username}`,
+			"/specials",
+			"/specials/memory",
+			"/play?special=flash",
+		]) {
 			const { html, component } = await embedOf(path);
 			expect(html).toContain('property="og:title"');
 			expect(component.type).toBe(17);
@@ -102,6 +113,25 @@ describe("Discord component embeds", () => {
 			globalThis.fetch = realFetch;
 		}
 		expect((await call(`/u/nobody-here/avatar-abc.webp`)).status).toBe(404);
+	});
+
+	test("specials and team room invites describe themselves", async () => {
+		const flash = (await embedOf("/play?special=flash")).component;
+		expect(flatten(flash).find((c) => c.type === 10)!.content).toContain("# [Flash](");
+		expect(flatten(flash).find((c) => c.type === 2)!.url).toBe("https://geo.example/play?special=flash");
+
+		const host = createUser();
+		const code = (await post("/api/teams/rooms", host, { rounds: 3 })).data.code;
+		const invite = await embedOf(`/specials/teams?room=${code}`);
+		expect(invite.html).toContain("Team Duels room | Dovedale GeoGuesser</title>");
+		const join = flatten(invite.component).find((c) => c.type === 2)!;
+		expect(join.url).toBe(`https://geo.example/specials/teams?room=${code}`);
+		expect(flatten(invite.component).find((c) => c.type === 10)!.content).toContain(
+			"2 vs 2 · 3 rounds · 1 of 4 players"
+		);
+
+		const gone = await embedOf("/specials/teams?room=ZZZZZZ");
+		expect(flatten(gone.component).find((c) => c.type === 10)!.content).toContain("# [Team Duels](");
 	});
 
 	test("pages without a share preview get none", async () => {

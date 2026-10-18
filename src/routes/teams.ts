@@ -6,6 +6,7 @@ import { requirePlayer } from "../auth/guards";
 import { parseGuess } from "../game/round";
 import {
 	TEAM_ROUNDS,
+	TEAM_SIZES,
 	chooseTeam,
 	createTeamRoom,
 	joinTeamRoom,
@@ -14,6 +15,7 @@ import {
 	resetTeamRoom,
 	sendTeamEmote,
 	setTeamRounds,
+	setTeamSize,
 	startTeamGame,
 	submitTeamGuess,
 	teamRoomState,
@@ -64,6 +66,13 @@ teamRoutes.post("/rooms/:code/rounds", async (c) => {
 	const user = requireTeamPlayer(c);
 	const body = await readJson<{ rounds: number }>(c);
 	setTeamRounds(code(c), user, clampInt(body.rounds, TEAM_ROUNDS.default, TEAM_ROUNDS.min, TEAM_ROUNDS.max));
+	return done(c);
+});
+
+teamRoutes.post("/rooms/:code/size", async (c) => {
+	const user = requireTeamPlayer(c);
+	const body = await readJson<{ size: number }>(c);
+	setTeamSize(code(c), user, clampInt(body.size, TEAM_SIZES.default, TEAM_SIZES.min, TEAM_SIZES.max));
 	return done(c);
 });
 

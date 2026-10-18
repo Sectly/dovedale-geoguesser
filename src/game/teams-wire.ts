@@ -2,7 +2,7 @@ import { WebWireServer, type WireConnection } from "@webwirejs/server";
 import { sessionIdFromCookies, userFromSessionId } from "../auth/sessions";
 import { HttpError } from "../lib/http";
 import { liveSpecial } from "../specials";
-import { onTeamRoomChanged, setTeamPresence, teamRoomStateFor } from "./teams";
+import { onTeamRoomChanged, setTeamConnected, setTeamPresence, teamRoomStateFor } from "./teams";
 
 type WireAuth = { userId: number | null };
 
@@ -36,6 +36,7 @@ function forget(conn: WireConnection) {
 	if (!watcher) return;
 	watchers.delete(conn);
 	if (watcher.here) setTeamPresence(watcher.code, watcher.userId, false);
+	setTeamConnected(watcher.code, watcher.userId, false);
 }
 
 onTeamRoomChanged((code) => {
@@ -51,6 +52,7 @@ teamWireServer.on("connection", (conn: WireConnection) => {
 		forget(conn);
 		const watcher = { code: body.room.toUpperCase(), userId, here: body.here !== false };
 		watchers.set(conn, watcher);
+		setTeamConnected(watcher.code, userId, true);
 		if (watcher.here) setTeamPresence(watcher.code, userId, true);
 		sendState(conn, watcher);
 	});

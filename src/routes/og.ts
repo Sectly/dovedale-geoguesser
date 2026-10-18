@@ -7,6 +7,7 @@ import { getStreak } from "../game/streaks";
 import { duelCard, genericCard, profileCard, tournamentCard } from "../og/cards";
 import { tournamentShare } from "../game/tournaments";
 import { findProfile, profileStats } from "./profile";
+import { publicSpecial, specialTagline } from "../specials";
 
 export const ogRoutes = new Hono();
 
@@ -23,6 +24,7 @@ const PAGE_CARDS: Record<string, [title: string, subtitle: string]> = {
 	duels: ["Duels", "Challenge a friend to a location guessing duel"],
 	daily: ["Daily Challenge", "One location a day. Compete for the leaderboard"],
 	leaderboard: ["Leaderboard", "The best GeoGuessers on Dovedale Railway"],
+	specials: ["Specials", "Side modes, mini-games and seasonal events"],
 };
 
 export function pruneOgCache() {
@@ -113,6 +115,7 @@ ogRoutes.get("/og.png", async (c) => {
 	const type = c.req.query("type") || "home";
 	const username = (c.req.query("u") || "").slice(0, 40);
 	const id = Number(c.req.query("id"));
+	const special = type === "special" ? publicSpecial(c.req.query("s") || "") : null;
 	const invite = c.req.query("invite") !== undefined;
 	const code = (c.req.query("code") || "")
 		.toUpperCase()
@@ -127,9 +130,11 @@ ogRoutes.get("/og.png", async (c) => {
 				? `tournament:${id}:${invite ? 1 : 0}`
 				: (type === "duel" || type === "spectate") && code
 					? `${type}:${code}`
-					: type in PAGE_CARDS
-						? type
-						: "home";
+					: special
+						? `special:${special.id}`
+						: type in PAGE_CARDS
+							? type
+							: "home";
 
 	let png = cache.get(key);
 	if (!png || Date.now() - png.at > TTL_MS) {
@@ -141,6 +146,7 @@ ogRoutes.get("/og.png", async (c) => {
 		let svg: string | null = null;
 		if (key.startsWith("profile:")) svg = await profileSvg(username);
 		else if (key.startsWith("tournament:")) svg = await tournamentSvg(id, invite);
+		else if (special) svg = genericCard(special.title, specialTagline(special));
 		else if (key.includes(":")) svg = duelSvg(code, type === "spectate");
 		svg ??= genericCard(...(PAGE_CARDS[key] ?? PAGE_CARDS.home));
 

@@ -38,7 +38,7 @@ export const SPECIALS: Special[] = [
 	{
 		id: "teams",
 		title: "Team Duels",
-		blurb: "Two against two. Each round your team scores its best guess.",
+		blurb: "Teams of two, three or four. Each round your team scores its best guess.",
 		icon: "groups",
 		kind: "mode",
 		href: "/specials/teams",
@@ -147,10 +147,10 @@ function windowOf(special: Special, now: number): { start: number | null; end: n
 	return { start: null, end: null };
 }
 
-type Listed = Special & { status: "live" | "upcoming"; preview: boolean };
+export type Listed = Special & { status: "live" | "upcoming"; preview: boolean };
 
 /** What this user can see now: live first, then upcoming. Staff may `preview` an upcoming special. */
-export function specialsFor(user: User, now = Date.now()): Listed[] {
+export function specialsFor(user: User | null, now = Date.now()): Listed[] {
 	const listed: Listed[] = [];
 	for (const special of SPECIALS) {
 		if (special.staffOnly && !hasRole(user, "moderator")) continue;
@@ -167,6 +167,14 @@ export function specialsFor(user: User, now = Date.now()): Listed[] {
 	}
 	return listed.sort((a, b) => Number(a.status === "upcoming") - Number(b.status === "upcoming"));
 }
+
+/** Live or upcoming, as a logged-out visitor sees it. */
+export function publicSpecial(id: string): Listed | null {
+	return specialsFor(null).find((s) => s.id === id) ?? null;
+}
+
+/** The blurb's first sentence. */
+export const specialTagline = (s: Special) => s.blurb.split(/(?<=\.)\s/)[0];
 
 export function liveSpecial(id: string, user: User): Special | null {
 	return specialsFor(user).find((s) => s.id === id && (s.status === "live" || s.preview)) ?? null;
