@@ -13,9 +13,9 @@ const ROLE_NAMES = {
 	admin: "Admin",
 	operator: "Operator",
 };
-/** `OFF` hides chat entirely; `GUESSING` hides it from a player mid-round. */
+/** `OFF` hides chat entirely; `IN_ROUND` hides it from a player while their round is in play. */
 const OFF = "Chat is off.";
-const GUESSING = "Chat opens after your guess.";
+const IN_ROUND = "Chat opens between rounds.";
 
 let id = 0;
 let user = null;
@@ -132,7 +132,7 @@ function setOpen(value) {
 	}
 }
 
-const absent = () => !access || access.why === OFF || access.why === GUESSING;
+const absent = () => !access || access.why === OFF || access.why === IN_ROUND;
 
 function render() {
 	const panel = el("chat-panel");

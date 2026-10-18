@@ -27,6 +27,8 @@ let _chat = null;
 let _filter = "all";
 let _stopPoll = null;
 let _busy = false;
+/** The message whose moderation actions are showing. */
+let _openMessage = null;
 
 const seconds = (ms) => (ms === 0 ? "None" : `${ms / 1000} s`);
 const timeoutText = (m) => (m < 60 ? `${m} min` : m < 1440 ? `${m / 60} hour` : `${m / 1440} day`);
@@ -41,6 +43,7 @@ export function staffChatSlot(t) {
 		_id = t.id;
 		_chat = null;
 		_filter = "all";
+		_openMessage = null;
 	}
 	_stopPoll?.();
 	_stopPoll = pollWhile(watchingChat, loadChat, POLL_MS, "tournament_chat");
@@ -151,17 +154,22 @@ function messageRow(m, timeouts) {
 			: "",
 		m.reports > 0 && m.status === "shown" ? btn(`dismissStaffChat(${m.id})`, "Dismiss reports") : "",
 	].join("");
-	return `<div class="px-4 py-2.5 border-b border-zinc-800 last:border-0 flex flex-col gap-1">
+	const open = !!actions && _openMessage === m.id;
+	const toggle = actions
+		? `<button class="m-icon-btn ml-auto self-center !w-7 !h-7" aria-expanded="${open}" aria-label="Moderate" title="Moderate"><span class="material-symbols-outlined text-lg">${open ? "expand_less" : "more_horiz"}</span></button>`
+		: "";
+	return `<div class="px-4 py-2.5 border-b border-zinc-800 last:border-0 flex flex-col gap-1 ${actions ? `cursor-pointer hover:bg-zinc-800/40 ${open ? "bg-zinc-800/40" : ""}` : ""}" ${actions ? `data-on-click="toggleStaffChatMessage(${m.id}, this, event)"` : ""}>
 		<div class="flex items-baseline gap-2 flex-wrap text-sm">
 			<span class="text-xs text-zinc-500 tabular-nums">${new Date(m.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
 			${m.username ? `<a href="/u/${encodeURIComponent(m.username)}" target="_blank" rel="noopener" class="font-medium text-zinc-300 hover:underline">${escHtml(m.name)}</a>` : `<span class="font-medium text-zinc-500">${escHtml(m.name)}</span>`}
 			<span class="text-zinc-100 break-words min-w-0">${escHtml(m.body)}</span>
 			${tag ? `<span class="m-tag ${tone}">${tag}</span>` : ""}
 			${m.reports > 0 && m.status === "shown" ? `<span class="m-tag danger">Reported ${m.reports}×</span>` : ""}
+			${toggle}
 		</div>
 		${m.reason ? `<p class="text-xs text-zinc-500">Caught by: ${escHtml(m.reason)}</p>` : ""}
 		${m.handled_by ? `<p class="text-xs text-zinc-600">By ${escHtml(m.handled_by)}</p>` : ""}
-		${actions ? `<div class="flex flex-wrap gap-1 -ml-2">${actions}</div>` : ""}
+		${open ? `<div class="flex flex-wrap gap-1 -ml-2">${actions}</div>` : ""}
 	</div>`;
 }
 
@@ -171,6 +179,7 @@ async function chatAct(path, options = {}, done = "") {
 	try {
 		_chat = await api(`/api/admin/tournaments/${_id}/chat${path}`, { method: "POST", ...options });
 		if (done) showToast(done, "success");
+		_openMessage = null;
 		paint();
 	} catch (err) {
 		showToast(err.message, "error");
@@ -190,6 +199,13 @@ const deleteStaffChat = (messageId) => chatAct(`/${messageId}`, { method: "DELET
 const dismissStaffChat = (messageId) => chatAct(`/${messageId}/dismiss`);
 const timeOutStaffChat = (messageId, minutes) =>
 	chatAct(`/${messageId}/timeout`, { json: { minutes } }, `Timed out for ${timeoutText(minutes)}`);
+
+/** Clicks on a link or an action button inside the row are left to them. */
+function toggleStaffChatMessage(messageId, row, event) {
+	if (event.target.closest("a, [data-on-click]") !== row) return;
+	_openMessage = _openMessage === messageId ? null : messageId;
+	paint();
+}
 
 function filterStaffChat(key) {
 	_filter = key;
@@ -390,5 +406,6 @@ Object.assign(window, {
 	setStaffChat,
 	testFilter,
 	timeOutStaffChat,
+	toggleStaffChatMessage,
 	updateFilterList,
 });

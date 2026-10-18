@@ -215,21 +215,27 @@ describe("tournament chat", () => {
 		expect(staffView.messages.map((m: any) => m.status)).toEqual(["shown", "blocked"]);
 	});
 
-	test("players can't read while guessing, read after their guess, and write once they are out", async () => {
+	test("a player's chat is hidden while their round is in play and read-only between rounds; everyone else can write", async () => {
 		const { id, staff, players } = await openWithChat();
 		await post(`/api/admin/tournaments/${id}/start`, staff);
 		const [p1, p2] = players;
-		expect((await chat(id, p1)).access).toMatchObject({ read: true, write: false });
 		for (const p of players) await post(`/api/tournaments/${id}/ready`, p);
 		await post(`/api/admin/tournaments/${id}/control`, staff, { action: "skip" });
 		await Bun.sleep(10);
 		const t = (await call(`/api/tournaments/${id}`)).data;
 		const room = duelRooms.get(t.phase.code)!;
 		room.status = "in_progress";
-		room.round = {} as any;
+		room.round = { location: { label: "Test Station" } } as any;
 		room.outcomes = new Map();
-		expect((await chat(id, p1)).access).toMatchObject({ read: false, why: "Chat opens after your guess." });
+		expect((await chat(id, p1)).access).toMatchObject({ read: false, why: "Chat opens between rounds." });
 		room.outcomes.set(p1.id, {} as any);
+		expect((await chat(id, p1)).access).toMatchObject({ read: false, why: "Chat opens between rounds." });
+
+		const spectator = createUser({ ageDays: 30 });
+		expect((await chat(id, spectator)).access).toMatchObject({ read: true, write: true, why: null });
+		expect((await say(id, spectator, "good luck")).status).toBe(200);
+
+		room.round = null;
 		expect((await chat(id, p1)).access).toMatchObject({ read: true, write: false });
 		expect((await say(id, p1, "hi")).status).toBe(403);
 		room.players = [p1, p2].map((p) => ({
@@ -242,9 +248,26 @@ describe("tournament chat", () => {
 			disconnects: 0,
 			totalScore: 0,
 		}));
-		room.round = null;
 		await post(`/api/admin/tournaments/${id}/matches/${t.phase.match_id}/award`, staff, { user_id: p2.id });
 		expect((await chat(id, p1)).access).toMatchObject({ read: true, write: true });
+	});
+
+	test("players waiting for their next match can write while another match is played", async () => {
+		const staff = createUser({ role: "supervisor", ageDays: 30 });
+		const players = Array.from({ length: 4 }, () => createUser({ ageDays: 30 }));
+		const id = (await post("/api/admin/tournaments", staff, { title: "Chat night", rounds: 1 })).data.id as number;
+		await post(`/api/admin/tournaments/${id}/players`, staff, {
+			usernames: players.map((p) => p.username).join(","),
+		});
+		await post(`/api/admin/tournaments/${id}/open`, staff);
+		for (const p of players) await post(`/api/tournaments/${id}/checkin`, p);
+		await post(`/api/admin/tournaments/${id}/chat/settings`, staff, { on: true, delay_ms: 0 });
+		await post(`/api/admin/tournaments/${id}/start`, staff);
+		const t = (await call(`/api/tournaments/${id}`)).data;
+		const current = t.rounds.flatMap((r: any) => r.matches).find((m: any) => m.id === t.phase.match_id);
+		const waiting = players.find((p) => !current.players.includes(p.id))!;
+		expect((await chat(id, waiting)).access).toMatchObject({ read: true, write: true });
+		expect((await say(id, waiting, "come on")).status).toBe(200);
 	});
 
 	test("staff delete, time out and approve held messages; viewers report", async () => {

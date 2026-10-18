@@ -37,6 +37,9 @@ export type Access = {
 
 type Info = NonNullable<ReturnType<typeof chatTournament>>;
 
+/** The page hides chat while this is the reason. */
+const IN_ROUND = "Chat opens between rounds.";
+
 const closed = (why: string): Access => ({ read: false, write: false, why, slow_seconds: 0, staff_only: false });
 
 /** Moderators skip slow mode and staff-only mode. */
@@ -66,12 +69,9 @@ export function chatAccess(user: User | null, info: Info): Access {
 	const { role, code } = chatRole(info.id, user.id);
 	if (role === "playing") {
 		const room = code ? duelRooms.get(code) : undefined;
-		const guessing = !!room && room.status === "in_progress" && !!room.round && !room.outcomes.has(user.id);
-		if (guessing) return { ...closed("Chat opens after your guess."), ...base };
-		return { read: true, write: false, why: "You can write once your matches are over.", ...base };
+		if (room?.status === "in_progress" && room.round) return { ...closed(IN_ROUND), ...base };
+		return { read: true, write: false, why: "You can write once your match is over.", ...base };
 	}
-	if (role === "waiting")
-		return { read: true, write: false, why: "You can write once your matches are over.", ...base };
 	if (settings.chatStaffOnly && !runsChat(user))
 		return { read: true, write: false, why: "Only staff can write right now.", ...base };
 	return { read: true, write: true, why: null, ...base };
