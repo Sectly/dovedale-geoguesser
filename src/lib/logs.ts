@@ -18,11 +18,9 @@ function text(value: unknown): string {
 }
 
 export function writeLog(level: LogLevel, args: unknown[]) {
-	/** A failure while logging must not log itself for ever. */
 	if (writing) return;
 	writing = true;
 	try {
-		/** An error goes on its own lines, so the message stays short and the stack lands in the detail. */
 		const full = args
 			.map((arg, i) => (i > 0 && arg instanceof Error ? `\n${text(arg)}` : text(arg)))
 			.join(" ")
@@ -37,7 +35,6 @@ export function writeLog(level: LogLevel, args: unknown[]) {
 		]);
 		if (++sinceTrim >= 200) pruneLogs();
 	} catch {
-		/** The console still has it. */
 	} finally {
 		writing = false;
 	}

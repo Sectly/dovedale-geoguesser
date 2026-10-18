@@ -202,11 +202,9 @@ export function attentionFor(user: User) {
 			"SELECT id, category, title, body, link FROM notifications WHERE user_id = ? AND read_at IS NULL ORDER BY id DESC LIMIT 1"
 		)
 		.get(user.id);
-	/** The queue is only worked out for staff who have badges or alerts switched on. */
 	const prefs = parsePreferences(user.prefs);
 	const wantsQueue = prefs.staff_badges || prefs.staff_alerts;
 	const all = isStaff(user) && !user.is_banned && wantsQueue ? staffQueue() : null;
-	/** Helpers review submissions and suggestions only; tickets and flags are not theirs to see. */
 	const queue = all && !hasRole(user, "moderator") ? { ...all, tickets: 0, users: 0 } : all;
 	return {
 		unread: count("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND read_at IS NULL", user.id),

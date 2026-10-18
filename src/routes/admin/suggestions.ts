@@ -172,7 +172,6 @@ adminSuggestionRoutes.post("/:id/approve", async (c) => {
 adminSuggestionRoutes.post("/:id/deny", async (c) => {
 	const staff = requireStaff(c, "helper");
 	const sug = pendingSuggestion(idParam(c));
-	/** The player is shown this, so a denial always says why. */
 	const reason = requireReason((await readJson<{ reason: string }>(c)).reason, "A reason for denying");
 
 	db.run(

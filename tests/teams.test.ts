@@ -71,7 +71,6 @@ describe("team duels socket", () => {
 		await post(`/api/teams/rooms/${code}/team`, third, { team: "a" });
 		const [a, b] = [watch(host, code), watch(mate, code)];
 		await post(`/api/teams/rooms/${code}/start`, host);
-		/** Skips the get-ready count. */
 		const { tickTeamRooms } = await import("../src/game/teams");
 		tickTeamRooms(Date.now() + 5000);
 		await post(`/api/teams/rooms/${code}/pin`, third, { x: 10, y: 20 });

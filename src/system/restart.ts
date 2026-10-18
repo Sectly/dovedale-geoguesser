@@ -12,8 +12,6 @@ import { closeTeamRooms, teamGamesInProgress, teamRoomCount } from "../game/team
 import { shutdown } from "../lib/lifecycle";
 import { logInfo } from "../lib/logs";
 
-/** A planned restart is announced first, then games close, solo games are saved and the process exits. */
-
 const CLOSED_MESSAGE = "The server restarted for an update, so your game was ended. It won't count against you.";
 /** Long enough for the goodbye messages to leave before the sockets go down with the process. */
 const FLUSH_MS = 400;
@@ -78,7 +76,6 @@ export function scheduleRestart(reason: string): number {
 	logInfo(`[server] Restarting in ${seconds}s: ${reason}`);
 	setDuelsClosing(true);
 	setDeadline(seconds, reason);
-	/** No new game can start now, so once the current ones end there is nothing to wait for. */
 	if (busy) {
 		watcher = setInterval(() => {
 			if (duelsInProgress() + teamGamesInProgress() > 0) return;

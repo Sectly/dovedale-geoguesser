@@ -50,8 +50,6 @@ adminAnnouncementRoutes.get("/", (c) => {
 	});
 });
 
-/* ---- Changelog ---- */
-
 async function readEntry(c: Context) {
 	const body = await readJson<{ title: string; body: string; released_at: number }>(c);
 	const title = text(body.title, 120);
@@ -90,8 +88,6 @@ adminAnnouncementRoutes.delete("/changelog/:id", (c) => {
 	auditLog(staff, "changelog_delete", { details: deleteChangelogEntry(idParam(c)) });
 	return c.json({ success: true });
 });
-
-/* ---- Announcements ---- */
 
 type Body = {
 	title: string;
@@ -191,7 +187,6 @@ adminAnnouncementRoutes.post("/", async (c) => {
 		staff,
 		displayName(staff)
 	);
-	/** A draft that has now been sent, scheduled or saved again has done its job. */
 	if (typeof body.from_draft === "number" && Number.isInteger(body.from_draft))
 		db.run("DELETE FROM announcements WHERE id = ? AND draft = 1", [body.from_draft]);
 

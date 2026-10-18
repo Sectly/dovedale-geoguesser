@@ -73,7 +73,6 @@ adminSubmissionRoutes.get("/", (c) => {
 
 adminSubmissionRoutes.get("/history", (c) => {
 	const staff = requireStaff(c, "helper");
-	/** A helper sees their own reviews; what the rest of the team decided is for staff. */
 	const mine = isFullStaff(staff) ? "" : `AND s.reviewed_by = ${staff.id}`;
 	return c.json(
 		db
@@ -116,7 +115,6 @@ adminSubmissionRoutes.post("/:id/approve", async (c) => {
 		`**Submission #${id} approved** by **${displayName(staff)}** - "${label}"${sub.username ? ` (originally by ${sub.username})` : ""}`,
 		"/admin#submissions"
 	);
-	/** Said in the same message, so a first approval does not arrive as two notifications. */
 	const earned = award(sub.submitted_by, "contributor", { quiet: true });
 	notifyUser(sub.submitted_by, "submissions", {
 		title: "Your location was approved",
@@ -137,7 +135,6 @@ adminSubmissionRoutes.post("/:id/deny", async (c) => {
 	const id = idParam(c);
 	const body = await readJson<{ reason: string }>(c);
 	const sub = pendingSubmission(id);
-	/** The player is shown this, so a denial always says why. */
 	const reason = requireReason(body.reason, "A reason for denying");
 
 	db.run(

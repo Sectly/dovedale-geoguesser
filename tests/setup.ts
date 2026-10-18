@@ -12,6 +12,5 @@ process.env.OPERATOR_IDS = "";
 process.env.MODERATOR_IDS = "";
 delete process.env.DISCORD_WEBHOOK_URL;
 
-/** Pages reference the compiled stylesheet, so make sure it has been built. */
 const { ensureStyles } = await import("../src/styles");
 await ensureStyles();

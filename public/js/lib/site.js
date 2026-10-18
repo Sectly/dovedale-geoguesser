@@ -23,11 +23,9 @@ import { showToast } from "./toast.js";
 	window.addEventListener("unhandledrejection", (e) => tell(/https?:\/\/[^\s)]+/.exec(e.reason?.stack || "")?.[0]));
 })();
 
-/** Browser details for logged-in users, used to flag possible ban evasion. */
 whenIdle(async function fingerprint() {
 	const user = await fetchUser();
 	if (!user) return;
-	/** Once a day per account in this browser is enough to link accounts. */
 	const sentKey = `fp_sent:${user.id}`;
 	const today = new Date().toISOString().slice(0, 10);
 	try {

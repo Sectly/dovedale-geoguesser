@@ -94,7 +94,6 @@ describe("tournaments", () => {
 		expect(t.status).toBe("live");
 		expect(t.rounds.map((r: any) => r.name)).toEqual(["Quarter-finals", "Semi-finals", "Final"]);
 		const first = t.rounds[0].matches;
-		/** Seeds 1 to 3 have nobody opposite; seeds 4 and 5 play. */
 		expect(first.filter((m: any) => m.closed.some(Boolean))).toHaveLength(3);
 		expect(first[0].players[0]).toBe(players[0].id);
 		expect(t.phase.kind).toBe("break");
@@ -402,7 +401,6 @@ describe("tournaments", () => {
 		const first = (await post(`/api/admin/tournaments/${id}/invite`, mod, { on: true })).data.invite_code;
 		expect(first).toMatch(/^[A-Z0-9]{6}$/);
 		const joiner = createUser();
-		/** Not open yet. */
 		expect((await post(`/api/tournaments/${id}/join`, joiner, { code: first })).status).toBe(409);
 		await post(`/api/admin/tournaments/${id}/open`, staff);
 
@@ -444,9 +442,11 @@ describe("tournaments", () => {
 		expect(page).toContain("<title>Game night | Dovedale GeoGuesser</title>");
 		expect(page).toContain("Check-in is open. 2 players so far.");
 		expect(page).toContain(`og.png?type=tournament&amp;id=${id}`);
-		const invitePage = (await call(`/tournament/${id}?invite=ABC123`)).data as string;
+		expect((await call(`/tournament/${id}?invite=ABC123`)).data).not.toContain("Join Game night");
+		const code = (await post(`/api/admin/tournaments/${id}/invite`, staff, { on: true })).data.invite_code;
+		const invitePage = (await call(`/tournament/${id}?invite=${code}`)).data as string;
 		expect(invitePage).toContain("Join Game night");
-		expect(invitePage).not.toContain("ABC123");
+		expect(invitePage).toContain("type=tournament&amp;id=" + id + "&amp;invite");
 
 		const image = await app.fetch(new Request(`http://localhost/og.png?type=tournament&id=${id}`));
 		expect(image.status).toBe(200);
@@ -461,7 +461,6 @@ describe("tournaments", () => {
 
 		const first = t.rounds[0].matches;
 		const byId = (uid: number) => players.find((p) => p.id === uid)!;
-		/** Six matches ready up; two don't. */
 		for (const m of first.slice(0, 6))
 			for (const p of m.players) await post(`/api/tournaments/${id}/ready`, byId(p));
 		await post(`/api/admin/tournaments/${id}/control`, staff, { action: "skip" });
@@ -472,7 +471,6 @@ describe("tournaments", () => {
 		expect(round().filter((m: any) => m.status === "live")).toHaveLength(6);
 		expect(round().filter((m: any) => m.hold === "not_ready")).toHaveLength(2);
 
-		/** A held match starts by itself once both players are ready, or when staff start it. */
 		const [late, forced] = round().filter((m: any) => m.hold);
 		for (const p of late.players) await post(`/api/tournaments/${id}/ready`, byId(p));
 		expect((await post(`/api/admin/tournaments/${id}/matches/${forced.id}/start`, staff)).status).toBe(200);
@@ -483,7 +481,6 @@ describe("tournaments", () => {
 			late.id
 		);
 
-		/** The round ends when every match in it is over; the quarter-finals are one at a time. */
 		for (const m of round()) abandonDuel(seatBoth(m.code), m.players[0]);
 		t = await view(id);
 		expect(t.phase.kind).toBe("break");

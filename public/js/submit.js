@@ -253,7 +253,6 @@ async function showSuggestGateOrPick() {
 		el("suggest-locked").style.display = "flex";
 		return;
 	}
-	/** The policy has to be accepted on the account; the 24-hour reminder is on top of that. */
 	if (!_eligibility.agreed) _policyAgreed = false;
 	if (_policyAgreed) {
 		el("suggest-policy-gate").style.display = "none";
@@ -400,7 +399,7 @@ function updateLabelHint() {
 		hint.textContent = `Required · ${labelMin()}-${labelMax()} characters. Describe where the photo was taken.`;
 	} else if (len < labelMin()) {
 		hint.className = "text-red-400 text-xs mt-1";
-		hint.textContent = `Label is too short - ${labelMin() - len} more character${labelMin() - len === 1 ? "" : "s"} needed.`;
+		hint.textContent = `Label is too short. ${labelMin() - len} more character${labelMin() - len === 1 ? "" : "s"} needed.`;
 	} else {
 		hint.className = "text-zinc-600 text-xs mt-1";
 		hint.textContent = `${len}/${labelMax()} characters`;

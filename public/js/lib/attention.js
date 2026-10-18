@@ -58,13 +58,11 @@ function announceNotification(latest, user) {
 		localStorage.setItem(LAST_ANNOUNCED_KEY, String(Math.max(lastSeen, latest.id)));
 	} catch {}
 	if (latest.id <= lastSeen) return;
-	/** An achievement announces itself with its own animation, not a plain toast. */
 	if (latest.category === "achievements") return void checkAchievements();
 
 	Sounds.play("notify");
 	if (user.prefs?.toasts !== false)
 		showToast(latest.title, "info", { href: latest.link || "/settings#notifications" });
-	/** With push set up the service worker shows the desktop notification; otherwise do it from here. */
 	let pushed = false;
 	try {
 		pushed = localStorage.getItem(PUSH_ON_KEY) === "1";
@@ -97,7 +95,6 @@ function announceStaffQueue(staff, user) {
 		seen = JSON.parse(localStorage.getItem(STAFF_QUEUE_SEEN_KEY) || "null");
 		localStorage.setItem(STAFF_QUEUE_SEEN_KEY, JSON.stringify(staff));
 	} catch {}
-	/** On the staff panel itself the sidebar counts already say it. */
 	if (location.pathname === "/admin") return;
 
 	const fresh = STAFF_QUEUES.map(([key, noun, href]) => ({

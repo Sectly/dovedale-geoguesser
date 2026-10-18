@@ -5,8 +5,6 @@ import { bindPanelSearch, currentTab, currentUser, panelSearchInput, ROLE_RANK_J
 import { askReason, assignableRoles, ROLE_BADGE, ROLE_NAMES, roleName } from "./users.js";
 import { refreshUsers, setUserRole } from "./user-panel.js";
 
-/** The Staff tab: who holds which role, adding staff and locking them out. */
-
 const ROLE_INFO = {
 	helper: {
 		summary: "A player trusted with the review queues. Not counted as staff.",
@@ -114,7 +112,6 @@ function renderStaff(staff) {
                 ${members
 					.map((u) => {
 						const targetRank = ROLE_RANK_JS[u.role] ?? 0;
-						/** Anyone ranked below you can be locked out; changing roles takes a supervisor. */
 						const canChange = u.id !== currentUser.id && targetRank < myRank;
 						const roleButtons = canChange
 							? [
@@ -168,7 +165,6 @@ function renderStaff(staff) {
                 ${assignableRoles(myRole)
 					.map(
 						(role, i, all) =>
-							/** The lowest role is preselected: the safe default. */
 							`<option value="${role}" ${i === all.length - 1 ? "selected" : ""}>${ROLE_NAMES[role]}</option>`
 					)
 					.join("")}

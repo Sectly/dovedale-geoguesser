@@ -119,7 +119,6 @@ async function generateTile(tileKey: string, manifest: Record<string, string>, f
 		}
 		await Bun.sleep(PAUSE_MS);
 	}
-	/** The whole-column files of the sharper sizes are no longer used. */
 	for (const variant of SQUARE_VARIANTS)
 		for (const f of FORMATS) await unlink(join(GENERATED_DIR, `${tileKey}-${variant.name}.${f}`)).catch(() => {});
 
@@ -143,7 +142,6 @@ export async function generateTileVariants({ force = false, log = false } = {}) 
 				const tileKey = `row-${row}-column-${column}`;
 				if (!(await generateTile(tileKey, manifest, force))) continue;
 				made++;
-				/** Saved after every tile, so an interrupted run carries on where it stopped. */
 				await Bun.write(MANIFEST_PATH, JSON.stringify(manifest, null, 2));
 				if (log) console.log(`  ${tileKey} done`);
 			}

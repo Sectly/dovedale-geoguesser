@@ -1,8 +1,6 @@
 import { db } from "../../db";
 import { GAME } from "../../config";
 
-/** Duel ratings: Elo, Quick Play only. Each change is stored with the game so voiding can undo it. */
-
 export type RatingChange = { user_id: number; rating: number; change: number };
 
 export type Rated = { id: number; duel_rating: number | null; duel_rated_games: number | null };

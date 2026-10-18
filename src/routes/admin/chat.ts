@@ -148,7 +148,6 @@ adminChatRoutes.post("/", async (c) => {
 			body,
 		]).lastInsertRowid
 	);
-	/** Their own message is not news to them. */
 	db.run("UPDATE users SET staff_chat_read = ? WHERE id = ?", [id, staff.id]);
 	tellStaff(staff);
 	return c.json({ id });

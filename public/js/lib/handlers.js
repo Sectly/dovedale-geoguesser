@@ -134,7 +134,6 @@ function run(type, element, event) {
 		}
 	} catch (err) {
 		console.error(`[handlers] data-on-${type} failed:`, err);
-		/** Reported like any other script error on the page. */
 		setTimeout(() => {
 			throw err;
 		});
@@ -151,7 +150,6 @@ for (const type of typeof document === "undefined" ? [] : EVENTS) {
 				if (event.target.hasAttribute(attr)) run(type, event.target, event);
 				return;
 			}
-			/** Innermost first, as inline handlers would run, until one stops the event going further. */
 			let stopped = false;
 			const stop = event.stopPropagation;
 			event.stopPropagation = function () {

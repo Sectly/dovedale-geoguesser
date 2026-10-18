@@ -44,8 +44,6 @@ function recentIds(sql: string): Set<number> {
 	);
 }
 
-/* ---- Difficulty: graded from how players actually do on each location ---- */
-
 export const DIFFICULTIES = ["easy", "medium", "hard"] as const;
 export type Difficulty = (typeof DIFFICULTIES)[number];
 

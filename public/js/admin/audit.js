@@ -378,7 +378,6 @@ function auditEntryHtml(e, compact = false) {
 function renderAudit({ rows, total, offset }, reset) {
 	const container = el("tab-content");
 	if (reset) {
-		/** Redrawing replaces the search box, so remember that it was being typed in. */
 		const typing = document.activeElement?.id === "audit-search" ? document.activeElement.selectionStart : null;
 		expandedAuditGroupId = null;
 		const cat = AUDIT_CATEGORIES.find((c) => c.key === auditCategory);

@@ -174,10 +174,8 @@ function viewImage(src) {
 			<button class="m-icon-btn" aria-label="Close" data-close><span class="material-symbols-outlined">close</span></button>
 		</div>
 		<p class="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-zinc-400 bg-black/60 rounded-full px-3 py-1 pointer-events-none">Hover to magnify, as players can. Scroll to change the zoom.</p>`;
-	/** The same magnifier players get in a round, so staff see what they will see. */
 	setupPhotoLens(box.querySelector("img"));
 	box.addEventListener("click", (e) => (e.target === box || e.target.closest("[data-close]")) && box.remove());
-	/** Keys pressed here must not reach the review shortcuts underneath. */
 	box.addEventListener("keydown", (e) => {
 		e.stopPropagation();
 		if (e.key === "Escape") box.remove();
@@ -185,8 +183,6 @@ function viewImage(src) {
 	document.body.appendChild(box);
 	box.focus();
 }
-
-/* ---- Claims: who else has an item open ---- */
 
 const CLAIM_REFRESH_MS = 20_000;
 let _claims = [];
@@ -224,7 +220,6 @@ export function claimChanged() {
 	else paintClaims();
 }
 
-/** Renews this member of staff's own claim, which lapses without it. */
 setInterval(() => {
 	if (
 		!document.hidden &&
@@ -368,7 +363,6 @@ export async function init() {
 
 	el("deny-rules").innerHTML = ruleChipsHtml("U");
 	bindRuleChips(el("deny-rules"), el("deny-reason"));
-	/** A denial has to say why: the button stays off until there is a reason to send. */
 	el("deny-reason").addEventListener("input", () => {
 		const left = DENY_REASON_MIN - el("deny-reason").value.trim().length;
 		el("deny-confirm").disabled = left > 0;
@@ -408,7 +402,6 @@ function renderQueueCounts(queue) {
 }
 
 function handleHashNav() {
-	/** Old links still work: "#support" was the tickets tab, and "#games" is now part of the audit log. */
 	const hash = location.hash
 		.replace("#", "")
 		.replace(/^support/, "tickets")
@@ -426,7 +419,6 @@ export function switchTab(tab, fromHash = false, autoOpenId = null) {
 		location.hash = tab;
 		return;
 	}
-	/** A link or an old bookmark to a tab this role cannot open lands on the first one it can. */
 	if (!canOpenTab(tab)) tab = "overview";
 	currentTab = tab;
 	if (!fromHash) location.hash = tab;

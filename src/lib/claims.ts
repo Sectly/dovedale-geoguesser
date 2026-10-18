@@ -1,8 +1,6 @@
 import type { User } from "../db";
 import { displayName } from "./webhook";
 
-/** Who has what open in the staff panel. In memory: a courtesy marker, never a lock. */
-
 export const CLAIM_KINDS = ["submission", "ticket"] as const;
 export type ClaimKind = (typeof CLAIM_KINDS)[number];
 export type Claim = { kind: ClaimKind; id: number; staff_id: number; name: string; at: number };

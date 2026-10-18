@@ -6,8 +6,6 @@ import { atLeast, currentTab, reviewHeader, showConfirm, showPrompt } from "./co
 import { formatWhen } from "./users.js";
 import { staffChatSlot, stopStaffChat, wordFilterHtml } from "./tournament-chat.js";
 
-/** Setting up a tournament, its list of players, and the controls on the night. */
-
 let _tournamentId = null;
 let _tournament = null;
 let _editing = false;
@@ -327,7 +325,6 @@ const nameOf = (t, id) => {
 function renderTournament() {
 	const t = _tournament;
 	if (!t || currentTab !== "tournaments") return;
-	/** Supervisors only; the server checks too. */
 	const senior = atLeast("supervisor");
 	const del = senior
 		? `<button data-on-click="deleteTournament()" class="m-btn m-btn-text danger">Delete</button>`
@@ -535,7 +532,6 @@ function liveHtml(t) {
 						? `Playing: ${vs(current)}`
 						: (PHASE_TEXT[phase.kind] ?? phase.kind);
 
-	/** The match up next, or held matches in a round played at once. */
 	const waiting = matches.filter(
 		(m) =>
 			m.status === "waiting" &&
@@ -698,7 +694,6 @@ let _lastPoll = 0;
 
 function tickClock() {
 	if (currentTab !== "tournaments") return clearInterval(_clock);
-	/** Without the live stream, check every few seconds. */
 	if (
 		!live.connected &&
 		["announced", "open", "live"].includes(_tournament?.status) &&
@@ -745,7 +740,6 @@ const tournamentAction = (name) =>
 const tournamentControl = (action) => act("/control", { json: { action } });
 
 async function startTournament() {
-	/** Players check in up to the last moment, so count them now. */
 	try {
 		_tournament = await api(`/api/admin/tournaments/${_tournamentId}`);
 		renderTournament();

@@ -229,8 +229,6 @@ adminTournamentRoutes.post("/:id/cancel", (c) => {
 	return ok(c, id);
 });
 
-/* ---- Chat ---- */
-
 /** Other staff with the chat card open see each change. */
 adminTournamentRoutes.use("/:id/chat/*", async (c, next) => {
 	await next();

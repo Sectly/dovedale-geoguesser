@@ -1,5 +1,3 @@
-/** Memory Match (Specials): pairs of screenshots. The best game is kept on this device. */
-
 import "./lib/site.js";
 import { Sounds } from "./sounds.js";
 import { el, escHtml } from "./lib/dom.js";

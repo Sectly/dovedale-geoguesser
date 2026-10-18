@@ -4,8 +4,6 @@ import { HttpError } from "../lib/http";
 import { liveSpecial } from "../specials";
 import { onTeamRoomChanged, setTeamPresence, teamRoomStateFor } from "./teams";
 
-/** Team Duels socket: actions stay on the REST routes, and each page is sent its room's state whenever it changes. */
-
 type WireAuth = { userId: number | null };
 
 type Watcher = { code: string; userId: number; here: boolean };
@@ -57,7 +55,6 @@ teamWireServer.on("connection", (conn: WireConnection) => {
 		sendState(conn, watcher);
 	});
 
-	/** The page was hidden or shown again; a hidden page does not keep its player from being away. */
 	conn.on("team_here", (data: unknown) => {
 		const watcher = watchers.get(conn);
 		const here = (data as { here?: unknown } | null)?.here === true;

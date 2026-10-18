@@ -1,11 +1,7 @@
-/** Site tooltips: title (taken over), data-tip, TOOLTIPS by selector, or aria-label on icon-only controls. */
-
 /** What each control says: a string, or [text, shortcut]. Say what it does, not what it is called. */
 const TOOLTIPS = {
-	/* ---- Site header ---- */
 	"#site-nav-toggle": "Menu",
 
-	/* ---- A round, in any mode ---- */
 	"#zoom-in": ["Zoom in", "+"],
 	"#zoom-out": ["Zoom out", "-"],
 	"#guess-btn": ["Lock in your pin", "Space"],
@@ -17,17 +13,14 @@ const TOOLTIPS = {
 	"#next-btn": ["Carry on", "Enter"],
 	"#result-report-link, #result-rows a[href*='report_location']": "Tell staff something is wrong with this location",
 
-	/* ---- Solo ---- */
 	"#start-btn": ["Start the game", "Enter"],
 	".time-pill[data-val='0']": "No time limit",
 	".difficulty-pill[data-val='0']": "Any location, and the game counts for the leaderboard",
 	"#replay-btn": ["See every round on the map", "R"],
 	"#replay-back-btn": "Back to your results",
 
-	/* ---- Daily ---- */
 	"#result-share-btn, #played-share-btn": "Copy a spoiler-free summary to paste anywhere",
 
-	/* ---- Duels ---- */
 	"#quickplay-btn": ["Ranked: play someone near your rating", "Q"],
 	"#lobby-rating": "Only Quick Play duels change your rating",
 	"#live-duels-btn": ["Watch duels being played right now", "W"],
@@ -51,7 +44,6 @@ const TOOLTIPS = {
 	"#end-replay-again": "Play the rounds back on the map",
 	"#spectate-new-game-btn": "The players started a rematch",
 
-	/* ---- Team duels and other specials ---- */
 	"#team-create": "Make a room and share its code",
 	"#team-join": "Join the room with this code",
 	"#team-start": "Start once both teams have a player",
@@ -60,7 +52,6 @@ const TOOLTIPS = {
 	"#copy-invite": "Copy the invite link",
 	"#memory-new": "Deal a fresh board",
 
-	/* ---- Leaderboard ---- */
 	"#sort-total": "Each player's best single game",
 	"#sort-avg, #dsort-avg": "Average points per round",
 	"#rounds-0": "Games of any length",
@@ -77,10 +68,8 @@ const TOOLTIPS = {
 	"#daysort-time": "Fastest guess first",
 	"#daysort-hints": "Fewest hints first",
 
-	/* ---- Profile ---- */
 	"#share-btn": "Copy a link to this profile",
 
-	/* ---- Submitting a location ---- */
 	"#clear-file": "Remove this screenshot",
 	"#add-hint-btn, #fe-add-hint-btn": "Add a hint players can reveal for a few points",
 	"#pin-toggle-btn": "Switch between dragging the map and placing the pin",
@@ -96,7 +85,6 @@ const Tooltips = (() => {
 	const EDGE = 8;
 
 	const rules = [];
-	/** What the list says for an element, remembered so the selectors are only tried once each. */
 	const listed = new WeakMap();
 	let bubble = null;
 	let current = null;
@@ -116,9 +104,7 @@ const Tooltips = (() => {
 					found = rule;
 					break;
 				}
-			} catch {
-				/** A selector this browser does not understand (:has on an old one) just never matches. */
-			}
+			} catch {}
 		}
 		listed.set(element, found);
 		return found;
@@ -136,7 +122,6 @@ const Tooltips = (() => {
 	}
 
 	function tipFor(element) {
-		/** A title is taken over rather than read, or the browser would show its own tooltip as well. */
 		const title = element.getAttribute("title");
 		if (title) {
 			element.dataset.tip = title;
@@ -187,7 +172,6 @@ const Tooltips = (() => {
 		}
 		bubble.classList.remove("shown");
 		place(element);
-		/** Reading the size makes the browser settle the new position first, so the fade starts from there. */
 		void bubble.offsetWidth;
 		bubble.classList.add("shown");
 	}
@@ -209,7 +193,6 @@ const Tooltips = (() => {
 	}
 
 	document.addEventListener("pointerover", (e) => {
-		/** Touch has no hover; a tooltip there would only appear after the tap that already did the thing. */
 		if (e.pointerType === "touch") return;
 		approach(e.target, HOVER_DELAY_MS);
 	});

@@ -5,8 +5,6 @@ import { isFullStaff } from "./auth/guards";
 import { DAY, nowSec } from "./lib/time";
 import { auditLog } from "./lib/audit";
 
-/** Flags accounts that may belong to a banned player, for staff. Signals: a device cookie, and a browser hash (a hint). */
-
 export type Signal = "device" | "browser";
 
 const DEVICE_COOKIE = "device";
@@ -81,7 +79,6 @@ export function checkForEvasion(userId: number) {
 			)
 			.get(suspect.id, banned.id);
 		if (known) {
-			/** A weak match that has since been seen on the very same device is worth another look. */
 			if (known.signal === "browser" && other.signal === "device")
 				db.run("UPDATE evasion_flags SET signal = 'device', dismissed_at = NULL WHERE id = ?", [known.id]);
 			continue;

@@ -62,7 +62,6 @@ function act(
 	hours: number | null = null
 ): ModerationAction {
 	const action = issueAction(target, type, reason, actor, hours ? nowSec() + Math.floor(hours * HOUR) : null);
-	/** A ban takes effect at once, even in the middle of a duel. */
 	if (type === "ban_perm" || type === "ban_temp") {
 		removeFromDuels(target.id);
 		removeFromTeamRooms(target);
@@ -277,7 +276,6 @@ adminUserRoutes.post("/:id/limit", async (c) => {
 	const type: ActionType = `limit_${body.type}`;
 	const reason = requireReason(body.reason);
 
-	/** Zero hours lifts the limit, which is an overturn like any other. */
 	if (!body.hours || body.hours <= 0) {
 		const active = activeActions(target.id, [type]);
 		if (!active.length) fail(400, "This user has no such limit");
@@ -316,7 +314,6 @@ adminUserRoutes.post("/:id/unban", async (c) => {
 	const reason = requireReason((await readJson<{ reason: string }>(c)).reason);
 	const bans = activeActions(target.id, ["ban_perm", "ban_temp"]);
 	if (!bans.length) fail(400, "This user is not banned");
-	/** Check every ban first so a mix the actor may not lift is left untouched. */
 	for (const ban of bans) {
 		if (!canOverturn(actor, ban))
 			fail(
@@ -339,13 +336,11 @@ adminUserRoutes.post("/:id/role", async (c) => {
 
 	const body = await readJson<{ role: string | null }>(c);
 	const newRole = body.role && body.role !== "none" ? body.role : null;
-	/** Anyone may hand out the roles below their own. Operators come from the server's configuration only. */
 	const assignable = ASSIGNABLE_ROLES.filter((role) => roleRank(role) < roleRank(actor.role));
 	if (newRole !== null && !assignable.includes(newRole)) fail(403, "Insufficient permissions to assign that role");
 	if (OPERATOR_IDS.includes(target.discord_id)) fail(403, "Cannot change env-protected operator");
 	if (roleRank(target.role) >= roleRank(actor.role)) fail(403, "Cannot change a user with equal or higher rank");
 
-	/** A lock belongs to the role it was placed on; a fresh appointment starts without one. */
 	db.run("UPDATE users SET role = ?, staff_locked = 0, staff_lock_reason = NULL WHERE id = ?", [newRole, target.id]);
 	auditLog(actor, "user_role_change", {
 		targetType: "user",
@@ -357,7 +352,6 @@ adminUserRoutes.post("/:id/role", async (c) => {
 });
 
 adminUserRoutes.post("/:id/staff-lock", async (c) => {
-	/** Anyone from moderator up may do this to staff ranked below them: a moderator to helpers only. */
 	const actor = requireStaff(c, "moderator");
 	const target = moderationTarget(c, actor);
 	if (!target.role) fail(400, "This user is not a member of staff");

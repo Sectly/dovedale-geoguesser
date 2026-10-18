@@ -10,8 +10,6 @@ import { pickLocations, type Difficulty } from "./locations";
 import { Round, SOLO_RULES, outcomeJson, recordOutcome, type Guess, type RoundOutcome, type RoundRules } from "./round";
 import { recordPlay, type Streak } from "./streaks";
 
-/** Solo games live in memory and are scored on the server, so the answer never reaches the browser first. */
-
 type SoloGame = {
 	id: string;
 	userId: number | null;
@@ -137,7 +135,6 @@ export function submitSoloGuess(id: string, userId: number | null, guess: Guess 
 	const outcome = round.score(guess);
 	game.outcomes.push(outcome);
 	game.round = null;
-	/** Specials change the picture or the clock, so they say nothing fair about a location or a player. */
 	if (!game.special) {
 		recordOutcome(round.location, outcome);
 		checkRound(game.userId, outcome, round.rules.timeLimit);
@@ -162,8 +159,6 @@ export function nextSoloRound(id: string, userId: number | null) {
 	beginRound(game);
 	return { round: roundJson(game) };
 }
-
-/* ---- Carrying games across a restart ---- */
 
 const SNAPSHOT_FILE = join(DATA_DIR, "solo-games.json");
 
@@ -206,7 +201,6 @@ export function restoreSoloGames(): number {
 	for (const { locationIds, round, ...game } of saved) {
 		if (now - game.touchedAt > IDLE_TTL_MS) continue;
 		const locations = locationIds.map((id) => findLocation.get(id));
-		/** A location removed in the meantime cannot be played; the game is dropped. */
 		if (locations.some((l) => !l)) continue;
 		const restoredGame: SoloGame = { ...game, locations: locations as Location[], round: null, touchedAt: now };
 		if (round) {

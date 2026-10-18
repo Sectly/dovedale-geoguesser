@@ -61,7 +61,6 @@ app.use("*", async (c, next) => {
 	c.header("X-Frame-Options", "DENY");
 	c.header("Referrer-Policy", "strict-origin-when-cross-origin");
 	c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
-	/** No inline scripts but the import map; pages' handlers are read by public/js/lib/handlers.js. */
 	const isPage = c.res.headers.get("Content-Type")?.startsWith("text/html");
 	c.header(
 		"Content-Security-Policy",
@@ -70,7 +69,6 @@ app.use("*", async (c, next) => {
 			"connect-src 'self' ws: wss:; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 	);
 	if (SECURE_COOKIES) c.header("Strict-Transport-Security", "max-age=31536000");
-	/** Prefetches a page when its link is hovered, without an inline script. */
 	if (isPage) c.header("Speculation-Rules", '"/speculation-rules.json"');
 });
 
@@ -85,7 +83,6 @@ app.use("*", async (c, next) => {
 app.use("/api/*", async (c, next) => {
 	if (restartIn() === null) {
 		await next();
-		/** Just back from a restart: say so, for anyone who reloaded while it was happening. */
 		const restarted = justRestarted();
 		if (restarted !== null) c.header("X-Restarted", String(restarted));
 		return;
@@ -96,7 +93,6 @@ app.use("/api/*", async (c, next) => {
 		return c.text("The server is about to restart for an update. Try again in a minute.", 503);
 	}
 	await next();
-	/** Asked again here: the request may be the very one that called the restart off. */
 	const seconds = restartIn();
 	if (seconds !== null) c.header("X-Restart-In", String(seconds));
 });
@@ -175,11 +171,9 @@ const REFUSAL_TITLES: Record<number, string> = {
 };
 
 export const handleError: ErrorHandler = (err, c) => {
-	/** Login and logout live under /api but are opened as pages, so they get the page too. */
 	const asPage = wantsPage(c) || (c.req.method === "GET" && c.req.path.startsWith("/api/auth/"));
 	if (err instanceof HttpError) {
 		if (!asPage) return c.text(err.message, err.status);
-		/** Login and logout count as pages but live under /api, where notFound answers in JSON. */
 		if (err.status === 404) return c.req.path.startsWith("/api/") ? c.text(err.message, 404) : notFound(c);
 		return errorPage(c, {
 			status: err.status,
@@ -187,7 +181,6 @@ export const handleError: ErrorHandler = (err, c) => {
 			message: err.message,
 		});
 	}
-	/** A short id ties what the player saw to the line in the log. */
 	const ref = randomBytes(4).toString("hex");
 	console.error(`[server] ${c.req.method} ${c.req.path} failed (ref ${ref}):`, err);
 	reportProblem(`Server error on ${c.req.method} ${c.req.path}`, err, ref);

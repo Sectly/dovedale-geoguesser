@@ -26,7 +26,6 @@ export async function loadDuels() {
 	try {
 		[stats, _openDuels] = await Promise.all([
 			api("/api/admin/duels/stats"),
-			/** Who is in which room, private ones included, is for administrators and up. */
 			atLeast("admin") ? api("/api/admin/duels/live") : [],
 			fetchDuels(0),
 		]);

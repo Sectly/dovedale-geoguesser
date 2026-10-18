@@ -1,7 +1,3 @@
-/**
- * Team Duels (Specials): two teams of up to two. Actions go over REST; the room's state arrives on a socket whenever it changes.
- */
-
 import { WebWire } from "/webwire-client.js";
 import "./lib/site.js";
 import { Sounds } from "./sounds.js";
@@ -73,15 +69,12 @@ function connect() {
 	closeWire();
 	const w = new WebWire("/api/teams/wire", { reconnect: { initialDelay: 500, maxDelay: 3000 } });
 	wire = w;
-	/** Events from a connection already replaced must not touch the page. */
 	const on = (event, fn) => w.on(event, (data) => w === wire && fn(data || {}));
-	/** WebWire reconnects by itself; each time the page asks for its room again. */
 	on("connect", () => w.emit("team_watch", { room: roomCode, here: !document.hidden }));
 	on("team_state", (state) => {
 		room = state;
 		render();
 	});
-	/** The room is gone (closed, or the server restarted): back to the start. */
 	on("team_closed", (data) => leaveLocally(data.message));
 	w.connect().catch(() => {});
 }
@@ -110,8 +103,6 @@ function leaveLocally(message = "") {
 	show("teams-entry");
 	entryError(message);
 }
-
-/* ---- Lobby ---- */
 
 function memberRow(m) {
 	return `<div class="flex items-center gap-2.5 py-1.5 ${m.away ? "opacity-50" : ""}">
@@ -146,7 +137,6 @@ function renderLobby() {
 	show("room-rounds-host", isHost);
 	show("room-rounds-text", !isHost);
 	el("room-rounds-text").textContent = `${room.rounds} rounds`;
-	/** Left alone while the host has it open, so an update does not undo their choice mid-click. */
 	if (document.activeElement !== el("room-rounds")) el("room-rounds").value = room.rounds;
 	el("room-hint").textContent = !bothTeams
 		? "Share the code or invite link. Each team needs at least one player."
@@ -156,8 +146,6 @@ function renderLobby() {
 				: "Everyone is here. Start when you are ready."
 			: "Waiting for the host to start.";
 }
-
-/* ---- Rounds ---- */
 
 function renderScorebar() {
 	el("team-scorebar").innerHTML = ["a", "b"]
@@ -340,7 +328,6 @@ function render() {
 		if (changed) startRoundOnScreen();
 		tickCountdown();
 	} else if (room.phase === "guessing") {
-		/** Joined or reloaded mid-round: put the round up first. */
 		if (changed && (was.phase !== "ready" || was.round !== room.round_number)) startRoundOnScreen();
 		if (changed) {
 			view.go(room.round);
@@ -367,7 +354,6 @@ async function submitGuess(pin) {
 	try {
 		await teamApi("/guess", pin ?? {});
 	} catch (err) {
-		/** 409 means the round moved on without us, which the next update will show. */
 		if (err.status !== 409) showToast(err.message, "error");
 	}
 }
@@ -378,7 +364,6 @@ async function init() {
 
 	view = new RoundView({ onGuess: submitGuess });
 	bindEmoteBar((emote) => roomCode && teamApi("/emote", { emote }).catch(() => {}));
-	/** Tell the server where the pin is as it moves, so a teammate can see it. */
 	const placed = view.map.onPinPlaced;
 	view.map.onPinPlaced = (x, y) => {
 		placed(x, y);
@@ -417,7 +402,6 @@ async function init() {
 		await teamApi("/rounds", { rounds: Number(e.target.value) }).catch((err) => showToast(err.message, "error"));
 		e.target.blur();
 	});
-	/** Closing the page outside a game gives up the seat, so nobody waits on a host or a player who has gone. */
 	addEventListener("pagehide", () => {
 		if (!roomCode || room?.status === "playing") return;
 		fetch(`/api/teams/rooms/${roomCode}/leave`, { method: "POST", keepalive: true }).catch(() => {});
@@ -433,7 +417,6 @@ async function init() {
 		const copied = await copyText(`${location.origin}/specials/teams?room=${roomCode}`);
 		showToast(copied ? "Invite link copied" : "Couldn't copy the link", copied ? "success" : "error");
 	});
-	/** A hidden page does not count as being here, so the others are not kept waiting. */
 	document.addEventListener("visibilitychange", () => emit("team_here", { here: !document.hidden }));
 
 	const invited = new URLSearchParams(location.search).get("room");

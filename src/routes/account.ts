@@ -29,8 +29,6 @@ accountRoutes.post("/settings", async (c) => {
 	return c.json({ success: true, prefs: publicPreferences(user) });
 });
 
-/* ---- Emailed notification summaries ---- */
-
 accountRoutes.post("/settings/email", async (c) => {
 	const user = requireUser(c);
 	if (!checkUserRateLimit(user, "email-confirm", 3, DAY * 1000))
@@ -201,7 +199,6 @@ export async function deleteUserAccount(userId: number) {
 		)
 		.all(userId, userId);
 
-	/** With a moderation history, a one-way hash of the Discord id stays so it follows a returning player. */
 	const account = db
 		.query<{ discord_id: string; username: string }, [number]>(
 			"SELECT discord_id, username FROM users WHERE id = ?"
@@ -209,7 +206,6 @@ export async function deleteUserAccount(userId: number) {
 		.get(userId);
 	const hasHistory = !!db.query("SELECT 1 FROM moderation_actions WHERE user_id = ? LIMIT 1").get(userId);
 
-	/** A game still open would otherwise write a fresh score to the account just after it was emptied. */
 	const player = db.query<User, [number]>("SELECT * FROM users WHERE id = ?").get(userId);
 	removeFromDuels(userId);
 	if (player) removeFromTeamRooms(player);
@@ -247,10 +243,8 @@ export async function deleteUserAccount(userId: number) {
 		]) {
 			db.run(`DELETE FROM ${table} WHERE user_id = ?`, [userId]);
 		}
-		/** Flags are kept under the suspected account; the ones naming this account as the banned match go too. */
 		db.run("DELETE FROM evasion_flags WHERE matched_user_id = ?", [userId]);
 		db.run("DELETE FROM submissions WHERE submitted_by = ? AND status != 'approved'", [userId]);
-		/** Their name was copied into a few records about other things; blank it there too. */
 		db.run("UPDATE audit_log SET actor_username = '[deleted]' WHERE actor_id = ?", [userId]);
 		db.run("UPDATE audit_log SET target_username = '[deleted]' WHERE target_type = 'user' AND target_id = ?", [
 			userId,
@@ -259,7 +253,6 @@ export async function deleteUserAccount(userId: number) {
 		db.run("UPDATE moderation_actions SET issued_by_username = '[deleted]' WHERE issued_by = ?", [userId]);
 		db.run("UPDATE moderation_actions SET revoked_by_username = '[deleted]' WHERE revoked_by = ?", [userId]);
 		db.run("UPDATE announcements SET created_by = '[deleted]' WHERE created_by_id = ?", [userId]);
-		/** Messages sent to them alone are about them, so they go. */
 		db.run("DELETE FROM announcements WHERE target_user_id = ?", [userId]);
 		db.run("UPDATE staff_notes SET author_username = '[deleted]' WHERE author_id = ?", [userId]);
 		db.run("UPDATE staff_chat SET author_username = '[deleted]' WHERE author_id = ?", [userId]);

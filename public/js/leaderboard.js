@@ -30,7 +30,6 @@ function moveTabPill(slide = true) {
 	const pill = el("tab-pill");
 	const track = tab.parentElement.clientWidth;
 	pill.style.transition = slide ? "" : "none";
-	/** As shares of the track, so it stays on its tab when the page width changes. */
 	pill.style.left = `${(tab.offsetLeft / track) * 100}%`;
 	pill.style.width = `${(tab.offsetWidth / track) * 100}%`;
 }
@@ -190,13 +189,9 @@ function leaderboardUrl(tab, offset) {
 }
 
 async function fetchPage(tab, offset) {
-	/**
-	 * A request that never arrives throws the browser's own wording ("Failed to fetch"), which is not for players.
-	 */
 	const r = await fetch(leaderboardUrl(tab, offset)).catch(() => {
 		throw new Error("Can't reach the server. Check your connection and try again.");
 	});
-	/** A rate-limit answer carries a message written for the player. */
 	if (r.status === 429) throw new Error(await r.text());
 	if (!r.ok) throw new Error();
 	const rows = await r.json();
@@ -237,7 +232,6 @@ async function loadMore() {
 			"beforeend",
 			page.rows.map((e, i) => entryHtml(tab, e, from + i)).join("")
 		);
-		/** Capped, so a long page does not keep its last rows waiting. */
 		[...el("leaderboard-content").children]
 			.slice(from)
 			.forEach((row, i) => (row.style.animationDelay = `${Math.min(i, 12) * 25}ms`));

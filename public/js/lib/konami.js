@@ -54,7 +54,6 @@ let touchStart = null;
 document.addEventListener(
 	"touchstart",
 	(e) => {
-		/** The map takes its own swipes. */
 		touchStart = e.touches.length === 1 && !e.target.closest?.("canvas") ? e.touches[0] : null;
 	},
 	{ passive: true }

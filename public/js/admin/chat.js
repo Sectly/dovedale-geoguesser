@@ -94,8 +94,6 @@ function chatMessageHtml(m, previous) {
 	</div>`;
 }
 
-/* ---- Pinned messages ---- */
-
 function chatPinRowHtml(m) {
 	const inRoom = _chatRoom.messages.some((shown) => shown.id === m.id);
 	return `<div class="bg-zinc-800/60 rounded-xl px-3 py-2" data-search="${escHtml(`${chatName(m)} ${m.body} ${m.pinned_by_username || ""}`)}">
@@ -176,8 +174,6 @@ async function pinChatMessage(id, pinned) {
 	refreshChat();
 }
 
-/* ---- The room ---- */
-
 async function refreshChat(toBottom = false) {
 	let room;
 	try {
@@ -199,7 +195,6 @@ async function refreshChat(toBottom = false) {
 				? room.messages.map((m, i) => chatMessageHtml(m, room.messages[i - 1])).join("")
 				: '<p class="text-zinc-500 text-sm text-center py-16">No messages yet.</p>';
 		});
-		/** Left alone while someone is typing in its search box. */
 		if (document.activeElement?.id !== "chat-pin-search") renderChatPins();
 	}
 	if (toBottom) list.scrollTop = list.scrollHeight;
@@ -209,7 +204,6 @@ function setChatEmotes(list) {
 	const offered = Array.isArray(list) ? list.filter((name) => /^[a-z0-9_]+$/.test(name)) : [];
 	if (offered.join() === _chatEmotes.join()) return;
 	_chatEmotes = offered;
-	/** Messages drawn before the list was known show their reactions as text, so draw them again. */
 	_chatShown = "";
 	show("chat-emote-toggle", offered.length > 0);
 	el("chat-emotes").innerHTML = offered

@@ -41,7 +41,6 @@ function renderSiteNav() {
 	const here = location.pathname;
 	const link = ([href, label, icon], mobile) => {
 		const active = here === href || (href === "/duels" && here.startsWith("/duel/"));
-		/** On desktop the highlight is its own layer, so it can slide between sections (shared.css). */
 		const tone = !active
 			? "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60"
 			: mobile
@@ -135,10 +134,8 @@ for (const area of document.querySelectorAll("[data-auth-area]")) {
 }
 fetchUser().then((user) => {
 	renderAuthAreas(user);
-	/** For everyone, logged in or not: it also stands in for the site while the server restarts. */
 	whenIdle(registerServiceWorker);
 	if (!user) return;
-	/** The account's sound preference wins over whatever this browser remembered. */
 	if (typeof user.prefs?.sounds === "boolean") Sounds.setEnabled(user.prefs.sounds);
 	startAttentionPolling();
 	if (user.unseen_achievements) whenIdle(() => checkAchievements());

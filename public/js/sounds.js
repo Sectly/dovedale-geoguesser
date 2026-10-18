@@ -84,7 +84,6 @@ export const Sounds = (() => {
 			[392, 0.24, 0.3, "triangle", 0.06],
 		],
 		reveal: [[523, 0, 0.07, "triangle", 0.05]],
-		/* Tournaments. */
 		chime: [
 			[784, 0, 0.5, "sine", 0.06],
 			[1175, 0.18, 0.7, "sine", 0.05],

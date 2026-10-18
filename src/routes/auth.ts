@@ -65,7 +65,6 @@ authRoutes.get("/callback", async (c) => {
 
 	const code = c.req.query("code");
 	const state = c.req.query("state");
-	/** Declining on Discord's consent screen lands here; just send the player home. */
 	if (c.req.query("error")) return c.redirect("/");
 	if (!code || !state)
 		return errorPage(c, {
@@ -73,7 +72,6 @@ authRoutes.get("/callback", async (c) => {
 			title: "Login didn't finish",
 			message: "Discord sent you back without the details we need. Please try logging in again.",
 		});
-	/** The login must come back to the browser it started in, and each state works once. */
 	const started = getCookie(c.req.header("Cookie"), "oauth_state");
 	c.header("Set-Cookie", stateCookie(null), { append: true });
 	if (started !== state || !consumeState(state))
@@ -122,7 +120,6 @@ authRoutes.get("/callback", async (c) => {
 
 authRoutes.get("/me", (c) => {
 	const user = currentUser(c);
-	/** Being logged out is a normal answer here, not an error. */
 	if (!user) return c.json(null);
 	return c.json({
 		id: user.id,

@@ -484,7 +484,6 @@ body :focus-visible:not([class*="ring"]) {
 	}
 }
 
-/* ---- Motion ---- */
 @keyframes rise-in {
 	from {
 		opacity: 0;
@@ -674,7 +673,6 @@ a[class*="rounded"] {
 	display: none;
 }
 
-/* ---- Small screens ---- */
 /* Mobile browsers count their toolbars in 100vh; the dynamic unit is what is actually visible. */
 body.h-screen {
 	height: 100dvh;
@@ -760,7 +758,6 @@ body.h-screen {
 	}
 }
 
-/* Page transitions; transitions.js picks the direction. The header is named so it stays put. */
 @view-transition {
 	navigation: auto;
 }
@@ -863,7 +860,6 @@ html:active-view-transition-type(shallower)::view-transition-new(root) {
 ::view-transition-group(site-nav) {
 	animation-duration: 0s;
 }
-/* To or from a page with no header, it fades instead of blinking. */
 ::view-transition-new(site-nav):only-child {
 	animation: vt-out 0.2s ease-out reverse both;
 }
@@ -897,7 +893,6 @@ html:active-view-transition-type(shallower)::view-transition-new(root) {
 	}
 }
 
-/* ---- Documents: terms, privacy, rules ---- */
 .prose h2 {
 	scroll-margin-top: 4rem;
 }
@@ -923,7 +918,6 @@ html:active-view-transition-type(shallower)::view-transition-new(root) {
 .prose p {
 	margin-bottom: 0.6rem;
 }
-/* Numbered rules: staff quote the code, and each can be linked to. */
 .prose ul.rules {
 	list-style: none;
 	padding-left: 0;
@@ -1045,8 +1039,6 @@ a.rule-code:hover {
 	transform: rotate(45deg) scale(1);
 }
 
-/* ---- Native controls, restyled so nothing falls back to the browser's default look ---- */
-
 /* Tells the browser this is a dark site: its own menus, date pickers and scrollbars follow. */
 :root {
 	color-scheme: dark;
@@ -1129,7 +1121,6 @@ textarea {
 	caret-color: #60a5fa;
 }
 
-/* ---- Duel intro and results ---- */
 @keyframes slide-from-left {
 	from {
 		opacity: 0;
@@ -1254,7 +1245,6 @@ textarea {
 	text-align: center;
 }
 
-/* ---- Material components: buttons, chips, status tags, a segmented control and text fields ---- */
 .m-btn {
 	display: inline-flex;
 	align-items: center;
@@ -1548,7 +1538,6 @@ textarea.m-field {
 	background: rgba(255, 255, 255, 0.05);
 }
 
-/* ---- Specials: Signal Reflex ---- */
 .reflex-signal {
 	display: inline-flex;
 	flex-direction: column;
@@ -1579,7 +1568,6 @@ textarea.m-field {
 	background: #4caf50;
 }
 
-/* ---- Specials: screenshot effects (Night Shift, Snowed In) ---- */
 .photo-effect {
 	position: absolute;
 	inset: 0;
@@ -1589,7 +1577,6 @@ textarea.m-field {
 	z-index: 25;
 	pointer-events: none;
 }
-/* ---- Staff chat: reactions written as :name: ---- */
 .material-symbols-outlined.chat-emote {
 	font-size: 1.25rem;
 	vertical-align: -0.25em;
@@ -1635,7 +1622,6 @@ textarea.m-field {
 	white-space: nowrap;
 }
 
-/* ---- Specials: Memory Match ---- */
 .memory-grid {
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1906,7 +1892,7 @@ button.memory-card {
 	}
 }
 
-/* Tooltips (tooltips.js). Above everything; never takes the pointer. */
+/* Above everything; never takes the pointer. */
 .m-tooltip {
 	position: fixed;
 	top: 0;
@@ -1954,7 +1940,7 @@ button.memory-card {
 	}
 }
 
-/* The restart countdown, above dialogs and panels. */
+/* Above dialogs and panels. */
 .restart-banner {
 	position: fixed;
 	top: 4rem;
@@ -1987,7 +1973,6 @@ button.memory-card {
 	}
 }
 
-/* Pinned announcement (lib/announcements.js); hidden during a round. */
 .site-announcement {
 	position: fixed;
 	left: 1rem;
@@ -2072,7 +2057,6 @@ body:has(#game-screen:not(.hidden)) .site-announcement {
 	}
 }
 
-/* ---- Staff panel: the activity chart on the Stats tab ---- */
 .stat-chart {
 	display: flex;
 	align-items: flex-end;
@@ -2125,7 +2109,7 @@ body:has(#game-screen:not(.hidden)) .site-announcement {
 	white-space: nowrap;
 }
 
-/* Title screen (intro.js). Only paints once intro-play is on <html>. */
+/* Only paints once intro-play is on <html>. */
 .intro-splash {
 	display: none;
 }
@@ -2230,7 +2214,6 @@ html.intro-play .intro-splash {
 	transition-duration: 0.25s;
 }
 
-/* The script measures where the mark and title land. */
 html.intro-play:not(.intro-hold) .intro-splash {
 	pointer-events: none;
 }
@@ -2249,11 +2232,9 @@ html.intro-play:not(.intro-hold) .intro-mark-y {
 html.intro-play:not(.intro-hold) .intro-title {
 	transform: translate(var(--dx, 0px), var(--dy, 0px)) scale(var(--s, 1));
 }
-/* Landed: the real mark and title now show underneath, so the copies fade out. */
 html.intro-play:not(.intro-hold):not(.intro-morph) .intro-splash {
 	opacity: 0;
 }
-/* The real ones stay hidden until their copies have landed. */
 html.intro-hold #home-title,
 html.intro-morph #home-title,
 html.intro-hold #season-splash,
@@ -2340,7 +2321,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* ---- Failed loads (errorStateHtml in js/lib/dom.js) ---- */
 .error-state {
 	display: flex;
 	flex-direction: column;
@@ -2387,7 +2367,7 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* ---- Error pages ---- Each keyframe set ends on the element's own style, so reduced motion shows the final state. */
+/* Each keyframe set ends on the element's own style, so reduced motion shows the final state. */
 .err-page {
 	/* How long the scene plays before the page arrives. */
 	--err-wait: 1.6s;
@@ -2437,7 +2417,6 @@ html.intro-hold .stagger > * {
 	animation-fill-mode: backwards;
 }
 
-/* 500 */
 .srv-vent {
 	fill: none;
 	stroke: #52525b;
@@ -2523,7 +2502,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* 400 */
 .doc {
 	animation-name: doc-in;
 }
@@ -2574,7 +2552,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* 403 */
 .lock {
 	transform-origin: 48px 62px;
 	animation-name: lock-deny;
@@ -2624,7 +2601,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* 429 */
 .gauge-track,
 .gauge-red {
 	fill: none;
@@ -2671,7 +2647,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* 503 */
 .err-scene rect.sig-post {
 	fill: #3f3f46;
 	stroke: none;
@@ -2727,7 +2702,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* 404 */
 .err-code-row {
 	display: flex;
 	align-items: center;
@@ -2783,7 +2757,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* ---- The restart screen (restartOverlay in js/lib/restart.js) ---- */
 .restart-overlay {
 	position: fixed;
 	inset: 0;
@@ -2886,7 +2859,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* ---- The card shown when a duel is opened from an invite or spectate link (inviteIntro in duels.js) ---- */
 .invite-intro {
 	position: fixed;
 	inset: 0;
@@ -3019,8 +2991,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* ---- Tournament stage (public/js/tournament.js) ---- */
-
 .stage {
 	position: fixed;
 	inset: 0;
@@ -3063,7 +3033,6 @@ html.intro-hold .stagger > * {
 	animation: pop-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
-/* ---- Tournament lobby: check-in and the wait before the start ---- */
 .lobby-trophy {
 	width: 7rem;
 	height: 7rem;
@@ -3366,7 +3335,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* Bracket cards are placed by tournament.js; the lines are one SVG. */
 .bk {
 	overflow-x: auto;
 	padding-bottom: 0.5rem;
@@ -3524,7 +3492,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* Quick Play search radar (duels.js). */
 .qp-radar {
 	position: relative;
 	width: 13rem;
@@ -3679,7 +3646,6 @@ html.intro-hold .stagger > * {
 	}
 }
 
-/* The Konami code (lib/konami.js). */
 html {
 	transition: filter 0.4s;
 }
@@ -3697,7 +3663,6 @@ html.konami {
 	}
 }
 
-/* Home card icon hovers. */
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
 	a.md-card:is(:hover, :focus-visible) > .material-symbols-outlined:first-child {
 		animation: card-icon-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -3783,7 +3748,6 @@ html.konami {
 	}
 }
 
-/* The tournament card, on the home page and the Specials page. */
 .specials-tournament {
 	background: #2563eb;
 }
@@ -3862,7 +3826,6 @@ html.konami {
 	}
 }
 
-/* Zoom buttons hide while the map moves. */
 #map-zoom {
 	transition: opacity 0.2s;
 }
@@ -3871,7 +3834,6 @@ html.konami {
 	pointer-events: none;
 }
 
-/* One round at a time, on narrow screens. */
 .bk-list {
 	display: flex;
 	flex-direction: column;

@@ -1,5 +1,3 @@
-/** Signal Reflex: a reaction-time mini-game. The best average is kept on this device. */
-
 import "./lib/site.js";
 import { Sounds } from "./sounds.js";
 import { el } from "./lib/dom.js";
@@ -67,7 +65,6 @@ function press() {
 		return arm();
 	}
 	if (state === "waiting") {
-		/** Jumped the signal: that go starts over. */
 		clearTimeout(waitTimer);
 		Sounds.play("poor");
 		setState("idle", "Too early! Press to try that one again");
@@ -84,7 +81,6 @@ function press() {
 	}
 }
 
-/** pointerdown rather than click: a click only fires on release, which would add to every time. */
 signal.addEventListener("pointerdown", (e) => {
 	e.preventDefault();
 	press();

@@ -25,8 +25,6 @@ async function init() {
 	loadModerationHistory();
 }
 
-/* ---- Dialog used for the ticket list and the submissions list ---- */
-
 let _listDialog = null;
 
 function openListDialog(kind, title, actionsHtml = "") {
@@ -116,7 +114,6 @@ async function loadModerationHistory() {
 			.map((a) => {
 				const [icon, tone] = STYLE[a.type] || ["gavel", "text-zinc-400"];
 				const [statusLabel, statusTone] = STATUS[a.status];
-				/** A warning has no end date, so "active" would only read as alarming. */
 				const badge =
 					a.type === "warning" && a.status === "active"
 						? ""
@@ -191,8 +188,6 @@ function settingRow(title, description, toggle) {
 	</div>`;
 }
 
-/* ---- Preferences ---- */
-
 const NOTIFY_OPTIONS = [
 	["submissions", "Submissions", "When yours is approved or denied"],
 	["suggestions", "Suggestions", "When yours is accepted or declined"],
@@ -232,7 +227,6 @@ function emailSettingHtml() {
 	const email = currentUser.email;
 	const remove =
 		'<button data-on-click="removeEmail()" class="m-btn m-btn-text m-btn-sm danger flex-shrink-0">Remove email</button>';
-	/** While email is switched off the setting is hidden, but a saved address can always be taken away. */
 	if (!email?.available)
 		return email?.address
 			? settingRow(
@@ -391,8 +385,6 @@ async function setDesktopNotifications(on) {
 	await setPref("desktop", on);
 }
 
-/* ---- Notification inbox ---- */
-
 const NOTIFICATION_ICONS = {
 	submissions: ["add_photo_alternate", "text-blue-400"],
 	suggestions: ["lightbulb", "text-yellow-400"],
@@ -442,7 +434,6 @@ async function loadNotifications() {
 				</a>`;
 			})
 			.join("");
-		/** Having the inbox on screen counts as reading it, so the badges clear. */
 		if (unread > 0) refreshAttention(await api("/api/notifications/read", { method: "POST" }));
 	} catch (err) {
 		area.innerHTML = `<div class="text-red-400 text-sm">${escHtml(err.message)}</div>`;
@@ -585,11 +576,9 @@ function renderSettings() {
 		<a href="/guidelines" class="hover:text-zinc-400 transition">Upload Guidelines</a>
 	</div>
 `;
-	/** Tickets and submissions load when their dialog is opened, not with the page. */
 	const linkedTicket = Number(new URLSearchParams(location.search).get("open_ticket"));
 	if (linkedTicket) openMyTickets(linkedTicket);
 	loadNotifications();
-	/** Links like /settings#moderation land on a section that did not exist until now. */
 	if (location.hash) requestAnimationFrame(() => document.getElementById(location.hash.slice(1))?.scrollIntoView());
 
 	const urlParams = new URLSearchParams(location.search);
@@ -630,7 +619,6 @@ const CAT_LABELS = {
 	account: "Account Issue",
 	other: "Other",
 };
-/* ---- My tickets: a list dialog, and a conversation view that updates by itself ---- */
 
 let _myTickets = [];
 let _ticketsSignature = "";
@@ -767,7 +755,6 @@ function renderTicketView() {
 function closeTicketView() {
 	show("ticket-view-modal", false);
 	_viewingTicketId = null;
-	/** Back to the list it was opened from, if that was closed in the meantime. */
 	if (_listDialog !== "tickets") openMyTickets();
 }
 
@@ -965,8 +952,6 @@ const CATEGORY_SUBJECTS = {
 	account: "Account Issue",
 };
 
-/* ---- New ticket: step one picks the category, step two is the form ---- */
-
 /** Tracked on GitHub instead; the form is never opened for these. */
 const GITHUB_CATEGORIES = ["bug_report", "feature_request"];
 let _ticketCategory = "";
@@ -1106,7 +1091,6 @@ async function submitTicket() {
 	if (structuredPart === null) return refuse("Fill in all the fields marked with *.");
 
 	const message = structuredPart ? structuredPart + "\n\n---\n\n" + mainMessage : mainMessage;
-	/** Off while it sends, so a second press cannot open a second ticket. */
 	const send = el("ticket-send");
 	send.disabled = true;
 	try {

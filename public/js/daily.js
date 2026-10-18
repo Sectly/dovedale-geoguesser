@@ -1,5 +1,3 @@
-/** Daily challenge: one round a day. The server keeps the clock, so a reload resumes the same attempt. */
-
 import "./lib/site.js";
 import { MapCanvas } from "./map-canvas.js";
 import { el, locId, scoreTone, show, streakBadgeHtml } from "./lib/dom.js";
@@ -33,7 +31,6 @@ async function init() {
 		view = new RoundView({ onGuess: submitGuess, onHint: () => api("/api/daily/hint", { method: "POST" }) });
 		let round = await api("/api/daily/start", { method: "POST" });
 		switchScreen("game-screen");
-		/** The clock only starts once the screenshot is on screen. */
 		await view.show(round);
 		if (round.loading) round = await api("/api/daily/begin", { method: "POST" });
 		else showToast("Picking up where you left off. The clock kept running.");

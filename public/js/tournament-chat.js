@@ -2,8 +2,6 @@ import { avatarHtml, el, escHtml } from "./lib/dom.js";
 import { api, loginUrl } from "./lib/api.js";
 import { live, onLive } from "./lib/live.js";
 
-/** Tournament chat: side panel on wide screens, bottom sheet on phones. */
-
 const KEEP = 200;
 const POLL_MS = 5000;
 const OPEN_KEY = "tournament-chat-open";

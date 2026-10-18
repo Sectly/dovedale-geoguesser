@@ -5,7 +5,7 @@ import { SUPERVISED } from "../lib/lifecycle";
 import { logInfo } from "../lib/logs";
 import { cancelRestart, restartIn, scheduleRestart } from "./restart";
 
-/** Updates from the staff panel. Fast-forward only, to the configured branch. */
+/** Branch that panel updates fast-forward to: UPDATE_BRANCH, or main. */
 
 const BRANCH = /^[\w./-]{1,80}$/.test(process.env.UPDATE_BRANCH ?? "") ? process.env.UPDATE_BRANCH! : "main";
 const REMOTE = "origin";
@@ -188,7 +188,6 @@ function loadJob(): Job {
 			restart.ended_at = saved.ended_at;
 			saved.log.push(`${stamp(saved)} The server is back up`);
 		}
-		/** Cut off mid-step by a crash or a stop: it did not finish. */
 		if (saved.state === "running") {
 			saved.state = "failed";
 			saved.log.push(`${stamp(saved)} The server stopped before the update finished`);
@@ -290,7 +289,6 @@ export async function runUpdate(startedBy: string): Promise<string | null> {
 				result = { ok: false, out: err instanceof Error ? err.message : String(err) };
 			}
 			step.ended_at = nowSecs();
-			/** Commands that stream their lines have already been noted as they ran. */
 			if (result.out && !result.streamed) note(result.out.slice(-4000));
 			if (!result.ok) {
 				step.state = "failed";

@@ -1,7 +1,5 @@
 import { db } from "../db";
 
-/** Maintenance mode: only staff can use the site. Stored in the database, so it survives restarts. */
-
 export type Maintenance = { enabled: boolean; message: string; since: number | null; by: string | null };
 
 const KEY = "maintenance";

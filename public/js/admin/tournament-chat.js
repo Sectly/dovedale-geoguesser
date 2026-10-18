@@ -5,8 +5,6 @@ import { showToast } from "../lib/toast.js";
 import { atLeast, currentTab, showConfirm } from "./core.js";
 import { formatWhen } from "./users.js";
 
-/** The staff chat card on a tournament, and the word filter on the tournament list. */
-
 const DELAYS = [0, 500, 1000, 1500, 2000, 3000, 5000, 10000];
 const SLOW = [0, 5, 10, 30, 60, 120];
 const FILTERS = [
@@ -32,8 +30,6 @@ let _busy = false;
 
 const seconds = (ms) => (ms === 0 ? "None" : `${ms / 1000} s`);
 const timeoutText = (m) => (m < 60 ? `${m} min` : m < 1440 ? `${m / 60} hour` : `${m / 1440} day`);
-
-/* ---- Chat card ---- */
 
 /** Drawn from the last load, then kept up to date by live updates, or polled without them. */
 export function staffChatSlot(t) {
@@ -82,7 +78,6 @@ function watchingChat() {
 function paint() {
 	const box = el("staff-chat");
 	if (!box) return;
-	/** Only when changed, so an open select isn't reset. */
 	const html = chatCardHtml();
 	if (box.dataset.html !== html) {
 		box.innerHTML = html;
@@ -207,8 +202,6 @@ async function clearStaffChat() {
 	});
 	if (ok) chatAct("/clear", {}, "Chat cleared");
 }
-
-/* ---- Word filter ---- */
 
 let _filterData = null;
 

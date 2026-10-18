@@ -38,7 +38,6 @@ miscRoutes.post("/fp", async (c) => {
 	if (!user || !checkRateLimit(`fp:${user.id}`, 5, 60 * 1000)) return c.body(null, 204);
 
 	const device = deviceId(getCookie(c.req.header("Cookie"), DEVICE_COOKIE));
-	/** Sent every time so the cookie's year starts over while the browser is in use. */
 	c.header("Set-Cookie", deviceCookie(device.id));
 	recordSignal(user.id, "device", hashIdentity(device.id));
 

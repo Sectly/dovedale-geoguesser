@@ -90,7 +90,7 @@ async function tournamentSvg(id: number, invite: boolean): Promise<string | null
 	if (!share) return null;
 	return tournamentCard({
 		...share,
-		invite: invite && share.status === "open",
+		invite: invite && (share.status === "open" || share.status === "announced"),
 		champion: share.champion
 			? { name: share.champion.name, avatar: await avatarDataUri(share.champion.avatarUrl) }
 			: null,
@@ -121,7 +121,6 @@ ogRoutes.get("/og.png", async (c) => {
 
 	let png = cache.get(key);
 	if (!png || Date.now() - png.at > TTL_MS) {
-		/** Drawing a card is the expensive part; a stale or generic one will do when someone hammers it. */
 		if (!checkRateLimit(`og:${clientIp(c)}`, 30, 60 * 1000)) {
 			png ??= cache.get("home");
 			if (!png) return c.text("Too many requests", 429);

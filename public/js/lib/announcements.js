@@ -35,7 +35,6 @@ const ANNOUNCEMENT_ICONS = { info: "campaign", success: "celebration", warning: 
 
 export async function checkAnnouncement() {
 	const announcement = await api("/api/announcement").catch(() => undefined);
-	/** A failed request says nothing either way; leave whatever is on screen alone. */
 	if (announcement !== undefined) showAnnouncement(announcement);
 }
 

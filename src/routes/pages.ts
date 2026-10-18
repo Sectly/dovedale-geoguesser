@@ -7,13 +7,26 @@ import { currentUser } from "../auth/sessions";
 import { db } from "../db";
 import { DEV_DISCORD_ID, DEV_MODE, PUBLIC_DIR, SITE_URL, UPLOADS_DIR } from "../config";
 import { duelRooms } from "../game/duels/rooms";
-import { tournamentShare } from "../game/tournaments";
+import { inviteWorks, tournamentShare } from "../game/tournaments";
 import { escapeXml } from "../og/cards";
 import { OG_VERSION } from "./og";
 import { tileVersion } from "../tile-images";
 import { usedIcons } from "../icons";
 import { GOOGLE_ICON_CSS, ICON_FONT_DIR, iconStylesheet } from "../icon-font";
-import { findProfile } from "./profile";
+import { findProfile, profileStats } from "./profile";
+import { getStreak } from "../game/streaks";
+import {
+	button,
+	buttons,
+	card,
+	embedTag,
+	pageEmbed,
+	plain,
+	separator,
+	staticEmbed,
+	text,
+	withThumbnail,
+} from "../og/discord-embed";
 
 export const pageRoutes = new Hono();
 
@@ -93,7 +106,6 @@ function moduleGraph(entry: string, seen = new Set<string>()): Set<string> {
 	return seen;
 }
 
-/** Loads a page from public/: hashes script and style URLs, makes share-image URLs absolute. */
 /** The page's own address for search engines and link previews, in place of any written in the file. */
 function withAddress(html: string, path: string): string {
 	if (!SITE_URL) return html;
@@ -107,7 +119,7 @@ function withAddress(html: string, path: string): string {
 		);
 }
 
-/** `path` is the address it is served at, when it has one of its own. */
+/** Loads a page from public/, hashing script and style URLs and making share-image URLs absolute. `path` is the address it is served at, when it has one. */
 function loadPage(file: string, path?: string): Page {
 	const key = path ? `${file} ${path}` : file;
 	const cached = pageCache.get(key);
@@ -132,7 +144,6 @@ function loadPage(file: string, path?: string): Page {
 		const preload = [...moduleGraph(entry)]
 			.slice(1)
 			.map((path) => `<link rel="modulepreload" href="${path}?v=${assetVersion(path)}" />`);
-		/** The import map has to come before the first module script. */
 		html = html.replace(
 			"</head>",
 			`<meta name="tile-version" content="${tileVersion()}" />\n${importMap()}\n${preload.join("\n")}\n</head>`
@@ -153,7 +164,15 @@ function sendHtml(c: Context, html: string, etag?: string, status: 200 | 404 = 2
 	return c.html(html, status);
 }
 
-type Meta = { title: string; description: string; image: string; url: string; type: "website" | "profile" };
+type Meta = {
+	title: string;
+	description: string;
+	image: string;
+	url: string;
+	type: "website" | "profile";
+	/** The Discord component embed, from `embedTag`. */
+	embed?: string;
+};
 
 function withMeta(html: string, meta: Meta): string {
 	const e = escapeXml;
@@ -167,7 +186,7 @@ function withMeta(html: string, meta: Meta): string {
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${e(meta.title)}" />
 <meta name="twitter:description" content="${e(meta.description)}" />
-<meta name="twitter:image" content="${e(image)}" />`;
+<meta name="twitter:image" content="${e(image)}" />${meta.embed ? `\n${meta.embed}` : ""}`;
 	const page = html
 		.replace(/\s*<meta\s+(?:property="og:|name="twitter:)[^>]*>/gi, "")
 		.replace(/<title>[^<]*<\/title>/, () => `<title>${e(meta.title)}</title>`)
@@ -181,10 +200,12 @@ function withMeta(html: string, meta: Meta): string {
 
 for (const [route, file] of Object.entries(PAGES)) {
 	pageRoutes.get(route, (c) => {
-		/** Specials need a login; the hub is where logged-out visitors are asked. */
 		if (route.startsWith("/specials/") && !currentUser(c)) return c.redirect("/specials");
 		const page = loadPage(file, route);
-		return sendHtml(c, page.html, page.etag);
+		const embed = staticEmbed(route);
+		if (!embed) return sendHtml(c, page.html, page.etag);
+		const html = page.html.replace("</head>", () => `${embed}\n</head>`);
+		return sendHtml(c, html, `"${Bun.hash(html).toString(36)}"`);
 	});
 }
 
@@ -209,32 +230,89 @@ pageRoutes.get("/duel/:code", (c) => {
 				? "Join a location guessing duel on the Dovedale Railway."
 				: spectate
 					? `Watch a ${room.rounds}-round duel ${state} on the Dovedale Railway.`
-					: `${host} is hosting a ${room.rounds}-round duel. ${room.players.length}/2 players - ${state}.`,
+					: `${host} is hosting a ${room.rounds}-round duel. ${room.players.length}/2 players, ${state}.`,
 			image: `/og.png?type=${spectate ? "spectate" : "duel"}&code=${code}`,
 			url: `/duel/${code}`,
 			type: "website",
+			embed: embedTag(
+				!room
+					? pageEmbed("Duel Room", `/duel/${code}`, "This duel has finished or the code is wrong.", "duels", [
+							button("Start a duel", "/duels"),
+							button("Play solo", "/play"),
+						])
+					: [
+							text(
+								`# ${spectate ? "Watch" : "Join"} ${plain(host, 40)}'s duel\n${room.rounds} rounds · ${room.players.length}/2 players · ${room.status === "in_progress" ? "In progress" : "Waiting for players"}`
+							),
+							card(`type=${spectate ? "spectate" : "duel"}&code=${code}`),
+							buttons(
+								...(spectate || room.status === "in_progress"
+									? []
+									: [button("Join duel", `/duel/${code}`)]),
+								button("Watch", `/duel/${code}?spectate`),
+								button("Duels", "/duels")
+							),
+						]
+			),
 		})
 	);
 });
+
+const TOURNAMENT_BUTTON: Record<string, string> = {
+	announced: "Open",
+	open: "Check in",
+	live: "Watch live",
+	finished: "See results",
+};
+
+/** A profile's Discord preview: avatar, headline numbers and a link through. */
+function profileEmbed(user: NonNullable<ReturnType<typeof findProfile>>, name: string) {
+	const stats = profileStats(user.id);
+	const joined = new Date(user.created_at * 1000).toLocaleDateString("en-GB", { year: "numeric", month: "long" });
+	const path = `/u/${encodeURIComponent(user.username)}`;
+	const heading = `# [${plain(name, 40)}](${SITE_URL}${path})\n-# @${plain(user.username, 40)} · Joined ${joined}`;
+	const n = (value: number | null | undefined) => (value == null ? "-" : value.toLocaleString("en-GB"));
+	const numbers = [
+		`**Solo games** ${n(stats.solo.total_games)} · **Best** ${n(stats.solo.best_score)}`,
+		`**Duel wins** ${n(stats.duels.wins)} of ${n(stats.duels.games)}`,
+		`**Dailies** ${n(stats.daily.played)} · **Streak** ${n(getStreak(user.id).current_streak)} days`,
+	].join("\n");
+	return [
+		user.avatar_url ? withThumbnail(heading, user.avatar_url) : text(heading),
+		separator(),
+		text(numbers),
+		buttons(button("View profile", path), button("Play solo", "/play"), button("Leaderboard", "/leaderboard")),
+	];
+}
 
 /** A tournament plays out on the duels page. Its share card follows how far it has got. */
 pageRoutes.get("/tournament/:id", (c) => {
 	const id = Number(c.req.param("id"));
 	const share = Number.isInteger(id) && id > 0 ? tournamentShare(id) : null;
-	const invite = !!share && share.status === "open" && c.req.query("invite") !== undefined;
+	const code = (c.req.query("invite") ?? "").trim().toUpperCase();
+	const invite = !!share && /^[A-Z0-9]{1,12}$/.test(code) && inviteWorks(id, code);
+	const players = share ? `${share.players} player${share.players === 1 ? "" : "s"}` : "";
+	const checkin =
+		share?.status === "open"
+			? `Check-in is open, ${players} so far.`
+			: "Check-in hasn't opened yet. Join with this link once it does.";
 	const line = !share
 		? "A Dovedale GeoGuesser tournament."
 		: invite
-			? `You're invited to play in ${share.title}. Open the link to join.`
+			? `You're invited to play in ${share.title}. ${checkin}${share.detail ? ` ${share.detail}.` : ""}`
 			: share.status === "announced"
-				? `Coming up.${share.detail ? ` ${share.detail}.` : ""} ${share.players} player${share.players === 1 ? "" : "s"} on the list.`
+				? `Coming up.${share.detail ? ` ${share.detail}.` : ""} ${players} on the list.`
 				: share.status === "open"
-					? `Check-in is open. ${share.players} player${share.players === 1 ? "" : "s"} so far.${share.detail ? ` ${share.detail}.` : ""}`
+					? `Check-in is open. ${players} so far.${share.detail ? ` ${share.detail}.` : ""}`
 					: share.status === "live"
 						? `Live now: ${share.detail}. Watch every match.`
 						: share.status === "finished"
 							? `${share.champion ? `Won by ${share.champion.name}. ` : ""}See the final standings and bracket.`
 							: "This tournament was called off.";
+	const page = `/tournament/${id}`;
+	const invitePage = `${page}?invite=${code}`;
+	const image = `type=tournament&id=${id}${invite ? "&invite" : ""}`;
+	const lines = (...parts: (string | null | false)[]) => text(parts.filter(Boolean).join("\n"));
 	return sendHtml(
 		c,
 		withMeta(loadPage("duels.html").html, {
@@ -242,9 +320,41 @@ pageRoutes.get("/tournament/:id", (c) => {
 				? `${invite ? "Join " : ""}${share.title} | Dovedale GeoGuesser`
 				: "Tournament | Dovedale GeoGuesser",
 			description: share?.description ? `${line} ${share.description}` : line,
-			image: share ? `/og.png?type=tournament&id=${id}${invite ? "&invite" : ""}` : "/og.png?type=duels",
-			url: `/tournament/${id}`,
+			image: share ? `/og.png?${image}` : "/og.png?type=duels",
+			url: page,
 			type: "website",
+			embed: embedTag(
+				!share
+					? null
+					: invite
+						? [
+								lines(
+									"-# You're invited to play",
+									`# [${plain(share.title, 80)}](${SITE_URL}${invitePage})`,
+									checkin,
+									share.detail && `-# ${plain(share.detail, 80)}`,
+									share.description && `>>> ${plain(share.description, 400)}`
+								),
+								card(image),
+								buttons(
+									button(share.status === "open" ? "Join" : "Open invite", invitePage),
+									button("See the tournament", page)
+								),
+							]
+						: [
+								lines(
+									`# [${plain(share.title, 80)}](${SITE_URL}${page})`,
+									plain(line, 300),
+									share.match && `-# ${plain(share.match, 120)}`,
+									share.description && `>>> ${plain(share.description, 400)}`
+								),
+								card(image),
+								buttons(
+									button(TOURNAMENT_BUTTON[share.status] ?? "Open", page),
+									button("Duels", "/duels")
+								),
+							]
+			),
 		})
 	);
 });
@@ -265,6 +375,7 @@ pageRoutes.get("/u/:username", (c) => {
 			image: name ? `/og.png?type=profile&u=${encodeURIComponent(username)}` : "/og.png?type=home",
 			url: `/u/${encodeURIComponent(username)}`,
 			type: "profile",
+			embed: embedTag(visible && name ? profileEmbed(profile, name) : null),
 		})
 	);
 });
@@ -306,7 +417,6 @@ function sendFile(c: Context, root: string, relativePath: string, cacheControl: 
 		return null;
 	}
 	if (decoded.includes("\0") || decoded.split("/").some((part) => part.startsWith("."))) return null;
-	/** The root comes from configuration and may use either kind of slash. */
 	const base = normalize(root).replace(/[\\/]+$/, "");
 	const path = normalize(join(base, decoded));
 	if (!path.startsWith(base + sep)) return null;

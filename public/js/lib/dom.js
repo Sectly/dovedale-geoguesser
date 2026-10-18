@@ -103,7 +103,6 @@ export function announce(text) {
 		region.setAttribute("aria-live", "polite");
 		document.body.appendChild(region);
 	}
-	/** Cleared first, so the same words twice in a row are still read. */
 	region.textContent = "";
 	setTimeout(() => (region.textContent = text), 50);
 }

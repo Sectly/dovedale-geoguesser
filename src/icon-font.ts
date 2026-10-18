@@ -36,7 +36,6 @@ async function download(icons: string, key: string, onReady: () => void) {
 
 	mkdirSync(ICON_FONT_DIR, { recursive: true });
 	writeFileSync(join(ICON_FONT_DIR, `icons-${key}.woff2`), new Uint8Array(await font.arrayBuffer()));
-	/** The stylesheet is written last, since its presence is what marks the copy as complete. */
 	writeFileSync(join(ICON_FONT_DIR, `icons-${key}.css`), css.replace(fontUrl, `/fonts/icons-${key}.woff2`));
 	for (const name of readdirSync(ICON_FONT_DIR))
 		if (!name.startsWith(`icons-${key}.`)) unlinkSync(join(ICON_FONT_DIR, name));
@@ -62,7 +61,6 @@ function latestCopy(): string | null {
 export function iconStylesheet(icons: string, onReady: () => void): string | null {
 	const key = iconFontKey(icons);
 	if (existsSync(join(ICON_FONT_DIR, `icons-${key}.css`))) return `/fonts/icons-${key}.css`;
-	/** Tests never reach the network. */
 	if (process.env.NODE_ENV !== "test" && !pending && Date.now() - failedAt >= RETRY_MS)
 		pending = download(icons, key, onReady)
 			.catch((err) => {

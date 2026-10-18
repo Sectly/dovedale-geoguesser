@@ -9,8 +9,6 @@ import { offeredEmotes } from "./duels/rooms";
 import { pickLocations } from "./locations";
 import { Round, type Guess, type RoundOutcome, type RoundRules } from "./round";
 
-/** Team duels (Specials): two teams of up to two, best guess scores. In memory, pushed over a socket. Never on the leaderboards. */
-
 export type TeamId = "a" | "b";
 const TEAMS: TeamId[] = ["a", "b"];
 const TEAM_SIZE = 2;
@@ -86,8 +84,6 @@ type TeamRoom = {
 };
 
 const rooms = new Map<string, TeamRoom>();
-
-/* ---- Change notices ---- */
 
 const changed = new Set<string>();
 let listener: ((code: string) => void) | null = null;
@@ -216,7 +212,6 @@ export function leaveTeamRoom(code: string, user: User) {
 	const room = rooms.get(code.toUpperCase());
 	if (!room?.members.has(user.id)) return;
 	if (room.status === "playing") {
-		/** Their team plays on without them; their seat stays so the scoreboard still makes sense. */
 		room.members.get(user.id)!.seenAt = 0;
 	} else {
 		room.members.delete(user.id);
@@ -235,7 +230,6 @@ export function setTeamPresence(code: string, userId: number, here: boolean) {
 	m.pages = Math.max(0, m.pages + (here ? 1 : -1));
 	if (m.seenAt !== 0) m.seenAt = Date.now();
 	markChanged(code);
-	/** Shows them as away, and stops waiting on their guess, once the grace time is up. */
 	if (!here && m.pages === 0)
 		setTimeout(() => {
 			if (rooms.get(code) !== room || !isAway(m, Date.now())) return;
@@ -251,7 +245,6 @@ function startRound(room: TeamRoom, now: number) {
 		m.pin = null;
 		m.outcome = null;
 	}
-	/** The clock starts after the "get ready" count, while browsers preload the screenshot. */
 	room.round = new Round(room.locations[room.roundNumber - 1], TEAM_RULES, now + READY_SECONDS * 1000);
 	room.phase = "ready";
 	room.phaseEndsAt = now + READY_SECONDS * 1000;
@@ -338,7 +331,6 @@ function finishRound(room: TeamRoom, now: number) {
 	const round = room.round!;
 	const playing = [...room.members.values()].filter((m) => m.team);
 	for (const m of playing) m.outcome ??= round.score(null, now);
-	/** A team's round is its best guess, so one good guess is enough and a miss costs nothing. */
 	const teamScores = { a: 0, b: 0 };
 	for (const m of playing) teamScores[m.team!] = Math.max(teamScores[m.team!], m.outcome!.score);
 	for (const team of TEAMS) room.totals[team] += teamScores[team];

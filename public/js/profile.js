@@ -190,7 +190,6 @@ function achievementsHtml(achievements) {
 			<div class="text-xs ${a.earned_at ? "text-zinc-500" : "text-zinc-600"}">${escHtml(a.description)}</div>
 		</div>
 	</div>`;
-	/** Earned first, newest at the front; the ones still to get keep their usual order. */
 	const sorted = [...achievements].sort((a, b) => (b.earned_at || 0) - (a.earned_at || 0));
 	return `<div class="flex items-center justify-between mb-3" id="achievements">
 		<h2 class="font-bold text-zinc-300">Achievements</h2>

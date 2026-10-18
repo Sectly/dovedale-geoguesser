@@ -2,9 +2,7 @@
 (function intro() {
 	const SEEN_KEY = "intro_seen";
 	const SEEN_AT_KEY = "intro_seen_at";
-	/** Once played, it rests this long, however many new tabs or sessions come in between. */
 	const REST_MS = 24 * 60 * 60 * 1000;
-	/** Shown at least this long, and no longer than this however slow the page is. */
 	const MIN_MS = 1600;
 	const MAX_MS = 4000;
 	/** Both match the transitions in shared.css. */
@@ -20,10 +18,8 @@
 		sessionStorage.setItem(SEEN_KEY, "1");
 		localStorage.setItem(SEEN_AT_KEY, String(Date.now()));
 	} catch {
-		/** Without storage it would play on every visit. */
 		return;
 	}
-	/** "intro-play" is never removed: that would replay the home page's card animation. */
 	root.classList.add("intro-play", "intro-hold");
 
 	let finished;
@@ -49,7 +45,6 @@
 		removeEventListener("keydown", skipWithKey, true);
 
 		const splash = document.getElementById("intro-splash");
-		/** Whatever goes wrong here, the page must not stay hidden behind the title screen. */
 		try {
 			aim(
 				splash?.querySelector(".intro-mark"),
@@ -77,7 +72,6 @@
 	document.addEventListener("DOMContentLoaded", () => {
 		const splash = document.getElementById("intro-splash");
 		if (!splash) return leave();
-		/** Two frames, so the bar paints empty before it starts to fill. */
 		requestAnimationFrame(() => requestAnimationFrame(() => (splash.dataset.state ||= "loading")));
 
 		const loaded = Promise.all([document.fonts?.ready, window.userLoaded]).catch(() => {});

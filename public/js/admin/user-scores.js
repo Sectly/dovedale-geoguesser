@@ -5,8 +5,6 @@ import { showPrompt } from "./core.js";
 import { askReason, formatWhen } from "./users.js";
 import { openUserPanel } from "./user-panel.js";
 
-/** Scores and history (operators): view, correct, remove and reset one player's results. */
-
 let _scoreTab = "solo";
 
 export async function loadScoreManager(userId, list = _scoreTab) {

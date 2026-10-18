@@ -95,7 +95,6 @@ export function award(userId: number | null | undefined, id: AchievementId, { qu
 		}
 		return true;
 	} catch (err) {
-		/** An achievement must never be the reason a game result fails to save. */
 		console.error("[achievements] Could not award", id, err);
 		return false;
 	}
@@ -132,7 +131,6 @@ export function backfillAchievements(): number {
 			SELECT h.user_id, '${id}', COALESCE(h.earned_at, unixepoch()), unixepoch() FROM (${select}) h
 			JOIN users u ON u.id = h.user_id WHERE u.username != '[deleted]'`
 		).changes;
-	/** Tournament matches earn nothing. */
 	const notTournament = (table: string) =>
 		table === "duel_round_scores"
 			? "AND game_id NOT IN (SELECT id FROM duel_games WHERE tournament_id IS NOT NULL)"
@@ -224,8 +222,6 @@ export function achievementsFor(userId: number) {
 	);
 	return ACHIEVEMENTS.map((a) => ({ ...a, earned_at: earned.get(a.id) ?? null }));
 }
-
-/* ---- The moments an achievement can be earned ---- */
 
 /** One scored guess, in any mode. `timeLimit` is the round's clock in seconds, 0 for none. */
 export function checkRound(userId: number | null, outcome: RoundOutcome, timeLimit = 0) {

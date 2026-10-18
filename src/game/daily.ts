@@ -7,8 +7,6 @@ import { reviewGuess } from "../fairplay";
 import { DAILY_RULES, Round, outcomeJson, recordOutcome, type Guess } from "./round";
 import { recordPlay } from "./streaks";
 
-/** The daily challenge: one location per UTC day, one attempt each. Start time and hints are stored so reloads keep the clock. */
-
 type Attempt = { started_at: number; hints_revealed: number };
 type DailyScore = {
 	score: number;
@@ -96,7 +94,6 @@ export function startDaily(user: User) {
 	const { date, location } = requireChallenge();
 	if (getScore(user.id, date)) fail(409, "Already played today");
 
-	/** The clock starts when the screenshot is up (see beginDaily), or once the loading window passes. */
 	db.run("INSERT OR IGNORE INTO daily_attempts (user_id, date, started_at) VALUES (?, ?, ?)", [
 		user.id,
 		date,

@@ -157,7 +157,6 @@ describe("small touches", () => {
 		const [a, b] = [createUser(), createUser()];
 		const first = playDuel(a, b, false);
 		expect(first.end.series).toEqual({ wins: { [a.id]: 1 }, games: 1 });
-		/** A rematch starts from the score so far (the socket handler copies it across). */
 		const rematch = createRoom(a.id, 1);
 		rematch.series = { wins: { ...first.room.series.wins }, games: first.room.series.games };
 		duelRooms.delete(rematch.code);
@@ -354,7 +353,6 @@ describe("duel reactions", () => {
 	});
 
 	test("no event has the same name going in as coming out", async () => {
-		/** The socket library fires an event's handlers on the connection it is sent to, so a two-way name echoes. */
 		const source = async (file: string) => Bun.file(new URL(`../src/${file}`, import.meta.url)).text();
 		const wire = await source("game/duels/wire.ts");
 		const sent = wire + (await source("game/duels/rooms.ts")) + (await source("system/restart.ts"));
@@ -423,7 +421,6 @@ describe("location difficulty", () => {
 		const location = createLocation();
 		for (let i = 0; i < 500; i++) recordLocationPlay(location, 4800);
 		expect(difficultyOf(location)).toBe("easy");
-		/** Under a lifetime average, 500 easy guesses would take about 900 poor ones to outweigh. */
 		for (let i = 0; i < 40; i++) recordLocationPlay(location, 300);
 		expect(difficultyOf(location)).toBe("medium");
 		for (let i = 0; i < 80; i++) recordLocationPlay(location, 300);

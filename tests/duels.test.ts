@@ -131,7 +131,7 @@ describe("duel game flow", () => {
 		beginRound(room);
 		submitGuess(room, a.id, { x: 0, y: 0 });
 		submitGuess(room, b.id, { x: 0, y: 0 });
-		expect(room.phase).not.toBeNull(); // the pause before round two
+		expect(room.phase).not.toBeNull();
 
 		abandonDuel(room, b.id);
 		expect(room.status).toBe("finished");
@@ -158,7 +158,7 @@ describe("duel game flow", () => {
 			expect(eventNames(connA).at(-1)).toBe("round_loading");
 			expect(room.awaitingLoad).toBe(true);
 			submitGuess(room, a.id, { x: 0, y: 0 });
-			expect(room.outcomes.size).toBe(0); // nothing counts before the clock starts
+			expect(room.outcomes.size).toBe(0);
 
 			playerLoaded(room, a.id);
 			expect(room.awaitingLoad).toBe(true);
@@ -204,7 +204,7 @@ describe("duel game flow", () => {
 			expect(connA.events.at(-1)![0]).toBe("paused");
 			expect(room.round!.paused).toBe(true);
 			submitGuess(room, a.id, { x: 0, y: 0 });
-			expect(room.outcomes.size).toBe(0); // no guessing while paused
+			expect(room.outcomes.size).toBe(0);
 
 			jest.advanceTimersByTime(20_000);
 			expect(room.status).toBe("in_progress");
@@ -337,7 +337,6 @@ describe("quick play rounds out of the ordinary", () => {
 		clearLocations();
 		for (let i = 0; i < 6; i++) createLocation();
 	});
-	/** A duel left running here would hold up the restart tests that follow. */
 	afterEach(() => closeAllDuels("Test over"));
 
 	const lastEvent = (conn: FakeConn, name: string) => conn.events.filter(([event]) => event === name).at(-1)?.[1];

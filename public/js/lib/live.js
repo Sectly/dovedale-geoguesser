@@ -49,7 +49,6 @@ function deliverLive(event, raw) {
 function openLive() {
 	if (live.source || !("EventSource" in window) || document.hidden) return;
 	clearTimeout(live.retryTimer);
-	/** A tournament page is counted as watching, and allowed more pages per address. */
 	const watch = location.pathname.match(/^\/tournament\/(\d+)/)?.[1];
 	const source = new EventSource(watch ? `/api/events?watch=${watch}` : "/api/events");
 	live.source = source;
@@ -62,7 +61,6 @@ function openLive() {
 	});
 	source.addEventListener("error", () => {
 		live.connected = false;
-		/** Closed by an error status, such as maintenance: retry with a growing wait. */
 		if (source.readyState !== EventSource.CLOSED) return;
 		closeLive();
 		const wait = Math.min(120_000, 5000 * 2 ** live.retries++);
@@ -95,6 +93,5 @@ window.addEventListener("load", () =>
 document.addEventListener("visibilitychange", () => {
 	clearTimeout(live.hiddenTimer);
 	if (document.hidden) live.hiddenTimer = setTimeout(closeLive, LIVE_HIDDEN_MS);
-	/** Also a page that loaded while hidden. */
 	else if (!live.source && live.wanted) setTimeout(openLive, 300 + Math.random() * 1200);
 });

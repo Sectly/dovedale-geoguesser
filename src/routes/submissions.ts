@@ -30,7 +30,6 @@ submissionRoutes.post("/", async (c) => {
 	const coords = formCoords(form) ?? fail(400, "Place a pin on the map first");
 	const hints = cleanHints(form.get("hints"));
 
-	/** Checked after validation so a typo does not burn one of the hourly submissions. */
 	if (!checkUserRateLimit(user, "sub", 8, HOUR * 1000)) fail(429, "Too many submissions. Try again later.");
 	const filename = await saveUploadedImage(form.get("image"));
 	const result = db.run(

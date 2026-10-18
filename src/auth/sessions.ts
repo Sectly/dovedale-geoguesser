@@ -113,10 +113,8 @@ export function userFromSessionId(sessionId: string | null): User | null {
 		)
 		.get(sessionId, nowSec());
 	if (!user) return null;
-	/** The dev account only exists while AUTH_DEV is on. */
 	if (user.discord_id === DEV_DISCORD_ID && !DEV_MODE) return null;
 
-	/** Bans and limits lapse on their own; refresh the flags the moment one has run out. */
 	const now = nowSec();
 	const lapsed = (flag: number, expiresAt: number | null) => !!flag && !!expiresAt && expiresAt <= now;
 	if (

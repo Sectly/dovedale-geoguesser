@@ -6,8 +6,6 @@ import { fail } from "./lib/http";
 import { DAY, HOUR, nowSec } from "./lib/time";
 import { features } from "./system/features";
 
-/** Email summaries of unread notifications. Needs a saved mail server, and each player opts in. Never one email per notification. */
-
 export const DIGEST_FREQUENCIES = ["off", "hourly", "daily", "weekly", "monthly"] as const;
 export type DigestFrequency = (typeof DIGEST_FREQUENCIES)[number];
 
@@ -346,7 +344,6 @@ export async function sendDueDigests(now = nowSec()): Promise<number> {
 
 	let sent = 0;
 	for (const user of due) {
-		/** By id, not the clock, so nothing sent in the same second is missed or repeated. */
 		const unread = db
 			.query<Unread, [number, number]>(
 				"SELECT id, title, body, link, created_at FROM notifications WHERE user_id = ? AND read_at IS NULL AND id > ? ORDER BY id DESC"
@@ -388,7 +385,6 @@ export async function sendDueDigests(now = nowSec()): Promise<number> {
 			sent++;
 		} catch (err) {
 			console.error("[email] summary failed:", err instanceof Error ? err.message : err);
-			/** A mail server that is down fails for everyone: stop and try the whole batch next time. */
 			break;
 		}
 	}

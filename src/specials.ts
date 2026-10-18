@@ -127,7 +127,6 @@ function windowOf(special: Special, now: number): { start: number | null; end: n
 	const year = new Date(now).getUTCFullYear();
 	const on = (y: number, monthDay: string) => Date.parse(`${y}-${monthDay}T00:00:00Z`);
 	const overNewYear = special.season.to < special.season.from;
-	/** The season that started last year (if it runs over New Year), this year's, then next year's. */
 	for (const y of [year - 1, year, year + 1]) {
 		const start = on(y, special.season.from);
 		const end = on(overNewYear ? y + 1 : y, special.season.to) + DAY_MS;

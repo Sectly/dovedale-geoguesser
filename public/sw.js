@@ -1,4 +1,3 @@
-/** Service worker: push notifications, and a waiting page when the server is unreachable. Caches nothing. */
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
@@ -22,7 +21,6 @@ self.addEventListener("notificationclick", (event) => {
 	const link = event.notification.data?.link || "/";
 	event.waitUntil(
 		self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
-			/** Reuse a tab that is already open rather than piling up new ones. */
 			const open = windows.find((w) => "focus" in w);
 			if (open) {
 				open.navigate(link);
@@ -97,11 +95,9 @@ const waitingPage = () =>
 	});
 
 self.addEventListener("fetch", (event) => {
-	/** Pages only. Scripts, images and API calls go straight to the network as before. */
 	if (event.request.mode !== "navigate") return;
 	event.respondWith(
 		fetch(event.request).then(
-			/** A gateway error with no sign of the game behind it is the proxy saying the server is down. */
 			(res) => ([502, 503, 504].includes(res.status) && !res.headers.get("X-App") ? waitingPage() : res),
 			() => waitingPage()
 		)

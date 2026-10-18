@@ -3,8 +3,6 @@ import { db, type User } from "../../db";
 import { ratingOf } from "./rating";
 import { createRoom, duelRooms, joinRoom, leaveWaitingRoom, type DuelRoom } from "./rooms";
 
-/** Quick Play: the first player waits; the next with the same rounds joins the closest in rating. */
-
 type QueueEntry = { code: string; rounds: number; rating: number };
 
 const queue = new Map<number, QueueEntry>();
@@ -38,7 +36,6 @@ export function quickplay(user: User, rounds: number, canCreateRoom: () => boole
 		.sort(([, a], [, b]) => Math.abs(a.rating - rating) - Math.abs(b.rating - rating));
 	for (const [hostId, entry] of closestFirst) {
 		const room = waitingRoom(entry.code);
-		/** Only match into rooms whose host is actually sitting there. */
 		if (!room || room.players.length !== 1 || !room.players[0].connected) continue;
 		if (joinRoom(entry.code, user.id) !== "ok") continue;
 
@@ -67,7 +64,6 @@ export function cancelQuickplay(userId: number) {
 	const code = queue.get(userId)?.code ?? matched.get(userId);
 	queue.delete(userId);
 	matched.delete(userId);
-	/** A host whose room already filled is in neither map, so fall back to looking for their seat. */
 	const room = code
 		? waitingRoom(code)
 		: [...duelRooms.values()].find(

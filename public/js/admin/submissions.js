@@ -37,7 +37,6 @@ const subCode = (id) => `SUB-${String(id).padStart(4, "0")}`;
 export async function loadSubmissions() {
 	try {
 		_submissions = await api("/api/admin/submissions");
-		/** Open on the oldest, so the queue can be worked from the keyboard straight away. */
 		_openSubmission = _submissions[0]?.id ?? null;
 		if (_submissionView === "reviewed") return setSubmissionView("reviewed");
 		renderSubmissions();

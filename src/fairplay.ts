@@ -1,8 +1,6 @@
 import { db, type User } from "./db";
 import { distanceScore, type RoundOutcome } from "./game/round";
 
-/** Fair-play review: flags guess patterns a person cannot produce, for staff to judge. Never acts on an account. */
-
 export type FairplaySignal = keyof typeof SIGNALS;
 
 /** Guesses kept per player, and how many of the newest are looked at. */
@@ -47,7 +45,6 @@ function check(userId: number, signal: FairplaySignal) {
 		)
 		.get(userId, signal);
 	if (latest && latest.dismissed_at === null) return;
-	/** Guesses a member of staff has already looked at and cleared are not counted a second time. */
 	const guesses = db
 		.query<Logged, [number, number, number]>(
 			"SELECT id, location_id, distance, time_taken, points FROM guess_log WHERE user_id = ? AND id > ? ORDER BY id DESC LIMIT ?"

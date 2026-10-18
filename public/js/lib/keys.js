@@ -33,7 +33,6 @@ export const _pageKeys = new Map();
 export function addKeybinds(title, binds) {
 	KEYBIND_GROUPS.push({ title, keys: binds.map(([keys, label]) => [keys, label]) });
 	for (const [keys, , handler] of binds) {
-		/** Handlers sharing a key each say whether they applied; the first that does wins. */
 		for (const key of keys)
 			_pageKeys.set(key.toLowerCase(), [...(_pageKeys.get(key.toLowerCase()) || []), handler]);
 	}
@@ -132,7 +131,6 @@ document.addEventListener("keydown", (e) => {
 		e.preventDefault();
 		return toggleShortcuts();
 	}
-	/** While the help is open, keys belong to it. */
 	if (el("shortcuts-dialog") && !el("shortcuts-dialog").classList.contains("hidden")) return;
 
 	const key = e.key.toLowerCase();

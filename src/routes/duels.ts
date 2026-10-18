@@ -68,7 +68,6 @@ duelRoutes.post("/rooms/:code/join", (c) => {
 	const user = requireDuelist(c);
 	const code = c.req.param("code").toUpperCase();
 	const room = duelRooms.get(code);
-	/** Quick Play seats come from matchmaking; the 409 makes the page offer spectating instead. */
 	if (room?.quickplay && !room.players.some((p) => p.userId === user.id))
 		fail(409, "Quick Play duels can't be joined by code, but you can watch them.");
 

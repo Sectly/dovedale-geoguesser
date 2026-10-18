@@ -28,7 +28,6 @@ function openDatabase(): Database {
 					probe.close();
 				} catch {}
 			}
-			/** Never start empty on a damaged database: it would look like every account had vanished. */
 			throw new Error(
 				`[db] ${DB_PATH} failed its integrity check (${err instanceof Error ? err.message : err}). ` +
 					`The server will not start on a damaged database. Restore the newest file from ${BACKUP_DIR}, ` +
@@ -57,7 +56,6 @@ function backupBeforeUpgrade() {
 	try {
 		backup = createBackup(db, "upgrade", `v${version}-${new Date().toISOString().replace(/[:.]/g, "-")}`);
 	} catch (err) {
-		/** Upgrading without a way back is not worth the risk: stop and let a person look. */
 		throw new Error(
 			`[db] Could not back up the database before upgrading it (${err instanceof Error ? err.message : err}). ` +
 				`Nothing was changed. Free up disk space or check permissions on ${BACKUP_DIR}, then start again.`
@@ -529,14 +527,12 @@ for (const sql of MIGRATIONS) {
 	try {
 		db.exec(sql);
 	} catch (err: any) {
-		/** "duplicate column name" is expected when the column already exists */
 		if (!err?.message?.includes("duplicate column name")) {
 			console.warn("[db] Migration skipped unexpectedly:", err?.message, "-", sql);
 		}
 	}
 }
 
-/** Existing difficulty records start from their lifetime average. Does nothing on a second run. */
 db.run(
 	"UPDATE location_stats SET recent_sum = CAST(score_sum AS REAL) * MIN(plays, ?) / plays WHERE recent_sum IS NULL AND plays > 0",
 	[GAME.difficulty.window]

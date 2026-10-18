@@ -22,11 +22,9 @@ function fillTournamentCard(summary) {
 /** Shows the card and animates the elements it moves from their old places (FLIP). */
 async function popIn(card) {
 	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-	/** Waits for the intro and the cards' entrance, or a moment after load, so the animation is not missed. */
 	await (window.introDone ? window.introDone.then(() => wait(900)) : wait(400));
 	if (!card.classList.contains("hidden") || !latestTournament) return;
 	fillTournamentCard(latestTournament);
-	/** Its own entrance replaces the home cards' rise, which would restart when it is shown. */
 	card.style.animation = "none";
 	const neighbours = [...document.querySelectorAll("main .md-card, main h1, main > div > p, #site-footer")].filter(
 		(node) => node !== card
@@ -77,7 +75,6 @@ const checkTournament = () =>
 		.then(showTournament)
 		.catch(() => {});
 checkTournament();
-/** Null also comes after a reconnect, so ask. */
 onLive("tournament", (summary) => (summary ? showTournament(summary) : checkTournament()));
 
 fetchUser().then((user) => {

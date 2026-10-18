@@ -110,7 +110,6 @@ export function cleanLink(value: unknown): string | null {
 	const url = isExternalLink(link) && !/\s/.test(link) && URL.canParse(link) ? new URL(link) : null;
 	if (!url || url.username || url.password)
 		fail(400, "The link must be a page on this site (for example /daily) or an address starting with https://");
-	/** This site's own address is kept as the page, so following it is not treated as leaving. */
 	const page = url.pathname + url.search + url.hash;
 	if (SITE_URL && URL.canParse(SITE_URL) && url.origin === new URL(SITE_URL).origin && isPage(page)) return page;
 	return link;
@@ -415,8 +414,6 @@ export function pendingAcknowledgement(userId: number) {
 	const { target, ...shown } = pending;
 	return { ...shown, external: isExternalLink(target) };
 }
-
-/* ---- Changelog: what changed in each update, written by staff ---- */
 
 export type ChangelogEntry = {
 	id: number;

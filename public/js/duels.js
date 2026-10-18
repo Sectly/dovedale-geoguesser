@@ -46,7 +46,6 @@ let busy = false;
 let countdownTimer = null;
 let nextRoundTimer = null;
 let quietQueueTimer = null;
-/** Quick Play search timer. */
 let searchStartedAt = 0;
 let searchClock = null;
 let reconnectTimer = null;
@@ -114,7 +113,6 @@ function openLiveDuels() {
 	el("live-duels-list").innerHTML = skeletonRows(3, "h-16");
 	loadLiveDuels();
 	clearInterval(liveDuelsTimer);
-	/** Scores and rounds move quickly, so keep the open list fresh. */
 	liveDuelsTimer = setInterval(() => document.hidden || loadLiveDuels(), 4000);
 }
 
@@ -138,7 +136,6 @@ function closedByStaffNotice() {
 		</div>
 	</div>`;
 	box.addEventListener("click", (e) => e.target.closest("[data-close]") && box.remove());
-	/** Keys pressed here must not start a new duel underneath. */
 	box.addEventListener("keydown", (e) => {
 		e.stopPropagation();
 		if (e.key === "Escape") box.remove();
@@ -247,7 +244,6 @@ async function init() {
 	});
 	setInterval(() => document.hidden || el("lobby-screen").classList.contains("hidden") || loadLiveDuels(), 15_000);
 
-	/** Built up front so the map tiles are already loaded when the duel starts. */
 	view = new RoundView({ onGuess: sendGuess, onPinMoved: sharePin });
 	const visible = (id) => !el(id).classList.contains("hidden");
 	const press = (id) => (visible(id) && !el(id).disabled ? el(id).click() : false);
@@ -299,7 +295,6 @@ async function init() {
 	if (code && (wantsSpectate || params.get("spectate"))) return spectate(code);
 	if (!user) {
 		switchScreen("login-gate");
-		/** An invite link still lets a logged-out visitor watch. */
 		if (code) {
 			el("gate-spectate-btn").dataset.code = code;
 			show("gate-spectate-btn");
@@ -389,7 +384,6 @@ function joinRoom(input) {
 		try {
 			await api(`/api/duels/rooms/${code}/join`, { method: "POST" });
 		} catch (err) {
-			/** Full, already under way, or a Quick Play match: watching is the next best thing. */
 			if (err.status === 409) {
 				inviteIntroWatching();
 				return spectate(code);
@@ -474,14 +468,11 @@ async function connect(joinEvent) {
 	clearTimeout(reconnectTimer);
 	const w = new WebWire("/api/duels/wire", { reconnect: { initialDelay: 500, maxDelay: 3000 } });
 	wire = w;
-	/** Events from a connection we have already replaced must not touch the page. */
 	const on = (event, fn) => w.on(event, (data) => w === wire && fn(data || {}));
 
 	on("room_state", (state) => {
 		if (state.players?.length) lastPlayers = state.players;
-		/** Colours go by seat, so a player keeps theirs from round to round and into the replay. */
 		for (const p of lastPlayers) pinColor(p.user_id);
-		/** Logged-in spectators of a tournament match can react too. */
 		renderEmoteBar(state.emotes, !isSpectator() || (!!stage && !!user));
 		showSpectatorCount(state.spectators);
 		showWaitingRoom(state);
@@ -550,7 +541,6 @@ async function connect(joinEvent) {
 	on("server_restarting", (data) => noteRestart(data.seconds));
 	on("server_restart_cancelled", () => noteRestart(null));
 	on("server_restart", (data) => {
-		/** On the end screen the result stands; there is just nobody left to rematch. */
 		if (!el("end-screen").classList.contains("hidden")) {
 			closeWire();
 			return rematchUnavailable("Server restarting");
@@ -585,7 +575,6 @@ async function connect(joinEvent) {
 		el("spectate-new-game-btn").onclick = () => spectate(data.code);
 	});
 
-	/** WebWire reconnects by itself; each time we rejoin and get a snapshot of the room. */
 	on("connect", () => {
 		clearTimeout(reconnectTimer);
 		reconnectTimer = null;
@@ -681,7 +670,6 @@ function stopSearchClock() {
 function startSearchClock() {
 	if (searchClock) return;
 	searchStartedAt = Date.now();
-	/** Every search, including one resumed after a match fell through, gets the hint again. */
 	quietQueueTimer = setTimeout(() => show("quickplay-no-players"), QUIET_QUEUE_HINT_MS);
 	const paint = () => {
 		const s = Math.floor((Date.now() - searchStartedAt) / 1000);
@@ -712,7 +700,6 @@ function showWaitingRoom(state) {
 	const full = state.players.length >= 2;
 	const searching = isQuickPlay && !full;
 
-	/** The radar stays up; the opponent appearing on it is the match being found. */
 	show("quickplay-searching", isQuickPlay);
 	show("waiting-players", !isQuickPlay);
 	if (isQuickPlay) {
@@ -788,7 +775,6 @@ function showStartCountdown(seconds) {
 	el("start-countdown-label").textContent = "Get ready";
 	el("start-countdown-value").textContent = left;
 	Sounds.play("versus");
-	/** The countdown is the versus screen, so the radar goes. */
 	show("quickplay-searching", false);
 	show("start-countdown");
 	countdownTimer = setInterval(() => {
@@ -814,7 +800,6 @@ let shownRound = 0;
 
 /** Puts a round on screen ahead of its clock, so both players can load it first. */
 function showRound(round) {
-	/** The round can arrive just before the countdown's last tick, so clear the countdown too. */
 	clearInterval(countdownTimer);
 	show("start-countdown", false);
 	clearInterval(nextRoundTimer);
@@ -849,13 +834,11 @@ function showRoundKind(round) {
 }
 
 function startRound(round) {
-	/** Joining mid-round: the round is not on screen yet, so show it first. */
 	if (shownRound !== round.round || !view.loaded) showRound(round);
 	showJoinIntro();
 	Sounds.play("start");
 	view.go(round);
 	if (stage && isSpectator()) el("click-hint").textContent = "Faded pin: still placing. Tick: guess submitted.";
-	/** Rejoining a round we already answered: the guess stands, so just wait for the other player. */
 	if (round.guessed) {
 		view.lock();
 		el("click-hint").textContent = "Guess locked in";
@@ -884,7 +867,6 @@ function sharePin(x, y) {
 
 function sendGuess(pin) {
 	clearTimeout(pinShareTimer);
-	/** The clock keeps running: the round only ends when both players are in or time is up. */
 	el("click-hint").textContent = pin ? "Guess locked in" : "Time's up. No pin placed";
 	setOpponentBadge("hourglass_top", "Waiting for your opponent...");
 	wire?.emit("guess", { world_x: pin?.x ?? null, world_y: pin?.y ?? null });
@@ -969,7 +951,6 @@ function showRoundResult(result) {
 	runNextRoundCountdown(result.next_in);
 	switchScreen("round-screen");
 	el("result-screen").classList.add("shown");
-	/** The sheet covers the bottom of the map, so bring the answer and every guess into what is left. */
 	view.fitResult(
 		result,
 		result.results.filter((r) => r.guessed_x !== null).map((r) => ({ x: r.guessed_x, y: r.guessed_y }))
@@ -1101,11 +1082,9 @@ function showOwnRating(result) {
 	const streak = result.streaks?.[user.id] ?? 0;
 	show("end-streak", streak >= user.limits?.streak_shown);
 	el("end-streak").textContent = `${streak} wins in a row`;
-	/** The lobby quotes the rating too, so keep what it reads from up to date. */
 	Object.assign(user, { duel_rating: mine.rating, duel_rated_games: (user.duel_rated_games || 0) + 1 });
 }
 
-/** The closest guess of the match. */
 function bestGuessText(result) {
 	let best = null;
 	for (const round of result.rounds || roundHistory) {
@@ -1120,7 +1099,6 @@ function bestGuessText(result) {
 }
 
 function showGameEnd(result, { forfeit = false } = {}) {
-	/** The server's record covers rounds played before we joined or reloaded. */
 	if (result.rounds?.length) roundHistory = result.rounds;
 	clearInterval(nextRoundTimer);
 	hideOverlay();
@@ -1170,7 +1148,6 @@ function showGameEnd(result, { forfeit = false } = {}) {
 		["emoji_events", "text-yellow-400"],
 		["military_tech", "text-zinc-300"],
 	];
-	/** The winner goes on top even when they won by forfeit with fewer points. */
 	const winnerId = result.winner?.user_id;
 	el("end-scores").innerHTML = [...(result.scores || [])]
 		.sort((a, b) => (b.user_id === winnerId) - (a.user_id === winnerId))

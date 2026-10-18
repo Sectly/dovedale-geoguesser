@@ -75,8 +75,6 @@ adminScoreRoutes.get("/:userId", (c) => {
 	});
 });
 
-/* ---- Single entries ---- */
-
 adminScoreRoutes.post("/:userId/solo/:id", async (c) => {
 	const actor = requireStaff(c, "admin");
 	const user = target(c);
@@ -181,7 +179,6 @@ adminScoreRoutes.delete("/:userId/duels/:id", async (c) => {
 			)
 			.get(idParam(c), user.id) ?? fail(404, "Duel not found, or it is still being played");
 	db.transaction(() => {
-		/** Both players get back whatever rating the duel moved. */
 		unrateDuel(game.id);
 		db.run("DELETE FROM duel_games WHERE id = ?", [game.id]);
 	})();
@@ -255,8 +252,6 @@ adminScoreRoutes.post("/:userId/achievements/:key", async (c) => {
 	return c.json({ success: true });
 });
 
-/* ---- Resets ---- */
-
 const SCOPES = ["solo", "daily", "duels", "streak", "achievements", "all"] as const;
 type Scope = (typeof SCOPES)[number];
 
@@ -286,14 +281,12 @@ adminScoreRoutes.post("/:userId/reset", async (c) => {
 			removed.push(`${db.run("DELETE FROM daily_scores WHERE user_id = ?", [user.id]).changes} daily scores`);
 		}
 		if (wants("duels")) {
-			/** Finished and abandoned games only: one being played right now is left to end by itself. */
 			const voided = db.run(
 				`DELETE FROM duel_games WHERE status IN ('finished', 'abandoned')
 					AND id IN (SELECT game_id FROM duel_participants WHERE user_id = ?)`,
 				[user.id]
 			).changes;
 			removed.push(`${voided} duels voided`);
-			/** With no duels left there is nothing for a rating to rest on. */
 			resetRating(user.id);
 			removed.push("duel rating reset");
 		}

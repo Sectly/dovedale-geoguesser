@@ -3,8 +3,6 @@ import { GAME } from "../config";
 import { uploadUrl } from "../lib/uploads";
 import { difficultyOf, parseHints, recordLocationPlay } from "./locations";
 
-/** One guessable round: a location, a clock, hints and scoring. Shared by solo, daily and duels. */
-
 export type RoundRules = {
 	/** Seconds per round, 0 for no limit. */
 	timeLimit: number;

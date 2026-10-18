@@ -76,7 +76,6 @@ export const PhotoEffects = (() => {
 		ctx.lineCap = "round";
 		ctx.lineWidth = SNOW_BRUSH * 2;
 		const untrack = track((x, y, box) => {
-			/** The canvas keeps its first size, so scale the pointer if the panel has been resized. */
 			const point = { x: (x / box.width) * canvas.width, y: (y / box.height) * canvas.height };
 			if (used >= budget) return;
 			const from = last ?? point;
@@ -84,7 +83,6 @@ export const PhotoEffects = (() => {
 			ctx.moveTo(from.x, from.y);
 			ctx.lineTo(point.x + 0.01, point.y);
 			ctx.stroke();
-			/** Roughly the fresh area swept: a full brush for the first touch, a strip after that. */
 			used += last ? Math.hypot(point.x - from.x, point.y - from.y) * SNOW_BRUSH * 2 : Math.PI * SNOW_BRUSH ** 2;
 			last = point;
 			showMeter();

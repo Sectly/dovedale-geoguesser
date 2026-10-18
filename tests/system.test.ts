@@ -98,7 +98,6 @@ describe("updates", () => {
 		expect(status.current.hash).toMatch(/^[0-9a-f]{40}$/);
 		expect((await post("/api/admin/system/update", op, {})).status).toBe(400);
 		expect((await post("/api/admin/system/restart", op, {})).status).toBe(400);
-		/** Tests never run under a process manager, so a restart has nothing to bring the server back. */
 		expect((await post("/api/admin/system/restart", op, { confirm: true })).status).toBe(409);
 	});
 });
@@ -246,7 +245,6 @@ describe("team duels", () => {
 		await post(`/api/teams/rooms/${code}/guess`, host, { x: 1000, y: 1000 });
 		await post(`/api/teams/rooms/${code}/guess`, rival, {});
 		expect((await room(code, host)).phase).toBe("reveal");
-		/** The clock here runs ahead of the players, so they count as away and the other rounds end unguessed. */
 		for (let round = 2; round <= 3; round++) {
 			tickTeamRooms((clock += 11000));
 			tickTeamRooms((clock += 5000));
@@ -279,7 +277,6 @@ describe("team duels", () => {
 describe("panel updates", () => {
 	test("name the files changed on the server, and spot a permissions-only change", async () => {
 		const { parseLocalChanges } = await import("../src/system/updater");
-		/** git's output is trimmed, so the first line loses its leading space. */
 		const status = "M deploy.sh\n M src/app.ts\nMM README.md";
 		const summary = " mode change 100644 => 100755 deploy.sh";
 		expect(parseLocalChanges(status, summary)).toEqual([

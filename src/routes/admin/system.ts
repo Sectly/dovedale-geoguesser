@@ -87,8 +87,6 @@ adminSystemRoutes.get("/info", (c) => {
 	});
 });
 
-/* ---- Email ---- */
-
 /** How email is going. Mail server details only with `reveal`; the password never. */
 adminSystemRoutes.get("/email", (c) => {
 	requireStaff(c, "operator");
@@ -123,7 +121,6 @@ adminSystemRoutes.post("/email/settings", async (c) => {
 	if (!user) fail(400, "Enter the username the mail server expects, usually the full email address");
 	if (!/@/.test(from)) fail(400, "Enter a From line, e.g. Dovedale GeoGuesser <notifications@example.com>");
 	saveSmtpSettings({ host, port, user, pass: typeof body.pass === "string" ? body.pass.slice(0, 500) : "", from });
-	/** The details are a secret, so the record says only that they changed and where they point. */
 	auditLog(actor, "email_settings", { details: `${host}:${port} as ${user}` });
 	return c.json({ success: true });
 });
@@ -131,7 +128,6 @@ adminSystemRoutes.post("/email/settings", async (c) => {
 adminSystemRoutes.delete("/email/settings", (c) => {
 	const actor = requireStaff(c, "operator");
 	clearSmtpSettings();
-	/** Nothing to send with any more, so email goes off with it. */
 	setFeature("email_digests", false);
 	auditLog(actor, "email_settings", { details: "Mail server removed, email switched off" });
 	return c.json({ success: true });
@@ -174,8 +170,6 @@ adminSystemRoutes.get("/breakdown", async (c) => {
 	return c.json(await systemBreakdown());
 });
 
-/* ---- Maintenance mode ---- */
-
 adminSystemRoutes.get("/maintenance", (c) => {
 	requireStaff(c, "operator");
 	return c.json({ ...maintenance(), default_message: DEFAULT_MAINTENANCE_MESSAGE });
@@ -189,8 +183,6 @@ adminSystemRoutes.post("/maintenance", async (c) => {
 	auditLog(actor, state.enabled ? "maintenance_on" : "maintenance_off", { details: state.message || null });
 	return c.json(state);
 });
-
-/* ---- Backups ---- */
 
 adminSystemRoutes.get("/backups", (c) => {
 	requireStaff(c, "operator");
@@ -210,7 +202,6 @@ adminSystemRoutes.get("/backups/:name/download", (c) => {
 	const actor = requireStaff(c, "operator");
 	const name = c.req.param("name");
 	const path = backupPath(name) ?? fail(404, "Backup not found");
-	/** A backup holds every account, so taking a copy off the server is always on record. */
 	auditLog(actor, "backup_download", { details: name });
 	return c.body(Bun.file(path).stream(), 200, {
 		"Content-Type": "application/vnd.sqlite3",
@@ -226,8 +217,6 @@ adminSystemRoutes.delete("/backups/:name", (c) => {
 	auditLog(actor, "backup_delete", { details: name });
 	return c.json({ success: true });
 });
-
-/* ---- Logs ---- */
 
 adminSystemRoutes.get("/logs", (c) => {
 	requireStaff(c, "operator");
@@ -248,8 +237,6 @@ adminSystemRoutes.delete("/logs", (c) => {
 	auditLog(actor, "logs_clear", { details: `${removed} entries removed` });
 	return c.json({ success: true, removed });
 });
-
-/* ---- Updates and restarts ---- */
 
 adminSystemRoutes.get("/update", async (c) => {
 	requireStaff(c, "operator");
@@ -281,8 +268,6 @@ adminSystemRoutes.post("/restart/cancel", (c) => {
 	auditLog(actor, "server_restart_cancel", { details: "Restart called off from the staff panel" });
 	return c.json({ success: true });
 });
-
-/* ---- Feature switches ---- */
 
 adminSystemRoutes.get("/features", (c) => {
 	requireStaff(c, "operator");

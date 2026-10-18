@@ -152,7 +152,6 @@ async function openPalette() {
 	_paletteIndex = 0;
 	_paletteResults = paletteResults("", _paletteData ?? { users: [], locations: [] });
 	renderPalette();
-	/** Fetched now so the first keystroke already has something to search. */
 	paletteData();
 }
 

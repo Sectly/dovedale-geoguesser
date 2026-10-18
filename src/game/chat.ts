@@ -12,8 +12,6 @@ import { CHAT_EMOTES, checkMessage, flattenPhrase, giveawayWords } from "./chat-
 import { duelRooms, onTournamentRoundChange } from "./duels/rooms";
 import { chatRole, chatTournament, liveLocationLabels, onTournamentChanged } from "./tournaments";
 
-/** Tournament spectator chat: access rules, delayed delivery and moderation. */
-
 /** Stops fresh accounts getting round a ban. */
 export const CHAT_MIN_ACCOUNT_HOURS = 24;
 const HISTORY = 50;
@@ -79,8 +77,6 @@ export function chatAccess(user: User | null, info: Info): Access {
 	return { read: true, write: true, why: null, ...base };
 }
 
-/* ---- People, cached for checks across every open page ---- */
-
 const people = new Map<number, { at: number; user: User | null }>();
 
 function person(userId: number | null): User | null {
@@ -109,8 +105,6 @@ onTournamentChanged((id) => pushAccess(id));
 onTournamentRoundChange((room, userIds) => {
 	if (room.tournament) pushAccess(room.tournament.id, userIds);
 });
-
-/* ---- Messages ---- */
 
 type Row = {
 	id: number;
@@ -230,7 +224,6 @@ export function sendChat(user: User, id: number, text: unknown): { message: Chat
 	const places = liveLocationLabels(id).flatMap(giveawayWords);
 	const verdict = checkMessage(typeof text === "string" ? text : "", places);
 	if (!verdict.ok) {
-		/** Kept only when the filter caught it, for tuning the lists. */
 		const caught = verdict.hits.length || /Links|Places/.test(verdict.reason);
 		if (caught && typeof text === "string")
 			db.run(
@@ -278,8 +271,6 @@ export function reportChat(user: User, id: number, messageId: number) {
 	]).changes;
 	if (added) db.run("UPDATE tournament_chat SET reports = reports + 1 WHERE id = ?", [messageId]);
 }
-
-/* ---- Staff ---- */
 
 export type StaffChatMessage = ChatMessage & {
 	status: Row["status"];

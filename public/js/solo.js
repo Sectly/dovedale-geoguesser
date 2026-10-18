@@ -1,5 +1,3 @@
-/** Solo: a run of rounds scored by the server. Works logged out; only logged-in games are saved. */
-
 import "./lib/site.js";
 import { MapCanvas } from "./map-canvas.js";
 import { Sounds } from "./sounds.js";
@@ -46,7 +44,6 @@ async function init() {
 			: "Locations are graded by how players have done on them.";
 	});
 	for (const pill of document.querySelectorAll(".difficulty-pill")) {
-		/** Runs before the pill's own handler, so a difficulty with no locations cannot be picked. */
 		pill.addEventListener(
 			"click",
 			(e) => pill.getAttribute("aria-disabled") === "true" && e.stopImmediatePropagation(),
@@ -61,7 +58,6 @@ async function init() {
 	el("play-again-btn").addEventListener("click", () => switchScreen("start-screen"));
 	el("summary-share-btn").addEventListener("click", shareSummary);
 
-	/** Built up front so the map tiles are already loaded when the first round starts. */
 	view = new RoundView({
 		onGuess: submitGuess,
 		onHint: () => api(`/api/solo/games/${game.game_id}/hint`, { method: "POST" }),
@@ -88,7 +84,6 @@ async function loadDifficulties() {
 	for (const pill of document.querySelectorAll(".difficulty-pill")) {
 		const name = DIFFICULTY_NAMES[Number(pill.dataset.val)];
 		if (!name) continue;
-		/** Marked unavailable rather than disabled, so hovering it can still say why. */
 		pill.setAttribute("aria-disabled", String(!counts[name]));
 		pill.classList.toggle("opacity-40", !counts[name]);
 		pill.classList.toggle("cursor-not-allowed", !counts[name]);
@@ -185,7 +180,6 @@ async function submitGuess(pin) {
 		result = await api(`/api/solo/games/${game.game_id}/guess`, { json: pin ?? {} });
 	} catch (err) {
 		if (err.status !== 0) return gameLost(err);
-		/** Offline: let them try the same guess again once the connection is back. */
 		showToast(err.message, "error");
 		view.locked = false;
 		view._setGuessEnabled(true);

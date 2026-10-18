@@ -26,7 +26,6 @@ export function showToast(message, type = "info", { href = "" } = {}) {
 	requestAnimationFrame(() => toast.classList.remove("opacity-0"));
 	setTimeout(
 		() => {
-			/** It closes the gap it leaves as it goes, so the toasts around it do not jump. */
 			toast.style.setProperty("--toast-height", `${toast.offsetHeight}px`);
 			toast.classList.add("leaving");
 			setTimeout(() => toast.remove(), 250);

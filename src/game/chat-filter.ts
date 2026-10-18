@@ -5,8 +5,6 @@ import { auditLog } from "../lib/audit";
 import { fail } from "../lib/http";
 import { logInfo } from "../lib/logs";
 
-/** What chat messages may contain, and the word lists. */
-
 export type FilterAction = "refuse" | "mask" | "hold";
 export type MatchType = "word" | "contains";
 
@@ -26,8 +24,6 @@ export const CHAT_LIMITS = {
 
 export const LIST_REFRESH_MS = 24 * 60 * 60 * 1000;
 
-/* ---- Cleaning ---- */
-
 /** Control, zero-width, direction and combining characters. */
 const INVISIBLE = /[\p{Cc}\p{Cf}\p{M}]/gu;
 /** Latin letters, digits and everyday punctuation. Emoji are refused. */
@@ -40,8 +36,6 @@ export function cleanText(raw: string): string {
 }
 
 export const hasOnlyPlainText = (text: string) => ALLOWED.test(text);
-
-/* ---- Emotes ---- */
 
 /** `:code:` to duel reaction icon. */
 export const CHAT_EMOTES: Record<string, string> = {
@@ -60,8 +54,6 @@ export const CHAT_EMOTES: Record<string, string> = {
 };
 
 export const emoteCount = (text: string) => [...text.matchAll(/:([a-z]+):/g)].filter((m) => m[1] in CHAT_EMOTES).length;
-
-/* ---- Links ---- */
 
 const CC_TLDS =
 	"ac ad ae af ag ai al am ao aq ar as at au aw ax az ba bb bd be bf bg bh bi bj bm bn bo br bs bt bw by bz ca cc cd cf cg ch ci ck cl cm cn co cr cu cv cw cx cy cz de dj dk dm do dz ec ee eg er es et eu fi fj fk fm fo fr ga gb gd ge gf gg gh gi gl gm gn gp gq gr gs gt gu gw gy hk hm hn hr ht hu id ie il im in io iq ir is it je jm jo jp ke kg kh ki km kn kp kr kw ky kz la lb lc li lk lr ls lt lu lv ly ma mc md me mg mh mk ml mm mn mo mp mq mr ms mt mu mv mw mx my mz na nc ne nf ng ni nl no np nr nu nz om pa pe pf pg ph pk pl pm pn pr ps pt pw py qa re ro rs ru rw sa sb sc sd se sg sh si sk sl sm sn so sr ss st su sv sx sy sz tc td tf tg th tj tk tl tm tn to tr tt tv tw tz ua ug uk us uy uz va vc ve vg vi vn vu wf ws ye yt za zm zw";
@@ -89,8 +81,6 @@ export function hasLink(text: string): boolean {
 	}
 	return false;
 }
-
-/* ---- Words ---- */
 
 const LEET: Record<string, string> = {
 	"4": "a",
@@ -215,7 +205,6 @@ export function findWords(text: string): WordHit[] {
 		if (single) hit(single, i);
 		for (const c of contains) if (holds(flat[i], c.flat)) hit(c, i);
 	}
-	/** Spaced-out letters, read again as one word. */
 	const joined = joinSpacedLetters(text).match(WORD) ?? [];
 	for (const word of joined) {
 		const f = flatten(word);
@@ -310,8 +299,6 @@ export function giveawayWords(label: string | null): string[] {
 	return [...new Set([flat, ...parts])].filter(Boolean);
 }
 
-/* ---- Our own list ---- */
-
 export type FilterWord = {
 	id: number;
 	word: string;
@@ -367,8 +354,6 @@ export function removeWord(staff: User, id: number) {
 	resetFilterIndex();
 	auditLog(staff, "chat_filter_remove", { details: row.word });
 }
-
-/* ---- Lists from the web ---- */
 
 export type FilterList = {
 	id: number;
@@ -609,8 +594,6 @@ export async function refreshDueLists() {
 	for (const { id } of due) await refreshList(id);
 	if (due.length) logInfo(`[chat] Refreshed ${due.length} word list(s)`);
 }
-
-/* ---- The default list ---- */
 
 /** LDNOOBW's English list, well known and maintained. */
 export const DEFAULT_LIST_URL =

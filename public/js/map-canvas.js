@@ -97,7 +97,6 @@ export class MapCanvas {
 		this.quality = this.profile.base;
 		/** AVIF is smallest, but its decoder needs several cores; with two or fewer, WebP loads sooner. */
 		this.format = (navigator.hardwareConcurrency || 4) > 2 ? "avif" : "webp";
-		/** Blocked storage throws; the map must still be built. */
 		try {
 			const quality = localStorage.getItem("mapQuality");
 			if (MAP_QUALITY_CHOICES.includes(quality)) this.profile.detail = quality;
@@ -120,7 +119,6 @@ export class MapCanvas {
 		const _parent = this.canvas.parentElement || this.canvas;
 		if (typeof ResizeObserver !== "undefined") {
 			new ResizeObserver(() => this._handleResize()).observe(_parent);
-			/** Browser zoom and moving to another screen change the pixel ratio without a resize. */
 			window.addEventListener("resize", () => this._handleResize());
 		} else {
 			window.addEventListener("resize", () => this._handleResize());
@@ -140,7 +138,6 @@ export class MapCanvas {
 	/** `status`: "placing" draws the pin faded, "locked" adds a tick. */
 	setNamePin(id, worldX, worldY, color, name, avatarUrl = "", { ripple = false, status = null } = {}) {
 		const pin = { worldX, worldY, color, name, avatar: null, avatarUrl, status };
-		/** Keeps the picture of a pin that moves often. */
 		const old = this.namePins.get(id);
 		if (old?.avatar && old.avatarUrl === avatarUrl) pin.avatar = old.avatar;
 		else if (avatarUrl) {
@@ -158,7 +155,6 @@ export class MapCanvas {
 
 	addRipple(worldX, worldY, color, delay = 0) {
 		if (MapCanvas.reducedMotion()) return;
-		/** One ring per colour at a time: re-placing a pin quickly must not stack rings. */
 		this.ripples = this.ripples.filter((r) => r.answer || r.color !== color);
 		this.ripples.push({ worldX, worldY, color, startAt: performance.now() + delay });
 		this._scheduleDraw();
@@ -335,7 +331,6 @@ export class MapCanvas {
 
 	_queueDetail(quality, squares) {
 		clearTimeout(this._detailTimer);
-		/** Zoomed back out to where the base map is enough: the sharper tiles are only holding memory. */
 		if (!quality) {
 			if (this.detailImages.size) this._detailTimer = setTimeout(() => this._dropStaleDetail(0), 1500);
 			return;
@@ -357,7 +352,6 @@ export class MapCanvas {
 					this._warmTile(tile);
 					this._scheduleDraw();
 				};
-				/** A failed square tries the other formats, then stays failed so it is not asked for every frame. */
 				entry.img.onerror = () => {
 					formats.shift();
 					if (!formats.length) return void (entry.failed = true);
@@ -411,9 +405,7 @@ export class MapCanvas {
 		ctx.restore();
 
 		ctx.imageSmoothingEnabled = false;
-		/** Tiles differ in size, so each goes at its true edges or the map drifts under the coordinates. */
 		const overlap = Math.max(0.5, 2 / this.currentScale);
-		/** Only the tiles on screen are drawn: drawing one is what makes the browser decode it. */
 		const topLeft = ctx.transformedPoint(0, 0);
 		const bottomRight = ctx.transformedPoint(this.viewWidth, this.viewHeight);
 		const wanted = this._detailQuality();
@@ -447,13 +439,11 @@ export class MapCanvas {
 				ctx.drawImage(strip.bitmap, x, top, w + padRight, height + (last ? padBelow : 0));
 			}
 		};
-		/** An oversized pass fills the hairline gaps, then an exact pass on top so nothing else is stretched. */
 		for (const { r, c, img, x, y, w, h } of tiles) {
 			const right = c < MAP_CONFIG.columns - 1 ? overlap : 0;
 			drawTile(img, x, y, w, h, right, r < MAP_CONFIG.rows - 1 ? overlap : 0);
 		}
 		for (const { img, x, y, w, h } of tiles) drawTile(img, x, y, w, h, 0, 0);
-		/** Sharper squares over the base, at their exact original rows and column edges, as pins use; the base covers seams. */
 		const squares = [];
 		if (wanted) {
 			for (const { r, c, x, y, w, mapHeight } of onScreen) {
@@ -486,7 +476,6 @@ export class MapCanvas {
 
 		if (this.pin && this._drawGuessPin(now)) animating = true;
 
-		/** Rings scheduled for later (waiting on a line) have a negative age and are kept. */
 		this.ripples = this.ripples.filter((r) => now - r.startAt < MapCanvas.RIPPLE_DURATION);
 		for (const ripple of this.ripples) this._drawRipple(ripple, now);
 		if (this.ripples.length) animating = true;
@@ -503,7 +492,6 @@ export class MapCanvas {
 			const since = sinceReveal(rp.revealAt);
 			if (since >= 0)
 				deferred.push(() => this._drawAnswerPin(rp.correctX, rp.correctY, String(rp.roundNum), since));
-			/** Keep drawing until the marker has finished fading in, or the last one never fully appears. */
 			if (since < 300) animating = true;
 		}
 		if (this.correctPin) {
@@ -516,7 +504,6 @@ export class MapCanvas {
 		this._deferredPins = deferred;
 
 		for (const pin of this.namePins.values()) this._drawNamePin(pin);
-		/** The answer goes on last so nothing covers it. */
 		for (const drawAnswer of this._deferredPins) drawAnswer();
 		if (this._aiming && this.pinEnabled) this._drawCrosshair();
 		if (animating) this._scheduleDraw();
@@ -531,7 +518,6 @@ export class MapCanvas {
 		ctx.save();
 		ctx.resetTransform();
 		ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
-		/** A dark outline under a white cross, so it shows on any part of the map. */
 		for (const width of [3, 1.5]) {
 			ctx.lineWidth = width;
 			ctx.beginPath();
@@ -684,7 +670,6 @@ export class MapCanvas {
 		if (last && last.a === transform.a && !MapCanvas.reducedMotion()) {
 			const dx = transform.e - last.e;
 			const dy = transform.f - last.f;
-			/** Jumps (fitting the view, say) are not dragging, so they leave it alone. */
 			if (Math.hypot(dx, dy) < 80) {
 				const clamp = (v) => Math.max(-MapCanvas.PIN_SWAY_PX, Math.min(MapCanvas.PIN_SWAY_PX, v));
 				this._sway = { x: clamp((this._sway?.x ?? 0) - dx * 0.25), y: clamp((this._sway?.y ?? 0) - dy * 0.25) };
@@ -873,7 +858,6 @@ export class MapCanvas {
 				this._scheduleDraw();
 			}
 		};
-		/** A failed tile tries the other formats, then the next size up. */
 		const tried = new Set([format]);
 		img.onerror = () => {
 			if (loadId !== this.mapLoadId) return;
@@ -903,7 +887,6 @@ export class MapCanvas {
 				this._warming = false;
 				return this._scheduleDraw();
 			}
-			/** Drawn into one corner pixel, almost transparent; the next frame paints over it. */
 			if (strip.bitmap.width) {
 				this.ctx.save();
 				this.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1005,7 +988,6 @@ export class MapCanvas {
 			);
 		};
 		ctx.getTransform = () => transform;
-		/** Zoom is saved with the transform, since overlays reset it between save and restore. */
 		ctx.save = () => {
 			savedStack.push({
 				transform: new DOMMatrix([
@@ -1123,7 +1105,6 @@ export class MapCanvas {
 		canvas.tabIndex = 0;
 		canvas.setAttribute("role", "application");
 		canvas.setAttribute("aria-label", "Map");
-		/** Only for focus from the keyboard: a click focuses the map too, and must leave other arrow-key uses alone. */
 		const aim = () => {
 			this._aiming = canvas.matches(":focus-visible");
 			this._scheduleDraw();
@@ -1147,7 +1128,6 @@ export class MapCanvas {
 		const canvas = this.canvas;
 		this._setupKeyboard();
 
-		/** A press that ends where it began places the pin, however long it took; one that moves is a pan. */
 		const moved = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 		let pressedAt = null;
 
@@ -1162,7 +1142,6 @@ export class MapCanvas {
 		canvas.addEventListener("mousemove", (e) => {
 			if (!this.isDragging) return;
 			const pos = this._canvasCoords(e);
-			/** Hold still until it is clearly a drag, so a click never nudges the map. */
 			if (pressedAt && moved(pos, pressedAt) <= MapCanvas.CLICK_SLOP) return;
 			pressedAt = null;
 			this._busy();
@@ -1261,7 +1240,6 @@ export class MapCanvas {
 						now - lastTap.at < MapCanvas.DOUBLE_TAP_MS &&
 						moved(pos, lastTap) <= 3 * MapCanvas.TAP_SLOP;
 					lastTap = double ? null : { ...pos, at: now };
-					/** The first tap has already put the pin there; the second only zooms. */
 					if (double) {
 						this._busy();
 						this._zoomAt(pos.x, pos.y, 1.8);
@@ -1276,7 +1254,6 @@ export class MapCanvas {
 			this.isDragging = false;
 		});
 
-		/** Replay and review maps on the same page leave the zoom buttons and pickers alone. */
 		if (this.canvas.id !== "map-canvas") return;
 		document
 			.getElementById("zoom-in")
@@ -1306,7 +1283,6 @@ export class MapCanvas {
 		qualitySel.value = this.profile.detail;
 		qualitySel.addEventListener("change", () => {
 			this.setQuality(qualitySel.value);
-			/** Hand the keyboard back to the game, so Space still submits a guess. */
 			qualitySel.blur();
 		});
 	}

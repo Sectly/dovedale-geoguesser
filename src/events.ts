@@ -9,8 +9,6 @@ import { clientIp, fail } from "./lib/http";
 import { STAFF_CHAT_ROLE, attentionFor, onNotified } from "./notifications";
 import { justRestarted, onRestartChanged, restartIn } from "./system/restart";
 
-/** Server-sent events: one stream per open page in place of polling. A periodic re-check catches anything not pushed. */
-
 /** How often each stream's counts and the banner are re-checked. */
 const REFRESH_MS = 60_000;
 /** Keep-alive interval, under Bun's 60-second idle timeout and Cloudflare's 100 seconds. */
@@ -164,8 +162,6 @@ export function eventStream(c: Context) {
 }
 
 const restartState = () => ({ restart_in: restartIn(), restarted: justRestarted() });
-
-/* ---- Pushes: called where things change ---- */
 
 export function nudgeUser(userId: number) {
 	for (const client of clients) if (client.userId === userId) queueAttention(client);

@@ -1,4 +1,3 @@
-/** Gives page transitions a direction. In the <head> so it listens before the page shows. */
 (function pageTransitions() {
 	/** The header's sections in order (see NAV_LINKS in lib/header.js). */
 	const SECTIONS = ["/play", "/daily", "/duels", "/leaderboard", "/submit"];
@@ -16,7 +15,6 @@
 
 	addEventListener("pagereveal", (e) => {
 		if (!e.viewTransition) return;
-		/** The title screen (intro.js) plays instead. */
 		if (document.documentElement.classList.contains("intro-hold")) return e.viewTransition.skipTransition();
 		const from = window.navigation?.activation?.from?.url;
 		if (!from) return;
@@ -33,7 +31,6 @@
 		if (e.viewTransition) nameIcon(cardIcon(e.activation?.entry?.url));
 	});
 	addEventListener("pagereveal", (e) => {
-		/** A page brought back by the Back button may still carry the name it left with. */
 		for (const named of document.querySelectorAll("a.md-card > .material-symbols-outlined"))
 			named.style.viewTransitionName = "";
 		if (!e.viewTransition) return;

@@ -279,8 +279,6 @@ async function deleteLocation(id) {
 	}
 }
 
-/* ---- How a location has played ---- */
-
 const GUESS_MODES = { solo: "Solo", daily: "Daily", duel: "Duels" };
 const SPREAD_BANDS = ["Under 1,000", "1,000s", "2,000s", "3,000s", "4,000 and up"];
 
@@ -344,8 +342,6 @@ async function showLocationBreakdown(id) {
 		}
 		${duels.no_guess ? `<p class="text-xs text-zinc-500">${duels.no_guess} duel round${duels.no_guess === 1 ? "" : "s"} here ran out of time with no guess.</p>` : ""}`;
 }
-
-/* ---- Stats: what is happening now, what needs doing, and how the last two weeks went ---- */
 
 let _stats = null;
 let _statSeries = "games";

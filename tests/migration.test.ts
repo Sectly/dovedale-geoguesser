@@ -4,8 +4,6 @@ import { mkdirSync, mkdtempSync, readdirSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-/** Upgrades a database from the previous release in its own process and checks nothing was lost. */
-
 const ROOT = join(import.meta.dir, "..");
 const count = (db: Database, table: string) =>
 	db.query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM ${table}`).get()!.n;
@@ -18,7 +16,6 @@ function upgradeOldDatabase() {
 
 	const old = new Database(path, { create: true });
 	old.exec(require("fs").readFileSync(join(import.meta.dir, "fixtures/schema-v0.sql"), "utf8"));
-	/** The fixture's bans and limits were relative to the day it was written; make them so again. */
 	old.run("UPDATE users SET ban_expires_at = unixepoch() + 86400 WHERE username = 'carol'");
 	old.run("UPDATE users SET ban_expires_at = unixepoch() - 100 WHERE username = 'dave'");
 	old.run(

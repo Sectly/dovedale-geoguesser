@@ -1,8 +1,6 @@
 import { EXTERNAL_ICON, escHtml, isExternalLink, linkHref } from "./lib/dom.js";
 import { live, onLive } from "./lib/live.js";
 
-/** How many messages a player may send in a row before staff have to answer. */
-
 export function ticketTime(seconds) {
 	const date = new Date(seconds * 1000);
 	const today = new Date().toDateString() === date.toDateString();
@@ -26,7 +24,6 @@ export function linkedTextHtml(text) {
 		.split(/(https?:\/\/[^\s<>"']+)/)
 		.map((part, i) => {
 			if (i % 2 === 0) return escHtml(part);
-			/** Punctuation that ends the sentence, not the address. A bracket stays when the address opened it. */
 			let url = part;
 			while (/[.,;:!?\]]$/.test(url) || (url.endsWith(")") && url.split(")").length > url.split("(").length))
 				url = url.slice(0, -1);
@@ -77,7 +74,6 @@ export function pollWhile(isActive, load, everyMs = 5000, liveEvent = null) {
 		if (document.hidden || !isActive() || (liveEvent && live.connected)) return;
 		load();
 	}, everyMs);
-	/** A random delay spreads refetches across pages, and events in that window share one fetch. */
 	let pending = null;
 	const soon = () => {
 		if (pending || document.hidden || !isActive()) return;

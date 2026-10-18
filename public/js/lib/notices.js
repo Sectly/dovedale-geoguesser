@@ -21,7 +21,6 @@ if (welcomeKind) document.cookie = "welcome=; Path=/; Max-Age=0";
 	if (!kind || betaNoticeDue) return;
 	const user = await fetchUser();
 	if (!user || user.is_banned) return;
-	/** Not under the title screen (intro.js), where it would come and go unseen. */
 	await window.introDone;
 
 	const card = document.createElement("div");
@@ -58,7 +57,6 @@ if (welcomeKind) document.cookie = "welcome=; Path=/; Max-Age=0";
 		modal.firstElementChild.classList.add("hidden");
 		setTimeout(() => modal.remove(), DIALOG_CLOSE_MS);
 	});
-	/** Someone who has just logged in is greeted here instead of by a card of its own. */
 	if (welcomeKind)
 		fetchUser().then((user) => {
 			if (!user || user.is_banned) return;

@@ -17,7 +17,6 @@ import { scheduleRestart, stopCleanly } from "./src/system/restart";
 import { generateTileVariants } from "./src/tile-images";
 import { forgetPages } from "./src/routes/pages";
 
-/** Also keep warnings and errors where operators can read them in the staff panel. */
 captureConsole();
 
 process.on("uncaughtException", (err) => {
@@ -36,7 +35,6 @@ if (DEV_MODE) {
 }
 
 migrateLegacyModeration();
-/** The stylesheet is a build product: make sure it exists, and keep it fresh while developing. */
 await ensureStyles();
 if (DEV_MODE) watchStyles();
 
@@ -51,7 +49,6 @@ generateTileVariants()
 	.catch((err) => console.error("Tile variant generation failed:", err));
 
 logInfo(`Dovedale GeoGuesser listening on http://localhost:${PORT}${SUPERVISED ? " (managed by PM2)" : ""}`);
-/** A start nobody asked for (a crash, the host rebooting) is worth knowing about. */
 notify(
 	"system",
 	`**Server started**\nListening on port ${PORT}${DEV_MODE ? ", with the development login enabled" : ""}.`,
@@ -60,7 +57,6 @@ notify(
 
 process.on("SIGTERM", () => stopCleanly("SIGTERM received"));
 process.on("SIGINT", () => stopCleanly("SIGINT received"));
-/** `pm2 sendSignal SIGUSR2` (see deploy.sh) asks for a restart with the usual warning to players. */
 if (process.platform !== "win32") process.on("SIGUSR2", () => void scheduleRestart("Restart requested by the host"));
 
 export default {

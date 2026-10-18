@@ -1,5 +1,3 @@
-/** The knockout bracket: its shape, and how winners move through it. No state of its own. */
-
 export type Side = number | null;
 export type Decided = "sudden_death" | "tiebreak" | "forfeit" | "no_show" | "not_ready" | "staff" | "bye" | null;
 
@@ -142,7 +140,6 @@ export const playOrder = (a: Match, b: Match) =>
 
 export function propagate(s: State, m: Match) {
 	if (m.third) return;
-	/** Semi-final losers go on to the match for third place. */
 	const third = m.round === s.rounds - 2 ? s.matches.find((x) => x.third) : undefined;
 	if (third) {
 		const loser = m.players.find((p, i) => p !== null && p !== m.winner && !m.closed[i]) ?? null;

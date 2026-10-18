@@ -109,7 +109,6 @@ export async function sweepOrphanedUploads(now = Date.now()): Promise<number> {
 /** Runs on its own so a failed backup never stops the rest of the cleanup, and the other way round. */
 const maintain = job("maintenance", () => {
 	maintainDatabase();
-	/** Rewriting the file holds everything up for a moment, so not while a match is being played. */
 	if (!duelsInProgress() && !teamGamesInProgress() && reclaimFreeSpace())
 		logInfo("[cleanup] Rewrote the database file to hand back free space");
 });
@@ -126,7 +125,6 @@ const pruneDatabase = job("database", async () => {
 	db.run("DELETE FROM fingerprints WHERE last_seen < unixepoch() - ?", [RETENTION.fingerprints * DAY]);
 	trimSoloScores();
 	db.run("DELETE FROM duel_round_scores WHERE created_at < unixepoch() - ?", [RETENTION.duelRoundDetail * DAY]);
-	/** Duels cut off by a restart before a single round was scored are just empty rows. */
 	db.run(
 		`DELETE FROM duel_games WHERE status = 'abandoned' AND created_at < unixepoch() - ?
 			AND NOT EXISTS (SELECT 1 FROM duel_round_scores rs WHERE rs.game_id = duel_games.id)`,
@@ -139,7 +137,6 @@ const pruneDatabase = job("database", async () => {
 	pruneLogs();
 	sendStreakReminders();
 
-	/** Denied suggestions already had their image removed; approved ones gave theirs to the location. */
 	db.run("DELETE FROM location_suggestions WHERE status != 'pending' AND reviewed_at < unixepoch() - ?", [
 		RETENTION.reviewedSuggestions * DAY,
 	]);
@@ -163,7 +160,6 @@ export function startCleanupJobs() {
 	setInterval(() => tickTeamRooms(), 1000);
 	setInterval(() => pruneDatabase().then(maintain).then(checkUp), 60 * MINUTE_MS);
 	setInterval(refreshWordLists, 60 * MINUTE_MS);
-	/** Summaries go out on a quarter-hour beat, so an hourly one is never much more than an hour apart. */
 	setInterval(() => sendDueDigests().catch((err) => console.error("[email] job failed:", err)), 15 * MINUTE_MS);
 	setInterval(sendScheduledAnnouncements, MINUTE_MS);
 }

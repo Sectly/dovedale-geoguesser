@@ -11,8 +11,6 @@ import { maintenance } from "./maintenance";
 import { restartIn } from "./restart";
 import { updateStatus } from "./updater";
 
-/** The state of the site in one list. Repeated log lines fold into one entry with a count. */
-
 export type Finding = {
 	/** "problem" needs fixing; "warning" is worth a look; the rest is for knowing. */
 	level: "problem" | "warning" | "upcoming" | "info";
@@ -45,7 +43,6 @@ export async function systemBreakdown(): Promise<Finding[]> {
 	const add = (level: Finding["level"], title: string, rest: Omit<Finding, "level" | "title"> = {}) =>
 		found.push({ level, title, ...rest });
 
-	/* ---- Set up wrongly ---- */
 	if (DEV_MODE && SITE_URL)
 		add("problem", "The development login is on", {
 			detail: "AUTH_DEV=true lets anyone in as an operator without Discord. Switch it off on a public server.",
@@ -68,18 +65,15 @@ export async function systemBreakdown(): Promise<Finding[]> {
 	if (!DISCORD.webhookUrl)
 		add("info", "No Discord webhook", { detail: "Staff get no Discord message for new submissions or tickets." });
 
-	/* ---- Switched off on purpose, but easy to forget ---- */
 	const state = maintenance();
 	if (state.enabled)
 		add("warning", "Maintenance mode is on", { detail: "Players are locked out until it is switched off." });
 	for (const [name, on] of Object.entries(features()))
-		/** Email with no mail server is not "switched off", it is not set up, which is said above. */
 		if (!on && (name !== "email_digests" || emailConfigured()))
 			add("warning", `${FEATURE_NAMES[name] ?? name} switched off`, {
 				detail: "Switch it back on under Features when ready.",
 			});
 
-	/* ---- Backups and storage ---- */
 	const daily = listBackups().find((backup) => backup.kind === "daily");
 	if (!daily) add("problem", "No daily backup yet", { detail: "One is made within an hour of the server starting." });
 	else if (now - daily.created_at > 36 * HOUR)
@@ -97,7 +91,6 @@ export async function systemBreakdown(): Promise<Finding[]> {
 			detail: `${Math.round(memory / 1024 / 1024)} MB. PM2 restarts the server at 1 GB.`,
 		});
 
-	/* ---- Waiting too long ---- */
 	const oldestSubmission = count("SELECT MIN(created_at) AS n FROM submissions WHERE status = 'pending'");
 	if (oldestSubmission && now - oldestSubmission > 7 * DAY)
 		add("warning", "A submission has waited over a week", { at: oldestSubmission, tab: "submissions" });
@@ -110,7 +103,6 @@ export async function systemBreakdown(): Promise<Finding[]> {
 	const flags = count("SELECT COUNT(DISTINCT user_id) AS n FROM fairplay_flags WHERE dismissed_at IS NULL");
 	if (flags) add("info", `${flags} player${flags === 1 ? " has" : "s have"} open fair-play flags`, { tab: "users" });
 
-	/* ---- The game itself ---- */
 	const active = count("SELECT COUNT(*) AS n FROM locations WHERE is_active = 1");
 	if (active < 10)
 		add("problem", "Very few locations in play", {
@@ -125,7 +117,6 @@ export async function systemBreakdown(): Promise<Finding[]> {
 				tab: "locations",
 			});
 
-	/* ---- Coming up ---- */
 	const restart = restartIn();
 	if (restart !== null)
 		add("upcoming", "A restart is counting down", { detail: `In about ${Math.ceil(restart / 60)} min.` });
@@ -153,7 +144,6 @@ export async function systemBreakdown(): Promise<Finding[]> {
 		}
 	} catch {}
 
-	/* ---- What the server log says, each distinct line once ---- */
 	const lines = db
 		.query<{ level: string; message: string; n: number; last: number }, [number, number]>(
 			`SELECT level, message, COUNT(*) AS n, MAX(created_at) AS last FROM server_logs

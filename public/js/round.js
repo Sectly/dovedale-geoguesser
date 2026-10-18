@@ -58,7 +58,6 @@ export class RoundView {
 			],
 			[["+", "="], "Zoom the map in", duringRound(() => this.map.zoomBy(1.3))],
 			[["-"], "Zoom the map out", duringRound(() => this.map.zoomBy(1 / 1.3))],
-			/** Listed only: the map handles these itself while it has focus. */
 			[["Tab"], "Focus the map", () => false],
 			[["Arrows"], "Move the focused map", () => false],
 			[["P"], "Drop the pin at the crosshair", () => false],
@@ -117,7 +116,6 @@ export class RoundView {
 	_loadPhoto(url) {
 		const photo = el("round-photo");
 		const panel = el("photo-panel");
-		/** A duel shows a round and then starts it; both calls share one load. */
 		if (this._photo?.url === url) return this._photo.shown;
 		const load = (this._photo = { url, shown: null });
 		const current = () => this._photo === load;
@@ -146,13 +144,11 @@ export class RoundView {
 				};
 				photo.onload = () => {
 					if (!current()) return;
-					/** Loaded but with nothing in it: a file the browser could not draw. */
 					if (!photo.naturalWidth) return failed();
 					this._setPhotoError(null);
 					settle();
 				};
 				photo.onerror = failed;
-				/** A changed address makes the browser ask again, where repeating the same one may not. */
 				photo.src = tries ? `${url}${url.includes("?") ? "&" : "?"}retry=${Date.now()}` : url;
 			};
 			attempt(0);
@@ -234,7 +230,6 @@ export class RoundView {
 		return el("map-canvas").offsetParent !== null;
 	}
 
-	/** No pin yet: shake the button. */
 	_nudgeGuess() {
 		const btn = el("guess-btn");
 		if (this.locked || btn.classList.contains("hidden")) return false;
@@ -245,7 +240,6 @@ export class RoundView {
 
 	_setGuessEnabled(enabled) {
 		const btn = el("guess-btn");
-		/** aria-disabled, not disabled, so a press with no pin still arrives and can shake it. */
 		btn.setAttribute("aria-disabled", String(!enabled));
 		btn.className = GUESS_BTN_BASE + (enabled ? GUESS_BTN_ON : GUESS_BTN_OFF) + (this.canGuess ? "" : " hidden");
 	}
@@ -256,7 +250,6 @@ export class RoundView {
 		display.classList.toggle("hidden", !this.timeLimit);
 		if (!this.timeLimit) return;
 
-		/** Work from a deadline so a throttled background tab cannot stretch the round. */
 		clearInterval(this.timerId);
 		this.timerId = null;
 		this.deadline = Date.now() + (remaining ?? limit) * 1000;
@@ -349,8 +342,6 @@ export function difficultyText(difficulty) {
 	return difficulty ? `${difficulty[0].toUpperCase()}${difficulty.slice(1)} location` : "";
 }
 
-/* ---- Reactions: preset icons players can send each other (duels and team games) ---- */
-
 const EMOTE_COOLDOWN_MS = 1500;
 const EMOTE_SHOWN_MS = 3000;
 const EMOTE_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "+"];
@@ -390,14 +381,12 @@ export function bindEmoteBar(send) {
 		if (!choice || choice.disabled) return;
 		send(choice.dataset.emote);
 		setOpen(false);
-		/** The server allows one every so often; show that instead of letting clicks vanish. */
 		const buttons = [...bar.querySelectorAll("[data-emote]")];
 		for (const button of buttons) button.disabled = true;
 		setTimeout(() => buttons.forEach((button) => (button.disabled = false)), EMOTE_COOLDOWN_MS);
 	});
 	document.addEventListener("click", (e) => bar.contains(e.target) || setOpen(false));
 
-	/** E opens the picker and a number sends that reaction, so nobody has to leave the map for the mouse. */
 	const usable = () => !bar.classList.contains("hidden") && bar.offsetParent !== null;
 	const sendNumbered = (e) => {
 		if (!usable() || !choices() || choices().hidden) return false;
@@ -407,10 +396,8 @@ export function bindEmoteBar(send) {
 	};
 	addKeybinds("Reactions", [
 		[["E"], "Open or close the reaction picker", () => (usable() ? setOpen(choices().hidden) : false)],
-		/** Listed as one row in the help; the digits themselves are bound just below. */
 		[["1-9", "0", "-", "+"], "Send that reaction (while the picker is open)", () => false],
 	]);
-	/** Ahead of anything else on these keys (- and + zoom the map), and only while the picker is open. */
 	for (const key of [...EMOTE_KEYS, ...Object.keys(EMOTE_KEY_ALIASES)])
 		_pageKeys.set(key, [sendNumbered, ...(_pageKeys.get(key) || []).filter((handler) => handler !== sendNumbered)]);
 }
@@ -466,7 +453,6 @@ export async function reportLocation(event, locationId) {
 		</div>
 	</div>`;
 	const close = () => box.remove();
-	/** Keys pressed in the dialog must not also submit a guess or start the next round. */
 	box.addEventListener("keydown", (e) => {
 		e.stopPropagation();
 		if (e.key === "Escape") close();
@@ -526,7 +512,6 @@ function setupResizeHandle() {
 	const panel = el("photo-panel");
 	if (!handle || !panel) return;
 	const container = panel.parentElement;
-	/** Matches the stylesheet's side-by-side layout: wide screens and short landscape ones. */
 	const isDesktop = () => matchMedia("(min-width: 768px), (orientation: landscape) and (max-height: 500px)").matches;
 	let dragging = false;
 

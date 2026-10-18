@@ -5,8 +5,6 @@ import { linkRuleCodes } from "../rules.js";
 import { atLeast, currentTab, currentUser, ROLE_RANK_JS, showConfirm, showPrompt } from "./core.js";
 import { askReason, assignableRoles, formatWhen, loadUsers, MOD_ACTIONS, roleName, SIGNAL_INFO } from "./users.js";
 
-/** One player's staff panel: standing, notes, moderation, role and account. */
-
 const MOD_TYPE_STYLE = {
 	warning: ["warning", "text-yellow-400"],
 	limit_upload: ["upload_off", "text-orange-400"],
@@ -303,7 +301,6 @@ export async function refreshUsers() {
 
 async function moderateUser(userId, key) {
 	const action = MOD_ACTIONS[key];
-	/** Upload limits are usually about the upload guidelines; everything else about conduct. */
 	const answer = await askReason({ ...action, rules: key === "limit_upload" ? "UF" : "FA" });
 	if (!answer) return;
 	try {

@@ -11,8 +11,6 @@ import { notify } from "../lib/webhook";
 import { maintenance } from "../system/maintenance";
 import { UPDATES_ENABLED, updateStatus } from "../system/updater";
 
-/** The daily check-up: fixes what it safely can and logs it. Only serious findings go to staff, once each. */
-
 type Finding = {
 	/** Stable name for this kind of finding, used to tell a new problem from one already reported. */
 	key: string;
@@ -50,9 +48,6 @@ export async function checkUp(
 	const add = (key: string, text: string, flags: Pick<Finding, "serious" | "fixed"> = {}) =>
 		found.push({ key, text, ...flags });
 
-	/* ---- Put right here ---- */
-
-	/** A duel the database says is under way with no room behind it will never finish by itself. */
 	const live = new Set([...duelRooms.values()].map((room) => room.dbId));
 	const stuck = db
 		.query<{ id: number; status: string }, [number]>(
@@ -61,14 +56,11 @@ export async function checkUp(
 		.all(now - HOUR)
 		.filter((game) => !live.has(game.id));
 	for (const game of stuck) {
-		/** The same end a restart gives them: a game that never started goes, one cut short is abandoned. */
 		if (game.status === "waiting") db.run("DELETE FROM duel_games WHERE id = ?", [game.id]);
 		else db.run("UPDATE duel_games SET status = 'abandoned' WHERE id = ?", [game.id]);
 	}
 	if (stuck.length)
 		add("stuck_duels", `Closed ${plural(stuck.length, "duel")} left open with no room behind it`, { fixed: true });
-
-	/* ---- Serious: someone should look ---- */
 
 	const missing = db
 		.query<{ id: number; image_path: string }, []>("SELECT id, image_path FROM locations WHERE is_active = 1")
@@ -94,8 +86,6 @@ export async function checkUp(
 		add("memory", `The server is using ${Math.round(process.memoryUsage().rss / 1024 / 1024)} MB of memory`, {
 			serious: true,
 		});
-
-	/* ---- Minor: for the log only. The staff panel's own badges already count the queues. ---- */
 
 	const submissions = count(
 		"SELECT COUNT(*) AS n FROM submissions WHERE status = 'pending' AND created_at < ?",
@@ -152,7 +142,6 @@ function unreported(found: Finding[], now: number): Finding[] {
 	} catch {}
 	const serious = found.filter((finding) => finding.serious);
 	const due = serious.filter((finding) => now - (reported[finding.key] ?? 0) > REMIND_AFTER);
-	/** A problem that has gone away is forgotten, so it is reported afresh if it comes back. */
 	const next = Object.fromEntries(serious.map((finding) => [finding.key, reported[finding.key] ?? now]));
 	for (const finding of due) next[finding.key] = now;
 	db.run("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", [REPORTED_KEY, JSON.stringify(next)]);

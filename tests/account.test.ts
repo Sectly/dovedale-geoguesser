@@ -78,7 +78,6 @@ describe("account deletion", () => {
 		expect((await call("/api/account", { method: "DELETE", as: user, json: { confirm: true } })).status).toBe(200);
 		const details = (id: number) =>
 			db.query<{ details: string }, [number]>("SELECT details FROM audit_log WHERE id = ?").get(id)!.details;
-		/** The other player's longer name starts the same way and must be left whole. */
 		expect(details(theirs)).toBe("[deleted] vs al.the_first2, 5 rounds");
 		expect(details(mention)).toBe("Used the same browser as banned user [deleted]. Needs a staff decision.");
 		expect(
@@ -167,7 +166,6 @@ describe("leaderboards", () => {
 
 	test("are read a page at a time, with no player repeated or skipped", async () => {
 		const players = Array.from({ length: 5 }, () => createUser());
-		/** All level on score, so only the tiebreak keeps the pages apart. */
 		for (const player of players) {
 			db.run("INSERT INTO solo_scores (user_id, total_score, rounds, max_possible) VALUES (?, 24999, 5, 25000)", [
 				player.id,

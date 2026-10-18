@@ -122,7 +122,6 @@ export function issueAction(
 		).lastInsertRowid
 	);
 	syncUser(target.id);
-	/** Anyone already seen on this player's device is now worth a look. */
 	if (type === "ban_perm" || type === "ban_temp") checkForEvasion(target.id);
 	return getAction(id);
 }
@@ -182,7 +181,6 @@ export function ownHistory(userId: number) {
 
 /** One-off, repeat-safe import of records that predate this table. */
 export function migrateLegacyModeration() {
-	/** Warnings used to live in their own table. Copy them across, then retire it. */
 	const hasOldTable = db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'user_warnings'").get();
 	if (hasOldTable) {
 		db.transaction(() => {

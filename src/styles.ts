@@ -2,8 +2,6 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { PUBLIC_DIR, ROOT_DIR } from "./config";
 
-/** Compiles the Tailwind stylesheet from classes used in public/. */
-
 export const STYLES_OUTPUT = join(PUBLIC_DIR, "css", "tailwind.css");
 
 function tailwind(extraArgs: string[]) {

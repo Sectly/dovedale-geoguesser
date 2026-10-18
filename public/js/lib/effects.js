@@ -49,7 +49,6 @@ export function celebrate({ duration = 2600, count = 110 } = {}) {
 /** A ripple from where a button was pressed, in its own layer so it survives the button being rewritten. */
 document.addEventListener("pointerdown", (e) => {
 	if (e.button > 0 || prefersReducedMotion()) return;
-	/** Buttons, plus links that are styled as buttons (pills, round icon links, cards). */
 	const target = e.target.closest?.('button:not(:disabled), a.md-card, a[class*="rounded"]');
 	if (!target) return;
 	const rect = target.getBoundingClientRect();
@@ -75,7 +74,6 @@ document.addEventListener("pointerdown", (e) => {
 	};
 	requestAnimationFrame(follow);
 	ripple.addEventListener("animationend", () => layer.remove());
-	/** A safety net in case the animation never runs (e.g. the tab is hidden). */
 	setTimeout(() => layer.remove(), 1000);
 });
 
@@ -106,7 +104,6 @@ export function setupPhotoLens(img) {
 		const top = (rect.height - h) / 2;
 		const x = clientX - rect.left;
 		const y = clientY - rect.top;
-		/** The image is letterboxed inside its box; only magnify the picture itself. */
 		if (!img.naturalWidth || x < left || x > left + w || y < top || y > top + h) return hide();
 
 		last = { clientX, clientY };

@@ -232,7 +232,6 @@ function changelogRowHtml(entry) {
 function renderAnnouncements() {
 	const box = el("announcements-panel");
 	if (!box || !_announcements) return;
-	/** Redrawing must not throw away what is being written. */
 	const draft = announcementDraft();
 	const sizes = _announcements.audiences;
 	const field =
@@ -486,7 +485,6 @@ function updateAnnouncementPreview() {
 	el("announce-send").disabled = el("announce-test").disabled = el("announce-draft").disabled = !!problem;
 	el("announce-send-label").textContent = draft.when ? "Schedule" : "Send";
 
-	/** A push at night wakes people up, so say so while it can still be changed. */
 	const goesAt = draft.when ? new Date(draft.when) : new Date();
 	const noisy = !silent && !draft.no_push && !PRIVATE_AUDIENCES.includes(draft.audience) && isQuietHour(goesAt);
 	el("announce-quiet").textContent = noisy
@@ -679,8 +677,6 @@ function correctAnnouncement(id) {
 	});
 	el("fix-title").focus();
 }
-
-/* ---- Changelog ---- */
 
 function editChangelogEntry(id) {
 	_editingEntry = _changelog.find((entry) => entry.id === id) ?? null;

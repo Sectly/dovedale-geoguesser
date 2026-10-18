@@ -6,8 +6,6 @@ import { celebrate } from "./lib/effects.js";
 import { live, onLive } from "./lib/live.js";
 import { setChatInMatch, startChat } from "./tournament-chat.js";
 
-/** The tournament page: the bracket and breaks, handing each match to the duel screens. Once finished, its results. */
-
 /** How often to check without the live stream. */
 const POLL_MS = 5000;
 /** A duel round plus its result, roughly, for the wait estimate. */
@@ -280,7 +278,6 @@ function apply(next) {
 	state = next;
 	offset = next.now - Date.now();
 	const watched = watching !== null ? matchById(watching) : null;
-	/** A finished match in a round played all at once stays on its end screen for a moment. */
 	if (inMatch && watchingBatch && watched?.status === "done" && !lingerTimer) {
 		lingerUntil = Date.now() + LINGER_MS;
 		lingerTimer = setTimeout(() => {
@@ -403,8 +400,6 @@ function showStage() {
 	setTimeout(() => root.classList.remove("stage-entering"), 500);
 	requestAnimationFrame(fitBracket);
 }
-
-/* ---- Drawing ---- */
 
 function render(prev) {
 	if (!state) return;
@@ -616,7 +611,6 @@ function lobbyHero() {
 		</div>`
 			: "";
 	const when = starts ? timeText(starts) : "";
-	/** The big entrance plays once per visit; later redraws only update. */
 	const entering = !lobbyEntered;
 	lobbyEntered = true;
 	return `<div class="lobby-event ${entering ? "lobby-enter" : ""}">
@@ -758,7 +752,6 @@ function placings() {
 			if (loser !== undefined) place.set(loser, [2, false]);
 		} else if (loser !== undefined && !place.has(loser)) {
 			const fromEnd = rounds - 1 - m.round;
-			/** Placed by the match for third place instead. */
 			if (fromEnd === 1 && third) continue;
 			place.set(loser, [2 ** fromEnd + 1, true]);
 		}
@@ -864,7 +857,6 @@ function renderMessage(prev) {
 function renderRoster() {
 	const box = el("stage-roster");
 	const showing = ["draft", "announced", "open"].includes(state.status);
-	/** Before check-in nobody is marked as waiting. */
 	const checking = state.status === "open";
 	box.classList.toggle("hidden", !showing || !state.roster.length);
 	if (!showing) return void (seenCheckedIn = null);
@@ -891,8 +883,6 @@ function renderRoster() {
 			.join("")}</div>`;
 	seenCheckedIn = new Set(state.roster.filter((r) => r.checked_in).map((r) => r.user_id));
 }
-
-/* ---- The bracket ---- */
 
 const isNarrow = () => {
 	const width = el("stage-bracket-wrap").clientWidth;
@@ -926,7 +916,6 @@ function renderBracket(prev) {
 	const phase = state.phase;
 	const prevById = new Map(prev?.rounds?.length ? prev.rounds.flatMap((r) => r.matches.map((m) => [m.id, m])) : []);
 	const matches = allMatches();
-	/** Just-finished matches and the places their winners move into, to animate. */
 	const justDone = new Set();
 	const arriving = new Set();
 	for (const m of matches) {
@@ -1071,8 +1060,6 @@ function swipeRounds(area) {
 	});
 }
 
-/* ---- Sounds and animations ---- */
-
 function cues(prev, upNext) {
 	if (!prev) return;
 	if (prev.status === "announced" && state.status === "open") {
@@ -1140,7 +1127,6 @@ function banner(text) {
 	Sounds.play("whoosh");
 }
 
-/** Countdowns, with chimes as the start nears and ticks for the last ten seconds. */
 /** On a match's end screen: how long until the next match or the bracket. */
 function endCount() {
 	const box = el("stage-end-count");
@@ -1174,13 +1160,10 @@ function tick() {
 	if (lastSecond !== null) {
 		if (CHIMES_AT.includes(second)) Sounds.play("chime");
 		else if (second <= 10 && second > 0) Sounds.play("tick");
-		/** In case the update that starts the match is late. */
 		if (second === 0) setTimeout(refresh, 1500);
 	}
 	lastSecond = second;
 }
-
-/* ---- Buttons ---- */
 
 async function onClick(e) {
 	const target = e.target.closest("[data-action]");

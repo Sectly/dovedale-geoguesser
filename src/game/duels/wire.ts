@@ -95,7 +95,6 @@ wireServer.on("connection", (conn: WireConnection) => {
 
 			const existing = room.players.find((p) => p.userId === userId);
 			if (existing) {
-				/** A second tab or a reconnect takes over the seat; the old socket just goes quiet. */
 				if (existing.conn !== conn)
 					send(existing.conn, "rejected", { message: "You joined this duel from another tab or device." });
 				existing.conn = conn;
@@ -109,7 +108,6 @@ wireServer.on("connection", (conn: WireConnection) => {
 					)
 					.get(userId);
 				if (!user) return reject(conn, "Account not found");
-				/** The creator always takes the host seat, whoever happens to connect first. */
 				room.players[userId === room.creatorId ? "unshift" : "push"]({
 					userId,
 					username: user.username,
@@ -128,7 +126,6 @@ wireServer.on("connection", (conn: WireConnection) => {
 			sendSnapshot(room, conn, userId);
 			playerReconnected(room);
 
-			/** Quick Play and tournament rooms have no host to press start. */
 			if ((room.quickplay || room.tournament) && room.status === "waiting" && room.players.length === 2) {
 				setTimeout(
 					() => {
@@ -145,7 +142,6 @@ wireServer.on("connection", (conn: WireConnection) => {
 		handler("spectate", (data) => {
 			const room = duelRooms.get(roomCode(data));
 			if (!room || room.status === "finished") return reject(conn, "Room not found or already finished");
-			/** Everyone watches a tournament match. */
 			if (!room.tournament && room.spectators.size >= GAME.duel.maxSpectators)
 				return reject(conn, "This duel has too many spectators");
 
@@ -208,7 +204,6 @@ wireServer.on("connection", (conn: WireConnection) => {
 		})
 	);
 
-	/** Not named "emote" like the event sent back: this library also fires handlers on connections the server sends that event to, so every receiver would appear to send it too. */
 	conn.on(
 		"send_emote",
 		handler("send_emote", (data) => {
@@ -257,7 +252,6 @@ wireServer.on("connection", (conn: WireConnection) => {
 			clearRematch(room);
 			const [host, guest] = room.players;
 			const rematch = createRoom(host.userId, room.rounds, room.quickplay, room.listed);
-			/** The same two players again, so the running score between them carries on. */
 			rematch.series = { wins: { ...room.series.wins }, games: room.series.games };
 			rematch.previousWinnerId = room.winnerId;
 			joinRoom(rematch.code, guest.userId);
@@ -297,7 +291,6 @@ wireServer.on("connection", (conn: WireConnection) => {
 			if (room.status === "in_progress") return playerDisconnected(room, player.userId);
 			if (room.status === "finished") return declineRematch(room, player);
 
-			/** Still in the lobby: hold the seat briefly in case this was a reload or a network blip. */
 			cancelCountdown(room);
 			broadcastState(room);
 			setTimeout(() => {

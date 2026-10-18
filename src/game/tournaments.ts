@@ -38,8 +38,6 @@ import {
 	sideKnown,
 } from "./tournament-bracket";
 
-/** One knockout bracket. Early rounds can play at once, later ones one match at a time, with breaks between. */
-
 /** Announced: public, with check-in still to open. */
 export type TournamentStatus = "draft" | "announced" | "open" | "live" | "finished" | "cancelled";
 
@@ -259,7 +257,6 @@ function armCheckin() {
 	const t = active;
 	const at = t ? checkinAt(t) : null;
 	if (!t || at === null) return;
-	/** Timers cap at about 24 days; a later time is checked again then. */
 	checkinTimer = setTimeout(
 		() => {
 			checkinTimer = null;
@@ -287,8 +284,6 @@ function clearJoinTimer(m: Match) {
 
 /** Whether a round is played all at once. */
 const parallel = (t: Tournament, round: number) => t.state.rounds - 1 - round > t.settings.spotlightFrom;
-
-/* ---- Chat ---- */
 
 /** Where a person stands, for chat. */
 export type ChatRole = "spectator" | "waiting" | "playing" | "out";
@@ -392,7 +387,6 @@ function loadResults() {
 		.get(Math.floor(Date.now() / 1000));
 	results = row ? { id: row.id, title: row.title, until: row.results_until * 1000, version: Date.now() } : null;
 	if (!results) return;
-	/** Timers cap at about 24 days; a later time is checked again then. */
 	resultsTimer = setTimeout(
 		() => {
 			loadResults();
@@ -401,8 +395,6 @@ function loadResults() {
 		Math.min(results.until - Date.now() + 1000, 2 ** 31 - 1)
 	);
 }
-
-/* ---- The bracket ---- */
 
 function roundsFor(t: Tournament, m: Match): number {
 	if (m.third) return t.settings.semiRounds;
@@ -458,8 +450,6 @@ const userName = (id: number) =>
 	db
 		.query<{ name: string }, [number]>("SELECT COALESCE(display_name, username) AS name FROM users WHERE id = ?")
 		.get(id)?.name ?? "A player";
-
-/* ---- Running it ---- */
 
 function arm(t: Tournament) {
 	if (phaseTimer) clearTimeout(phaseTimer);
@@ -648,7 +638,6 @@ function matchOver(t: Tournament, m: Match, winner: Side, decided: Decided, resu
 	clearJoinTimer(m);
 	const phase = t.state.phase;
 	settle(t.state, m, winner, decided);
-	/** A round played all at once, or its break, carries on around the match. */
 	if (phase.kind === "batch" || (phase.kind === "break" && phase.round !== undefined)) {
 		changed(t);
 		return checkRound(t);
@@ -703,8 +692,6 @@ onTournamentDuelEnd((room, winnerId, how) => {
 					: null;
 	matchOver(t, m, winnerId, decided, how === "finished" ? RESULT_MS : FORFEIT_RESULT_MS);
 });
-
-/* ---- What pages see ---- */
 
 /** `invite_code` is the code a player joined with, or null if staff added them. */
 type Roster = { user_id: number; checked_in: number; position: number; invite_code: string | null };
@@ -830,6 +817,16 @@ export function tournamentView(id: number, staff: boolean, viewerId: number | nu
 	};
 }
 
+/** True when `code` is the tournament's current invite code and it can still be used. */
+export function inviteWorks(id: number, code: string): boolean {
+	const row = getRow(id);
+	return (
+		!!row?.invite_code &&
+		code.trim().toUpperCase() === row.invite_code &&
+		["announced", "open"].includes(row.status)
+	);
+}
+
 /** What a shared link shows: the share image and the page description. Null for drafts and unknown ids. */
 export function tournamentShare(id: number) {
 	const row = getRow(id);
@@ -892,8 +889,6 @@ export function pastTournaments() {
 		.all();
 }
 
-/* ---- Players ---- */
-
 export function checkIn(id: number, user: User) {
 	const t = load(id);
 	if (t.status !== "open")
@@ -951,7 +946,6 @@ export function markReady(id: number, user: User) {
 		);
 		if (!mine) fail(409, "There's nothing to get ready for yet.");
 		if (!t.state.ready.includes(user.id)) t.state.ready.push(user.id);
-		/** In a round already under way, a held match starts as soon as both players are ready. */
 		if (phase.kind === "batch" && playable(mine) && mine.players.every((p) => t.state.ready.includes(p as number)))
 			return startMatch(t, mine);
 		return changed(t);
@@ -980,14 +974,11 @@ export function vote(id: number, user: User, side: 0 | 1) {
 	if (m.players.includes(user.id)) fail(403, "You can't pick in your own match.");
 	if (m.players[side] === null) fail(409, "That place isn't decided yet.");
 	((t.state.votes ??= {})[m.id] ??= {})[user.id] = side;
-	/** Picks come in bursts, so they go out together. */
 	voteTimer ??= setTimeout(() => {
 		voteTimer = null;
 		if (active === t) changed(t);
 	}, 1500);
 }
-
-/* ---- Staff ---- */
 
 export type TournamentInput = {
 	title?: unknown;
@@ -1391,7 +1382,6 @@ export function controlTournament(staff: User, id: number, action: Control) {
 		if (phase.kind !== "hold") fail(409, "Nothing is waiting on staff.");
 		const m = phase.matchId === null ? null : s.matches[phase.matchId];
 		if (m && m.status === "waiting" && m.players.every((p, i) => p !== null && !m.closed[i])) {
-			/** Whoever isn't there when the duel opens loses it. */
 			auditLog(staff, "tournament_continue", { targetType: "tournament", targetId: id, details: t.title });
 			return breakFor(t, m, "match", READY_MS / 1000, m.players as number[]);
 		}
@@ -1474,7 +1464,6 @@ export function restartMatch(staff: User, id: number, matchId: number) {
 		targetId: id,
 		details: `${t.title}, ${matchName(t.state, m)}`,
 	});
-	/** All at once, the match restarts at once; one at a time, it gets a short break first. */
 	if (t.state.phase.kind === "batch") return startMatch(t, m);
 	breakFor(t, m, "match", RESTART_BREAK_S);
 }
@@ -1517,7 +1506,6 @@ export function setSlot(staff: User, id: number, matchId: number, side: 0 | 1, u
 		details: `${t.title}: ${s.notice.text}`,
 	});
 	const phase = s.phase;
-	/** The new player needs time to get ready. */
 	if ((phase.kind === "break" || phase.kind === "hold") && phase.matchId === m.id) {
 		s.ready = s.ready.filter((p) => p !== replaced);
 		if (phase.kind === "break") phase.endsAt = Math.max(phase.endsAt, Date.now() + t.settings.breaks.match * 1000);

@@ -9,8 +9,6 @@ import { reviewGuess } from "../../fairplay";
 import { features } from "../../system/features";
 import { getRated, rateDuel, ratingOf, ratingStakes, winStreak, type RatingChange } from "./rating";
 
-/** A duel: two players, the same locations, higher total wins. Rooms live in memory; results are saved each round. */
-
 export type DuelPlayer = {
 	userId: number;
 	username: string;
@@ -369,7 +367,6 @@ export function joinRoom(code: string, userId: number): JoinResult {
 function deleteWaitingRoom(room: DuelRoom) {
 	clearPhase(room);
 	duelRooms.delete(room.code);
-	/** A game that never started leaves nothing worth keeping. */
 	db.run("DELETE FROM duel_games WHERE id = ? AND status = 'waiting'", [room.dbId]);
 }
 
@@ -430,7 +427,6 @@ function startRound(room: DuelRoom) {
 	room.loaded = new Set();
 	room.awaitingLoad = true;
 	room.lastResult = null;
-	/** The clock waits until both players have the screenshot, so a slow connection costs nobody time. */
 	room.round = Round.loading(room.locations[room.roundNumber - 1], DUEL_RULES);
 	reportRound(room);
 	broadcast(room, "round_loading", roundStartMessage(room));
@@ -499,11 +495,9 @@ function endRound(room: DuelRoom) {
 	const comebackFor = room.comebackFor;
 	const results = room.players.map((player) => {
 		const outcome = room.outcomes.get(player.userId) ?? round.score(null);
-		/** The stored round score stays as guessed; the doubling only reaches the duel total. */
 		const bonus = comebackFor === player.userId ? outcome.score : 0;
 		player.totalScore += outcome.score + bonus;
 		recordOutcome(round.location, outcome);
-		/** Tournament matches earn no achievements and stay off profiles and leaderboards. */
 		if (!room.tournament) checkRound(player.userId, outcome, DUEL_RULES.timeLimit);
 		reviewGuess(player.userId, "duel", round.location.id, outcome);
 		db.run(
@@ -683,7 +677,6 @@ export function sendCrowdEmote(room: DuelRoom, userId: number, emote: unknown) {
 function endGame(room: DuelRoom) {
 	if (room.status !== "in_progress") return;
 	const scores = scoreboard(room);
-	/** Sudden death goes to whoever took that round, whatever the totals. If nobody did, the totals decide. */
 	const decider = room.suddenDeath?.winnerId ?? null;
 	const level = scores.length > 1 && scores[0].total_score === scores[1].total_score;
 	const tiebreak = decider === null && level && !!room.tournament && room.players.length === 2;
@@ -762,7 +755,6 @@ export function playerDisconnected(room: DuelRoom, userId: number) {
 			room.phase.remainingMs = Math.max(0, room.phase.dueAt - Date.now());
 		}
 	}
-	/** Whether this is the first drop or one during the resume countdown, the wait starts over. */
 	if (room.paused.timer) clearTimeout(room.paused.timer);
 	room.paused.resuming = false;
 	room.paused.timer = setTimeout(() => {
@@ -810,7 +802,6 @@ export function abandonDuel(room: DuelRoom, leaverId: number) {
 	const winner = stayed.length === 1 ? stayed[0] : null;
 
 	finish(room, winner?.userId ?? null);
-	/** Walking out of a rated duel is a loss, or leaving would be the way to dodge one. */
 	const ratings = winner ? rate(room, winner.userId) : null;
 	auditLog(null, "duel_abandon", {
 		targetType: "duel",

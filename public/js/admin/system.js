@@ -108,8 +108,6 @@ async function loadBreakdown() {
 	);
 }
 
-/** Overview */
-
 async function loadSystemInfo() {
 	const box = el("system-info");
 	if (!box) return;
@@ -136,8 +134,6 @@ async function loadSystemInfo() {
 		box.innerHTML = systemCard("Server", "dns", `<p class="text-red-300 text-sm">${escHtml(err.message)}</p>`);
 	}
 }
-
-/** Maintenance mode */
 
 async function loadMaintenance() {
 	const box = el("system-maintenance");
@@ -184,8 +180,6 @@ async function setMaintenanceMode(enabled) {
 		showToast(err.message, "error");
 	}
 }
-
-/** Feature switches */
 
 const FEATURE_INFO = {
 	duel_emotes: [
@@ -262,8 +256,6 @@ async function setFeature(feature, enabled) {
 	}
 }
 
-/** Updates */
-
 /** Which files block an update, and the command that clears a permission-only change. */
 function localChangesText(files) {
 	const names = files
@@ -286,7 +278,6 @@ async function loadUpdate(refresh) {
 		if (refresh) box.querySelector("button")?.setAttribute("disabled", "");
 		status = await api(`/api/admin/system/update${refresh ? "?refresh=1" : ""}`);
 	} catch (err) {
-		/** While the server restarts it is not there at all; keep asking until it is back. */
 		if (box.dataset.restarting) {
 			systemUpdatePoll = setInterval(() => loadUpdate(false), 2000);
 			return;
@@ -323,7 +314,6 @@ async function loadUpdate(refresh) {
 	if (job.state === "restarting") box.dataset.restarting = "1";
 
 	const blockers = [
-		/** Already HTML: the plain messages are escaped here. */
 		!status.enabled ? "Updates from the panel are switched off on this server (PANEL_UPDATES=off)." : "",
 		status.local_changes ? localChangesText(status.local_files ?? []) : "",
 		status.ahead ? "The server has commits that the remote does not." : "",
@@ -335,7 +325,6 @@ async function loadUpdate(refresh) {
 			<div class="divide-y divide-zinc-800 max-h-64 overflow-y-auto mb-3">${status.pending.map(commitRow).join("")}</div>`
 		: `<p class="text-sm text-zinc-400 mb-3">${status.checked_at ? "Up to date." : "Press Check for updates to ask GitHub what is new."}</p>`;
 	const jobLog = job.state !== "idle" ? updateJobHtml(job, status.restart_in) : "";
-	/** A redraw must not throw the reader back to the top of the output, or away from its end. */
 	const oldLog = box.querySelector(".update-log");
 	const followEnd = !oldLog || oldLog.scrollTop + oldLog.clientHeight >= oldLog.scrollHeight - 8;
 	const keptScroll = oldLog?.scrollTop ?? 0;
@@ -454,8 +443,6 @@ async function cancelRestartNow() {
 	loadUpdate(false);
 }
 
-/** Backups */
-
 const BACKUP_KIND_LABELS = { daily: "Daily", upgrade: "Before upgrade", update: "Before update", manual: "Manual" };
 
 async function loadBackups() {
@@ -511,8 +498,6 @@ async function deleteBackupFile(name) {
 	}
 }
 
-/** Server log */
-
 const LOG_LEVEL_TONE = { error: "danger", warn: "warn", info: "" };
 
 async function loadSystemLogs(before = 0) {
@@ -546,7 +531,6 @@ async function loadSystemLogs(before = 0) {
 			</details>`
 		)
 		.join("");
-	/** The tab was redrawn or left while the request was out; the newer load owns the page now. */
 	if (!box.isConnected) return;
 	if (before) {
 		el("system-log-more")?.remove();

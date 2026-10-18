@@ -36,9 +36,7 @@ async function drain(url: string) {
 				await Bun.sleep(Math.min(wait, 15) * 1000);
 				continue;
 			}
-		} catch {
-			/** Discord being unreachable must never get in the way of the site. */
-		}
+		} catch {}
 		queue.shift();
 	}
 	sending = false;

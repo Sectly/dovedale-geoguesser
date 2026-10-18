@@ -1,5 +1,3 @@
-/** SVG templates for the 1200x630 share images. */
-
 const SURFACE = "#121214";
 const CARD = "#1e1e22";
 const OUTLINE = "#2c2c31";
@@ -105,7 +103,6 @@ export function duelCard(
 
 const GOLD = "#facc15";
 
-/** A plain cup, drawn rather than loaded, so the card needs no files. */
 function trophy(cx: number, cy: number, color: string): string {
 	return `<g transform="translate(${cx - 90} ${cy - 100})" fill="${color}">
     <path d="M40 10 h100 v60 a50 50 0 0 1 -100 0 z"/>

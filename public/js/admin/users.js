@@ -5,8 +5,6 @@ import { refreshAttention } from "../lib/attention.js";
 import { bindRuleChips, ruleChipsHtml } from "../rules.js";
 import { bindPanelSearch, panelSearchInput, ROLE_RANK_JS } from "./core.js";
 
-/** The Users tab, and the role names and helpers the other staff tabs share. */
-
 export const SIGNAL_INFO = {
 	device: {
 		label: "Same browser",

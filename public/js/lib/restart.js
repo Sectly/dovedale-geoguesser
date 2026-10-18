@@ -12,7 +12,6 @@ import { live, onLive } from "./live.js";
 		try {
 			if (res.headers.get("X-App")) {
 				noteRestarted(res.headers.get("X-Restarted"));
-				/** Only API answers carry the countdown; a page or a script having none says nothing. */
 				if (new URL(res.url, location.href).pathname.startsWith("/api/"))
 					noteRestart(res.headers.get("X-Restart-In"));
 			}
@@ -36,7 +35,6 @@ export function noteRestart(seconds) {
 	if (seconds === null || seconds === undefined || seconds === "") return clearRestartBanner();
 	if (!Number.isFinite(Number(seconds))) return;
 	const at = Date.now() + Number(seconds) * 1000;
-	/** Keep the earliest deadline heard, so the countdown never jumps backwards. */
 	showRestartBanner(_restartAt ? Math.min(_restartAt, at) : at, true);
 }
 
@@ -69,7 +67,6 @@ function noteRestarted(id) {
 
 function clearRestartBanner() {
 	if (!_restartTimer) return;
-	/** With time still on the clock the server cannot have restarted yet, so it was called off. */
 	const calledOff = Date.now() < _restartAt - 2000;
 	clearInterval(_restartTimer);
 	_restartTimer = null;
@@ -86,7 +83,6 @@ function clearRestartBanner() {
 	}
 	restartOverlay("back");
 	setTimeout(() => {
-		/** A reload would throw away something half-written, so that page is left as it is. */
 		if ([...document.querySelectorAll("textarea, input[type=text]")].some((field) => field.value.trim())) {
 			dismissRestartOverlay();
 			return showToast("The server is back. Reload the page if anything looks off.", "success");
@@ -97,8 +93,6 @@ function clearRestartBanner() {
 		location.reload();
 	}, RESTART_BACK_MS);
 }
-
-/* ---- The restart itself: a screen over the page while the server is away ---- */
 
 /** Set just before reloading after a restart, so the next page fades in from the same screen. */
 const RESTART_RELOADED_KEY = "restart_reloaded";
@@ -161,10 +155,8 @@ function tickRestartBanner() {
 		left > 0
 			? `Server restarting in ${left >= 60 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : `${left}s`}. Open duels and team games will be closed.`
 			: "Server restarting... back in a moment.";
-	/** Not over a round or the staff panel's own progress view. */
 	if (left <= 0 && !isMidRound() && location.pathname !== "/admin" && !document.getElementById("restart-overlay"))
 		restartOverlay("down");
-	/** Past the deadline, keep knocking until the new server answers without mentioning a restart. */
 	if (left <= 0 && left % 2 === 0) api("/api/status").catch(() => {});
 }
 
@@ -173,11 +165,9 @@ function tickRestartBanner() {
 	try {
 		at = Number(sessionStorage.getItem(RESTART_AT_KEY)) || 0;
 	} catch {}
-	/** Long past its deadline it is stale: the restart came and went while this tab was elsewhere. */
 	if (at && Date.now() - at < 60_000) showRestartBanner(at, false);
 })();
 
 const checkForRestart = () => document.hidden || live.connected || api("/api/status").catch(() => {});
 setInterval(checkForRestart, RESTART_POLL_MS);
-/** A tab coming back to the front asks at once rather than waiting out the interval. */
 document.addEventListener("visibilitychange", checkForRestart);
