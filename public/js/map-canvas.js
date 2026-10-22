@@ -91,7 +91,6 @@ export class MapCanvas {
 		this.profile = _mapProfile();
 		/** Sharper tiles for the part of the map on screen, by "quality:row:column". Only used with a `base`. */
 		this.detailImages = new Map();
-		/** Failed loads per sharper tile, for retry backoff. */
 		this._detailFailures = new Map();
 		this._warmQueue = [];
 		this._warming = false;

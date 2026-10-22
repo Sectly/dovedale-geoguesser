@@ -33,7 +33,6 @@ export function spectatorCap(limit = openFileLimit()): number {
 	return Math.max(0, Math.min(GAME.tournament.maxSpectators, Math.floor((limit - RESERVED_FILES) / 2)));
 }
 
-/** Breakdown note when the file limit lowers the cap. */
 export function spectatorCapNote(limit = openFileLimit()): { title: string; detail: string } | null {
 	const cap = spectatorCap(limit);
 	if (limit === null || cap >= GAME.tournament.maxSpectators) return null;

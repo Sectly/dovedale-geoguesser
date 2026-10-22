@@ -77,14 +77,13 @@ let watchingTimer: ReturnType<typeof setTimeout> | null = null;
 
 let alwaysWatches: (tournamentId: number, user: User | null) => boolean = () => false;
 
-/** Who is never turned away from a tournament. Set by tournaments.ts. */
+/** Set by tournaments.ts. */
 export function onAlwaysWatches(fn: typeof alwaysWatches) {
 	alwaysWatches = fn;
 }
 
 export const watchKey = (c: Context, user: User | null) => (user ? `user:${user.id}` : `ip:${clientIp(c)}`);
 
-/** Whether a new spectator would go over the cap. */
 export function tournamentFull(tournamentId: number, user: User | null, key: string): boolean {
 	let spectators = 0;
 	for (const client of clients) {

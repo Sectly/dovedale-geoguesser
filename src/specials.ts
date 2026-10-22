@@ -173,7 +173,6 @@ export function publicSpecial(id: string): Listed | null {
 	return specialsFor(null).find((s) => s.id === id) ?? null;
 }
 
-/** The blurb's first sentence. */
 export const specialTagline = (s: Special) => s.blurb.split(/(?<=\.)\s/)[0];
 
 export function liveSpecial(id: string, user: User): Special | null {

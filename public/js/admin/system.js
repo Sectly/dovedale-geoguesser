@@ -108,7 +108,6 @@ async function loadBreakdown() {
 	);
 }
 
-/** Show every figure, not just the basics. */
 let _statsMore = (() => {
 	try {
 		return localStorage.getItem("systemStatsMore") === "1";
@@ -367,7 +366,6 @@ function localChangesText(files) {
 	return `Edited by hand on the server: ${names}.${fix}`;
 }
 
-/** Dependency report, fetched on demand. */
 let _deps = null;
 let _depsOpen = false;
 
@@ -561,7 +559,6 @@ async function installUpdate(count) {
 	}
 }
 
-/** Asks twice: once to explain, once for the branch name. */
 async function forceUpdate() {
 	const status = _updateStatus;
 	if (!status) return;

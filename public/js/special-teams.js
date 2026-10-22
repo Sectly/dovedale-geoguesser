@@ -22,7 +22,6 @@ let wire = null;
 /** When the get-ready count or the reveal ends, by this browser's clock. */
 let phaseEndsAt = 0;
 let countdownTimer = null;
-/** Polls the room while the socket is down. */
 let pollTimer = null;
 /** What is on screen, so each change of round or phase is handled exactly once. */
 let shown = { status: null, phase: null, round: 0 };
@@ -367,7 +366,6 @@ function render() {
 	}
 }
 
-/** Shown once a player's guess is in, naming who is still being waited for. */
 function lockedHint() {
 	const waiting = room.members.filter((m) => m.team && !m.guessed && !m.gone && m.id !== me.id).map(nameOf);
 	if (!waiting.length) return "Guess locked in";

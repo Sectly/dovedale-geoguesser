@@ -27,7 +27,6 @@ let _chat = null;
 let _filter = "all";
 let _stopPoll = null;
 let _busy = false;
-/** The message whose moderation actions are showing. */
 let _openMessage = null;
 
 const seconds = (ms) => (ms === 0 ? "None" : `${ms / 1000} s`);
@@ -200,7 +199,6 @@ const dismissStaffChat = (messageId) => chatAct(`/${messageId}/dismiss`);
 const timeOutStaffChat = (messageId, minutes) =>
 	chatAct(`/${messageId}/timeout`, { json: { minutes } }, `Timed out for ${timeoutText(minutes)}`);
 
-/** Clicks on a link or an action button inside the row are left to them. */
 function toggleStaffChatMessage(messageId, row, event) {
 	if (event.target.closest("a, [data-on-click]") !== row) return;
 	_openMessage = _openMessage === messageId ? null : messageId;

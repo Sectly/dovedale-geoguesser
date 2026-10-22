@@ -19,7 +19,6 @@ type DependencyReport = { checked_at: number; outdated: string; audit: string; v
 let dependencies: DependencyReport | null = null;
 const DEPENDENCY_TTL_MS = 10 * 60 * 1000;
 
-/** Without colour codes or Bun's timing lines. */
 const plainOutput = (text: string) =>
 	text
 		.replace(/\u001b\[[0-9;]*m/g, "")
@@ -266,8 +265,8 @@ const INSTALLED_STEP = "Installed. Restart the server to finish.";
 const shortHash = async () => (await git("rev-parse", "--short", "HEAD")).out || null;
 
 /** Backs up, fast-forwards, installs, rebuilds styles and tiles, restarts. Stops at the first failure. */
-/** `force` resets to the remote branch, dropping changes made on the server; `typed` must be the branch name. */
-/** Matches the remote branch exactly. Ignored files (data, uploads, .env) are left alone. */
+/** `force` drops changes made on the server; `typed` must be the branch name. */
+/** Ignored files (data, uploads, .env) are left alone. */
 async function hardReset(): Promise<Result> {
 	const fetched = await git("fetch", REMOTE, BRANCH);
 	if (!fetched.ok) return fetched;

@@ -38,7 +38,6 @@ const AVATAR_HOST = "cdn.discordapp.com";
 const AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 
-/** A small avatar image from Discord's CDN, or null. */
 async function fetchAvatar(url: string | null): Promise<{ mime: string; bytes: Buffer } | null> {
 	if (!url) return null;
 	try {
@@ -64,7 +63,7 @@ async function avatarDataUri(url: string | null): Promise<string> {
 /** Changes with the avatar, so a new one gets a new address. */
 export const avatarVersion = (url: string) => Bun.hash(url).toString(36);
 
-/** A player's avatar on this site. Discord won't load its own CDN in a component embed. */
+/** Discord won't load its own CDN in a component embed. */
 export const avatarPath = (username: string, url: string) =>
 	`/u/${encodeURIComponent(username)}/avatar-${avatarVersion(url)}.webp`;
 

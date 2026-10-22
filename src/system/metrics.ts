@@ -1,4 +1,3 @@
-/** Requests kept for response times. */
 const MAX_REQUESTS = 5000;
 const WINDOW_MS = 5 * 60 * 1000;
 const SAMPLE_MS = 1000;

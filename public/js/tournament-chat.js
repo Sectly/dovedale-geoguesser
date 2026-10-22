@@ -13,7 +13,7 @@ const ROLE_NAMES = {
 	admin: "Admin",
 	operator: "Operator",
 };
-/** `OFF` hides chat entirely; `IN_ROUND` hides it from a player while their round is in play. */
+/** Reasons that hide the chat. */
 const OFF = "Chat is off.";
 const IN_ROUND = "Chat opens between rounds.";
 

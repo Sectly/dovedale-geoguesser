@@ -250,7 +250,6 @@ export function setTeamPresence(code: string, userId: number, here: boolean) {
 	markChanged(code);
 }
 
-/** A page connected to or dropped off the room's socket. */
 export function setTeamConnected(code: string, userId: number, connected: boolean) {
 	const room = rooms.get(code);
 	const m = room?.members.get(userId);
@@ -497,7 +496,6 @@ function roomView(room: TeamRoom, userId: number) {
 	};
 }
 
-/** For invite link previews. Null once the room has closed. */
 export function teamRoomShare(code: string) {
 	const room = rooms.get(code.toUpperCase());
 	if (!room) return null;

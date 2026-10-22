@@ -251,7 +251,6 @@ export function startStage(tournamentId, viewer, duelControls) {
 
 let openChat = null;
 
-/** Shown instead of the bracket while the tournament is full. */
 function showFull() {
 	el("stage-hero").innerHTML = `<span class="material-symbols-outlined text-5xl text-zinc-500">groups</span>
 		<h1 class="text-3xl font-bold mt-3">No room for more spectators</h1>
