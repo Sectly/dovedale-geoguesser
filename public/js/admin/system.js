@@ -2,7 +2,7 @@ import { el, escHtml } from "../lib/dom.js";
 import { api } from "../lib/api.js";
 import { showToast } from "../lib/toast.js";
 import { renderMaintenanceBanner } from "../lib/notices.js";
-import { showConfirm } from "./core.js";
+import { showConfirm, showPrompt } from "./core.js";
 import { shortAgo } from "./overview.js";
 import { formatWhen } from "./users.js";
 
@@ -410,6 +410,8 @@ async function toggleDependencies(refresh = false) {
 	paintDependencies();
 }
 
+let _updateStatus = null;
+
 async function loadUpdate(refresh) {
 	clearInterval(systemUpdatePoll);
 	const box = el("system-update");
@@ -432,6 +434,7 @@ async function loadUpdate(refresh) {
 		);
 		return;
 	}
+	_updateStatus = status;
 	if (box.dataset.restarting && status.job && status.job.state !== "restarting") {
 		delete box.dataset.restarting;
 		showToast("The server is back up", "success");
@@ -481,7 +484,8 @@ async function loadUpdate(refresh) {
 		${pending}
 		<div class="flex items-center justify-end gap-2 flex-wrap">
 			${job.state === "restarting" && status.restart_in ? '<button data-on-click="cancelRestartNow()" class="m-btn m-btn-tonal">Cancel restart</button>' : ""}
-			${status.supervised ? `<button data-on-click="restartServerNow()" class="m-btn m-btn-text" ${busy ? "disabled" : ""}>Restart server</button>` : '<span class="text-xs text-zinc-500 mr-auto">Not running under PM2, so the panel cannot restart the server.</span>'}
+			<button data-on-click="forceUpdate()" class="m-btn m-btn-text danger" ${busy || !status.enabled ? "disabled" : ""}>Force update</button>
+${status.supervised ? `<button data-on-click="restartServerNow()" class="m-btn m-btn-text" ${busy ? "disabled" : ""}>Restart server</button>` : '<span class="text-xs text-zinc-500 mr-auto">Not running under PM2, so the panel cannot restart the server.</span>'}
 			<button data-on-click="installUpdate(${status.pending.length})" class="m-btn m-btn-filled" ${busy || blockers.length || !status.pending.length ? "disabled" : ""}>
 				<span class="material-symbols-outlined">download</span>${status.supervised ? "Update and restart" : "Install update"}
 			</button>
@@ -555,6 +559,35 @@ async function installUpdate(count) {
 		showToast(err.message, "error");
 		loadUpdate(false);
 	}
+}
+
+/** Asks twice: once to explain, once for the branch name. */
+async function forceUpdate() {
+	const status = _updateStatus;
+	if (!status) return;
+	const files = status.local_files?.length
+		? ` These files edited on the server are replaced: ${status.local_files.map((f) => f.path).join(", ")}.`
+		: "";
+	const commits = status.ahead ? " The server's own commits are dropped." : "";
+	const first = await showConfirm(
+		"Force an update?",
+		`The server is reset to exactly what is on ${status.tracking}.${files}${commits} The database, uploads and .env are not touched. The database is backed up first, then the server restarts as for a normal update.`,
+		{ confirmLabel: "Continue" }
+	);
+	if (!first) return;
+	const typed = await showPrompt("Confirm the forced update", status.branch, {
+		note: `Type ${status.branch} to confirm. Changes made by hand on the server can't be recovered.`,
+		okLabel: "Force update",
+	});
+	if (typed === null) return;
+	if (typed.trim() !== status.branch)
+		return showToast("The branch name didn't match, so nothing was changed.", "error");
+	try {
+		await api("/api/admin/system/update", { json: { confirm: true, force: true, typed: typed.trim() } });
+	} catch (err) {
+		showToast(err.message, "error");
+	}
+	loadUpdate(false);
 }
 
 async function restartServerNow() {
@@ -749,6 +782,7 @@ Object.assign(window, {
 	loadSystemInfo,
 	loadSystemLogs,
 	loadUpdate,
+	forceUpdate,
 	toggleDependencies,
 	toggleSystemStats,
 	makeBackup,

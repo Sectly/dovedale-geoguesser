@@ -266,16 +266,31 @@ const INSTALLED_STEP = "Installed. Restart the server to finish.";
 const shortHash = async () => (await git("rev-parse", "--short", "HEAD")).out || null;
 
 /** Backs up, fast-forwards, installs, rebuilds styles and tiles, restarts. Stops at the first failure. */
-export async function runUpdate(startedBy: string): Promise<string | null> {
+/** `force` resets to the remote branch, dropping changes made on the server; `typed` must be the branch name. */
+/** Matches the remote branch exactly. Ignored files (data, uploads, .env) are left alone. */
+async function hardReset(): Promise<Result> {
+	const fetched = await git("fetch", REMOTE, BRANCH);
+	if (!fetched.ok) return fetched;
+	const reset = await git("reset", "--hard", `${REMOTE}/${BRANCH}`);
+	return { ok: reset.ok, out: `${fetched.out}\n${reset.out}`.trim() };
+}
+
+export async function runUpdate(
+	startedBy: string,
+	{ force = false, typed = "" }: { force?: boolean; typed?: string } = {}
+): Promise<string | null> {
 	if (!UPDATES_ENABLED) return "Updates from the panel are switched off on this server.";
 	if (job.state === "running" || job.state === "restarting") return "An update is already running.";
+	if (force && typed.trim() !== BRANCH) return `Type the branch name, ${BRANCH}, to confirm a forced update.`;
 	const status = await updateStatus(true);
 	if (!status.available) return status.reason;
-	if (status.local_changes)
-		return `Files on the server have been edited by hand (${status.local_files.map((f) => f.path).join(", ")}). Commit or discard them first.`;
 	if (status.branch !== BRANCH) return `The server is on branch "${status.branch}", not "${BRANCH}".`;
-	if (status.ahead) return "The server has commits the remote does not. Sort that out by hand first.";
-	if (!status.pending.length) return "Already up to date.";
+	if (!force) {
+		if (status.local_changes)
+			return `Files on the server have been edited by hand (${status.local_files.map((f) => f.path).join(", ")}). Commit or discard them first.`;
+		if (status.ahead) return "The server has commits the remote does not. Sort that out by hand first.";
+		if (!status.pending.length) return "Already up to date.";
+	}
 
 	Object.assign(job, blankJob(), {
 		state: "running",
@@ -288,8 +303,9 @@ export async function runUpdate(startedBy: string): Promise<string | null> {
 		started_at: nowSecs(),
 		started_by: startedBy,
 		from: await shortHash(),
-		to: status.pending[0].hash.slice(0, 7),
+		to: status.pending[0]?.hash.slice(0, 7) ?? (await shortHash()),
 	});
+	if (force) note(`Forced: files edited by hand and the server's own commits will be discarded.`);
 	note(`Update started by ${startedBy}: ${status.pending.length} commit(s), ${job.from} to ${job.to}`);
 	logInfo(`[update] Started by ${startedBy}: ${status.pending.length} commit(s), ${job.from} to ${job.to}`);
 	saveJob();
@@ -297,7 +313,7 @@ export async function runUpdate(startedBy: string): Promise<string | null> {
 	void (async () => {
 		const actions: Record<(typeof STEP_NAMES)[number], () => Promise<Result>> = {
 			"Backing up the database": async () => ({ ok: true, out: `Saved ${createBackup(db, "update")}` }),
-			"Downloading the update": () => git("pull", "--ff-only", REMOTE, BRANCH),
+			"Downloading the update": force ? hardReset : () => git("pull", "--ff-only", REMOTE, BRANCH),
 			"Installing dependencies": () => run([process.execPath, "install"], 300_000, note),
 			"Building styles": () => run([process.execPath, "run", "build:css"], 300_000, note),
 			"Building map tiles": () => run([process.execPath, "run", "tiles"], 30 * 60_000, note),

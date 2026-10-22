@@ -301,10 +301,16 @@ adminSystemRoutes.get("/update", async (c) => {
 
 adminSystemRoutes.post("/update", async (c) => {
 	const actor = requireStaff(c, "operator");
-	if ((await readJson<{ confirm: boolean }>(c)).confirm !== true) fail(400, "Confirmation required");
-	const problem = await runUpdate(displayName(actor));
+	const body = await readJson<{ confirm: boolean; force: boolean; typed: string }>(c);
+	if (body.confirm !== true) fail(400, "Confirmation required");
+	const force = body.force === true;
+	const problem = await runUpdate(displayName(actor), { force, typed: text(body.typed, 100) });
 	if (problem) fail(409, problem);
-	auditLog(actor, "server_update", { details: "Update and restart started from the staff panel" });
+	auditLog(actor, "server_update", {
+		details: force
+			? "Forced update and restart from the staff panel, discarding changes made on the server"
+			: "Update and restart started from the staff panel",
+	});
 	return c.json({ success: true });
 });
 

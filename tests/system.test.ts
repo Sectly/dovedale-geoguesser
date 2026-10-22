@@ -115,6 +115,25 @@ describe("updates", () => {
 		expect((await post("/api/admin/system/restart", op, {})).status).toBe(400);
 		expect((await post("/api/admin/system/restart", op, { confirm: true })).status).toBe(409);
 	});
+
+	/** Refusals only: the right branch name would really reset this checkout. */
+	test("a forced update needs the branch name typed out", async () => {
+		const op = operator();
+		const missing = await post("/api/admin/system/update", op, { confirm: true, force: true });
+		expect(missing.status).toBe(409);
+		expect(missing.data).toContain("Type the branch name");
+		const wrong = await post("/api/admin/system/update", op, { confirm: true, force: true, typed: "nope" });
+		expect(wrong.status).toBe(409);
+		expect(
+			(
+				await post("/api/admin/system/update", createUser({ role: "admin" }), {
+					confirm: true,
+					force: true,
+					typed: "main",
+				})
+			).status
+		).toBe(403);
+	});
 });
 
 describe("planned restarts", () => {
