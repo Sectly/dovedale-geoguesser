@@ -332,6 +332,54 @@ describe("tournaments", () => {
 		}
 	});
 
+	test("the draw seeds by duel rating, and list order breaks ties", async () => {
+		const { id, staff, players } = await setUp(4);
+		const [p0, p1, p2, p3] = players;
+		const rate = (p: TestUser, rating: number) =>
+			db.run("UPDATE users SET duel_rating = ? WHERE id = ?", [rating, p.id]);
+		rate(p3, 1500);
+		rate(p0, 1200);
+		rate(p1, 1200);
+		rate(p2, 900);
+		await openAndCheckIn(id, staff, players);
+		await post(`/api/admin/tournaments/${id}/start`, staff);
+		const opening = (await view(id)).rounds[0].matches.map((m: any) => m.players);
+		expect(opening).toEqual([
+			[p3.id, p2.id],
+			[p0.id, p1.id],
+		]);
+	});
+
+	test("going back to check-in drops the bracket but keeps everyone checked in", async () => {
+		const { id, staff, players } = await setUp(2);
+		await openAndCheckIn(id, staff, players);
+		await post(`/api/admin/tournaments/${id}/start`, staff);
+		for (const p of players) await post(`/api/tournaments/${id}/ready`, p);
+		await post(`/api/admin/tournaments/${id}/control`, staff, { action: "skip" });
+		await tick();
+		const code = (await view(id)).phase.code;
+		expect(duelRooms.has(code)).toBe(true);
+
+		expect((await post(`/api/admin/tournaments/${id}/reset`, createUser({ role: "moderator" }))).status).toBe(403);
+		expect((await post(`/api/admin/tournaments/${id}/reset`, staff)).status).toBe(200);
+		let t = await view(id);
+		expect(t.status).toBe("open");
+		expect(t.rounds).toEqual([]);
+		expect(t.phase.kind).toBe("lobby");
+		expect(t.notice.text).toStartWith("Back to check-in");
+		expect(t.roster.every((r: any) => r.checked_in)).toBe(true);
+		expect(duelRooms.get(code)?.tournament ?? null).toBeNull();
+		expect((await post(`/api/admin/tournaments/${id}/reset`, staff)).status).toBe(409);
+
+		const late = createUser();
+		await post(`/api/admin/tournaments/${id}/players`, staff, { usernames: late.username });
+		expect((await post(`/api/tournaments/${id}/checkin`, late)).status).toBe(200);
+		expect((await post(`/api/admin/tournaments/${id}/start`, staff)).status).toBe(200);
+		t = await view(id);
+		expect(t.status).toBe("live");
+		expect(t.rounds[0].matches.flatMap((m: any) => m.players)).toContain(late.id);
+	});
+
 	/** Gives the next match to its first player and skips the result. */
 	async function awardNext(id: number, staff: TestUser) {
 		const t = await view(id);

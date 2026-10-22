@@ -5,6 +5,7 @@ import { nudgeTournamentChat } from "../../events";
 import {
 	addPlayers,
 	awardMatch,
+	backToCheckin,
 	cancelTournament,
 	controlTournament,
 	createTournament,
@@ -220,6 +221,12 @@ adminTournamentRoutes.post("/:id/results", async (c) => {
 	const until = (await readJson<{ until: number | null }>(c)).until;
 	if (until !== null && typeof until !== "number") fail(400, "Pick a time.");
 	setResults(staffOf(c), id, until ?? null);
+	return ok(c, id);
+});
+
+adminTournamentRoutes.post("/:id/reset", (c) => {
+	const id = idParam(c);
+	backToCheckin(seniorOf(c), id);
 	return ok(c, id);
 });
 

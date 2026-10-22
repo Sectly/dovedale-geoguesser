@@ -1318,8 +1318,26 @@ const checkedIn = (id: number) =>
 		.filter((r) => r.checked_in)
 		.map((r) => r.user_id);
 
+/** By duel rating, highest first; ties keep list order. */
+function seeded(id: number): number[] {
+	const ids = checkedIn(id);
+	if (!ids.length) return ids;
+	const ratings = new Map(
+		db
+			.query<{ id: number; rating: number }, number[]>(
+				`SELECT id, COALESCE(duel_rating, ${GAME.rating.start}) AS rating FROM users WHERE id IN (${ids.map(() => "?").join(",")})`
+			)
+			.all(...ids)
+			.map((u) => [u.id, u.rating])
+	);
+	return ids
+		.map((userId, position) => ({ userId, position, rating: ratings.get(userId) ?? GAME.rating.start }))
+		.sort((a, b) => b.rating - a.rating || a.position - b.position)
+		.map((p) => p.userId);
+}
+
 function draw(t: Tournament) {
-	const ids = checkedIn(t.id);
+	const ids = seeded(t.id);
 	if (ids.length < 2) fail(409, "At least two players need to be checked in.");
 	if (ids.length > LIMITS.players) fail(409, `A bracket can hold up to ${LIMITS.players} players.`);
 	const { matches, rounds } = buildBracket(ids, t.settings.thirdPlace);
@@ -1549,6 +1567,30 @@ export function postMessage(staff: User, id: number, text: string) {
 		targetId: id,
 		details: `${t.title}: ${message || "(cleared)"}`,
 	});
+	changed(t);
+}
+
+/** Drops the bracket and live matches; keeps players and check-ins. */
+export function backToCheckin(staff: User, id: number) {
+	const t = load(id);
+	if (t.status !== "live" && t.status !== "finished")
+		fail(409, "Only a tournament that has started can go back to check-in.");
+	if (active && active.id !== id) fail(409, `"${active.title}" is on. Finish or cancel it first.`);
+	for (const m of t.state.matches) if (m.status === "live") detach(duelRooms.get(m.code ?? ""));
+	clearTimers();
+	t.status = "open";
+	Object.assign(t.state, emptyState(), {
+		notice: {
+			text: "Back to check-in: the bracket will be drawn again. Everyone checked in is still in.",
+			at: Date.now(),
+		},
+	});
+	db.run(
+		"UPDATE tournaments SET started_at = NULL, finished_at = NULL, results_until = NULL, winner_id = NULL WHERE id = ?",
+		[id]
+	);
+	loadResults();
+	auditLog(staff, "tournament_reset", { targetType: "tournament", targetId: id, details: t.title });
 	changed(t);
 }
 

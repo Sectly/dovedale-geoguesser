@@ -142,7 +142,7 @@ function guideHtml(r) {
 				${step("Add the players", `Add them by Discord username, or make an invite link: anyone who opens it while check-in is open joins and is checked in, and the list shows which code they used. A new code stops the old one working. The order of the list is the seeding: the first player meets the last in the opening round, and the top two can only meet in the final. Banned players and players whose duels are limited can't be added.`)}
 				${step("Announce (supervisors)", `The tournament appears on the home page and under Specials with a countdown to the start, and everyone on the list gets a notification. With a start time, check-in opens by itself a set time before it (Check-in opens); without one, or to open it early, press Open check-in. You can also open check-in straight from a draft. Only one tournament can be announced, open or running at a time.`)}
 				${step("Check-in", `Everyone on the list is told when check-in opens. Players press I'm here on the tournament page, or you tick them in yourself.`)}
-				${step("Start (supervisors)", `The bracket is drawn from the checked-in players. It rounds up to 2, 4, 8, 16, 32 or 64 places, and the empty places become byes for the top seeds. Anyone not checked in is left out, but can still be put into an empty place later. Until the first match is played you can draw the bracket again.`)}
+				${step("Start (supervisors)", `The bracket is drawn from the checked-in players, seeded by duel rating; players on the same rating keep the list's order. It rounds up to 2, 4, 8, 16, 32 or 64 places, and the empty places become byes for the top seeds. Anyone not checked in is left out, but can still be put into an empty place later. Until the first match is played you can draw the bracket again.`)}
 				${step("Breaks and Ready", `Before every match there is a countdown. Both players press Ready; if they both do during a break between matches, the countdown drops to ${r.readySeconds} seconds. If the countdown ends and someone isn't ready, the tournament waits for you: Continue gives a ${r.readySeconds}-second countdown, then anyone who isn't there loses the match.`)}
 				${step("Rounds played all at once", `Early rounds can be played all at once to save time: with 64 players, the first three rounds take about 5 minutes each instead of over an hour. Set where it switches to one match at a time with One match at a time from (the quarter-finals by default). In a round played all at once, every match whose players are ready starts when the break ends; the others wait, start as soon as both players are ready, or when you press Start. If only one player is ready, you can put the other out. Spectators follow the featured match, or the closest one, and can switch at any time.`)}
 				${step("Matches", `Each match is a duel with Quick Play rules, including the comeback round and sudden death, and ${r.roundSeconds} seconds a round. If the points are level, the closer guesses overall win. Players have ${r.joinSeconds} seconds to join; if only one does, they win, and if neither does, it waits for you. A player who drops out has ${r.reconnectSeconds} seconds to come back before they lose.`)}
@@ -332,6 +332,9 @@ function renderTournament() {
 	const cancel = senior
 		? `<button data-on-click="cancelTournament()" class="m-btn m-btn-text danger">Cancel tournament</button>`
 		: "";
+	const reset = senior
+		? `<button data-on-click="backToCheckin()" class="m-btn m-btn-tonal">Back to check-in</button>`
+		: "";
 	const actions = {
 		draft: `${senior ? `<button data-on-click="tournamentAction('announce')" class="m-btn m-btn-filled">Announce</button><button data-on-click="tournamentAction('open')" class="m-btn m-btn-tonal">Open check-in now</button>` : ""}${del}`,
 		announced: senior
@@ -344,8 +347,8 @@ function renderTournament() {
 				<button data-on-click="tournamentAction('unpublish')" class="m-btn m-btn-tonal">Back to draft</button>
 				${cancel}`
 			: "",
-		live: cancel,
-		finished: del,
+		live: `${reset}${cancel}`,
+		finished: `${reset}${del}`,
 		cancelled: del,
 	}[t.status];
 	const over = t.status === "finished" || t.status === "cancelled";
@@ -404,7 +407,7 @@ function rosterHtml(t) {
 			<span class="text-xs text-zinc-500">${t.roster.length} on the list · ${checked} checked in${t.roster.some((r) => r.invite_code) ? ` · ${t.roster.filter((r) => r.invite_code).length} joined by invite` : ""}</span>
 			<button data-on-click="shuffleTournament()" class="m-btn m-btn-text m-btn-sm ml-auto"><span class="material-symbols-outlined">shuffle</span>Shuffle</button>
 		</div>
-		<p class="text-xs text-zinc-500 mb-3">The order is the seeding: the first player meets the last in the opening round, and the top two can only meet in the final. Players check in on the tournament page; you can tick them in here too.</p>
+		<p class="text-xs text-zinc-500 mb-3">Seeding is by duel rating, highest first; players on the same rating keep this list's order. The top seed meets the lowest in the opening round, and the top two can only meet in the final. Players check in on the tournament page; you can tick them in here too.</p>
 		${inviteHtml(t)}
 		<form data-on-submit="addTournamentPlayers(event)" class="flex gap-2 mb-3 max-w-2xl">
 			<input name="usernames" class="m-field flex-1" placeholder="Usernames, separated by spaces or commas" autocomplete="off" />
@@ -755,12 +758,23 @@ async function startTournament() {
 
 async function redrawTournament() {
 	if (
-		await showConfirm("Draw the bracket again?", "Everyone checked in gets a new place, in list order.", {
+		await showConfirm("Draw the bracket again?", "Everyone checked in gets a new place, seeded by duel rating.", {
 			confirmLabel: "Draw again",
 			confirmClass: "m-btn-filled",
 		})
 	)
 		act("/redraw");
+}
+
+async function backToCheckin() {
+	if (
+		await showConfirm(
+			"Go back to check-in?",
+			"The bracket and any match being played are dropped, and nobody wins. Everyone on the list stays, and anyone checked in stays checked in. New players can join, then start the tournament again to draw a fresh bracket.",
+			{ confirmLabel: "Back to check-in" }
+		)
+	)
+		act("/reset", {}, "Back to check-in");
 }
 
 async function cancelTournament() {
@@ -900,6 +914,7 @@ Object.assign(window, {
 	newTournament,
 	openTournament,
 	redrawTournament,
+	backToCheckin,
 	removeTournamentPlayer,
 	removeUnreadyPlayer,
 	resetTournamentHistory,
