@@ -1,10 +1,14 @@
 import { Hono } from "hono";
-import { readdirSync, statSync } from "fs";
+import { readdirSync, statfsSync, statSync } from "fs";
+import os from "os";
 import { join } from "path";
 import { requireStaff } from "../../auth/guards";
 import { BACKUP_DIR, BACKUP_LIMITS, backupPath, createBackup, deleteBackup, listBackups } from "../../backups";
 import { DATA_DIR, SITE_URL, UPLOADS_DIR } from "../../config";
-import { db } from "../../db";
+import { db, freeSpaceShare } from "../../db";
+import { liveStats } from "../../events";
+import { metricsSnapshot } from "../../system/metrics";
+import { openFileLimit, spectatorCap } from "../../system/limits";
 import {
 	DAILY_MAX,
 	clearSmtpSettings,
@@ -38,7 +42,7 @@ import {
 import { backfillAchievements } from "../../achievements";
 import { systemBreakdown } from "../../system/breakdown";
 import { features, isFeature, setFeature } from "../../system/features";
-import { cancelPendingRestart, restartServer, runUpdate, updateStatus } from "../../system/updater";
+import { cancelPendingRestart, dependencyReport, restartServer, runUpdate, updateStatus } from "../../system/updater";
 
 /** Routes mounted at /api/admin/system: backups, logs, updates and restarts. Operators only. */
 export const adminSystemRoutes = new Hono();
@@ -59,6 +63,38 @@ function folderSize(dir: string): { files: number; bytes: number } {
 	return { files, bytes };
 }
 
+function duelPeople() {
+	let players = 0;
+	let spectators = 0;
+	for (const room of duelRooms.values()) {
+		players += room.players.filter((p) => p.connected).length;
+		spectators += room.spectators.size;
+	}
+	return { duel_players: players, duel_spectators: spectators };
+}
+
+function hostInfo() {
+	let disk: { free: number; total: number } | null = null;
+	try {
+		const fs = statfsSync(DATA_DIR);
+		disk = { free: fs.bavail * fs.bsize, total: fs.blocks * fs.bsize };
+	} catch {}
+	let openFiles: number | null = null;
+	try {
+		openFiles = readdirSync("/proc/self/fd").length;
+	} catch {}
+	return {
+		platform: `${os.type()} ${os.release()}`,
+		cpus: os.cpus().length,
+		load: os.platform() === "win32" ? null : os.loadavg(),
+		memory: { free: os.freemem(), total: os.totalmem() },
+		disk,
+		open_files: openFiles,
+		file_limit: openFileLimit() === Infinity ? "unlimited" : openFileLimit(),
+		spectator_cap: spectatorCap(),
+	};
+}
+
 adminSystemRoutes.get("/info", (c) => {
 	requireStaff(c, "operator");
 	const size = (name: string) => {
@@ -73,11 +109,26 @@ adminSystemRoutes.get("/info", (c) => {
 		supervised: SUPERVISED,
 		runtime: `Bun ${Bun.version}`,
 		memory: process.memoryUsage().rss,
+		heap: { used: process.memoryUsage().heapUsed, total: process.memoryUsage().heapTotal },
 		database: size("geoguesser.sqlite") + size("geoguesser.sqlite-wal"),
+		database_detail: {
+			wal: size("geoguesser.sqlite-wal"),
+			free_share: freeSpaceShare(),
+			rows: Object.fromEntries(
+				["users", "locations", "solo_scores", "daily_scores", "duel_games", "tournaments"].map((table) => [
+					table,
+					db.query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM ${table}`).get()?.n ?? 0,
+				])
+			),
+		},
+		load: metricsSnapshot(),
+		host: hostInfo(),
 		uploads: folderSize(UPLOADS_DIR),
 		backups: folderSize(BACKUP_DIR),
 		live: {
 			duel_rooms: duelRooms.size,
+			...duelPeople(),
+			...liveStats(),
 			team_rooms: teamRoomCount(),
 			solo_games: soloGamesHeld(),
 			rate_limit_keys: rateLimitKeys(),
@@ -236,6 +287,11 @@ adminSystemRoutes.delete("/logs", (c) => {
 	const removed = clearLogs();
 	auditLog(actor, "logs_clear", { details: `${removed} entries removed` });
 	return c.json({ success: true, removed });
+});
+
+adminSystemRoutes.get("/dependencies", async (c) => {
+	requireStaff(c, "operator");
+	return c.json(await dependencyReport(c.req.query("refresh") === "1"));
 });
 
 adminSystemRoutes.get("/update", async (c) => {

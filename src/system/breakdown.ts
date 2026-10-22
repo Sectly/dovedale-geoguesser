@@ -8,6 +8,7 @@ import { DAY, HOUR, nowSec } from "../lib/time";
 import { upcomingEvent } from "../specials";
 import { features } from "./features";
 import { maintenance } from "./maintenance";
+import { spectatorCapNote } from "./limits";
 import { restartIn } from "./restart";
 import { updateStatus } from "./updater";
 
@@ -51,6 +52,8 @@ export async function systemBreakdown(): Promise<Finding[]> {
 		add("warning", "SITE_URL is not set", {
 			detail: "Share cards, push links and emails need the site's public address.",
 		});
+	const cap = spectatorCapNote();
+	if (cap) add("info", cap.title, { detail: cap.detail });
 	if (!SUPERVISED)
 		add("info", "No process manager", {
 			detail: "The panel cannot restart the server, and a crash will not bring it back.",

@@ -15,6 +15,35 @@ export const UPDATES_ENABLED = (process.env.PANEL_UPDATES ?? "on").toLowerCase()
 type Result = { ok: boolean; out: string; streamed?: boolean };
 
 /** Runs a command in the checkout. With `onLine`, each line of output is handed over as it is printed. */
+type DependencyReport = { checked_at: number; outdated: string; audit: string; vulnerable: boolean };
+let dependencies: DependencyReport | null = null;
+const DEPENDENCY_TTL_MS = 10 * 60 * 1000;
+
+/** Without colour codes or Bun's timing lines. */
+const plainOutput = (text: string) =>
+	text
+		.replace(/\u001b\[[0-9;]*m/g, "")
+		.split("\n")
+		.filter((line) => !/^\[[\d.]+m?s\]/.test(line.trim()))
+		.join("\n")
+		.trim();
+
+/** Cached for ten minutes unless `refresh`. */
+export async function dependencyReport(refresh = false): Promise<DependencyReport> {
+	if (!refresh && dependencies && Date.now() - dependencies.checked_at < DEPENDENCY_TTL_MS) return dependencies;
+	const [outdated, audit] = await Promise.all([
+		run([process.execPath, "outdated"], 60_000),
+		run([process.execPath, "audit"], 60_000),
+	]);
+	dependencies = {
+		checked_at: Date.now(),
+		outdated: plainOutput(outdated.out),
+		audit: plainOutput(audit.out),
+		vulnerable: !audit.ok,
+	};
+	return dependencies;
+}
+
 async function run(cmd: string[], timeoutMs = 60_000, onLine?: (line: string) => void): Promise<Result> {
 	try {
 		const proc = Bun.spawn({

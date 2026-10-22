@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { recordRequest } from "./system/metrics";
 import { compress } from "hono/compress";
 import { Hono } from "hono";
 import type { ErrorHandler } from "hono";
@@ -48,6 +49,13 @@ async function bundleWireClient(): Promise<string> {
 const wireClientJs = await bundleWireClient();
 
 export const app = new Hono();
+
+app.use("*", async (c, next) => {
+	if (c.req.header("Upgrade") || c.req.path === "/api/events") return next();
+	const start = performance.now();
+	await next();
+	recordRequest(performance.now() - start, c.res.status);
+});
 
 const compressed = compress();
 /** Sockets and the event stream are left uncompressed: compression would buffer stream messages. */

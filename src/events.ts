@@ -6,7 +6,7 @@ import { sessionIdFromCookies, userFromSessionId } from "./auth/sessions";
 import { db, type User } from "./db";
 import { onClaimsChanged } from "./lib/claims";
 import { clientIp, fail } from "./lib/http";
-import { GAME } from "./config";
+import { spectatorCap } from "./system/limits";
 import { STAFF_CHAT_ROLE, attentionFor, onNotified } from "./notifications";
 import { justRestarted, onRestartChanged, restartIn } from "./system/restart";
 
@@ -42,6 +42,18 @@ type Client = {
 const clients = new Set<Client>();
 
 export const liveStreamCount = () => clients.size;
+
+export function liveStats() {
+	const people = new Set<number>();
+	let guests = 0;
+	let watching = 0;
+	for (const client of clients) {
+		if (client.userId === null) guests++;
+		else people.add(client.userId);
+		if (client.watching !== null) watching++;
+	}
+	return { pages: clients.size, signed_in: people.size, guest_pages: guests, tournament_pages: watching };
+}
 
 async function send(client: Client, event: string, data: unknown, { always = false } = {}) {
 	const json = JSON.stringify(data);
@@ -80,7 +92,7 @@ export function tournamentFull(tournamentId: number, user: User | null, key: str
 		if (client.key === key) return false;
 		if (!client.exempt) spectators++;
 	}
-	return spectators >= GAME.tournament.maxSpectators && !alwaysWatches(tournamentId, user);
+	return spectators >= spectatorCap() && !alwaysWatches(tournamentId, user);
 }
 
 /** Tells each tournament page how many are watching. */

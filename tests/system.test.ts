@@ -15,7 +15,7 @@ beforeAll(resetReviewQueues);
 
 describe("system tools are for operators only", () => {
 	test("supervisors and players cannot reach them", async () => {
-		for (const path of ["info", "backups", "logs", "update", "maintenance"]) {
+		for (const path of ["info", "backups", "logs", "update", "maintenance", "dependencies"]) {
 			expect((await call(`/api/admin/system/${path}`, { as: createUser({ role: "supervisor" }) })).status).toBe(
 				403
 			);
@@ -28,6 +28,21 @@ describe("system tools are for operators only", () => {
 		expect(
 			(await post("/api/admin/system/update", createUser({ role: "supervisor" }), { confirm: true })).status
 		).toBe(403);
+	});
+});
+
+describe("server figures", () => {
+	test("the info card reports load, live connections, the host and the database", async () => {
+		const op = operator();
+		await call("/api/status");
+		const info = (await call("/api/admin/system/info", { as: op })).data;
+		expect(info.load.requests_5m).toBeGreaterThan(0);
+		expect(info.load.response_ms.p95).toBeGreaterThanOrEqual(info.load.response_ms.p50);
+		expect(info.live).toMatchObject({ pages: expect.any(Number), duel_players: expect.any(Number) });
+		expect(info.host.cpus).toBeGreaterThan(0);
+		expect(info.host.memory.total).toBeGreaterThan(info.host.memory.free);
+		expect(info.host.spectator_cap).toBe(GAME.tournament.maxSpectators);
+		expect(info.database_detail.rows.users).toBeGreaterThan(0);
 	});
 });
 

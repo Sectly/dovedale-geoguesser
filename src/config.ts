@@ -66,7 +66,7 @@ export const GAME = {
 	},
 	daily: { timeLimit: 90 },
 	tournament: {
-		/** Live spectators per tournament, not counting players and staff. */
+		/** Spectators per tournament, players and staff not counted. Lowered to fit the file limit. */
 		maxSpectators: 400,
 	},
 	duel: {

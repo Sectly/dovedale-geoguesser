@@ -1,6 +1,7 @@
 import { WebWireServer, type WireConnection } from "@webwirejs/server";
 import { db, type User } from "../../db";
 import { hasRole } from "../../auth/guards";
+import { spectatorCap } from "../../system/limits";
 import { GAME } from "../../config";
 import { sessionIdFromCookies, userFromSessionId } from "../../auth/sessions";
 import { parseGuess } from "../round";
@@ -146,7 +147,7 @@ wireServer.on("connection", (conn: WireConnection) => {
 		handler("spectate", (data) => {
 			const room = duelRooms.get(roomCode(data));
 			if (!room || room.status === "finished") return reject(conn, "Room not found or already finished");
-			const cap = room.tournament ? GAME.tournament.maxSpectators : GAME.duel.maxSpectators;
+			const cap = room.tournament ? spectatorCap() : GAME.duel.maxSpectators;
 			if (room.spectators.size >= cap && !(room.tournament && isStaffViewer(userId)))
 				return reject(conn, "This duel has too many spectators");
 

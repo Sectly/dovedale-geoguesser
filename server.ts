@@ -15,6 +15,8 @@ import { websocket } from "./src/routes/duels";
 import { ensureStyles, watchStyles } from "./src/styles";
 import { scheduleRestart, stopCleanly } from "./src/system/restart";
 import { generateTileVariants } from "./src/tile-images";
+import { spectatorCapNote } from "./src/system/limits";
+import { startMetrics } from "./src/system/metrics";
 import { forgetPages } from "./src/routes/pages";
 
 captureConsole();
@@ -44,11 +46,14 @@ backfillAchievementsOnce();
 const restoredGames = restoreSoloGames();
 if (restoredGames) console.log(`[server] Picked up ${restoredGames} solo game(s) from before the restart`);
 startCleanupJobs();
+startMetrics();
 generateTileVariants()
 	.then((made) => made && forgetPages())
 	.catch((err) => console.error("Tile variant generation failed:", err));
 
 logInfo(`Dovedale GeoGuesser listening on http://localhost:${PORT}${SUPERVISED ? " (managed by PM2)" : ""}`);
+const cap = spectatorCapNote();
+if (cap) logInfo(`${cap.title}. ${cap.detail}`);
 notify(
 	"system",
 	`**Server started**\nListening on port ${PORT}${DEV_MODE ? ", with the development login enabled" : ""}.`,

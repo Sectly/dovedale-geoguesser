@@ -108,6 +108,23 @@ async function loadBreakdown() {
 	);
 }
 
+/** Show every figure, not just the basics. */
+let _statsMore = (() => {
+	try {
+		return localStorage.getItem("systemStatsMore") === "1";
+	} catch {
+		return false;
+	}
+})();
+
+function toggleSystemStats() {
+	_statsMore = !_statsMore;
+	try {
+		localStorage.setItem("systemStatsMore", _statsMore ? "1" : "0");
+	} catch {}
+	loadSystemInfo();
+}
+
 async function loadSystemInfo() {
 	const box = el("system-info");
 	if (!box) return;
@@ -115,20 +132,102 @@ async function loadSystemInfo() {
 		const info = await api("/api/admin/system/info");
 		const stat = (label, value, sub = "") =>
 			`<div class="bg-zinc-800/60 rounded-xl px-3.5 py-2.5"><div class="text-xs text-zinc-500">${label}</div><div class="font-semibold mt-0.5">${value}</div>${sub ? `<div class="text-xs text-zinc-500 mt-0.5">${sub}</div>` : ""}</div>`;
+		const group = (title, stats) =>
+			`<div class="mt-5 first:mt-0">${title ? `<div class="m-label mb-2">${title}</div>` : ""}<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${stats.join("")}</div></div>`;
+		const n = (value) => (value ?? 0).toLocaleString();
+		const count = (value, one, many) => `${n(value)} ${value === 1 ? one : many}`;
+		const ms = (value) => (value === null || value === undefined ? "-" : `${Math.round(value)} ms`);
+		const { load, host, live } = info;
+		const rows = info.database_detail.rows;
 		box.innerHTML = systemCard(
 			"Server",
 			"dns",
-			`<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-				${stat("Running for", formatUptime(info.uptime), info.supervised ? "Managed by PM2" : "No process manager")}
-				${stat("Memory", formatBytes(info.memory), info.runtime)}
-				${stat("Database", formatBytes(info.database), `${info.backups.files} backups, ${formatBytes(info.backups.bytes)}`)}
-				${stat("Screenshots", info.uploads.files.toLocaleString(), formatBytes(info.uploads.bytes))}
-				${stat("Duels in memory", info.live.duel_rooms)}
-				${stat("Team rooms", info.live.team_rooms)}
-				${stat("Solo games held", info.live.solo_games)}
-				${stat("Errors, last 24h", info.logs.errors_24h, info.logs.errors_24h ? "See the log below" : "")}
-			</div>`,
-			`<button data-on-click="loadSystemInfo()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>`
+			`${group("", [
+				stat(
+					"Running for",
+					formatUptime(info.uptime),
+					info.supervised ? "Managed by PM2" : "No process manager"
+				),
+				stat(
+					"Memory",
+					formatBytes(info.memory),
+					`Heap ${formatBytes(info.heap.used)} of ${formatBytes(info.heap.total)}`
+				),
+				stat("Pages open", n(live.pages), `${count(live.signed_in, "person", "people")} signed in`),
+				stat("Errors, last 24h", n(info.logs.errors_24h), info.logs.errors_24h ? "See the log below" : ""),
+			])}
+			${
+				!_statsMore
+					? ""
+					: `${group("Load", [
+							stat(
+								"CPU",
+								load.cpu_percent === null ? "-" : `${load.cpu_percent}%`,
+								"Last minute, of one core"
+							),
+							stat("Event loop delay", ms(load.loop_lag_ms.avg), `Worst ${ms(load.loop_lag_ms.max)}`),
+							stat(
+								"Requests",
+								`${n(load.requests_per_minute)}/min`,
+								`${n(load.requests_5m)} in 5 minutes`
+							),
+							stat("Response time", ms(load.response_ms.p50), `95% under ${ms(load.response_ms.p95)}`),
+							stat("Server errors", n(load.server_errors_5m), "Last 5 minutes"),
+						])}
+			${group("Live", [
+				stat("Guest pages", n(live.guest_pages)),
+				stat("Tournament pages", n(live.tournament_pages), `Spectator cap ${n(host.spectator_cap)}`),
+				stat(
+					"Duels",
+					n(live.duel_rooms),
+					`${count(live.duel_players, "player", "players")}, ${n(live.duel_spectators)} watching`
+				),
+				stat("Team rooms", n(live.team_rooms)),
+				stat("Solo games held", n(live.solo_games)),
+			])}
+			${group("Host", [
+				stat(
+					"System memory",
+					`${formatBytes(host.memory.total - host.memory.free)} used`,
+					`of ${formatBytes(host.memory.total)}`
+				),
+				stat(
+					"Disk",
+					host.disk ? `${formatBytes(host.disk.free)} free` : "-",
+					host.disk ? `of ${formatBytes(host.disk.total)}` : ""
+				),
+				stat(
+					"CPU cores",
+					n(host.cpus),
+					host.load ? `Load ${host.load.map((l) => l.toFixed(2)).join(", ")}` : host.platform
+				),
+				stat(
+					"Open files",
+					host.open_files === null ? "-" : n(host.open_files),
+					host.file_limit === null
+						? "Limit not readable here"
+						: `Limit ${host.file_limit === "unlimited" ? "none" : n(host.file_limit)}`
+				),
+				stat("Runtime", info.runtime, host.platform),
+			])}
+			${group("Database", [
+				stat("Size", formatBytes(info.database), `Log ${formatBytes(info.database_detail.wal)}`),
+				stat(
+					"Free space inside",
+					`${Math.round(info.database_detail.free_share * 100)}%`,
+					"Reclaimed in the hourly upkeep"
+				),
+				stat("Backups", n(info.backups.files), formatBytes(info.backups.bytes)),
+				stat("Screenshots", n(info.uploads.files), formatBytes(info.uploads.bytes)),
+				stat("Players", n(rows.users), count(rows.locations, "location", "locations")),
+				stat(
+					"Scores",
+					n(rows.solo_scores + rows.daily_scores),
+					`${count(rows.duel_games, "duel", "duels")}, ${count(rows.tournaments, "tournament", "tournaments")}`
+				),
+			])}`
+			}`,
+			`<button data-on-click="toggleSystemStats()" class="m-btn m-btn-text m-btn-sm">${_statsMore ? "Less" : "More"}</button><button data-on-click="loadSystemInfo()" class="m-icon-btn" title="Refresh" aria-label="Refresh"><span class="material-symbols-outlined">refresh</span></button>`
 		);
 	} catch (err) {
 		box.innerHTML = systemCard("Server", "dns", `<p class="text-red-300 text-sm">${escHtml(err.message)}</p>`);
@@ -268,6 +367,49 @@ function localChangesText(files) {
 	return `Edited by hand on the server: ${names}.${fix}`;
 }
 
+/** Dependency report, fetched on demand. */
+let _deps = null;
+let _depsOpen = false;
+
+const depsButton = () =>
+	`<button id="deps-toggle" data-on-click="toggleDependencies()" class="m-btn m-btn-text m-btn-sm"><span class="material-symbols-outlined">inventory_2</span>${_depsOpen ? "Hide dependencies" : "Dependencies"}</button>`;
+
+function depsHtml() {
+	if (!_depsOpen) return "";
+	if (!_deps || _deps.loading)
+		return `<p class="text-sm text-zinc-500 mt-4">Running bun outdated and bun audit...</p>`;
+	if (_deps.error) return `<p class="text-sm text-red-300 mt-4">${escHtml(_deps.error)}</p>`;
+	const block = (title, text) =>
+		`<div class="mt-4"><div class="m-label mb-1.5">${title}</div><pre class="bg-zinc-950 rounded-xl p-3 text-xs text-zinc-300 overflow-x-auto max-h-80">${escHtml(text || "Nothing to report.")}</pre></div>`;
+	return `${_deps.vulnerable ? '<p class="text-sm text-amber-300 mt-4">The audit found known security issues. See below.</p>' : ""}
+		${block("Outdated packages", _deps.outdated)}
+		${block("Security audit", _deps.audit)}
+		<div class="flex items-center gap-2 mt-2 text-xs text-zinc-500">Checked ${new Date(_deps.checked_at).toLocaleTimeString()}
+			<button data-on-click="toggleDependencies(true)" class="m-btn m-btn-text m-btn-sm">Check again</button>
+		</div>`;
+}
+
+function paintDependencies() {
+	const slot = el("system-deps");
+	if (slot) slot.innerHTML = depsHtml();
+	const toggle = el("deps-toggle");
+	if (toggle) toggle.outerHTML = depsButton();
+}
+
+async function toggleDependencies(refresh = false) {
+	_depsOpen = refresh || !_depsOpen;
+	if (_depsOpen && (refresh || !_deps || _deps.error)) {
+		_deps = { loading: true };
+		paintDependencies();
+		try {
+			_deps = await api(`/api/admin/system/dependencies${refresh ? "?refresh=1" : ""}`);
+		} catch (err) {
+			_deps = { error: err.message };
+		}
+	}
+	paintDependencies();
+}
+
 async function loadUpdate(refresh) {
 	clearInterval(systemUpdatePoll);
 	const box = el("system-update");
@@ -299,7 +441,8 @@ async function loadUpdate(refresh) {
 		box.innerHTML = systemCard(
 			"Updates",
 			"system_update_alt",
-			`<p class="text-sm text-zinc-400">${escHtml(status.reason)}</p>`
+			`<p class="text-sm text-zinc-400">${escHtml(status.reason)}</p><div id="system-deps">${depsHtml()}</div>`,
+			depsButton()
 		);
 		return;
 	}
@@ -342,8 +485,9 @@ async function loadUpdate(refresh) {
 			<button data-on-click="installUpdate(${status.pending.length})" class="m-btn m-btn-filled" ${busy || blockers.length || !status.pending.length ? "disabled" : ""}>
 				<span class="material-symbols-outlined">download</span>${status.supervised ? "Update and restart" : "Install update"}
 			</button>
-		</div>`,
-		check
+		</div>
+		<div id="system-deps">${depsHtml()}</div>`,
+		`${depsButton()}${check}`
 	);
 	const newLog = box.querySelector(".update-log");
 	if (newLog) newLog.scrollTop = followEnd ? newLog.scrollHeight : keptScroll;
@@ -605,6 +749,8 @@ Object.assign(window, {
 	loadSystemInfo,
 	loadSystemLogs,
 	loadUpdate,
+	toggleDependencies,
+	toggleSystemStats,
 	makeBackup,
 	restartServerNow,
 	setFeature,
