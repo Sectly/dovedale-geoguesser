@@ -200,8 +200,8 @@ export function startStage(tournamentId, viewer, duelControls) {
 		wasNarrow = narrow;
 	}).observe(el("stage-bracket-wrap"));
 
+	openChat = () => startChat(tournamentId, viewer);
 	refresh();
-	startChat(tournamentId, viewer);
 	onLive("tournament", (summary) => {
 		if (!state || !summary || summary.id !== id || summary.version !== state.version) refresh();
 	});
@@ -249,12 +249,22 @@ export function startStage(tournamentId, viewer, duelControls) {
 	};
 }
 
+let openChat = null;
+
+/** Shown instead of the bracket while the tournament is full. */
+function showFull() {
+	el("stage-hero").innerHTML = `<span class="material-symbols-outlined text-5xl text-zinc-500">groups</span>
+		<h1 class="text-3xl font-bold mt-3">No room for more spectators</h1>
+		<p class="text-zinc-500 mt-2 max-w-md">This tournament has all the spectators it can take right now. You'll be let in when a place frees up.</p>`;
+}
+
 /** `force` redraws for fresh live scores even when the version is unchanged. */
 async function refresh(force = false) {
 	if (loading) return void (again = true);
 	loading = true;
 	try {
 		const next = await api(`/api/tournaments/${id}`);
+		if (next.full) return showFull();
 		if (force || !state || next.version !== state.version || next.status !== state.status) apply(next);
 		else offset = next.now - Date.now();
 	} catch (err) {
@@ -276,6 +286,7 @@ async function refresh(force = false) {
 function apply(next) {
 	const prev = state;
 	state = next;
+	if (!prev) openChat?.();
 	offset = next.now - Date.now();
 	const watched = watching !== null ? matchById(watching) : null;
 	if (inMatch && watchingBatch && watched?.status === "done" && !lingerTimer) {

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { nudgeTournamentChat } from "../events";
+import { nudgeTournamentChat, tournamentFull, watchKey } from "../events";
 import { hasRole, requirePlayer } from "../auth/guards";
 import { currentUser } from "../auth/sessions";
 import {
@@ -21,9 +21,12 @@ tournamentRoutes.get("/current", (c) => c.json(currentSummary()));
 
 tournamentRoutes.get("/past", (c) => c.json(pastTournaments()));
 
+/** `{ full: true }` when there is no room for a new spectator. */
 tournamentRoutes.get("/:id", (c) => {
 	const user = currentUser(c);
-	return c.json(tournamentView(idParam(c), hasRole(user, "moderator"), user?.id ?? null));
+	const id = idParam(c);
+	if (tournamentFull(id, user, watchKey(c, user))) return c.json({ full: true });
+	return c.json(tournamentView(id, hasRole(user, "moderator"), user?.id ?? null));
 });
 
 tournamentRoutes.post("/:id/checkin", (c) => {

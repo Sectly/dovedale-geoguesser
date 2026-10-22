@@ -65,6 +65,10 @@ export const GAME = {
 		defaultTimeLimit: 90,
 	},
 	daily: { timeLimit: 90 },
+	tournament: {
+		/** Live spectators per tournament, not counting players and staff. */
+		maxSpectators: 400,
+	},
 	duel: {
 		roundTime: 60,
 		maxTimeBonus: 1000,

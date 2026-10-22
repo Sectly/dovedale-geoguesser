@@ -1,5 +1,6 @@
 import { WebWireServer, type WireConnection } from "@webwirejs/server";
-import { db } from "../../db";
+import { db, type User } from "../../db";
+import { hasRole } from "../../auth/guards";
 import { GAME } from "../../config";
 import { sessionIdFromCookies, userFromSessionId } from "../../auth/sessions";
 import { parseGuess } from "../round";
@@ -48,6 +49,9 @@ export const wireServer = new WebWireServer({
 });
 
 const rooms = new WeakMap<WireConnection, DuelRoom>();
+
+const isStaffViewer = (userId: number | null) =>
+	userId !== null && hasRole(db.query<User, [number]>("SELECT * FROM users WHERE id = ?").get(userId), "moderator");
 
 function reject(conn: WireConnection, message: string) {
 	send(conn, "rejected", { message });
@@ -142,7 +146,8 @@ wireServer.on("connection", (conn: WireConnection) => {
 		handler("spectate", (data) => {
 			const room = duelRooms.get(roomCode(data));
 			if (!room || room.status === "finished") return reject(conn, "Room not found or already finished");
-			if (!room.tournament && room.spectators.size >= GAME.duel.maxSpectators)
+			const cap = room.tournament ? GAME.tournament.maxSpectators : GAME.duel.maxSpectators;
+			if (room.spectators.size >= cap && !(room.tournament && isStaffViewer(userId)))
 				return reject(conn, "This duel has too many spectators");
 
 			room.spectators.add(conn);

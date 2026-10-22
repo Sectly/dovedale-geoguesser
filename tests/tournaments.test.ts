@@ -2,7 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import type { WireConnection } from "@webwirejs/server";
 import { app } from "../src/app";
 import { db } from "../src/db";
-import { abandonDuel, createRoom, duelRooms, previewPin } from "../src/game/duels/rooms";
+import { abandonDuel, createRoom, duelRooms, previewPin, sendCrowdEmote } from "../src/game/duels/rooms";
+import { GAME } from "../src/config";
 import { DUEL_RULES, Round } from "../src/game/round";
 import { resetTournaments } from "../src/game/tournaments";
 import { quickplay } from "../src/game/duels/matchmaking";
@@ -267,6 +268,68 @@ describe("tournaments", () => {
 		}
 		expect(watching).toEqual(["pin_preview"]);
 		expect(opponent).toEqual([]);
+	});
+
+	test("a big crowd's reactions reach a match at most four times a second", () => {
+		const a = createUser();
+		const got: string[] = [];
+		const room = createRoom(a.id, 3, false, false, { id: 1, matchId: 0 });
+		room.spectators.add({
+			auth: null,
+			on() {},
+			emit: (e: string) => got.push(e),
+			close() {},
+		} as unknown as WireConnection);
+		room.status = "in_progress";
+		const realNow = Date.now;
+		let now = realNow();
+		Date.now = () => now;
+		try {
+			const crowd = Array.from({ length: 50 }, () => createUser());
+			for (const fan of crowd) sendCrowdEmote(room, fan.id, GAME.duel.emotes[0]);
+			expect(got.filter((e) => e === "crowd_emote")).toHaveLength(1);
+			now += 300;
+			for (const fan of crowd) sendCrowdEmote(room, fan.id, GAME.duel.emotes[0]);
+			expect(got.filter((e) => e === "crowd_emote")).toHaveLength(2);
+		} finally {
+			Date.now = realNow;
+			duelRooms.delete(room.code);
+		}
+	});
+
+	test("past the spectator cap new spectators are turned away, but players and staff never are", async () => {
+		const { id, staff, players } = await setUp(2);
+		await post(`/api/admin/tournaments/${id}/open`, staff);
+		const cap = GAME.tournament.maxSpectators;
+		GAME.tournament.maxSpectators = 1;
+		const watch = (ip: string) => {
+			const stop = new AbortController();
+			const res = app.fetch(
+				new Request(`http://localhost/api/events?watch=${id}`, {
+					headers: { "X-Forwarded-For": ip },
+					signal: stop.signal,
+				})
+			);
+			return { res, stop };
+		};
+		const first = watch("10.0.0.1");
+		try {
+			expect((await first.res).status).toBe(200);
+			await tick();
+			const guest = (ip: string) => call(`/api/tournaments/${id}`, { headers: { "X-Forwarded-For": ip } });
+			expect((await guest("10.0.0.2")).data).toEqual({ full: true });
+			expect((await guest("10.0.0.1")).data.id).toBe(id);
+			expect((await watch("10.0.0.3").res).status).toBe(503);
+			expect((await call(`/api/tournaments/${id}`, { as: players[0] })).data.id).toBe(id);
+			expect((await call(`/api/tournaments/${id}`, { as: staff })).data.id).toBe(id);
+
+			await (await first.res).body?.cancel();
+			await Bun.sleep(20);
+			expect((await guest("10.0.0.2")).data.id).toBe(id);
+		} finally {
+			first.stop.abort();
+			GAME.tournament.maxSpectators = cap;
+		}
 	});
 
 	/** Gives the next match to its first player and skips the result. */

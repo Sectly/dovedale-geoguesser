@@ -663,12 +663,17 @@ function tiebreakWinner(room: DuelRoom): number {
 const crowdEmoteAt = new Map<number, number>();
 /** Slower than players, so a big crowd can't fill the screen. */
 const CROWD_EMOTE_COOLDOWN_MS = 4000;
+/** Shortest gap between crowd reactions in one match. */
+const CROWD_ROOM_GAP_MS = 250;
+const roomCrowdAt = new WeakMap<DuelRoom, number>();
 
 export function sendCrowdEmote(room: DuelRoom, userId: number, emote: unknown) {
 	if (!room.tournament || !features().duel_emotes || room.status === "waiting") return;
 	if (typeof emote !== "string" || !GAME.duel.emotes.includes(emote)) return;
 	const now = Date.now();
 	if (now - (crowdEmoteAt.get(userId) ?? 0) < CROWD_EMOTE_COOLDOWN_MS) return;
+	if (now - (roomCrowdAt.get(room) ?? 0) < CROWD_ROOM_GAP_MS) return;
+	roomCrowdAt.set(room, now);
 	crowdEmoteAt.set(userId, now);
 	if (crowdEmoteAt.size > 5000) crowdEmoteAt.clear();
 	broadcast(room, "crowd_emote", { emote });

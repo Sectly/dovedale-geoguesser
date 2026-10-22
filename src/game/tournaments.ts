@@ -1,6 +1,7 @@
 import { GAME } from "../config";
 import { db, type User } from "../db";
-import { nudgeTournament } from "../events";
+import { nudgeTournament, onAlwaysWatches } from "../events";
+import { hasRole } from "../auth/guards";
 import { auditLog } from "../lib/audit";
 import { fail } from "../lib/http";
 import { checkUserRateLimit } from "../lib/rate-limit";
@@ -300,6 +301,12 @@ export function chatTournament(id: number) {
 		open: t.status === "open" || t.status === "live" || showingResults,
 	};
 }
+
+onAlwaysWatches((id, user) => {
+	if (!user) return false;
+	if (hasRole(user, "moderator")) return true;
+	return rosterOf(id).some((r) => r.user_id === user.id);
+});
 
 export function chatRole(id: number, userId: number): { role: ChatRole; code: string | null } {
 	const t = active?.id === id ? active : null;

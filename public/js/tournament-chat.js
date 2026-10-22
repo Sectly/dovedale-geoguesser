@@ -105,7 +105,7 @@ export function startChat(tournamentId, viewer) {
 export function setChatInMatch(value) {
 	const toggle = el("chat-toggle");
 	toggle?.classList.toggle("bottom-4", !value);
-	toggle?.classList.toggle("bottom-24", value);
+	toggle?.classList.toggle("bottom-40", value);
 }
 
 async function load() {

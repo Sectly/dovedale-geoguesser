@@ -67,6 +67,16 @@ describe("pages and static files", () => {
 		expect(icons.length).toBeLessThan(400);
 	});
 
+	test("every round page's guess button takes clicks: aria-disabled, never disabled", async () => {
+		for (const file of ["solo.html", "daily.html", "duels.html", "special-teams.html"]) {
+			const html = await Bun.file(new URL(`../public/${file}`, import.meta.url)).text();
+			const tag = html.match(/<button\s[^>]*id="guess-btn"[^>]*>/)?.[0];
+			expect(tag).toBeTruthy();
+			expect(tag).toContain('aria-disabled="true"');
+			expect(tag).not.toMatch(/\sdisabled(\s|>|=)/);
+		}
+	});
+
 	test("pages never load anything from Google Fonts", async () => {
 		const html = String((await call("/play")).data);
 		expect(html).not.toContain("fonts.googleapis.com");

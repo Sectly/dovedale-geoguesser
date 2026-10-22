@@ -91,6 +91,8 @@ export class MapCanvas {
 		this.profile = _mapProfile();
 		/** Sharper tiles for the part of the map on screen, by "quality:row:column". Only used with a `base`. */
 		this.detailImages = new Map();
+		/** Failed loads per sharper tile, for retry backoff. */
+		this._detailFailures = new Map();
 		this._warmQueue = [];
 		this._warming = false;
 		this._detailTimer = null;
@@ -348,14 +350,24 @@ export class MapCanvas {
 				entry.img.onload = async () => {
 					const tile = await decodedTile(entry.img);
 					if (this.detailImages.get(key) !== entry) return releaseTile(tile);
+					this._detailFailures.delete(key);
 					entry.tile = tile;
 					this._warmTile(tile);
 					this._scheduleDraw();
 				};
 				entry.img.onerror = () => {
 					formats.shift();
-					if (!formats.length) return void (entry.failed = true);
-					entry.img.src = tileUrl(r, c, quality, formats[0], k);
+					if (formats.length) return void (entry.img.src = tileUrl(r, c, quality, formats[0], k));
+					const tries = (this._detailFailures.get(key) ?? 0) + 1;
+					this._detailFailures.set(key, tries);
+					setTimeout(
+						() => {
+							if (this.detailImages.get(key) !== entry) return;
+							this.detailImages.delete(key);
+							this._scheduleDraw();
+						},
+						Math.min(30_000, 1000 * 2 ** tries)
+					);
 				};
 				entry.img.src = tileUrl(r, c, quality, formats[0], k);
 				this.detailImages.set(key, entry);

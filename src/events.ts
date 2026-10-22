@@ -6,6 +6,7 @@ import { sessionIdFromCookies, userFromSessionId } from "./auth/sessions";
 import { db, type User } from "./db";
 import { onClaimsChanged } from "./lib/claims";
 import { clientIp, fail } from "./lib/http";
+import { GAME } from "./config";
 import { STAFF_CHAT_ROLE, attentionFor, onNotified } from "./notifications";
 import { justRestarted, onRestartChanged, restartIn } from "./system/restart";
 
@@ -19,6 +20,7 @@ const ATTENTION_DELAY_MS = 2000;
 const MAX_PER_KEY = 8;
 /** A watch party can have many tournament pages open behind one address. */
 const MAX_WATCHING_PER_KEY = 40;
+export const TOURNAMENT_FULL = "This tournament has all the spectators it can take right now.";
 /** Viewer counts are sent at most this often. */
 const WATCHING_DELAY_MS = 3000;
 
@@ -33,6 +35,8 @@ type Client = {
 	sent: Map<string, string>;
 	attentionTimer: ReturnType<typeof setTimeout> | null;
 	watching: number | null;
+	/** Player or staff: not counted towards the spectator cap. */
+	exempt: boolean;
 };
 
 const clients = new Set<Client>();
@@ -58,6 +62,26 @@ function forget(client: Client) {
 }
 
 let watchingTimer: ReturnType<typeof setTimeout> | null = null;
+
+let alwaysWatches: (tournamentId: number, user: User | null) => boolean = () => false;
+
+/** Who is never turned away from a tournament. Set by tournaments.ts. */
+export function onAlwaysWatches(fn: typeof alwaysWatches) {
+	alwaysWatches = fn;
+}
+
+export const watchKey = (c: Context, user: User | null) => (user ? `user:${user.id}` : `ip:${clientIp(c)}`);
+
+/** Whether a new spectator would go over the cap. */
+export function tournamentFull(tournamentId: number, user: User | null, key: string): boolean {
+	let spectators = 0;
+	for (const client of clients) {
+		if (client.watching !== tournamentId) continue;
+		if (client.key === key) return false;
+		if (!client.exempt) spectators++;
+	}
+	return spectators >= GAME.tournament.maxSpectators && !alwaysWatches(tournamentId, user);
+}
 
 /** Tells each tournament page how many are watching. */
 function queueWatching() {
@@ -118,9 +142,10 @@ async function refresh(client: Client): Promise<boolean> {
 export function eventStream(c: Context) {
 	const sessionId = sessionIdFromCookies(c.req.header("Cookie"));
 	const user = sessionId ? userFromSessionId(sessionId) : null;
-	const key = user ? `user:${user.id}` : `ip:${clientIp(c)}`;
+	const key = watchKey(c, user);
 	const watch = Number(c.req.query("watch"));
 	const watching = Number.isInteger(watch) && watch > 0 ? watch : null;
+	if (watching !== null && tournamentFull(watching, user, key)) fail(503, TOURNAMENT_FULL);
 	const limit = watching !== null && !user ? MAX_WATCHING_PER_KEY : MAX_PER_KEY;
 	if ([...clients].filter((client) => client.key === key).length >= limit)
 		fail(429, "Too many open pages. Close a few and reload.");
@@ -141,6 +166,7 @@ export function eventStream(c: Context) {
 			sent: new Map(),
 			attentionTimer: null,
 			watching,
+			exempt: watching !== null && alwaysWatches(watching, user),
 		};
 		clients.add(client);
 		if (watching !== null) queueWatching();
