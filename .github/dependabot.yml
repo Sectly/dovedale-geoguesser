@@ -1,0 +1,15 @@
+version: 2
+updates:
+    - package-ecosystem: "npm"
+      directory: "/"
+      schedule:
+          interval: "weekly"
+      versioning-strategy: increase
+      ignore:
+          - dependency-name: "*"
+            update-types: ["version-update:semver-major"]
+      groups:
+          within-range:
+              patterns: ["*"]
+      commit-message:
+          prefix: "Bump"
