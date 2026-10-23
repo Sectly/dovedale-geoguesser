@@ -99,7 +99,7 @@ async function loadModerationHistory() {
 			new Date(ts * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 		const STYLE = {
 			warning: ["warning", "text-yellow-400"],
-			limit_upload: ["upload_off", "text-orange-400"],
+			limit_upload: ["file_upload_off", "text-orange-400"],
 			limit_duel: ["swords", "text-orange-400"],
 			limit_chat: ["comments_disabled", "text-orange-400"],
 			ban_temp: ["timer", "text-red-400"],

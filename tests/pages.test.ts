@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { join } from "path";
 import { usedIcons } from "../src/icons";
 import { call, createUser, resetReviewQueues } from "./helpers";
 
@@ -65,6 +66,21 @@ describe("pages and static files", () => {
 		for (const used of ["explore", "swords", "progress_activity", "waving_hand"]) expect(icons).toContain(used);
 		expect(icons).toEqual([...icons].sort());
 		expect(icons.length).toBeLessThan(400);
+	});
+
+	test("icon names in icon spans and style tables are real Material Symbols names", async () => {
+		const root = join(import.meta.dir, "..");
+		const names = new Set((await Bun.file(join(root, "src", "icon-names.txt")).text()).split(/\r?\n/));
+		const unknown: string[] = [];
+		for await (const path of new Bun.Glob("public/js/**/*.js").scan({ cwd: root })) {
+			const source = await Bun.file(join(root, path)).text();
+			const found = [
+				...source.matchAll(/material-symbols-outlined[^>]*>\s*([a-z0-9_]+)\s*</g),
+				...source.matchAll(/\["([a-z0-9_]+)", "text-[a-z]+-\d+"\]/g),
+			];
+			for (const [, name] of found) if (!names.has(name)) unknown.push(`${path}: ${name}`);
+		}
+		expect(unknown).toEqual([]);
 	});
 
 	test("every round page's guess button takes clicks: aria-disabled, never disabled", async () => {
