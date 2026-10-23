@@ -6,7 +6,7 @@ import type { User } from "../db";
 import { GAME } from "../config";
 import { requirePlayer, requireUser } from "../auth/guards";
 import { cancelQuickplay, quickplay } from "../game/duels/matchmaking";
-import { createRoom, duelRooms, joinRoom, liveDuels } from "../game/duels/rooms";
+import { createRoom, duelRooms, isParticipant, joinRoom, liveDuels } from "../game/duels/rooms";
 import { db } from "../db";
 import { wireServer } from "../game/duels/wire";
 import { auditLog } from "../lib/audit";
@@ -68,7 +68,7 @@ duelRoutes.post("/rooms/:code/join", (c) => {
 	const user = requireDuelist(c);
 	const code = c.req.param("code").toUpperCase();
 	const room = duelRooms.get(code);
-	if (room?.quickplay && !room.players.some((p) => p.userId === user.id))
+	if (room?.quickplay && !isParticipant(room, user.id))
 		fail(409, "Quick Play duels can't be joined by code, but you can watch them.");
 
 	const result = joinRoom(code, user.id);

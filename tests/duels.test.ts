@@ -330,6 +330,15 @@ describe("quick play", () => {
 		expect((await call("/api/duels/quickplay", { method: "DELETE", as: host })).status).toBe(200);
 		expect(duelRooms.has(code)).toBe(false);
 	});
+
+	test("a reserved player can join a quick play rematch by code before connecting", async () => {
+		const host = createUser();
+		const guest = createUser();
+		const rematch = createRoom(host.id, 5, true);
+		joinRoom(rematch.code, guest.id);
+		expect((await post(`/api/duels/rooms/${rematch.code}/join`, guest)).status).toBe(200);
+		expect((await post(`/api/duels/rooms/${rematch.code}/join`, createUser())).status).toBe(409);
+	});
 });
 
 describe("quick play rounds out of the ordinary", () => {

@@ -686,6 +686,13 @@ const EMPTY_SEAT_HTML = `<div class="flex flex-col items-center gap-2 w-28 opaci
 	<span class="text-sm">Waiting...</span>
 </div>`;
 
+const TAKE_SEAT_HTML = `<button type="button" id="take-seat-btn" class="group flex flex-col items-center gap-2 w-28">
+	<div class="w-12 h-12 rounded-full bg-zinc-700 group-hover:bg-zinc-600 transition border-2 border-dashed border-zinc-500 flex items-center justify-center">
+		<span class="material-symbols-outlined">person_add</span>
+	</div>
+	<span class="text-sm font-medium text-blue-300">Join</span>
+</button>`;
+
 function showWaitingRoom(state) {
 	hideOverlay();
 	if (state.status !== "waiting") return;
@@ -728,10 +735,12 @@ function showWaitingRoom(state) {
 		clearTimeout(quietQueueTimer);
 		show("quickplay-no-players", false);
 	}
+	const canTakeSeat = isSpectator() && !!user && !state.quickplay && !full;
 	el("waiting-players").innerHTML =
 		state.players
 			.map((player) => playerCardHtml(player, { quickPlay: !!state.quickplay, matched: full }))
-			.join("") + (full ? "" : EMPTY_SEAT_HTML);
+			.join("") + (full ? "" : canTakeSeat ? TAKE_SEAT_HTML : EMPTY_SEAT_HTML);
+	el("take-seat-btn")?.addEventListener("click", () => joinRoom(roomCode));
 
 	const canStart = !isSpectator() && !isQuickPlay && isHost && full;
 	const canReady = !isSpectator() && !isQuickPlay && !isHost && full;
