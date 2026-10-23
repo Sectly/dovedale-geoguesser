@@ -96,7 +96,7 @@ describe("Discord component embeds", () => {
 		db.run("UPDATE users SET avatar_url = ? WHERE id = ?", [discordUrl, user.id]);
 		const thumb = flatten((await embedOf(`/u/${user.username}`)).component).find((c) => c.type === 11)!;
 		expect(thumb.media!.url).toMatch(
-			new RegExp(`^https://geo\.example/u/${user.username}/avatar-[0-9a-z]+\\.webp$`)
+			new RegExp(`^https://geo\\.example/u/${user.username}/avatar-[0-9a-z]+\\.webp$`)
 		);
 
 		const red = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#f00" } })
