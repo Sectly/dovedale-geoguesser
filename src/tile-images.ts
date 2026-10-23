@@ -28,7 +28,7 @@ const CONFIG_HASH = Bun.hash(JSON.stringify({ BASE, SQUARE_VARIANTS, SQUARE_ROWS
 const MAP_ROWS = 1;
 const MAP_COLUMNS = 16;
 
-/** One image at a time, on one thread, with a rest between batches, so building never crowds out the site. */
+/** One image at a time on one thread, resting between batches, so building never slows the site. */
 const ENCODE_THREADS = 1;
 const PAUSE_MS = 300;
 /** Above 2, AVIF takes about 60% more memory and four times as long for files only about 15% smaller. */
@@ -104,7 +104,7 @@ async function generateTile(tileKey: string, manifest: Record<string, string>, f
 		for (let k = 0; k < squareCount(height); k++) {
 			const top = k * SQUARE_ROWS;
 			const rows = Math.min(SQUARE_ROWS, height - top);
-			/** One extra original row, overlapping the next square, so seams are real pixels rather than a gap. */
+			/** One extra original row overlapping the next square, so seams are real pixels. */
 			const take = rows + (top + rows < height ? 1 : 0);
 			for (const format of FORMATS) {
 				let square = pixels().extract({ left: 0, top, width, height: take });

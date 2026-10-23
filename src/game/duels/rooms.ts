@@ -26,7 +26,7 @@ export type DuelPlayer = {
 
 export type RoundKind = "comeback" | "sudden_death";
 
-/** The single pending step of a game, kept so it can be put on hold and picked up again. */
+/** The pending step of a game, kept so it can be paused and resumed. */
 type Phase = { run: () => void; dueAt: number; timer: ReturnType<typeof setTimeout> | null; remainingMs: number };
 
 export type DuelRoom = {
@@ -50,7 +50,7 @@ export type DuelRoom = {
 	spare: Location | null;
 	roundNumber: number;
 	roundKind: RoundKind | null;
-	/** Whose points count double in a comeback round, in this round and as decided for the next. */
+	/** Who scores double in a comeback round: this round's and the next's. */
 	comebackFor: number | null;
 	nextComebackFor: number | null;
 	/** Set once a sudden-death round has been played: who took it, or null if nobody did. */
@@ -442,7 +442,7 @@ function beginRound(room: DuelRoom) {
 	setPhase(room, DUEL_RULES.timeLimit + GAME.lateGuessGrace, () => endRound(room));
 }
 
-/** A player's browser has the round on screen. The clock starts once every connected player has. */
+/** A player's browser shows the round. The clock starts once every connected player's does. */
 export function playerLoaded(room: DuelRoom, userId: number) {
 	if (!room.awaitingLoad || room.paused) return;
 	room.loaded.add(userId);
@@ -623,7 +623,7 @@ function rate(room: DuelRoom, winnerId: number | null): RatingChange[] | null {
 	}
 }
 
-/** True when this player outscored the other in every round of a duel of three rounds or more. */
+/** True when this player won every round of a duel of 3 or more rounds. */
 function tookEveryRound(room: DuelRoom, userId: number): boolean {
 	if (room.history.length < 3) return false;
 	return room.history.every((round) => {
@@ -769,7 +769,7 @@ export function playerDisconnected(room: DuelRoom, userId: number) {
 	broadcast(room, "paused", pausedMessage(room));
 }
 
-/** A player is back. Once everyone is, count down and carry on from where the duel stopped. */
+/** A player is back. Once everyone is, count down and resume. */
 export function playerReconnected(room: DuelRoom) {
 	const pause = room.paused;
 	if (room.status !== "in_progress" || !pause || pause.resuming) return;
@@ -840,7 +840,7 @@ export function removeFromDuels(userId: number) {
 	}
 }
 
-/** Rooms that are waiting to start or being played, not ones kept around for a rematch. */
+/** Rooms waiting or playing, not finished ones kept for a rematch. */
 export function activeDuelRooms(): number {
 	return [...duelRooms.values()].filter((room) => room.status !== "finished").length;
 }
@@ -877,7 +877,7 @@ export function closeAllDuels(message: string) {
 	}
 }
 
-/** Ends a room on staff's say-so. A running duel is recorded as abandoned with no winner, so nothing changes for either player. The reason stays in the audit log. */
+/** Ends a room for staff. A running duel is recorded as abandoned with no winner, so neither player is affected. */
 export function closeDuelByStaff(code: string): DuelRoom | null {
 	const room = duelRooms.get(code);
 	if (!room || room.status === "finished") return null;

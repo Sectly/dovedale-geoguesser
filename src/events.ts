@@ -131,7 +131,7 @@ function queueAttention(client: Client) {
 	}, ATTENTION_DELAY_MS);
 }
 
-/** The same for every page, so cached briefly and shared. */
+/** Same for every page, so cached briefly. */
 let bannerCache: { at: number; value: ReturnType<typeof currentBanner> } | null = null;
 function banner() {
 	if (!bannerCache || Date.now() - bannerCache.at > 10_000) bannerCache = { at: Date.now(), value: currentBanner() };

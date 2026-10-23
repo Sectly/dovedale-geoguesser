@@ -101,20 +101,22 @@ export function resetLocationStats(locationId: number) {
 	db.run("DELETE FROM location_stats WHERE location_id = ?", [locationId]);
 }
 
-/** Picks up to `count` active locations, spread across the map, avoiding recent ones. */
+/** Up to `count` active locations, spread out. Recent ones are less likely, ungraded ones more. */
 export function pickLocations(count: number, difficulty: Difficulty | null = null): Location[] {
 	let pool = db.query<Location, []>("SELECT * FROM locations WHERE is_active = 1").all();
-	if (difficulty) {
-		const graded = gradedLocations();
-		pool = pool.filter((location) => graded.get(location.id) === difficulty);
-	}
+	const graded = gradedLocations();
+	if (difficulty) pool = pool.filter((location) => graded.get(location.id) === difficulty);
 	if (pool.length <= count) return shuffle(pool);
 
 	const recentDaily = recentIds("SELECT location_id FROM daily_challenges WHERE date >= date('now', '-3 days')");
 	const recentDuels = recentIds(
 		"SELECT DISTINCT location_id FROM duel_round_scores WHERE created_at > unixepoch() - 7 * 86400"
 	);
-	const freshness = (loc: Location) => (recentDaily.has(loc.id) ? 0.25 : 1) * (recentDuels.has(loc.id) ? 0.5 : 1);
+	const { spreadRange, ungradedBoost } = GAME.picking;
+	const freshness = (loc: Location) =>
+		(recentDaily.has(loc.id) ? 0.25 : 1) *
+		(recentDuels.has(loc.id) ? 0.5 : 1) *
+		(graded.has(loc.id) ? 1 : ungradedBoost);
 
 	const picked: Location[] = [];
 	const remaining = [...pool];
@@ -124,7 +126,7 @@ export function pickLocations(count: number, difficulty: Difficulty | null = nul
 			const nearest = Math.min(
 				...picked.map((p) => Math.hypot(candidate.world_x - p.world_x, candidate.world_y - p.world_y))
 			);
-			return nearest * nearest * freshness(candidate);
+			return Math.min(nearest, spreadRange) ** 2 * freshness(candidate);
 		});
 		let total = weights.reduce((a, b) => a + b, 0);
 		if (total <= 0) {

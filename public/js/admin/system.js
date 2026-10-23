@@ -58,8 +58,6 @@ export async function loadSystem() {
 	loadSystemLogs();
 }
 
-/** Breakdown: what is wrong, what might be, what is coming up */
-
 const FINDING_LOOK = {
 	problem: ["error", "text-red-400", "Needs attention"],
 	warning: ["warning", "text-amber-300", "Worth a look"],
@@ -507,7 +505,7 @@ const UPDATE_STEP_ICONS = {
 const durationText = (seconds) =>
 	seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s` : `${seconds}s`;
 
-/** The update in progress, or the last one: what it is doing, each step, and everything it printed. */
+/** The running or last update: its steps and output. */
 function updateJobHtml(job, restartIn) {
 	const now = Math.floor(Date.now() / 1000);
 	const took = job.started_at ? durationText((job.ended_at ?? now) - job.started_at) : "";

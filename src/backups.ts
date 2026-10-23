@@ -47,7 +47,7 @@ function prune(kind: BackupKind) {
 	for (const old of ofKind.slice(BACKUP_LIMITS[kind])) unlinkSync(join(BACKUP_DIR, old.name));
 }
 
-/** Writes a consistent copy of the live database, whatever is still in its write-ahead log. */
+/** A consistent copy of the live database, including the write-ahead log. */
 export function createBackup(db: Database, kind: BackupKind, label = stamp()): string {
 	mkdirSync(BACKUP_DIR, { recursive: true });
 	const name = `${kind}-${label}.sqlite`;
@@ -65,7 +65,7 @@ export function ensureDailyBackup(db: Database, today = new Date().toISOString()
 	return createBackup(db, "daily", today);
 }
 
-/** The full path of a backup, or null when the name is not one of ours (no paths, no other files). */
+/** Full path of a backup, or null for any name that is not one of ours. */
 export function backupPath(name: string): string | null {
 	if (!NAME.test(name)) return null;
 	const path = join(BACKUP_DIR, name);

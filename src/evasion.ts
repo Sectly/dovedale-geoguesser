@@ -15,7 +15,7 @@ export function hashIdentity(value: string): string {
 	return createHash("sha256").update(value).digest("hex").slice(0, 32);
 }
 
-/** The device id from the request's cookie, or a fresh one when it has none (or a malformed one). */
+/** The cookie's device id, or a fresh one when missing or malformed. */
 export function deviceId(existing: string | null): { id: string; isNew: boolean } {
 	if (existing && HASH.test(existing)) return { id: existing, isNew: false };
 	return { id: randomBytes(16).toString("hex"), isNew: true };

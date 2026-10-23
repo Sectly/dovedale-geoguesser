@@ -180,7 +180,7 @@ adminUserRoutes.delete("/notes/:id", (c) => {
 	return c.json({ success: true });
 });
 
-/** Clears a fair-play flag once someone has looked at it. The guesses behind it are not counted again. */
+/** Clears a fair-play flag once reviewed. Its guesses are not counted again. */
 adminUserRoutes.post("/fairplay/:id/dismiss", (c) => {
 	const actor = requireStaff(c);
 	const flag = dismissFairplayFlag(idParam(c), actor) ?? fail(404, "This flag has already been dealt with");
@@ -228,7 +228,7 @@ adminUserRoutes.get("/:id/moderation", (c) => {
 			),
 			tickets: count("SELECT COUNT(*) AS n FROM support_tickets WHERE user_id = ?"),
 		},
-		/** Things the account already holds that help when answering a ticket or weighing a report. */
+		/** Account details that help when answering a ticket or weighing a report. */
 		account: {
 			last_played_date: target.last_played_date,
 			current_streak: target.current_streak,

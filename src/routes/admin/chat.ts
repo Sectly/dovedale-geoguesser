@@ -49,7 +49,7 @@ const MESSAGE_SOURCE = `staff_chat m LEFT JOIN users u ON u.id = m.author_id LEF
 const findMessage = (id: number) =>
 	db.query<Message, [number]>(`SELECT ${MESSAGE_COLUMNS} FROM ${MESSAGE_SOURCE} WHERE m.id = ?`).get(id);
 
-/** What this member of staff may do to a message: anything to their own, and to another's only from a lower role. */
+/** What this staff member may do to a message: anything to their own, and to a lower role's. */
 function allowed(staff: User, m: Message) {
 	const rank = roleRank(staff.role);
 	const senior = hasRole(staff, CHAT_MODERATOR_ROLE);
@@ -65,7 +65,7 @@ function allowed(staff: User, m: Message) {
 const pinsHeldBy = (staff: User) =>
 	db.query<{ n: number }, [number]>("SELECT COUNT(*) AS n FROM staff_chat WHERE pinned_by = ?").get(staff.id)?.n ?? 0;
 
-/** The newest messages, oldest first, and every pinned one however old. Reading the room counts as having seen them. */
+/** The newest messages, oldest first, plus every pinned one. Reading counts as seen. */
 adminChatRoutes.get("/", (c) => {
 	const staff = requireStaff(c, CHAT_ROLE);
 	const messages = db
@@ -153,7 +153,7 @@ adminChatRoutes.post("/", async (c) => {
 	return c.json({ id });
 });
 
-/** Anyone may delete what they wrote; senior staff may delete a lower role's message, and that is logged. */
+/** Anyone may delete their own; senior staff may delete a lower role's, which is logged. */
 adminChatRoutes.delete("/:id", (c) => {
 	const staff = requireStaff(c, CHAT_ROLE);
 	const message = findMessage(idParam(c)) ?? fail(404, "That message has already gone");

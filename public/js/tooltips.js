@@ -79,7 +79,7 @@ const TOOLTIPS = {
 };
 
 const Tooltips = (() => {
-	/** How long the pointer rests on something before its tooltip shows. Keyboard focus shows it at once. */
+	/** Hover delay before a tooltip shows. Keyboard focus shows it at once. */
 	const HOVER_DELAY_MS = 450;
 	const GAP = 8;
 	const EDGE = 8;

@@ -14,7 +14,7 @@ const pkg = await Bun.file(join(ROOT_DIR, "package.json")).json();
 
 miscRoutes.get("/status", (c) => c.text("200 OK"));
 miscRoutes.get("/announcement", (c) => c.json(currentBanner()));
-/** Follows an announcement's link, counting it. Past a few a minute per address it redirects without counting. */
+/** Follows an announcement's link and counts it, up to a few a minute per address. */
 miscRoutes.get("/announcement/:id/go", (c) =>
 	c.redirect(followLink(idParam(c), checkRateLimit(`announcement-link:${clientIp(c)}`, 6, 60 * 1000)))
 );

@@ -1,8 +1,17 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, jest, test } from "bun:test";
 import type { WireConnection } from "@webwirejs/server";
 import { app } from "../src/app";
 import { db } from "../src/db";
-import { abandonDuel, createRoom, duelRooms, previewPin, sendCrowdEmote } from "../src/game/duels/rooms";
+import {
+	abandonDuel,
+	createRoom,
+	duelRooms,
+	isParticipant,
+	joinRoom,
+	previewPin,
+	sendCrowdEmote,
+} from "../src/game/duels/rooms";
+import { waitingPlayerDropped } from "../src/game/duels/wire";
 import { GAME } from "../src/config";
 import { DUEL_RULES, Round } from "../src/game/round";
 import { resetTournaments } from "../src/game/tournaments";
@@ -688,5 +697,52 @@ describe("announcing", () => {
 		await post(`/api/admin/tournaments/${id}/announce`, staff);
 		expect((await post(`/api/admin/tournaments/${id}/open`, staff)).status).toBe(200);
 		expect((await view(id)).status).toBe("open");
+	});
+});
+
+describe("a dropped connection before the match starts", () => {
+	function waitingRoom(tournament: boolean) {
+		const [a, b] = [createUser(), createUser()];
+		const room = createRoom(a.id, 3, false, false, tournament ? { id: 1, matchId: 0 } : null);
+		joinRoom(room.code, b.id);
+		const player = {
+			userId: a.id,
+			username: a.username,
+			displayName: a.username,
+			avatarUrl: "",
+			conn: quietConn(),
+			connected: false,
+			disconnects: 0,
+			totalScore: 0,
+		};
+		room.players.push(player);
+		return { room, player };
+	}
+
+	test("a tournament player keeps their seat after disconnecting", () => {
+		jest.useFakeTimers();
+		try {
+			const { room, player } = waitingRoom(true);
+			waitingPlayerDropped(room, player);
+			jest.advanceTimersByTime(60_000);
+			expect(room.players).toContain(player);
+			expect(isParticipant(room, player.userId)).toBe(true);
+			expect(duelRooms.get(room.code)).toBe(room);
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+
+	test("a player in a normal room loses their seat after 30 seconds", () => {
+		jest.useFakeTimers();
+		try {
+			const { room, player } = waitingRoom(false);
+			waitingPlayerDropped(room, player);
+			jest.advanceTimersByTime(31_000);
+			expect(room.players).not.toContain(player);
+			expect(isParticipant(room, player.userId)).toBe(false);
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 });

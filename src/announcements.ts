@@ -243,7 +243,7 @@ export function sendScheduledAnnouncements(now = nowSec()): number {
 	return due.length;
 }
 
-/** Sends the draft to the sender alone, so they can see exactly what everyone would get. */
+/** Sends the draft to the sender only, as everyone would get it. */
 export function previewAnnouncement(draft: Pick<Draft, "title" | "body" | "link">, sender: User) {
 	notifyUser(sender.id, "announcements", {
 		title: `[Test] ${draft.title}`.slice(0, 120),

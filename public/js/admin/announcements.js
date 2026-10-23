@@ -66,7 +66,7 @@ const ANNOUNCEMENT_PRESETS = {
 	],
 };
 const DOCUMENT_PRESETS = ["privacy", "tos", "fairplay", "guidelines", "several"];
-/** Presets leave the parts only staff know in [brackets]; nothing is sent while one is still there. */
+/** Presets mark staff-only parts in [brackets]; nothing sends while one is left. */
 const UNFILLED = /\[[^\]]+\]/;
 
 const presetChip = (key) =>
@@ -90,7 +90,7 @@ const AUDIENCE_LABELS = {
 	staff: "Staff only (curators and up)",
 	player: "One player",
 };
-/** Audiences that are not players at large: no banner, no place on the news page. */
+/** Audiences that are not all players: no banner or news page entry. */
 const PRIVATE_AUDIENCES = ["helpers", "staff", "player"];
 const STYLE_LOOK = {
 	info: ["Info", "campaign"],

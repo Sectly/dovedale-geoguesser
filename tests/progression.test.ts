@@ -463,3 +463,42 @@ describe("location difficulty", () => {
 		expect(difficultyOf(id)).toBeNull();
 	});
 });
+
+describe("choosing locations", () => {
+	const pairs = (count: number, runs: number) => {
+		const seen = new Map<string, number>();
+		for (let i = 0; i < runs; i++) {
+			const key = pickLocations(count)
+				.map((l) => l.id)
+				.sort((a, b) => a - b)
+				.join("-");
+			seen.set(key, (seen.get(key) ?? 0) + 1);
+		}
+		return (...ids: number[]) => seen.get([...ids].sort((a, b) => a - b).join("-")) ?? 0;
+	};
+
+	test("spots close together rarely share a game, and far spots are not favoured", () => {
+		clearLocations();
+		const { spreadRange } = GAME.picking;
+		const home = createLocation({ x: 0, y: 0 });
+		const neighbour = createLocation({ x: 100, y: 0 });
+		const near = createLocation({ x: spreadRange * 1.5, y: 0 });
+		const far = createLocation({ x: spreadRange * 15, y: 0 });
+		const count = pairs(2, 4000);
+		expect(count(home, neighbour)).toBeLessThan(count(home, near) / 20);
+		expect(count(home, far) / count(home, near)).toBeGreaterThan(0.75);
+		expect(count(home, far) / count(home, near)).toBeLessThan(1.33);
+	});
+
+	test("ungraded locations are picked more often", () => {
+		clearLocations();
+		const graded = createLocation({ x: 0, y: 0 });
+		const ungraded = createLocation({ x: GAME.picking.spreadRange * 5, y: 0 });
+		for (let i = 0; i < GAME.difficulty.minPlays; i++) recordLocationPlay(graded, 2500);
+		let ungradedPicks = 0;
+		const runs = 4000;
+		for (let i = 0; i < runs; i++) if (pickLocations(1)[0].id === ungraded) ungradedPicks++;
+		const expected = GAME.picking.ungradedBoost / (GAME.picking.ungradedBoost + 1);
+		expect(Math.abs(ungradedPicks / runs - expected)).toBeLessThan(0.04);
+	});
+});

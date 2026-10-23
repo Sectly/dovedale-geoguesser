@@ -14,7 +14,7 @@ const EMAIL_STATE_LABELS = {
 	waiting: "Waiting to be confirmed",
 };
 
-/** Draws the tab. The mail server's details stay off the page until `reveal` asks for them. */
+/** Mail server details stay hidden until `reveal`. */
 export async function loadEmail(reveal = false) {
 	let info;
 	try {

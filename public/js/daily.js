@@ -61,7 +61,7 @@ function showAlreadyPlayed(result) {
 	);
 }
 
-/** Copies a result to share: the score, but nothing that gives the location away. */
+/** Share text: the score, nothing that gives the location away. */
 async function shareResult(result) {
 	const day = new Date(`${result.date}T00:00:00Z`).toLocaleDateString(undefined, {
 		day: "numeric",

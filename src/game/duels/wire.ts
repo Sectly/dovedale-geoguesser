@@ -297,13 +297,19 @@ wireServer.on("connection", (conn: WireConnection) => {
 			if (room.status === "in_progress") return playerDisconnected(room, player.userId);
 			if (room.status === "finished") return declineRematch(room, player);
 
-			cancelCountdown(room);
-			broadcastState(room);
-			setTimeout(() => {
-				if (room.status === "waiting" && !player.connected && room.players.includes(player)) {
-					leaveQuickplayRoom(room, player.userId);
-				}
-			}, RECONNECT_GRACE_MS);
+			waitingPlayerDropped(room, player);
 		})
 	);
 });
+
+/** Outside tournaments, the seat is freed if the player is not back in time. */
+export function waitingPlayerDropped(room: DuelRoom, player: DuelPlayer) {
+	cancelCountdown(room);
+	broadcastState(room);
+	if (room.tournament) return;
+	setTimeout(() => {
+		if (room.status === "waiting" && !player.connected && room.players.includes(player)) {
+			leaveQuickplayRoom(room, player.userId);
+		}
+	}, RECONNECT_GRACE_MS);
+}

@@ -41,7 +41,7 @@ export function listTickets(where: string, params: (string | number)[], order: s
 	return rows;
 }
 
-/** Banned users are deliberately allowed everything here: this is how they appeal. */
+/** Banned users are allowed everything here: this is how they appeal. */
 supportRoutes.post("/", async (c) => {
 	const user = requireUser(c);
 	const body = await readJson<{ subject: string; message: string; category: string }>(c);

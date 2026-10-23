@@ -14,7 +14,7 @@ export function isStaff(user: User | null | undefined): boolean {
 	return roleRank(user?.role) > 0 && !user?.staff_locked;
 }
 
-/** Staff proper: curator and up. A helper is a player with the review queues, so staff allowances stop here. */
+/** Curator and up. Helpers are players with review queues, so staff allowances stop here. */
 export function isFullStaff(user: User | null | undefined): boolean {
 	return hasRole(user, "curator");
 }

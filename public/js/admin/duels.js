@@ -115,7 +115,7 @@ function openDuelsHtml() {
 		.join("");
 }
 
-/** Ends a duel for everyone in it. Recorded as abandoned: no winner, and no score or rating changes. */
+/** Recorded as abandoned: no winner, no score or rating changes. */
 async function closeOpenDuel(code) {
 	const answer = await askReason({
 		title: `Close duel ${code}`,

@@ -373,7 +373,7 @@ function renderTournament() {
 
 const inviteLink = (t) => `${location.origin}/tournament/${t.id}?invite=${t.invite_code}`;
 
-/** An invite link lets players add themselves, checked in, while check-in is open. */
+/** Lets players add themselves, checked in, while check-in is open. */
 function inviteHtml(t) {
 	if (!t.invite_code)
 		return `<div class="flex items-center gap-3 flex-wrap mb-3 max-w-2xl">

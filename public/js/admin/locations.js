@@ -421,7 +421,7 @@ function statChartHtml(series) {
 	</div>`;
 }
 
-/** Redraws only the chart, leaving the rest of the tab alone. */
+/** Redraws only the chart. */
 function setStatSeries(key) {
 	_statSeries = key;
 	el("stat-chart-box").innerHTML = statChartHtml(_stats.series || []);

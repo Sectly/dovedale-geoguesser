@@ -29,7 +29,7 @@ async function decodedTile(img) {
 		const { width, height } = full;
 		const strips = [];
 		for (let top = 0; top < height; top += STRIP_HEIGHT) {
-			/** One row more than the strip, from the next one, so seams are covered by real pixels, not stretching. */
+			/** One row from the next strip, so seams are covered by real pixels. */
 			const rows = Math.min(STRIP_HEIGHT + 1, height - top);
 			strips.push({ top, rows, bitmap: await createImageBitmap(full, 0, top, width, rows) });
 		}
@@ -42,7 +42,7 @@ async function decodedTile(img) {
 	}
 }
 
-/** Tiles are 12,000px tall, past many graphics cards' 8,192 limit; strips draw fast and only when on screen. */
+/** Tiles are 12,000px tall, past many GPUs' 8,192 limit; strips draw fast and only on screen. */
 const STRIP_HEIGHT = 2048;
 
 const tileReady = (tile) =>
@@ -53,7 +53,7 @@ const releaseTile = (tile) => {
 	else for (const strip of tile?.strips ?? []) strip.bitmap.close();
 };
 
-/** A small `base` map for every device, plus sharper `detail` tiles for what is on screen: the full map decodes to nearly 1 GB. */
+/** A small `base` map everywhere plus sharper `detail` tiles on screen; the full map decodes to nearly 1 GB. */
 function _mapProfile() {
 	const ua = navigator.userAgent;
 	/** An iPad asks for the desktop site and calls itself a Mac; only its touch screen gives it away. */
@@ -250,7 +250,7 @@ export class MapCanvas {
 		const [left, right, top, bottom] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
 		const roomX = Math.max(40, this.viewWidth - padding * 2);
 		const roomY = Math.max(40, this.viewHeight - insetBottom - padding * 2);
-		/** Never closer than 4x, so two guesses side by side do not fill the screen with a few tiles. */
+		/** At least 4x, so two close guesses do not fill the screen. */
 		const scale = Math.min(4, Math.max(0.5, Math.min(roomX / (right - left || 1), roomY / (bottom - top || 1))));
 
 		this.ctx.resetTransform();
@@ -886,7 +886,7 @@ export class MapCanvas {
 		img.src = tileUrl(r, c, quality, format);
 	}
 
-	/** Uploads strips to the graphics card while idle, so the first sight of one does not stall a frame. */
+	/** Uploads strips to the GPU while idle, so the first sight of one does not stall a frame. */
 	_warmTile(tile) {
 		if (!tile?.strips) return;
 		this._warmQueue.push(...tile.strips);

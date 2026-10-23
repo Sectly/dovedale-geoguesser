@@ -106,7 +106,7 @@ export async function sweepOrphanedUploads(now = Date.now()): Promise<number> {
 	return orphans.length;
 }
 
-/** Runs on its own so a failed backup never stops the rest of the cleanup, and the other way round. */
+/** A separate job, so a failed backup and the cleanup never stop each other. */
 const maintain = job("maintenance", () => {
 	maintainDatabase();
 	if (!duelsInProgress() && !teamGamesInProgress() && reclaimFreeSpace())

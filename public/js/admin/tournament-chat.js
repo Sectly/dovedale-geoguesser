@@ -32,7 +32,7 @@ let _openMessage = null;
 const seconds = (ms) => (ms === 0 ? "None" : `${ms / 1000} s`);
 const timeoutText = (m) => (m < 60 ? `${m} min` : m < 1440 ? `${m / 60} hour` : `${m / 1440} day`);
 
-/** Drawn from the last load, then kept up to date by live updates, or polled without them. */
+/** From the last load, then live updates, or polling without them. */
 export function staffChatSlot(t) {
 	if (!["open", "live", "finished"].includes(t.status)) {
 		stopStaffChat();

@@ -48,7 +48,7 @@ adminLocationRoutes.get("/", (c) => {
 	);
 });
 
-/** How a location has played, by mode. From the recent-guess log, so a recent sample, not all-time. */
+/** How a location has played, by mode, from the recent-guess log. */
 adminLocationRoutes.get("/:id/breakdown", (c) => {
 	requireStaff(c, "curator");
 	const id = idParam(c);

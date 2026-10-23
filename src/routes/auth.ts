@@ -144,7 +144,7 @@ authRoutes.get("/me", (c) => {
 		/** Sent here so pages only ask for the details when there is something to show. */
 		unseen_achievements: unseenCount(user.id),
 		pending_announcement: pendingAcknowledgement(user.id),
-		/** Numbers the pages show that the server also enforces, so they are only set in one place. */
+		/** Numbers pages show that the server enforces, set in one place. */
 		limits: {
 			label_min: LIMITS.labelMin,
 			label_max: LIMITS.labelMax,

@@ -7,8 +7,6 @@ module.exports = {
 		PATH: `/home/debian/.bun/bin:${process.env.PATH}`,
 	},
 	max_memory_restart: "1G",
-	/**
-	 * A server that cannot start (a damaged database, a full disk) is retried ever more slowly, not in a tight loop.
-	 */
+	/** Restarts back off instead of looping when the server cannot start. */
 	exp_backoff_restart_delay: 1000,
 };

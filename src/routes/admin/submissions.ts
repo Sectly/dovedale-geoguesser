@@ -40,7 +40,7 @@ type Spot = {
 	is_active: number;
 };
 
-/** The queue. Each submission carries only the few locations near its pin, so reviewing never hands out the answer list. */
+/** The queue. Each item carries only the locations near its pin, so reviewing never reveals the answer list. */
 adminSubmissionRoutes.get("/", (c) => {
 	requireStaff(c, "helper");
 	const pending = db

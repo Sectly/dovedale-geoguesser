@@ -153,7 +153,7 @@ async function startGame() {
 	}
 }
 
-/** Shows the round, and only asks the server to start the clock once the screenshot is on screen. */
+/** Shows the round and starts the clock once the screenshot is on screen. */
 async function beginRound(round) {
 	el("round-num").textContent = round.number;
 	el("round-total").textContent = round.total;
@@ -166,7 +166,7 @@ async function beginRound(round) {
 	PhotoEffects.begin();
 }
 
-/** The game is gone (server restart or hours idle); nothing to do but start over. */
+/** The game is gone (a restart or hours idle), so start over. */
 function gameLost(err) {
 	switchScreen("start-screen");
 	startError(err.message);
@@ -258,7 +258,7 @@ function showSummary() {
 				: `<p class="text-zinc-500 text-sm"><a href="${escHtml(loginUrl("/play"))}" class="text-blue-400 hover:underline">Log in</a> before you play to save your scores to the leaderboard.</p>`;
 }
 
-/** Copies the finished game to share: a square per round and the total, nothing that names a location. */
+/** Share text: a square per round and the total, no location names. */
 async function shareSummary() {
 	if (!summary) return;
 	const square = (score) => (score >= 4000 ? "🟩" : score >= 2000 ? "🟨" : score > 0 ? "🟧" : "⬜");

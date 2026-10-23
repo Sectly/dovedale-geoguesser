@@ -13,15 +13,15 @@ import { shutdown } from "../lib/lifecycle";
 import { logInfo } from "../lib/logs";
 
 const CLOSED_MESSAGE = "The server restarted for an update, so your game was ended. It won't count against you.";
-/** Long enough for the goodbye messages to leave before the sockets go down with the process. */
+/** Long enough for goodbye messages to leave before the process exits. */
 const FLUSH_MS = 400;
 
-/** Left in the database by a clean stop, so the next start knows it follows a planned restart. */
+/** Left by a clean stop, so the next start knows it was planned. */
 const CLEAN_STOP_KEY = "clean_stop";
 /** How long after coming back the server keeps saying it has just restarted. */
 const BACK_NOTICE_MS = 3 * 60 * 1000;
 
-/** When this process started, if it follows a clean stop moments ago. Lets pages explain a restart. */
+/** Start time, if this process follows a clean stop moments ago. Lets pages explain a restart. */
 const startedAfterRestart = (() => {
 	try {
 		const row = db

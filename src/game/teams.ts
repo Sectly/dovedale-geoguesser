@@ -387,7 +387,7 @@ function finishRound(room: TeamRoom, now: number) {
 	room.phaseEndsAt = now + REVEAL_SECONDS * 1000;
 }
 
-/** Moves a room on if its current step is over. Safe to call as often as you like. */
+/** Moves a room on if its current step is over. Safe to call any time. */
 function advance(room: TeamRoom, now: number) {
 	if (room.status !== "playing") return;
 	const step = `${room.phase}:${room.roundNumber}`;

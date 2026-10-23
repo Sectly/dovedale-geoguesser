@@ -104,7 +104,7 @@ export function startSoloGame(
 	};
 }
 
-/** Finds a game and checks the caller owns it. Unknown, expired and foreign games all look the same. */
+/** Finds a game the caller owns. Unknown, expired and foreign games look the same. */
 function getGame(id: string, userId: number | null): SoloGame {
 	const game = games.get(id);
 	if (!game || game.userId !== userId) fail(404, "This game has expired. Start a new one.");
@@ -184,7 +184,7 @@ export function saveSoloGames(): number {
 	return saved.length;
 }
 
-/** Brings back the games saved by the last clean stop. The time the server was down does not count. */
+/** Restores games saved by the last clean stop. Downtime does not count. */
 export function restoreSoloGames(): number {
 	if (!existsSync(SNAPSHOT_FILE)) return 0;
 	let saved: SavedGame[] = [];

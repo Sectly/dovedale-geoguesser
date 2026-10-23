@@ -29,7 +29,7 @@ let _submissionUser = "";
 export let _submissionView = "waiting";
 let _submissionHistory = [];
 
-/** Closer than this and the row is marked as a possible duplicate before it is even opened. */
+/** Closer than this marks the row as a possible duplicate. */
 const DUPLICATE_UNITS = 150;
 
 const subCode = (id) => `SUB-${String(id).padStart(4, "0")}`;

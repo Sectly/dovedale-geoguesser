@@ -642,7 +642,7 @@ export type User = {
 	duel_rated_games: number | null;
 	suggestions_agreed: number;
 	suggestions_agreed_at: number | null;
-	/** Set when a senior member of staff has suspended this one's staff access. The role itself is kept. */
+	/** Set when senior staff suspend this member's staff access. The role is kept. */
 	staff_locked: number;
 	staff_lock_reason: string | null;
 	/** The newest staff chat message this member of staff has seen. */

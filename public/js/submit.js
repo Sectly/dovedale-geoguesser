@@ -234,7 +234,7 @@ function suggestProgressHtml(progress) {
 	return bar("Account age", progress.days, "days") + bar("Solo or daily games played", progress.games, "games");
 }
 
-/** Suggesting changes shows where every location is, so it is only open to established players. */
+/** Suggesting changes shows every location, so only established players can. */
 async function showSuggestGateOrPick() {
 	for (const id of ["suggest-policy-gate", "suggest-pick", "suggest-form", "suggest-locked"])
 		el(id).style.display = "none";
@@ -769,7 +769,7 @@ function prefillResend() {
 
 init().then(prefillResend);
 
-/** One set of fine controls serves both forms: it is moved under whichever pin it is steering. */
+/** One set of fine controls serves both forms, moved under whichever pin it steers. */
 function showFineControls(slotId) {
 	const controls = el("fine-controls");
 	el(slotId).after(controls);

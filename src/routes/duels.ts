@@ -30,7 +30,7 @@ const NEW_DUELS_OFF = "New duels are paused for now. Please try again later.";
 
 const canCreateRoom = (user: User) => checkUserRateLimit(user, "room", 10, HOUR * 1000);
 
-/** The server sets the length, so a page loaded before a change cannot queue for one nobody else is in. */
+/** The server sets the length, so a stale page cannot queue for one nobody else is in. */
 duelRoutes.post("/quickplay", (c) => {
 	const user = requireDuelist(c);
 	requireFeature("new_duels", user, NEW_DUELS_OFF);

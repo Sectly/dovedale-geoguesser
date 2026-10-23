@@ -7,7 +7,7 @@ export const Sounds = (() => {
 	} catch {}
 	let ctx = null;
 
-	/** Browsers only allow audio after the visitor has interacted with the page. */
+	/** Browsers only allow audio after an interaction. */
 	function context() {
 		try {
 			ctx ??= new (window.AudioContext || window.webkitAudioContext)();
@@ -194,7 +194,7 @@ export const Sounds = (() => {
 				localStorage.setItem(STORAGE_KEY, enabled ? "1" : "0");
 			} catch {}
 		},
-		/** False until a click or key press lets the page play sound. */
+		/** False until a click or key press allows sound. */
 		get unlocked() {
 			return ctx?.state === "running";
 		},

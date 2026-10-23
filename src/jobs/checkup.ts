@@ -12,7 +12,7 @@ import { maintenance } from "../system/maintenance";
 import { UPDATES_ENABLED, updateStatus } from "../system/updater";
 
 type Finding = {
-	/** Stable name for this kind of finding, used to tell a new problem from one already reported. */
+	/** Stable key for a finding, to tell new problems from ones already reported. */
 	key: string;
 	text: string;
 	/** Serious findings go to the staff channel; the rest only to the log. */

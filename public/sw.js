@@ -75,9 +75,7 @@ const WAITING_PAGE = `<!doctype html>
 		try {
 			const res = await fetch("/api/status", { cache: "no-store" });
 			if (!res.ok || !res.headers.get("X-App")) return;
-			/**
-			 * Lights green, fade out, and tell the page that loads next to fade in from the same screen (js/lib/restart.js).
-			 */
+			/** Turns green, fades out, and has the next page fade in from the same screen (js/lib/restart.js). */
 			document.querySelector("main").className = "back";
 			document.body.className = "leaving";
 			try { sessionStorage.setItem("restart_reloaded", "1"); } catch {}

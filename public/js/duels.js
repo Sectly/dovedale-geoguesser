@@ -636,10 +636,10 @@ function streakHtml(streak) {
 		: "";
 }
 
-/** Someone yet to play a ranked duel has no rating worth quoting. */
+/** No rating to show before a first ranked duel. */
 const ratingText = (p) => (p.rated_games ? `Rating ${p.rating.toLocaleString()}` : "Unranked");
 
-/** Quick Play starts by itself, so its cards say how the match stands, not who hosts or who is ready. */
+/** Quick Play starts by itself, so cards show the standings, not host or ready. */
 function playerCardHtml(player, { quickPlay = false, matched = false } = {}) {
 	const status = quickPlay
 		? matched
@@ -798,7 +798,7 @@ function setOpponentBadge(icon, text) {
 
 let shownRound = 0;
 
-/** Puts a round on screen ahead of its clock, so both players can load it first. */
+/** Shows a round before its clock starts, so both players can load it. */
 function showRound(round) {
 	clearInterval(countdownTimer);
 	show("start-countdown", false);

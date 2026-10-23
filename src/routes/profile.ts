@@ -54,7 +54,7 @@ export function profileStats(userId: number) {
 			FROM daily_scores WHERE user_id = ?`,
 			userId
 		),
-		/** Per-round numbers, which the totals hide. Duel rounds only go back as far as their details are kept. */
+		/** Per-round numbers the totals hide. Duel rounds go back only as far as their details are kept. */
 		rounds: one<{ solo_avg: number | null; duel_avg: number | null; duel_avg_time: number | null }>(
 			`SELECT
 				(SELECT ROUND(CAST(SUM(total_score) AS REAL) / SUM(rounds)) FROM solo_scores WHERE user_id = ?) AS solo_avg,

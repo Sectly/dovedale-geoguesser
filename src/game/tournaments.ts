@@ -133,7 +133,7 @@ const JOIN_MS = 90_000;
 const ADD_TIME_MS = 60_000;
 const RESTART_BREAK_S = 30;
 
-/** The numbers the staff panel's guide quotes, so it always matches what the server does. */
+/** The numbers the staff guide quotes, so it matches the server. */
 export function tournamentRules() {
 	return {
 		...LIMITS,
@@ -425,7 +425,7 @@ function settleByes(t: Tournament, round: number) {
 	if (names.length) s.notice = { text: `${names.join(", ")} through without playing`, at: Date.now() };
 }
 
-/** The next match, settling byes on the way. Settled only when reached, so staff can fill an empty place until then. */
+/** The next match, settling byes on the way. Byes settle only when reached, so staff can fill a place until then. */
 function pickNext(t: Tournament): Match | null {
 	const s = t.state;
 	const names: string[] = [];
@@ -607,7 +607,7 @@ function freeForMatch(userId: number) {
 			leaveWaitingRoom(room, userId);
 }
 
-/** In a round played all at once (`quiet` when starting many), the phase stays as it is. */
+/** In a round played all at once the phase stays as it is. `quiet` skips the save when starting many. */
 function startMatch(t: Tournament, m: Match, quiet = false) {
 	const [a, b] = m.players as [number, number];
 	const batch = t.state.phase.kind === "batch";
@@ -1450,7 +1450,7 @@ export function removeUnready(staff: User, id: number, matchId: number) {
 	matchOver(t, m, winner, "not_ready");
 }
 
-/** In a round played all at once: starts one waiting match now. Whoever isn't there when it opens loses it. */
+/** Starts one waiting match in a round played all at once. Whoever is not there loses it. */
 export function startOneMatch(staff: User, id: number, matchId: number) {
 	const t = load(id);
 	const m = t.state.matches[matchId] ?? fail(404, "Match not found");
@@ -1541,7 +1541,7 @@ export function setSlot(staff: User, id: number, matchId: number, side: 0 | 1, u
 
 const INVITE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-/** Turns the invite code on (a new one each time, so an old code stops working) or off. */
+/** Turns invites on with a new code, so old codes stop working, or off. */
 export function setInvite(staff: User, id: number, on: boolean) {
 	const t = load(id);
 	if (!["draft", "announced", "open"].includes(t.status))
@@ -1623,7 +1623,7 @@ export function setResults(staff: User, id: number, until: number | null) {
 	nudgeTournament(currentSummary());
 }
 
-/** After a restart. The match in play was cut off, so staff carry on when ready. */
+/** After a restart the match in play was cut off, so staff resume it. */
 export function restoreTournaments() {
 	loadResults();
 	const row = db

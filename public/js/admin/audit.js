@@ -323,7 +323,7 @@ let auditSearchTimer = null;
 let expandedAuditGroupId = null;
 let _lastAuditData = null;
 
-/** A role change is stored as "moderator to helper"; shown with the roles' proper names. */
+/** Stored as "moderator to helper"; shown with proper role names. */
 const roleChangeText = (details) =>
 	details.replace(/(none|helper|curator|moderator|supervisor|admin|operator)/g, (role) =>
 		role === "none" ? "no role" : ROLE_NAMES[role]

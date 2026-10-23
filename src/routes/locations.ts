@@ -60,7 +60,7 @@ locationRoutes.get("/", (c) => {
 	);
 });
 
-/** Every answer on the map, so only shown to people trusted to suggest corrections. */
+/** Every answer on the map, so only for people trusted to suggest corrections. */
 locationRoutes.get("/with-coords", (c) => {
 	requireSuggester(c);
 	return c.json(

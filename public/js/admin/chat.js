@@ -11,7 +11,7 @@ const CHAT_POLL_MS = 3000;
 const CHAT_UNREAD_POLL_MS = 20_000;
 /** Messages from the same person this close together are drawn as one block. */
 const CHAT_GROUP_SECONDS = 300;
-/** The room as last drawn, so a poll that brings nothing new leaves the page alone. */
+/** The last drawn room, so a poll with nothing new leaves the page alone. */
 let _chatShown = "";
 let _chatPolling = false;
 let _chatRoom = null;
@@ -38,7 +38,7 @@ function chatInlineHtml(escaped) {
 		);
 }
 
-/** Code spans stay as typed and addresses become links, so neither is read as formatting. */
+/** Code spans stay as typed and addresses become links, so neither is formatted. */
 function chatBodyHtml(text) {
 	const body = String(text ?? "");
 	const onlyEmotes = /^(\s*:[a-z0-9_]+:\s*){1,6}$/.test(body);

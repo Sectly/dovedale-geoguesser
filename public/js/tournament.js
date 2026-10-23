@@ -345,7 +345,7 @@ function leaveMatch() {
 	showStage();
 }
 
-/** The bar over a match in a round played all at once, for switching to another or back to automatic. */
+/** The bar over a match in a round played at once, to switch matches or go back to automatic. */
 function renderSwitcher() {
 	const box = el("match-switcher");
 	if (!box) return;
@@ -500,7 +500,7 @@ function renderHero(prev, upNext, isFinal) {
 	growProgress();
 }
 
-/** A round being played all at once, seen from the stage: progress and every live match. */
+/** A round played all at once, from the stage: progress and every live match. */
 function batchHero() {
 	const phase = state.phase;
 	const inRound = allMatches().filter((m) => m.round === phase.round && !m.third);

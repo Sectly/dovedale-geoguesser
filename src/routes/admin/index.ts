@@ -139,7 +139,7 @@ adminRoutes.get("/overview", (c) => {
 			restart_in: restartIn(),
 		},
 		mine: actions("actor_id = ?", staff.id),
-		/** What other staff did is the audit log's business, which starts at supervisor. */
+		/** Other staff's actions belong to the audit log, which starts at supervisor. */
 		recent: senior ? actions("actor_id IS NOT NULL AND actor_id != ?", staff.id) : [],
 	});
 });

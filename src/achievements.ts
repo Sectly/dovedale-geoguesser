@@ -121,9 +121,7 @@ export function takeUnseen(userId: number) {
 	return ACHIEVEMENTS.filter((a) => keys.includes(a.id));
 }
 
-/**
- * Gives players the achievements their history already earned, marked as seen. Safe to run again. Returns how many.
- */
+/** Gives players the achievements their history already earned, marked as seen. Safe to rerun. Returns how many. */
 export function backfillAchievements(): number {
 	const give = (id: AchievementId, select: string) =>
 		db.run(
@@ -190,7 +188,7 @@ export function backfillAchievements(): number {
 	return given;
 }
 
-/** Runs the backfill the first time a server with achievements starts on an existing database. */
+/** Runs the backfill once, the first time achievements start on an existing database. */
 export function backfillAchievementsOnce() {
 	const KEY = "achievements_backfilled";
 	if (db.query("SELECT 1 FROM app_settings WHERE key = ?").get(KEY)) return;

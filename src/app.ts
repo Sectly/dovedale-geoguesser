@@ -63,7 +63,7 @@ app.use("*", (c, next) => (c.req.header("Upgrade") || c.req.path === "/api/event
 
 app.use("*", async (c, next) => {
 	await next();
-	/** Says the answer came from the game itself, not from a proxy standing in while it is down. */
+	/** Marks answers as the game's own, not a proxy's while it is down. */
 	c.header("X-App", "dovedale");
 	c.header("X-Content-Type-Options", "nosniff");
 	c.header("X-Frame-Options", "DENY");
@@ -120,7 +120,7 @@ app.use("*", async (c, next) => {
 	return errorPage(c, { status: 503, title: "Down for maintenance", message, help: false });
 });
 
-/** API responses depend on who is asking; never let a shared cache hold on to them. */
+/** API responses depend on who asks; shared caches must not keep them. */
 app.use("/api/*", async (c, next) => {
 	await next();
 	if (!c.res.headers.has("Cache-Control")) c.header("Cache-Control", "no-store");

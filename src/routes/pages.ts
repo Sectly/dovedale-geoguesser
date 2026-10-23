@@ -93,7 +93,7 @@ function importMap(): string {
 	return importMapTag;
 }
 
-/** Every module an entry imports, directly or not, so the browser can fetch them at once instead of level by level. */
+/** Every module an entry imports, directly or not, so the browser fetches them at once. */
 function moduleGraph(entry: string, seen = new Set<string>()): Set<string> {
 	if (seen.has(entry)) return seen;
 	seen.add(entry);
@@ -121,7 +121,7 @@ function withAddress(html: string, path: string): string {
 		);
 }
 
-/** Loads a page from public/, hashing script and style URLs and making share-image URLs absolute. `path` is the address it is served at, when it has one. */
+/** Loads a page from public/, hashing script and style URLs and making share-image URLs absolute. `path` is its address, if any. */
 function loadPage(file: string, path?: string): Page {
 	const key = path ? `${file} ${path}` : file;
 	const cached = pageCache.get(key);

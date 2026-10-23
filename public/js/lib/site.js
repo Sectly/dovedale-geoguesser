@@ -11,7 +11,7 @@ import { whenIdle } from "./dom.js";
 import { fetchUser } from "./api.js";
 import { showToast } from "./toast.js";
 
-/** A script of ours failing should not leave the page silently half-working. Said once per page. */
+/** Our scripts failing should not leave the page silently half-working. Shown once per page. */
 (function reportScriptErrors() {
 	let told = false;
 	const tell = (source) => {

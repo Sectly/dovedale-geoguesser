@@ -4,7 +4,7 @@ import { api } from "./api.js";
 import { showToast } from "./toast.js";
 import { live, onLive } from "./live.js";
 
-/** Reads restart news from every response. A proxy error page has no "X-App" mark and must not count as "restart over". */
+/** Reads restart news from every response. Proxy error pages lack "X-App" and do not end a restart. */
 (function watchResponsesForRestart() {
 	const original = window.fetch.bind(window);
 	window.fetch = async (...args) => {

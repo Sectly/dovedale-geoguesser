@@ -152,7 +152,7 @@ export function exportUserData(user: User) {
 		evasion_reviews: all(
 			"SELECT signal, created_at, CASE WHEN dismissed_at IS NULL THEN 'open' ELSE 'dismissed' END AS status, dismissed_at FROM evasion_flags WHERE user_id = ?"
 		),
-		/** Your most recent guesses, kept to check for cheating, and any times that check asked staff to look. */
+		/** Recent guesses kept for cheat checks, and any times they flagged this account. */
 		recent_guesses: all(
 			"SELECT mode, location_id, distance, time_taken, points, created_at FROM guess_log WHERE user_id = ?"
 		),
@@ -168,7 +168,7 @@ export function exportUserData(user: User) {
 			"SELECT action, target_type, target_id, created_at FROM audit_log WHERE actor_id = ?1 OR (actor_id IS NULL AND target_type = 'user' AND target_id = ?1) ORDER BY id"
 		),
 		notifications: all("SELECT category, title, body, read_at, created_at FROM notifications WHERE user_id = ?"),
-		/** Messages staff sent to this account alone. They are kept after the notification itself has expired. */
+		/** Messages staff sent to this account alone. Kept after the notification expires. */
 		messages_from_staff: all(
 			"SELECT title, body, link, created_at FROM announcements WHERE target_user_id = ? AND draft = 0 AND send_at IS NULL"
 		),

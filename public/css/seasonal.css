@@ -27,7 +27,7 @@
 		transform: rotate(-9deg) scale(1.07);
 	}
 }
-/* On a phone the splash sits just under the title, so leave it room above the tagline. */
+/* Room above the tagline for the splash on phones. */
 @media (max-width: 639px) {
 	body[data-season] #home-title {
 		margin-bottom: 1.6rem;

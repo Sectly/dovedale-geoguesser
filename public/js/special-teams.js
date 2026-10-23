@@ -11,7 +11,7 @@ const TEAM_INFO = {
 	a: { name: "Blue team", color: "#42A5F5", text: "text-blue-300", bar: "bg-blue-500" },
 	b: { name: "Amber team", color: "#FFB300", text: "text-amber-300", bar: "bg-amber-500" },
 };
-/** The newest reaction already shown, so each one pops up once however often the state is sent. */
+/** The newest reaction shown, so each one pops up once. */
 let lastEmoteId = 0;
 
 let me = null;
@@ -23,7 +23,7 @@ let wire = null;
 let phaseEndsAt = 0;
 let countdownTimer = null;
 let pollTimer = null;
-/** What is on screen, so each change of round or phase is handled exactly once. */
+/** What is on screen, so each round or phase change is handled once. */
 let shown = { status: null, phase: null, round: 0 };
 
 const teamApi = (path, json) => api(`/api/teams/rooms/${roomCode}${path}`, json === undefined ? {} : { json });
@@ -65,7 +65,7 @@ function closeWire() {
 	old?.disconnect();
 }
 
-/** Sends to the room's socket, or drops it while reconnecting, since the next connect sends a fresh watch. */
+/** Dropped while reconnecting; the next connect sends a fresh watch. */
 function emit(event, data) {
 	try {
 		wire?.emit(event, data);

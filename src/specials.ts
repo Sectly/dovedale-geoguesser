@@ -189,7 +189,7 @@ export const SEASONS: { theme: SeasonTheme; splash: string; when: SeasonWindow }
 	{ theme: "newyear", splash: "Happy New Year!", when: { from: "12-31", to: "01-02" } },
 	{ theme: "valentines", splash: "Happy Valentine's Day!", when: { from: "02-10", to: "02-16" } },
 	{ theme: "easter", splash: "Happy Easter!", when: { easter: [-5, 2] } },
-	/** Bonfire Night comes first so it still gets its three days inside the longer Halloween run. */
+	/** Bonfire Night comes first so it keeps its three days inside Halloween. */
 	{ theme: "bonfire", splash: "Remember, remember!", when: { from: "11-04", to: "11-06" } },
 	{ theme: "halloween", splash: "Happy Halloween!", when: { from: "10-17", to: "11-07" } },
 	{ theme: "christmas", splash: "Merry Christmas!", when: { from: "11-24", to: "01-10" } },

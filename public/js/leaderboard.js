@@ -16,7 +16,7 @@ let dailyDaysAgo = 0;
 
 const PAGE_SIZE = 50;
 let entries = [];
-/** Counts board loads, so a page that arrives after the filters changed is dropped. */
+/** Counts board loads so a stale response is dropped. */
 let loadId = 0;
 
 function dailyDate() {
@@ -173,7 +173,7 @@ function switchTab(tab) {
 }
 
 function leaderboardUrl(tab, offset) {
-	/** One more than a page shows: getting it back is how we know there is more to load. */
+	/** One more than a page, to know there is more. */
 	const page = `limit=${PAGE_SIZE + 1}&offset=${offset}`;
 	if (tab === "solo") {
 		let url = `/api/leaderboard/solo?${page}&sort=${soloSort}`;

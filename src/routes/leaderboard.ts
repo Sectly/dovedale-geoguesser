@@ -15,7 +15,7 @@ const PLAYER_COLUMNS = "u.id AS user_id, u.username, u.display_name, u.avatar_ur
 const MAX_ENTRIES = 500;
 const MAX_PER_PAGE = 100;
 
-/** `limit` rows starting `offset` rows down, both held inside the cap: past it a request gets nothing. */
+/** `limit` rows from `offset`, both inside the cap; past it a request gets nothing. */
 function pageQuery(c: Context): { limit: number; offset: number } {
 	const offset = intQuery(c, "offset", 0, 0, MAX_ENTRIES);
 	return { limit: Math.min(intQuery(c, "limit", 50, 1, MAX_PER_PAGE), MAX_ENTRIES - offset), offset };
@@ -146,7 +146,7 @@ leaderboardRoutes.get("/daily", (c) => {
 	const date = /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : utcDate();
 	const { limit, offset } = pageQuery(c);
 	const sort = c.req.query("sort");
-	/** Players who never placed a pin have no distance; keep them at the bottom of that view. */
+	/** Players who never placed a pin have no distance, so they sort last in that view. */
 	const orderBy =
 		sort === "distance"
 			? "ds.distance IS NULL, ds.distance ASC"

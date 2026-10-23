@@ -14,7 +14,6 @@ export const UPDATES_ENABLED = (process.env.PANEL_UPDATES ?? "on").toLowerCase()
 
 type Result = { ok: boolean; out: string; streamed?: boolean };
 
-/** Runs a command in the checkout. With `onLine`, each line of output is handed over as it is printed. */
 type DependencyReport = { checked_at: number; outdated: string; audit: string; vulnerable: boolean };
 let dependencies: DependencyReport | null = null;
 const DEPENDENCY_TTL_MS = 10 * 60 * 1000;
@@ -43,6 +42,7 @@ export async function dependencyReport(refresh = false): Promise<DependencyRepor
 	return dependencies;
 }
 
+/** Runs a command in the checkout. `onLine` gets each line of output as it is printed. */
 async function run(cmd: string[], timeoutMs = 60_000, onLine?: (line: string) => void): Promise<Result> {
 	try {
 		const proc = Bun.spawn({
@@ -193,7 +193,7 @@ function blankJob(): Job {
 	};
 }
 
-/** Kept in the database, so the record of an update survives the restart that finishes it. */
+/** Kept in the database, so the record survives the restart that finishes it. */
 function saveJob() {
 	try {
 		db.run("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", [JOB_KEY, JSON.stringify(job)]);
@@ -264,8 +264,6 @@ const INSTALLED_STEP = "Installed. Restart the server to finish.";
 
 const shortHash = async () => (await git("rev-parse", "--short", "HEAD")).out || null;
 
-/** Backs up, fast-forwards, installs, rebuilds styles and tiles, restarts. Stops at the first failure. */
-/** `force` drops changes made on the server; `typed` must be the branch name. */
 /** Ignored files (data, uploads, .env) are left alone. */
 async function hardReset(): Promise<Result> {
 	const fetched = await git("fetch", REMOTE, BRANCH);
@@ -274,6 +272,7 @@ async function hardReset(): Promise<Result> {
 	return { ok: reset.ok, out: `${fetched.out}\n${reset.out}`.trim() };
 }
 
+/** Backs up, fast-forwards, installs, rebuilds and restarts, stopping at the first failure. `force` drops changes made on the server and needs `typed` to be the branch name. */
 export async function runUpdate(
 	startedBy: string,
 	{ force = false, typed = "" }: { force?: boolean; typed?: string } = {}
@@ -316,7 +315,7 @@ export async function runUpdate(
 			"Installing dependencies": () => run([process.execPath, "install"], 300_000, note),
 			"Building styles": () => run([process.execPath, "run", "build:css"], 300_000, note),
 			"Building map tiles": () => run([process.execPath, "run", "tiles"], 30 * 60_000, note),
-			/** Its script never fails the update: the server copies the font on the first page view instead. */
+			/** Never fails the update: the server copies the font on the first page view instead. */
 			"Copying the icon font": () => run([process.execPath, "run", "icons"], 120_000, note),
 		};
 		for (const step of job.steps.filter((s) => s.name !== RESTART_STEP)) {

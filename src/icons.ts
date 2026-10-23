@@ -8,7 +8,7 @@ const SKIP_DIRS = new Set(["uploads", "images", "icons"]);
 
 let cached: string | null = null;
 
-/** Icons the site uses, so Google Fonts sends only those: icon text plus strings that are exactly an icon name. */
+/** Icons the site uses, so Google Fonts sends only those. */
 export function usedIcons(): string {
 	if (cached !== null && !DEV_MODE) return cached;
 	try {

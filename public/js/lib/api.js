@@ -1,4 +1,4 @@
-/** Calls the API and returns the parsed body. Throws an Error with a showable message and a `status` (0 when unreachable). */
+/** Returns the parsed body. Throws an Error with a showable message and `status` (0 when unreachable). */
 export async function api(path, { method, json, body } = {}) {
 	let res;
 	try {

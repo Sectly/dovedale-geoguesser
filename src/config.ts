@@ -47,7 +47,7 @@ export const LIMITS = {
 	hintsPerLocation: 3,
 	hintLength: 200,
 	uploadBytes: 8 * 1024 * 1024,
-	/** Messages a player may send in a row on a ticket (the opening one included) before staff must answer. */
+	/** Messages a player may send in a row on a ticket, the first included, before staff answer. */
 	ticketFollowUps: 3,
 };
 
@@ -119,11 +119,17 @@ export const GAME = {
 		kProvisional: 40,
 		provisionalGames: 10,
 	},
+	picking: {
+		/** Map units. Locations closer than this to one already picked are less likely. */
+		spreadRange: 2000,
+		/** Weight for a location with too few guesses to be graded. */
+		ungradedBoost: 1.25,
+	},
 	/** How a location is graded from the average distance score players get on it. */
 	difficulty: {
 		/** Guesses needed before a location is graded at all. */
 		minPlays: 8,
-		/** The grade follows about this many of the latest guesses, so a much-played location can still change. */
+		/** The grade follows about this many recent guesses, so it can still change. */
 		window: 60,
 		/** An average at or above this is easy; below `hardBelow` is hard; in between is medium. */
 		easyFrom: 3200,

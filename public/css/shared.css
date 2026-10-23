@@ -349,7 +349,7 @@ body .fixed.inset-0 > div {
 	box-shadow: var(--md-elev-2);
 }
 
-/* `scale`, not `transform`, so buttons that are positioned with a transform stay where they are. */
+/* `scale`, not `transform`, so buttons positioned with a transform stay put. */
 body button:not(:disabled):active {
 	filter: brightness(1.15);
 	scale: 0.97;
@@ -470,7 +470,7 @@ body :focus-visible:not([class*="ring"]) {
 		background-position: -100% 0;
 	}
 }
-/* The account area keeps its width while we find out who is logged in. */
+/* Keeps its width while the login loads. */
 [data-auth-area]:empty {
 	min-width: 9rem;
 	min-height: 2rem;
@@ -516,7 +516,7 @@ main,
 .screen-fade > * {
 	animation: rise-in 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
-/* Filled backwards only: held at its end, the animation would pin `transform` and block the hover lift. */
+/* Backwards fill only: a held end state would pin `transform` and block the hover lift. */
 .stagger > * {
 	animation: rise-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
@@ -585,7 +585,7 @@ main,
 	pointer-events: none;
 	animation: toast-out 0.25s cubic-bezier(0.3, 0, 1, 1) forwards;
 }
-/* The negative margin is its own height plus the gap, so the stack closes up as it leaves. */
+/* The margin is its height plus the gap, so the stack closes up as it leaves. */
 @keyframes toast-out {
 	to {
 		opacity: 0;
@@ -644,13 +644,13 @@ main,
 #overlay-count {
 	animation: pop-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
-/* `manipulation` drops the wait a touch browser adds to tell a tap from a double-tap zoom. */
+/* `manipulation` removes the double-tap zoom delay. */
 a,
 button {
 	-webkit-tap-highlight-color: transparent;
 	touch-action: manipulation;
 }
-/* iOS zooms the page into any field whose text is under 16px, and does not zoom back out. */
+/* iOS zooms into fields under 16px and never zooms back. */
 @supports (-webkit-touch-callout: none) {
 	input,
 	select,
@@ -673,7 +673,7 @@ a[class*="rounded"] {
 	display: none;
 }
 
-/* Mobile browsers count their toolbars in 100vh; the dynamic unit is what is actually visible. */
+/* 100vh includes mobile toolbars; dvh is what is visible. */
 body.h-screen {
 	height: 100dvh;
 }
@@ -715,7 +715,7 @@ body.h-screen {
 		transition-duration: 0.01ms !important;
 		scroll-behavior: auto !important;
 	}
-	/* A spinner standing still would look stuck, so it turns slowly instead. */
+	/* A still spinner looks stuck, so it turns slowly. */
 	.animate-spin {
 		animation-duration: 3s !important;
 		animation-iteration-count: infinite !important;
@@ -1039,7 +1039,7 @@ a.rule-code:hover {
 	transform: rotate(45deg) scale(1);
 }
 
-/* Tells the browser this is a dark site: its own menus, date pickers and scrollbars follow. */
+/* Dark site: native menus, date pickers and scrollbars follow. */
 :root {
 	color-scheme: dark;
 }
@@ -1198,7 +1198,7 @@ textarea {
 		background-color 0.15s,
 		box-shadow 0.18s;
 }
-/* Only where a pointer can hover: on a touch screen :hover sticks to whatever was tapped last. */
+/* Hover only on pointers: on touch screens :hover sticks. */
 @media (hover: hover) {
 	.md-card:hover {
 		transform: translateY(-3px);
@@ -2064,7 +2064,7 @@ body:has(#game-screen:not(.hidden)) .site-announcement {
 	height: 9rem;
 	border-bottom: 1px solid #27272a;
 }
-/* The whole column is the hover target, so a short bar is as easy to hit as a tall one. */
+/* The whole column is the hover target, so short bars are easy to hit. */
 .stat-chart-col {
 	flex: 1;
 	min-width: 0;
@@ -2794,7 +2794,7 @@ html.intro-hold .stagger > * {
 	font-size: 0.875rem;
 	color: var(--md-on-surface-variant);
 }
-/* Only offered once the wait has gone on longer than a restart should take. */
+/* Only shown once the wait outlasts a normal restart. */
 .restart-overlay button {
 	margin-top: 1rem;
 	animation: fadeIn 0.3s ease-out 12s backwards;

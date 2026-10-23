@@ -5,7 +5,7 @@ export function celebrate({ duration = 2600, count = 110 } = {}) {
 	const canvas = document.createElement("canvas");
 	canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:150";
 	document.body.appendChild(canvas);
-	/** Capped: at a phone's 3x a full-screen canvas is nine times the pixels to fill every frame. */
+	/** Capped: at 3x a full-screen canvas is nine times the pixels each frame. */
 	const dpr = Math.min(window.devicePixelRatio || 1, 2);
 	canvas.width = innerWidth * dpr;
 	canvas.height = innerHeight * dpr;
@@ -46,7 +46,7 @@ export function celebrate({ duration = 2600, count = 110 } = {}) {
 	requestAnimationFrame(frame);
 }
 
-/** A ripple from where a button was pressed, in its own layer so it survives the button being rewritten. */
+/** A ripple from the press point, in its own layer so it survives the button being redrawn. */
 document.addEventListener("pointerdown", (e) => {
 	if (e.button > 0 || prefersReducedMotion()) return;
 	const target = e.target.closest?.('button:not(:disabled), a.md-card, a[class*="rounded"]');

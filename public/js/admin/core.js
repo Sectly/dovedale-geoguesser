@@ -35,7 +35,7 @@ export function openDenyDialog(title, id, callback = null) {
 	el("deny-modal").classList.remove("hidden");
 	setTimeout(() => el("deny-reason").focus(), 50);
 }
-/** Roles, lowest first. The server decides what each may do; this only decides what to show. */
+/** Lowest first. Only decides what to show; the server decides what each may do. */
 export const ROLE_RANK_JS = { helper: 1, curator: 2, moderator: 3, supervisor: 4, admin: 5, operator: 6 };
 const STAFF_ROLES = Object.keys(ROLE_RANK_JS);
 export const atLeast = (role) => (ROLE_RANK_JS[currentUser?.role] ?? 0) >= ROLE_RANK_JS[role];
@@ -85,7 +85,7 @@ export function emptyQueueHtml(text) {
 	</div>`;
 }
 
-/** A player's name that opens their staff panel. Helpers cannot open it, so they get plain text. */
+/** Opens their staff panel; helpers can't, so they get plain text. */
 export function staffUserLink(userId, username) {
 	const name = `@${escHtml(username || "unknown")}`;
 	return userId && atLeast("moderator")

@@ -282,7 +282,7 @@ const saveEmail = () =>
 		() => api("/api/settings/email", { json: { email: el("email-input").value } }),
 		"Confirmation email sent."
 	);
-/** Unlinks the address: it is deleted, not just switched off. Adding it again is the undo. */
+/** Deletes the address. Adding it again undoes this. */
 const removeEmail = () =>
 	changeEmail(() => api("/api/settings/email", { method: "DELETE" }), "Email removed and deleted.");
 const setEmailFrequency = (frequency) =>
@@ -956,7 +956,7 @@ const CATEGORY_SUBJECTS = {
 const GITHUB_CATEGORIES = ["bug_report", "feature_request"];
 let _ticketCategory = "";
 let _ticketCategoryName = "";
-/** The subject the form filled in itself: a category change may replace it, never something typed. */
+/** The subject the form filled in: a category change may replace it, never a typed one. */
 let _autoSubject = "";
 let _changingCategory = false;
 let _ticketPrefillLoc = null;
@@ -973,7 +973,7 @@ function openTicketInfoModal() {
 	el("ticket-info-modal").classList.remove("hidden");
 }
 
-/** Cancels step one. Reached from the form's "Change" button, it goes back to the draft untouched. */
+/** Cancels step one. From the "Change" button it goes back to the draft untouched. */
 function closeTicketInfoModal() {
 	el("ticket-info-modal").classList.add("hidden");
 	el("modal-category").value = "";

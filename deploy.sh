@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Braces: bash reads the whole block first, so the pull can replace this file mid-run.
+# Braces: bash reads the whole block first, so the pull can replace this file.
 {
 	git pull origin main
 	bun install

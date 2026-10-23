@@ -9,7 +9,7 @@ const TOURNAMENT_LINES = {
 	live: "Tournament on now. Come and watch.",
 	finished: "Tournament results. See who won.",
 };
-/** Latest summary, so the card shows a name that changed during the wait. */
+/** Latest summary, in case the name changed while waiting. */
 let latestTournament = null;
 
 function fillTournamentCard(summary) {
@@ -61,7 +61,7 @@ async function popIn(card) {
 	});
 }
 
-/** While a tournament is on, it gets its own card above Specials. */
+/** A live tournament gets its own card above Specials. */
 function showTournament(summary) {
 	const card = el("tournament-card");
 	latestTournament = summary;
