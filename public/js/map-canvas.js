@@ -1,5 +1,5 @@
 import { MAP_CONFIG, WORLD_BOUNDS, WORLD_HEIGHT, WORLD_WIDTH, tileUrl } from "./map-config.js";
-import { avatarSrc, isWebKit } from "./lib/dom.js";
+import { avatarSrc, isMidRound, isWebKit } from "./lib/dom.js";
 
 const whenIdle = (fn) =>
 	"requestIdleCallback" in window ? requestIdleCallback(fn, { timeout: 1000 }) : setTimeout(fn, 50);
@@ -96,6 +96,25 @@ function roundAvatar(img) {
 	ctx.drawImage(img, 0, 0, AVATAR_SPRITE_PX, AVATAR_SPRITE_PX);
 	return canvas;
 }
+
+/** Mid-round, before the result shows. */
+const guessing = () => isMidRound() && !document.getElementById("result-screen")?.classList.contains("shown");
+
+const median = (values) => [...values].sort((a, b) => a - b)[values.length >> 1];
+
+/** Frame gap with the map still; slow here too means the lag is elsewhere. */
+const stillFrameGap = () =>
+	new Promise((resolve) => {
+		const gaps = [];
+		let last = null;
+		const tick = (at) => {
+			if (last !== null) gaps.push(at - last);
+			last = at;
+			if (gaps.length < 30) requestAnimationFrame(tick);
+			else resolve(median(gaps));
+		};
+		requestAnimationFrame(tick);
+	});
 
 const circle = (r) => (ctx) => {
 	ctx.beginPath();
@@ -436,10 +455,125 @@ export class MapCanvas {
 
 	_scheduleDraw() {
 		if (this._rafId) return;
-		this._rafId = requestAnimationFrame(() => {
+		this._rafId = requestAnimationFrame((at) => {
 			this._rafId = null;
 			this.draw();
+			this._sampleFrame(at);
 		});
+	}
+
+	/** Only zoomed in, where format and quality matter. */
+	_sampleFrame(at) {
+		const last = this._lastFrameAt;
+		this._lastFrameAt = at;
+		if (this._suggested || this._checkingSlow) return;
+		if (!last || !this._zoomedIn || at > this._movingUntil || at - last > 500) return;
+		const gaps = (this._frameGaps ??= []);
+		gaps.push(at - last);
+		if (gaps.length < MapCanvas.SLOW_SAMPLE_FRAMES) return;
+		this._frameGaps = [];
+		this._slowChecks = median(gaps) > MapCanvas.SLOW_FRAME_MS ? (this._slowChecks || 0) + 1 : 0;
+		if (this._slowChecks >= MapCanvas.SLOW_CHECKS) this._suggestLighter();
+	}
+
+	_suggestLighter() {
+		if (!this._formatSel || this._suggested || this._checkingSlow || !this._lighterStep()) return;
+		try {
+			if (localStorage.getItem("mapSlowHint") === "off") return (this._suggested = true);
+		} catch {}
+		this._checkingSlow = true;
+		const wait = setInterval(async () => {
+			if (guessing() || document.hidden || performance.now() < this._movingUntil + 500) return;
+			clearInterval(wait);
+			const mapIsTheCause = (await stillFrameGap()) < MapCanvas.SLOW_FRAME_MS * 0.75;
+			this._checkingSlow = false;
+			this._slowChecks = 0;
+			if (!mapIsTheCause) return;
+			this._suggested = true;
+			this._showLighterHint();
+		}, 1000);
+	}
+
+	/** Skips settings the player picked. */
+	_lighterStep() {
+		let picked = {};
+		try {
+			picked = { format: !!localStorage.getItem("mapFormat"), quality: !!localStorage.getItem("mapQuality") };
+		} catch {}
+		if (this.format === "avif" && !picked.format) return { select: this._formatSel, value: "webp", name: "WebP" };
+		const lighter = !picked.quality && { high: "medium", medium: "low" }[this.profile.detail];
+		return (
+			lighter && {
+				select: this._qualitySel,
+				value: lighter,
+				name: `${lighter[0].toUpperCase()}${lighter.slice(1)} quality`,
+			}
+		);
+	}
+
+	_showLighterHint() {
+		const step = this._lighterStep();
+		if (!step) return;
+		const { select } = step;
+		const previous = select.value;
+		const pick = (value) => {
+			select.value = value;
+			select.dispatchEvent(new Event("change"));
+		};
+		const hint = document.createElement("div");
+		hint.className =
+			"screen-fade absolute right-0 top-full mt-1.5 whitespace-nowrap flex items-center gap-2 bg-zinc-800 border border-zinc-700/60 rounded-lg text-xs text-zinc-300 pl-2 pr-1.5 py-1 shadow-sm transition-opacity duration-300";
+		hint.setAttribute("role", "status");
+		let closeAt = performance.now() + MapCanvas.SLOW_HINT_MS;
+		let held = false;
+		const close = () => {
+			clearInterval(watch);
+			select.classList.remove("ring-2", "ring-blue-500");
+			hint.classList.add("opacity-0", "pointer-events-none");
+			setTimeout(() => hint.remove(), 300);
+		};
+		const watch = setInterval(() => {
+			if (guessing() || (!held && performance.now() > closeAt)) close();
+		}, 500);
+		const hold = () => (held = true);
+		const release = () => {
+			held = false;
+			closeAt = Math.max(closeAt, performance.now() + 3000);
+		};
+		hint.addEventListener("pointerenter", hold);
+		hint.addEventListener("pointerleave", release);
+		hint.addEventListener("focusin", hold);
+		hint.addEventListener("focusout", release);
+
+		const link = (action, label) =>
+			`<button type="button" data-do="${action}" class="font-medium text-blue-300 hover:text-blue-200">${label}</button>`;
+		const offer = () => {
+			select.classList.add("ring-2", "ring-blue-500");
+			hint.innerHTML = `<span>Smoother map with ${step.name}</span>${link("use", "Switch")}
+				<button type="button" data-do="off" title="Don't suggest again" aria-label="Don't suggest again" class="flex text-zinc-500 hover:text-zinc-300"><span class="material-symbols-outlined text-base">close</span></button>`;
+		};
+		const switched = () => {
+			select.classList.remove("ring-2", "ring-blue-500");
+			closeAt = performance.now() + MapCanvas.SLOW_UNDO_MS;
+			hint.innerHTML = `<span>Switched to ${step.name}</span>${link("undo", "Undo")}`;
+		};
+		hint.addEventListener("click", (e) => {
+			const action = e.target.closest("[data-do]")?.dataset.do;
+			if (action === "use") {
+				pick(step.value);
+				switched();
+			} else if (action === "undo") {
+				pick(previous);
+				close();
+			} else if (action === "off") {
+				try {
+					localStorage.setItem("mapSlowHint", "off");
+				} catch {}
+				close();
+			}
+		});
+		offer();
+		select.parentElement.appendChild(hint);
 	}
 
 	worldToCanvas(wx, wy) {
@@ -468,6 +602,7 @@ export class MapCanvas {
 		const topLeft = ctx.transformedPoint(0, 0);
 		const bottomRight = ctx.transformedPoint(this.viewWidth, this.viewHeight);
 		const wanted = this._detailQuality();
+		this._zoomedIn = !!wanted;
 		const frameAt = performance.now();
 		const onScreen = [];
 		const tiles = [];
@@ -1117,6 +1252,7 @@ export class MapCanvas {
 
 	/** Hides the zoom buttons while the map is moved some other way. */
 	_busy() {
+		this._movingUntil = performance.now() + 200;
 		const zoom = this.canvas.id === "map-canvas" && document.getElementById("map-zoom");
 		if (!zoom) return;
 		zoom.classList.add("map-busy");
@@ -1373,6 +1509,8 @@ export class MapCanvas {
 			.join("");
 		formatSel.value = this.format;
 		qualitySel.after(formatSel);
+		this._formatSel = formatSel;
+		this._qualitySel = qualitySel;
 		avifSupported.then((ok) => {
 			if (!ok) formatSel.querySelector('[value="avif"]')?.remove();
 			formatSel.value = this.format;
@@ -1405,3 +1543,10 @@ MapCanvas.TAP_SLOP = 10;
 MapCanvas.DOUBLE_TAP_MS = 300;
 /** How long the zoom buttons stay hidden after the map stops moving. */
 MapCanvas.BUSY_FADE_MS = 700;
+/** Frames per check, and the median gap (about 25 fps) counted as slow. */
+MapCanvas.SLOW_SAMPLE_FRAMES = 60;
+MapCanvas.SLOW_FRAME_MS = 40;
+/** Slow checks in a row needed, so one-off stutters are ignored. */
+MapCanvas.SLOW_CHECKS = 2;
+MapCanvas.SLOW_HINT_MS = 10_000;
+MapCanvas.SLOW_UNDO_MS = 5000;
