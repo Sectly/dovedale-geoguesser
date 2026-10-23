@@ -82,7 +82,12 @@ export function setupPhotoLens(img) {
 	const lens = document.createElement("div");
 	lens.className = "photo-lens";
 	lens.style.cssText =
-		"position:absolute;width:200px;height:200px;border-radius:50%;border:2px solid rgba(255,255,255,0.35);box-shadow:0 4px 24px rgba(0,0,0,0.6);pointer-events:none;display:none;background-repeat:no-repeat;z-index:20;transform:translate(-50%,-50%);";
+		"position:absolute;width:200px;height:200px;border-radius:50%;border:2px solid rgba(255,255,255,0.35);box-shadow:0 4px 24px rgba(0,0,0,0.6);pointer-events:none;display:none;overflow:hidden;z-index:20;transform:translate(-50%,-50%);";
+	/** WebKit rescales backgrounds on every repaint. */
+	const zoomed = document.createElement("img");
+	zoomed.alt = "";
+	zoomed.style.cssText = "position:absolute;left:0;top:0;max-width:none;transform-origin:0 0;will-change:transform";
+	lens.appendChild(zoomed);
 	img.parentElement.appendChild(lens);
 
 	let size = 200;
@@ -108,9 +113,11 @@ export function setupPhotoLens(img) {
 
 		last = { clientX, clientY };
 		lens.style.width = lens.style.height = `${size}px`;
-		lens.style.backgroundImage = `url("${img.currentSrc || img.src}")`;
-		lens.style.backgroundSize = `${w * zoom}px ${h * zoom}px`;
-		lens.style.backgroundPosition = `-${((x - left) / w) * w * zoom - size / 2}px -${((y - top) / h) * h * zoom - size / 2}px`;
+		const src = img.currentSrc || img.src;
+		if (zoomed.src !== src) zoomed.src = src;
+		zoomed.style.width = `${w * zoom}px`;
+		zoomed.style.height = `${h * zoom}px`;
+		zoomed.style.transform = `translate(${size / 2 - (x - left) * zoom - 2}px, ${size / 2 - (y - top) * zoom - 2}px)`;
 		lens.style.left = `${x}px`;
 		lens.style.top = `${y}px`;
 		lens.style.display = "block";

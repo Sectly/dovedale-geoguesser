@@ -59,6 +59,10 @@ export function whenIdle(fn) {
 	else setTimeout(fn, 1500);
 }
 
+/** Safari and all iOS browsers. */
+export const isWebKit =
+	/AppleWebKit/i.test(navigator.userAgent) && !/Chrome\/|Chromium|Android/i.test(navigator.userAgent);
+
 export const prefersReducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export const scrollBehavior = () => (prefersReducedMotion() ? "auto" : "smooth");

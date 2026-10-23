@@ -145,8 +145,15 @@ export class RoundView {
 				photo.onload = () => {
 					if (!current()) return;
 					if (!photo.naturalWidth) return failed();
-					this._setPhotoError(null);
-					settle();
+					/** Or Safari decodes it mid-fade. */
+					photo
+						.decode()
+						.catch(() => {})
+						.then(() => {
+							if (!current()) return;
+							this._setPhotoError(null);
+							settle();
+						});
 				};
 				photo.onerror = failed;
 				photo.src = tries ? `${url}${url.includes("?") ? "&" : "?"}retry=${Date.now()}` : url;

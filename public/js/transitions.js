@@ -13,9 +13,15 @@
 		return is > was ? "forward" : "back";
 	}
 
+	/** Slow in WebKit and holds up the next page. */
+	const isWebKit =
+		/AppleWebKit/i.test(navigator.userAgent) && !/Chrome\/|Chromium|Android/i.test(navigator.userAgent);
+	if (isWebKit) addEventListener("pageswap", (e) => e.viewTransition?.skipTransition());
+
 	addEventListener("pagereveal", (e) => {
 		if (!e.viewTransition) return;
-		if (document.documentElement.classList.contains("intro-hold")) return e.viewTransition.skipTransition();
+		if (isWebKit || document.documentElement.classList.contains("intro-hold"))
+			return e.viewTransition.skipTransition();
 		const from = window.navigation?.activation?.from?.url;
 		if (!from) return;
 		const type = direction(new URL(from).pathname, location.pathname);

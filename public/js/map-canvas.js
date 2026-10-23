@@ -1,5 +1,5 @@
 import { MAP_CONFIG, WORLD_BOUNDS, WORLD_HEIGHT, WORLD_WIDTH, tileUrl } from "./map-config.js";
-import { avatarSrc } from "./lib/dom.js";
+import { avatarSrc, isWebKit } from "./lib/dom.js";
 
 const whenIdle = (fn) =>
 	"requestIdleCallback" in window ? requestIdleCallback(fn, { timeout: 1000 }) : setTimeout(fn, 50);
@@ -11,7 +11,10 @@ const MAP_QUALITIES = Object.keys(MAP_QUALITY_SCALE);
 const SQUARE_ROWS = 1024;
 /** The picker's sizes: how sharp zoomed-in squares may get. */
 const MAP_QUALITY_CHOICES = ["high", "medium", "low"];
-const MAP_FORMATS = { avif: "AVIF (recommended)", webp: "WebP (older devices)", png: "PNG (fast connections)" };
+/** WebKit decodes large AVIF slowly. */
+const MAP_FORMATS = isWebKit
+	? { webp: "WebP (recommended)", avif: "AVIF", png: "PNG (fast connections)" }
+	: { avif: "AVIF (recommended)", webp: "WebP (quicker to decode)", png: "PNG (fast connections)" };
 
 const avifSupported = new Promise((resolve) => {
 	const img = new Image();
@@ -53,15 +56,60 @@ const releaseTile = (tile) => {
 	else for (const strip of tile?.strips ?? []) strip.bitmap.close();
 };
 
+/** WebKit blurs canvas shadows on the CPU, so each is blurred once. */
+const shadowSprites = new Map();
+
+/** Shadow of `trace`'s path, centred on (x, y). */
+function stampShadow(ctx, dpr, key, x, y, extent, trace, { blur, offsetY = 0, color }) {
+	const id = `${key}:${dpr}`;
+	let sprite = shadowSprites.get(id);
+	if (!sprite) {
+		const size = Math.ceil((extent + blur + Math.abs(offsetY)) * 2 * dpr);
+		const centre = size / 2 / dpr;
+		/** Off the sprite, so only the shadow lands. */
+		const away = centre * 2 + extent;
+		sprite = document.createElement("canvas");
+		sprite.width = sprite.height = size;
+		const s = sprite.getContext("2d");
+		s.setTransform(dpr, 0, 0, dpr, (centre - away) * dpr, centre * dpr);
+		s.shadowColor = color;
+		s.shadowBlur = blur;
+		s.shadowOffsetX = away * dpr;
+		s.shadowOffsetY = offsetY;
+		trace(s);
+		s.fill();
+		shadowSprites.set(id, sprite);
+	}
+	const size = sprite.width / dpr;
+	ctx.drawImage(sprite, x - size / 2, y - size / 2, size, size);
+}
+
+const AVATAR_SPRITE_PX = 60;
+
+function roundAvatar(img) {
+	const canvas = document.createElement("canvas");
+	canvas.width = canvas.height = AVATAR_SPRITE_PX;
+	const ctx = canvas.getContext("2d");
+	ctx.beginPath();
+	ctx.arc(AVATAR_SPRITE_PX / 2, AVATAR_SPRITE_PX / 2, AVATAR_SPRITE_PX / 2, 0, Math.PI * 2);
+	ctx.clip();
+	ctx.drawImage(img, 0, 0, AVATAR_SPRITE_PX, AVATAR_SPRITE_PX);
+	return canvas;
+}
+
+const circle = (r) => (ctx) => {
+	ctx.beginPath();
+	ctx.arc(0, 0, r, 0, Math.PI * 2);
+};
+
 /** A small `base` map everywhere plus sharper `detail` tiles on screen; the full map decodes to nearly 1 GB. */
 function _mapProfile() {
 	const ua = navigator.userAgent;
 	/** An iPad asks for the desktop site and calls itself a Mac; only its touch screen gives it away. */
 	const isMobile =
 		/Mobi|Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
-	const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg/i.test(ua);
 	if (isMobile) return { base: "tiny", detail: "medium", maxSquares: 16, maxPixelRatio: 2 };
-	if (isSafari) return { base: "tiny", detail: "medium", maxSquares: 24, maxPixelRatio: 2 };
+	if (isWebKit) return { base: "tiny", detail: "medium", maxSquares: 24, maxPixelRatio: 2 };
 	/** Decoding and uploading every full-size tile at once froze desktops for half a second. */
 	return { base: "tiny", detail: "high", maxSquares: 40, maxPixelRatio: 3 };
 }
@@ -96,8 +144,8 @@ export class MapCanvas {
 		this._warming = false;
 		this._detailTimer = null;
 		this.quality = this.profile.base;
-		/** AVIF is smallest, but its decoder needs several cores; with two or fewer, WebP loads sooner. */
-		this.format = (navigator.hardwareConcurrency || 4) > 2 ? "avif" : "webp";
+		/** AVIF needs several cores to decode, and is slow in WebKit. */
+		this.format = !isWebKit && (navigator.hardwareConcurrency || 4) > 2 ? "avif" : "webp";
 		try {
 			const quality = localStorage.getItem("mapQuality");
 			if (MAP_QUALITY_CHOICES.includes(quality)) this.profile.detail = quality;
@@ -144,7 +192,7 @@ export class MapCanvas {
 		else if (avatarUrl) {
 			const img = new Image();
 			img.onload = () => {
-				pin.avatar = img;
+				pin.avatar = roundAvatar(img);
 				this.draw();
 			};
 			img.src = avatarSrc(avatarUrl, 32);
@@ -582,18 +630,37 @@ export class MapCanvas {
 		this.currentScale = scale;
 		ctx.globalAlpha = t;
 
-		ctx.beginPath();
-		ctx.moveTo(x, y);
-		ctx.bezierCurveTo(x - size * 0.35, y - size * 0.7, x - size, cy + size * 0.75, x - size, cy);
-		ctx.arc(x, cy, size, Math.PI, 0);
-		ctx.bezierCurveTo(x + size, cy + size * 0.75, x + size * 0.35, y - size * 0.7, x, y);
-		ctx.closePath();
-		ctx.shadowColor = "rgba(0,0,0,0.45)";
-		ctx.shadowBlur = 6;
-		ctx.shadowOffsetY = 2;
+		const half = size * 0.95;
+		const teardrop = (c, ox = 0, oy = 0) => {
+			c.beginPath();
+			c.moveTo(ox, oy + half);
+			c.bezierCurveTo(
+				ox - size * 0.35,
+				oy + half - size * 0.7,
+				ox - size,
+				oy - half + size * 0.75,
+				ox - size,
+				oy - half
+			);
+			c.arc(ox, oy - half, size, Math.PI, 0);
+			c.bezierCurveTo(
+				ox + size,
+				oy - half + size * 0.75,
+				ox + size * 0.35,
+				oy + half - size * 0.7,
+				ox,
+				oy + half
+			);
+			c.closePath();
+		};
+		stampShadow(ctx, this._pixelRatio(), `answer:${size.toFixed(1)}`, x, y - half, size * 2, teardrop, {
+			blur: 6,
+			offsetY: 2,
+			color: "rgba(0,0,0,0.45)",
+		});
+		teardrop(ctx, x, y - half);
 		ctx.fillStyle = MapCanvas.ANSWER_COLOR;
 		ctx.fill();
-		ctx.shadowColor = "transparent";
 
 		if (label) {
 			ctx.font = `600 ${Math.round(size * 0.95)}px Inter, sans-serif`;
@@ -627,14 +694,17 @@ export class MapCanvas {
 		this.currentScale = scale;
 		ctx.lineCap = "round";
 		ctx.beginPath();
+		ctx.moveTo(from.x, from.y + 1);
+		ctx.lineTo(headX, headY + 1);
+		ctx.lineWidth = 5;
+		ctx.strokeStyle = "rgba(0,0,0,0.2)";
+		ctx.stroke();
+		ctx.beginPath();
 		ctx.moveTo(from.x, from.y);
 		ctx.lineTo(headX, headY);
 		ctx.lineWidth = 3;
 		ctx.strokeStyle = line.color;
 		ctx.globalAlpha = 0.9;
-		ctx.shadowColor = "rgba(0,0,0,0.35)";
-		ctx.shadowBlur = 3;
-		ctx.shadowOffsetY = 1;
 		ctx.stroke();
 		if (t < 1) {
 			ctx.beginPath();
@@ -730,14 +800,15 @@ export class MapCanvas {
 			ctx.translate(-sx, -sy - r);
 		}
 
+		stampShadow(ctx, this._pixelRatio(), `pin:${r + 2}`, sx, sy, r + 2, circle(r + 2), {
+			blur: 5,
+			offsetY: 2,
+			color: "rgba(0,0,0,0.45)",
+		});
 		ctx.beginPath();
 		ctx.arc(sx, sy, r + 2, 0, Math.PI * 2);
-		ctx.shadowColor = "rgba(0,0,0,0.45)";
-		ctx.shadowBlur = 5;
-		ctx.shadowOffsetY = 2;
 		ctx.fillStyle = "#fff";
 		ctx.fill();
-		ctx.shadowColor = "transparent";
 		ctx.beginPath();
 		ctx.arc(sx, sy, r, 0, Math.PI * 2);
 		ctx.fillStyle = color;
@@ -753,7 +824,8 @@ export class MapCanvas {
 		ctx.restore();
 	}
 
-	_drawNamePin({ worldX, worldY, color, name, avatar, status }) {
+	_drawNamePin(pin) {
+		const { worldX, worldY, color, name, avatar, status } = pin;
 		const ctx = this.ctx;
 		const { x: sx, y: sy } = this._screenPos(worldX, worldY);
 		const r = avatar ? 15 : 10;
@@ -765,21 +837,17 @@ export class MapCanvas {
 		this.currentScale = _scale;
 		if (placing) ctx.globalAlpha = 0.6;
 
+		stampShadow(ctx, this._pixelRatio(), `name:${r + 2.5}`, sx, sy, r + 2.5, circle(r + 2.5), {
+			blur: 6,
+			color: "rgba(0,0,0,0.5)",
+		});
 		ctx.beginPath();
 		ctx.arc(sx, sy, r + 2.5, 0, Math.PI * 2);
 		ctx.fillStyle = color;
-		ctx.shadowColor = "rgba(0,0,0,0.5)";
-		ctx.shadowBlur = 6;
 		ctx.fill();
-		ctx.shadowBlur = 0;
 
 		if (avatar) {
-			ctx.save();
-			ctx.beginPath();
-			ctx.arc(sx, sy, r, 0, Math.PI * 2);
-			ctx.clip();
 			ctx.drawImage(avatar, sx - r, sy - r, r * 2, r * 2);
-			ctx.restore();
 		} else {
 			ctx.font = "bold 11px Inter, sans-serif";
 			ctx.textAlign = "center";
@@ -797,7 +865,7 @@ export class MapCanvas {
 
 		const label = name.length > 12 ? name.slice(0, 9) + "..." : name;
 		ctx.font = `bold 11px Inter, sans-serif`;
-		const tw = ctx.measureText(label).width;
+		const tw = (pin.labelWidth ??= ctx.measureText(label).width);
 		const pad = 5;
 		const mark = status ? 14 : 0;
 		const tagH = 18;
@@ -1175,10 +1243,32 @@ export class MapCanvas {
 			pressedAt = null;
 		});
 
+		/** Safari trackpad pinch, which otherwise zooms the page. */
+		let gesturing = false;
+		let gestureScale = 1;
+		canvas.addEventListener("gesturestart", (e) => {
+			e.preventDefault();
+			gesturing = true;
+			gestureScale = 1;
+		});
+		canvas.addEventListener("gesturechange", (e) => {
+			e.preventDefault();
+			if (navigator.maxTouchPoints > 0) return;
+			const pos = this._canvasCoords(e);
+			this._busy();
+			this._zoomAt(pos.x, pos.y, e.scale / gestureScale);
+			gestureScale = e.scale;
+		});
+		canvas.addEventListener("gestureend", (e) => {
+			e.preventDefault();
+			gesturing = false;
+		});
+
 		canvas.addEventListener(
 			"wheel",
 			(e) => {
 				e.preventDefault();
+				if (gesturing && e.ctrlKey) return;
 				const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
 				const pos = this._canvasCoords(e);
 				this._busy();
