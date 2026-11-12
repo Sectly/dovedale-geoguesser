@@ -21,8 +21,8 @@
 		"@webwirejs/client": "^0.1.0",
 		"@webwirejs/hono": "^0.1.0",
 		"@webwirejs/server": "^0.1.0",
-		"hono": "^4.13.16",
-		"nodemailer": "^10.3.1",
+		"hono": "^4.13.17",
+		"nodemailer": "^10.4.0",
 		"sharp": "^0.35.5",
 		"web-push": "^3.6.7"
 	},
