@@ -21,8 +21,8 @@
 		"@webwirejs/client": "^0.1.0",
 		"@webwirejs/hono": "^0.1.0",
 		"@webwirejs/server": "^0.1.0",
-		"hono": "^4.13.17",
-		"nodemailer": "^10.4.0",
+		"hono": "^4.13.19",
+		"nodemailer": "^10.6.0",
 		"sharp": "^0.35.5",
 		"web-push": "^3.6.7"
 	},
@@ -30,7 +30,7 @@
 		"@types/bun": "^1.4.4",
 		"@types/nodemailer": "^8.0.2",
 		"@types/web-push": "^3.6.4",
-		"prettier": "^3.9.10",
+		"prettier": "^3.10.1",
 		"tailwindcss": "3.4.19",
 		"typescript": "^7.0.2"
 	}
